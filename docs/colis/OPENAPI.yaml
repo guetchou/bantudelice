@@ -1,0 +1,128 @@
+openapi: 3.0.0
+info:
+  title: BantuDelice Colis API
+  version: 1.0.0
+  description: API pour le module de livraison de colis (Congo)
+servers:
+  - url: /api/v1
+paths:
+  /colis/quotes:
+    post:
+      summary: Obtenir un devis de livraison
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [weight_kg, service_level]
+              properties:
+                weight_kg: { type: number, example: 2.5 }
+                service_level: { type: string, enum: [standard, express], example: express }
+                cod_amount: { type: number, example: 10000 }
+                declared_value: { type: number, example: 50000 }
+                distance_km: { type: number, example: 15 }
+      responses:
+        '200':
+          description: Devis calculé
+          content:
+            application/json:
+              example:
+                price_breakdown:
+                  base_price: 3000
+                  express_surcharge: 1500
+                  cod_fee: 700
+                total_price: 5200
+
+  /colis/track/{tracking_number}:
+    get:
+      summary: Suivi public d'un colis
+      parameters:
+        - name: tracking_number
+          in: path
+          required: true
+          schema: { type: string }
+      responses:
+        '200':
+          description: Timeline de suivi
+          content:
+            application/json:
+              example:
+                tracking_number: "BD-CG-202512-ABCDE"
+                status: "in_transit"
+                events:
+                  - status: "in_transit"
+                    notes: "En route vers Pointe-Noire"
+                    created_at: "2025-12-18T10:00:00Z"
+
+  /colis/shipments:
+    get:
+      summary: Liste des envois du client
+      security: [{ sanctum: [] }]
+      responses:
+        '200':
+          description: Liste des colis
+    post:
+      summary: Créer un envoi (Client authentifié)
+      security: [{ sanctum: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [weight_kg, service_level, pickup_address, dropoff_address]
+              properties:
+                weight_kg: { type: number }
+                service_level: { type: string }
+                pickup_address:
+                  type: object
+                  required: [full_name, phone, city, district, address_line]
+                dropoff_address:
+                  type: object
+                  required: [full_name, phone, city, district, address_line]
+      responses:
+        '201':
+          description: Colis créé
+
+  /colis/shipments/{id}/payment:
+    post:
+      summary: Initier le paiement ou choisir COD
+      security: [{ sanctum: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [provider]
+              properties:
+                provider: { type: string, enum: [momo, airtel, card, cod] }
+      responses:
+        '200':
+          description: Paiement initié ou COD validé
+
+  /courier/shipments/assigned:
+    get:
+      summary: Liste des colis assignés au coursier
+      security: [{ sanctum: [] }]
+      responses:
+        '200':
+          description: Liste des colis
+
+  /courier/shipments/{id}/deliver:
+    post:
+      summary: Valider la livraison avec OTP
+      security: [{ sanctum: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [otp]
+              properties:
+                otp: { type: string }
+      responses:
+        '200':
+          description: Livraison confirmée

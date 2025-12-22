@@ -1,0 +1,465 @@
+[2025-12-22 00:14:04] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":29.58,"count":0,"from_cache":true} 
+[2025-12-22 00:14:15] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":0.54,"count":0,"from_cache":true} 
+[2025-12-22 00:45:04] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":35.69,"count":0,"from_cache":true} 
+[2025-12-22 00:48:00] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":27.36,"count":0,"from_cache":true} 
+[2025-12-22 00:49:00] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":39.55,"count":0,"from_cache":true} 
+[2025-12-22 00:49:29] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":0.44,"count":0,"from_cache":true} 
+[2025-12-22 00:54:40] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":53.97,"count":0,"from_cache":true} 
+[2025-12-22 00:54:41] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":0.34,"count":0,"from_cache":true} 
+[2025-12-22 00:54:42] production.ERROR: Method App\Http\Controllers\PaypalController::getPaymentStatus does not exist. {"exception":"[object] (BadMethodCallException(code: 0): Method App\\Http\\Controllers\\PaypalController::getPaymentStatus does not exist. at /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Controller.php:68)
+[stacktrace]
+#0 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Controller.php(54): Illuminate\\Routing\\Controller->__call()
+#1 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/ControllerDispatcher.php(43): Illuminate\\Routing\\Controller->callAction()
+#2 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Route.php(260): Illuminate\\Routing\\ControllerDispatcher->dispatch()
+#3 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Route.php(205): Illuminate\\Routing\\Route->runController()
+#4 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Router.php(799): Illuminate\\Routing\\Route->run()
+#5 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(141): Illuminate\\Routing\\Router->Illuminate\\Routing\\{closure}()
+#6 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Middleware/SubstituteBindings.php(50): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#7 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Routing\\Middleware\\SubstituteBindings->handle()
+#8 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/VerifyCsrfToken.php(78): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#9 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Foundation\\Http\\Middleware\\VerifyCsrfToken->handle()
+#10 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/View/Middleware/ShareErrorsFromSession.php(49): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#11 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\View\\Middleware\\ShareErrorsFromSession->handle()
+#12 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Session/Middleware/StartSession.php(121): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#13 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Session/Middleware/StartSession.php(64): Illuminate\\Session\\Middleware\\StartSession->handleStatefulRequest()
+#14 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Session\\Middleware\\StartSession->handle()
+#15 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Cookie/Middleware/AddQueuedCookiesToResponse.php(37): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#16 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Cookie\\Middleware\\AddQueuedCookiesToResponse->handle()
+#17 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Cookie/Middleware/EncryptCookies.php(67): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#18 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Cookie\\Middleware\\EncryptCookies->handle()
+#19 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(116): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#20 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Router.php(800): Illuminate\\Pipeline\\Pipeline->then()
+#21 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Router.php(777): Illuminate\\Routing\\Router->runRouteWithinStack()
+#22 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Router.php(741): Illuminate\\Routing\\Router->runRoute()
+#23 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Router.php(730): Illuminate\\Routing\\Router->dispatchToRoute()
+#24 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Kernel.php(200): Illuminate\\Routing\\Router->dispatch()
+#25 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(141): Illuminate\\Foundation\\Http\\Kernel->Illuminate\\Foundation\\Http\\{closure}()
+#26 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/TransformsRequest.php(21): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#27 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/ConvertEmptyStringsToNull.php(31): Illuminate\\Foundation\\Http\\Middleware\\TransformsRequest->handle()
+#28 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Foundation\\Http\\Middleware\\ConvertEmptyStringsToNull->handle()
+#29 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/TransformsRequest.php(21): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#30 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/TrimStrings.php(40): Illuminate\\Foundation\\Http\\Middleware\\TransformsRequest->handle()
+#31 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Foundation\\Http\\Middleware\\TrimStrings->handle()
+#32 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/ValidatePostSize.php(27): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#33 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Foundation\\Http\\Middleware\\ValidatePostSize->handle()
+#34 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/PreventRequestsDuringMaintenance.php(99): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#35 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Foundation\\Http\\Middleware\\PreventRequestsDuringMaintenance->handle()
+#36 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Http/Middleware/TrustProxies.php(39): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#37 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Http\\Middleware\\TrustProxies->handle()
+#38 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(116): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#39 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Kernel.php(175): Illuminate\\Pipeline\\Pipeline->then()
+#40 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Kernel.php(144): Illuminate\\Foundation\\Http\\Kernel->sendRequestThroughRouter()
+#41 /opt/bantudelice242/public/index.php(52): Illuminate\\Foundation\\Http\\Kernel->handle()
+#42 {main}
+"} 
+[2025-12-22 01:00:03] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":42.95,"count":0,"from_cache":true} 
+[2025-12-22 01:00:42] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":0.51,"count":0,"from_cache":true} 
+[2025-12-22 01:06:34] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":36.5,"count":0,"from_cache":true} 
+[2025-12-22 01:07:48] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":47.53,"count":0,"from_cache":true} 
+[2025-12-22 01:10:16] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":27.97,"count":0,"from_cache":true} 
+[2025-12-22 01:16:25] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":31.67,"count":0,"from_cache":true} 
+[2025-12-22 02:03:36] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":29.93,"count":0,"from_cache":true} 
+[2025-12-22 02:22:20] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":33.3,"count":0,"from_cache":true} 
+[2025-12-22 02:35:59] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":26.95,"count":0,"from_cache":true} 
+[2025-12-22 02:46:50] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":27.76,"count":0,"from_cache":true} 
+[2025-12-22 02:48:11] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":27.44,"count":0,"from_cache":true} 
+[2025-12-22 02:48:11] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":0.39,"count":0,"from_cache":true} 
+[2025-12-22 02:48:38] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":0.47,"count":0,"from_cache":true} 
+[2025-12-22 03:13:22] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":28.33,"count":0,"from_cache":true} 
+[2025-12-22 03:20:21] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":31.27,"count":0,"from_cache":true} 
+[2025-12-22 03:21:15] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":0.61,"count":0,"from_cache":true} 
+[2025-12-22 03:29:51] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":34.41,"count":0,"from_cache":true} 
+[2025-12-22 03:37:18] production.ERROR: SQLSTATE[42P01]: Undefined table: 7 ERROR:  relation "charges" does not exist
+LINE 1: select * from "charges" limit 1
+                      ^ (Connection: pgsql, SQL: select * from "charges" limit 1) {"exception":"[object] (Illuminate\\Database\\QueryException(code: 42P01): SQLSTATE[42P01]: Undefined table: 7 ERROR:  relation \"charges\" does not exist
+LINE 1: select * from \"charges\" limit 1
+                      ^ (Connection: pgsql, SQL: select * from \"charges\" limit 1) at /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Database/Connection.php:801)
+[stacktrace]
+#0 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Database/Connection.php(755): Illuminate\\Database\\Connection->runQueryCallback()
+#1 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Database/Connection.php(424): Illuminate\\Database\\Connection->run()
+#2 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Database/Query/Builder.php(2752): Illuminate\\Database\\Connection->select()
+#3 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Database/Query/Builder.php(2740): Illuminate\\Database\\Query\\Builder->runSelect()
+#4 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Database/Query/Builder.php(3294): Illuminate\\Database\\Query\\Builder->Illuminate\\Database\\Query\\{closure}()
+#5 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Database/Query/Builder.php(2741): Illuminate\\Database\\Query\\Builder->onceWithColumns()
+#6 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Database/Concerns/BuildsQueries.php(300): Illuminate\\Database\\Query\\Builder->get()
+#7 /opt/bantudelice242/app/Services/ConfigService.php(69): Illuminate\\Database\\Query\\Builder->first()
+#8 /opt/bantudelice242/app/Http/Controllers/IndexController.php(57): App\\Services\\ConfigService::getDefaultDeliveryFee()
+#9 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Controller.php(54): App\\Http\\Controllers\\IndexController->allRestaurants()
+#10 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/ControllerDispatcher.php(43): Illuminate\\Routing\\Controller->callAction()
+#11 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Route.php(260): Illuminate\\Routing\\ControllerDispatcher->dispatch()
+#12 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Route.php(205): Illuminate\\Routing\\Route->runController()
+#13 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Router.php(799): Illuminate\\Routing\\Route->run()
+#14 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(141): Illuminate\\Routing\\Router->Illuminate\\Routing\\{closure}()
+#15 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Middleware/SubstituteBindings.php(50): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#16 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Routing\\Middleware\\SubstituteBindings->handle()
+#17 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/VerifyCsrfToken.php(78): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#18 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Foundation\\Http\\Middleware\\VerifyCsrfToken->handle()
+#19 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/View/Middleware/ShareErrorsFromSession.php(49): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#20 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\View\\Middleware\\ShareErrorsFromSession->handle()
+#21 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Session/Middleware/StartSession.php(121): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#22 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Session/Middleware/StartSession.php(64): Illuminate\\Session\\Middleware\\StartSession->handleStatefulRequest()
+#23 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Session\\Middleware\\StartSession->handle()
+#24 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Cookie/Middleware/AddQueuedCookiesToResponse.php(37): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#25 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Cookie\\Middleware\\AddQueuedCookiesToResponse->handle()
+#26 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Cookie/Middleware/EncryptCookies.php(67): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#27 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Cookie\\Middleware\\EncryptCookies->handle()
+#28 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(116): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#29 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Router.php(800): Illuminate\\Pipeline\\Pipeline->then()
+#30 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Router.php(777): Illuminate\\Routing\\Router->runRouteWithinStack()
+#31 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Router.php(741): Illuminate\\Routing\\Router->runRoute()
+#32 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Router.php(730): Illuminate\\Routing\\Router->dispatchToRoute()
+#33 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Kernel.php(200): Illuminate\\Routing\\Router->dispatch()
+#34 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(141): Illuminate\\Foundation\\Http\\Kernel->Illuminate\\Foundation\\Http\\{closure}()
+#35 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/TransformsRequest.php(21): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#36 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/ConvertEmptyStringsToNull.php(31): Illuminate\\Foundation\\Http\\Middleware\\TransformsRequest->handle()
+#37 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Foundation\\Http\\Middleware\\ConvertEmptyStringsToNull->handle()
+#38 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/TransformsRequest.php(21): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#39 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/TrimStrings.php(40): Illuminate\\Foundation\\Http\\Middleware\\TransformsRequest->handle()
+#40 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Foundation\\Http\\Middleware\\TrimStrings->handle()
+#41 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/ValidatePostSize.php(27): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#42 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Foundation\\Http\\Middleware\\ValidatePostSize->handle()
+#43 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/PreventRequestsDuringMaintenance.php(99): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#44 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Foundation\\Http\\Middleware\\PreventRequestsDuringMaintenance->handle()
+#45 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Http/Middleware/TrustProxies.php(39): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#46 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Http\\Middleware\\TrustProxies->handle()
+#47 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(116): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#48 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Kernel.php(175): Illuminate\\Pipeline\\Pipeline->then()
+#49 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Kernel.php(144): Illuminate\\Foundation\\Http\\Kernel->sendRequestThroughRouter()
+#50 /opt/bantudelice242/public/index.php(52): Illuminate\\Foundation\\Http\\Kernel->handle()
+#51 {main}
+
+[previous exception] [object] (PDOException(code: 42P01): SQLSTATE[42P01]: Undefined table: 7 ERROR:  relation \"charges\" does not exist
+LINE 1: select * from \"charges\" limit 1
+                      ^ at /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Database/Connection.php:421)
+[stacktrace]
+#0 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Database/Connection.php(421): PDOStatement->execute()
+#1 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Database/Connection.php(788): Illuminate\\Database\\Connection->Illuminate\\Database\\{closure}()
+#2 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Database/Connection.php(755): Illuminate\\Database\\Connection->runQueryCallback()
+#3 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Database/Connection.php(424): Illuminate\\Database\\Connection->run()
+#4 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Database/Query/Builder.php(2752): Illuminate\\Database\\Connection->select()
+#5 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Database/Query/Builder.php(2740): Illuminate\\Database\\Query\\Builder->runSelect()
+#6 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Database/Query/Builder.php(3294): Illuminate\\Database\\Query\\Builder->Illuminate\\Database\\Query\\{closure}()
+#7 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Database/Query/Builder.php(2741): Illuminate\\Database\\Query\\Builder->onceWithColumns()
+#8 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Database/Concerns/BuildsQueries.php(300): Illuminate\\Database\\Query\\Builder->get()
+#9 /opt/bantudelice242/app/Services/ConfigService.php(69): Illuminate\\Database\\Query\\Builder->first()
+#10 /opt/bantudelice242/app/Http/Controllers/IndexController.php(57): App\\Services\\ConfigService::getDefaultDeliveryFee()
+#11 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Controller.php(54): App\\Http\\Controllers\\IndexController->allRestaurants()
+#12 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/ControllerDispatcher.php(43): Illuminate\\Routing\\Controller->callAction()
+#13 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Route.php(260): Illuminate\\Routing\\ControllerDispatcher->dispatch()
+#14 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Route.php(205): Illuminate\\Routing\\Route->runController()
+#15 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Router.php(799): Illuminate\\Routing\\Route->run()
+#16 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(141): Illuminate\\Routing\\Router->Illuminate\\Routing\\{closure}()
+#17 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Middleware/SubstituteBindings.php(50): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#18 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Routing\\Middleware\\SubstituteBindings->handle()
+#19 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/VerifyCsrfToken.php(78): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#20 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Foundation\\Http\\Middleware\\VerifyCsrfToken->handle()
+#21 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/View/Middleware/ShareErrorsFromSession.php(49): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#22 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\View\\Middleware\\ShareErrorsFromSession->handle()
+#23 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Session/Middleware/StartSession.php(121): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#24 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Session/Middleware/StartSession.php(64): Illuminate\\Session\\Middleware\\StartSession->handleStatefulRequest()
+#25 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Session\\Middleware\\StartSession->handle()
+#26 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Cookie/Middleware/AddQueuedCookiesToResponse.php(37): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#27 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Cookie\\Middleware\\AddQueuedCookiesToResponse->handle()
+#28 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Cookie/Middleware/EncryptCookies.php(67): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#29 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Cookie\\Middleware\\EncryptCookies->handle()
+#30 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(116): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#31 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Router.php(800): Illuminate\\Pipeline\\Pipeline->then()
+#32 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Router.php(777): Illuminate\\Routing\\Router->runRouteWithinStack()
+#33 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Router.php(741): Illuminate\\Routing\\Router->runRoute()
+#34 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Router.php(730): Illuminate\\Routing\\Router->dispatchToRoute()
+#35 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Kernel.php(200): Illuminate\\Routing\\Router->dispatch()
+#36 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(141): Illuminate\\Foundation\\Http\\Kernel->Illuminate\\Foundation\\Http\\{closure}()
+#37 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/TransformsRequest.php(21): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#38 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/ConvertEmptyStringsToNull.php(31): Illuminate\\Foundation\\Http\\Middleware\\TransformsRequest->handle()
+#39 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Foundation\\Http\\Middleware\\ConvertEmptyStringsToNull->handle()
+#40 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/TransformsRequest.php(21): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#41 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/TrimStrings.php(40): Illuminate\\Foundation\\Http\\Middleware\\TransformsRequest->handle()
+#42 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Foundation\\Http\\Middleware\\TrimStrings->handle()
+#43 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/ValidatePostSize.php(27): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#44 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Foundation\\Http\\Middleware\\ValidatePostSize->handle()
+#45 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/PreventRequestsDuringMaintenance.php(99): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#46 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Foundation\\Http\\Middleware\\PreventRequestsDuringMaintenance->handle()
+#47 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Http/Middleware/TrustProxies.php(39): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#48 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Http\\Middleware\\TrustProxies->handle()
+#49 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(116): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#50 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Kernel.php(175): Illuminate\\Pipeline\\Pipeline->then()
+#51 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Kernel.php(144): Illuminate\\Foundation\\Http\\Kernel->sendRequestThroughRouter()
+#52 /opt/bantudelice242/public/index.php(52): Illuminate\\Foundation\\Http\\Kernel->handle()
+#53 {main}
+"} 
+[2025-12-22 03:37:47] production.ERROR: SQLSTATE[42P01]: Undefined table: 7 ERROR:  relation "charges" does not exist
+LINE 1: select * from "charges" limit 1
+                      ^ (Connection: pgsql, SQL: select * from "charges" limit 1) {"exception":"[object] (Illuminate\\Database\\QueryException(code: 42P01): SQLSTATE[42P01]: Undefined table: 7 ERROR:  relation \"charges\" does not exist
+LINE 1: select * from \"charges\" limit 1
+                      ^ (Connection: pgsql, SQL: select * from \"charges\" limit 1) at /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Database/Connection.php:801)
+[stacktrace]
+#0 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Database/Connection.php(755): Illuminate\\Database\\Connection->runQueryCallback()
+#1 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Database/Connection.php(424): Illuminate\\Database\\Connection->run()
+#2 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Database/Query/Builder.php(2752): Illuminate\\Database\\Connection->select()
+#3 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Database/Query/Builder.php(2740): Illuminate\\Database\\Query\\Builder->runSelect()
+#4 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Database/Query/Builder.php(3294): Illuminate\\Database\\Query\\Builder->Illuminate\\Database\\Query\\{closure}()
+#5 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Database/Query/Builder.php(2741): Illuminate\\Database\\Query\\Builder->onceWithColumns()
+#6 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Database/Concerns/BuildsQueries.php(300): Illuminate\\Database\\Query\\Builder->get()
+#7 /opt/bantudelice242/app/Services/ConfigService.php(69): Illuminate\\Database\\Query\\Builder->first()
+#8 /opt/bantudelice242/app/Http/Controllers/IndexController.php(57): App\\Services\\ConfigService::getDefaultDeliveryFee()
+#9 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Controller.php(54): App\\Http\\Controllers\\IndexController->allRestaurants()
+#10 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/ControllerDispatcher.php(43): Illuminate\\Routing\\Controller->callAction()
+#11 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Route.php(260): Illuminate\\Routing\\ControllerDispatcher->dispatch()
+#12 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Route.php(205): Illuminate\\Routing\\Route->runController()
+#13 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Router.php(799): Illuminate\\Routing\\Route->run()
+#14 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(141): Illuminate\\Routing\\Router->Illuminate\\Routing\\{closure}()
+#15 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Middleware/SubstituteBindings.php(50): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#16 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Routing\\Middleware\\SubstituteBindings->handle()
+#17 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/VerifyCsrfToken.php(78): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#18 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Foundation\\Http\\Middleware\\VerifyCsrfToken->handle()
+#19 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/View/Middleware/ShareErrorsFromSession.php(49): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#20 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\View\\Middleware\\ShareErrorsFromSession->handle()
+#21 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Session/Middleware/StartSession.php(121): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#22 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Session/Middleware/StartSession.php(64): Illuminate\\Session\\Middleware\\StartSession->handleStatefulRequest()
+#23 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Session\\Middleware\\StartSession->handle()
+#24 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Cookie/Middleware/AddQueuedCookiesToResponse.php(37): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#25 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Cookie\\Middleware\\AddQueuedCookiesToResponse->handle()
+#26 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Cookie/Middleware/EncryptCookies.php(67): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#27 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Cookie\\Middleware\\EncryptCookies->handle()
+#28 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(116): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#29 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Router.php(800): Illuminate\\Pipeline\\Pipeline->then()
+#30 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Router.php(777): Illuminate\\Routing\\Router->runRouteWithinStack()
+#31 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Router.php(741): Illuminate\\Routing\\Router->runRoute()
+#32 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Router.php(730): Illuminate\\Routing\\Router->dispatchToRoute()
+#33 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Kernel.php(200): Illuminate\\Routing\\Router->dispatch()
+#34 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(141): Illuminate\\Foundation\\Http\\Kernel->Illuminate\\Foundation\\Http\\{closure}()
+#35 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/TransformsRequest.php(21): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#36 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/ConvertEmptyStringsToNull.php(31): Illuminate\\Foundation\\Http\\Middleware\\TransformsRequest->handle()
+#37 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Foundation\\Http\\Middleware\\ConvertEmptyStringsToNull->handle()
+#38 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/TransformsRequest.php(21): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#39 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/TrimStrings.php(40): Illuminate\\Foundation\\Http\\Middleware\\TransformsRequest->handle()
+#40 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Foundation\\Http\\Middleware\\TrimStrings->handle()
+#41 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/ValidatePostSize.php(27): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#42 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Foundation\\Http\\Middleware\\ValidatePostSize->handle()
+#43 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/PreventRequestsDuringMaintenance.php(99): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#44 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Foundation\\Http\\Middleware\\PreventRequestsDuringMaintenance->handle()
+#45 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Http/Middleware/TrustProxies.php(39): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#46 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Http\\Middleware\\TrustProxies->handle()
+#47 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(116): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#48 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Kernel.php(175): Illuminate\\Pipeline\\Pipeline->then()
+#49 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Kernel.php(144): Illuminate\\Foundation\\Http\\Kernel->sendRequestThroughRouter()
+#50 /opt/bantudelice242/public/index.php(52): Illuminate\\Foundation\\Http\\Kernel->handle()
+#51 {main}
+
+[previous exception] [object] (PDOException(code: 42P01): SQLSTATE[42P01]: Undefined table: 7 ERROR:  relation \"charges\" does not exist
+LINE 1: select * from \"charges\" limit 1
+                      ^ at /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Database/Connection.php:421)
+[stacktrace]
+#0 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Database/Connection.php(421): PDOStatement->execute()
+#1 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Database/Connection.php(788): Illuminate\\Database\\Connection->Illuminate\\Database\\{closure}()
+#2 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Database/Connection.php(755): Illuminate\\Database\\Connection->runQueryCallback()
+#3 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Database/Connection.php(424): Illuminate\\Database\\Connection->run()
+#4 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Database/Query/Builder.php(2752): Illuminate\\Database\\Connection->select()
+#5 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Database/Query/Builder.php(2740): Illuminate\\Database\\Query\\Builder->runSelect()
+#6 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Database/Query/Builder.php(3294): Illuminate\\Database\\Query\\Builder->Illuminate\\Database\\Query\\{closure}()
+#7 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Database/Query/Builder.php(2741): Illuminate\\Database\\Query\\Builder->onceWithColumns()
+#8 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Database/Concerns/BuildsQueries.php(300): Illuminate\\Database\\Query\\Builder->get()
+#9 /opt/bantudelice242/app/Services/ConfigService.php(69): Illuminate\\Database\\Query\\Builder->first()
+#10 /opt/bantudelice242/app/Http/Controllers/IndexController.php(57): App\\Services\\ConfigService::getDefaultDeliveryFee()
+#11 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Controller.php(54): App\\Http\\Controllers\\IndexController->allRestaurants()
+#12 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/ControllerDispatcher.php(43): Illuminate\\Routing\\Controller->callAction()
+#13 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Route.php(260): Illuminate\\Routing\\ControllerDispatcher->dispatch()
+#14 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Route.php(205): Illuminate\\Routing\\Route->runController()
+#15 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Router.php(799): Illuminate\\Routing\\Route->run()
+#16 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(141): Illuminate\\Routing\\Router->Illuminate\\Routing\\{closure}()
+#17 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Middleware/SubstituteBindings.php(50): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#18 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Routing\\Middleware\\SubstituteBindings->handle()
+#19 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/VerifyCsrfToken.php(78): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#20 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Foundation\\Http\\Middleware\\VerifyCsrfToken->handle()
+#21 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/View/Middleware/ShareErrorsFromSession.php(49): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#22 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\View\\Middleware\\ShareErrorsFromSession->handle()
+#23 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Session/Middleware/StartSession.php(121): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#24 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Session/Middleware/StartSession.php(64): Illuminate\\Session\\Middleware\\StartSession->handleStatefulRequest()
+#25 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Session\\Middleware\\StartSession->handle()
+#26 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Cookie/Middleware/AddQueuedCookiesToResponse.php(37): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#27 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Cookie\\Middleware\\AddQueuedCookiesToResponse->handle()
+#28 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Cookie/Middleware/EncryptCookies.php(67): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#29 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Cookie\\Middleware\\EncryptCookies->handle()
+#30 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(116): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#31 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Router.php(800): Illuminate\\Pipeline\\Pipeline->then()
+#32 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Router.php(777): Illuminate\\Routing\\Router->runRouteWithinStack()
+#33 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Router.php(741): Illuminate\\Routing\\Router->runRoute()
+#34 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Router.php(730): Illuminate\\Routing\\Router->dispatchToRoute()
+#35 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Kernel.php(200): Illuminate\\Routing\\Router->dispatch()
+#36 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(141): Illuminate\\Foundation\\Http\\Kernel->Illuminate\\Foundation\\Http\\{closure}()
+#37 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/TransformsRequest.php(21): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#38 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/ConvertEmptyStringsToNull.php(31): Illuminate\\Foundation\\Http\\Middleware\\TransformsRequest->handle()
+#39 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Foundation\\Http\\Middleware\\ConvertEmptyStringsToNull->handle()
+#40 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/TransformsRequest.php(21): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#41 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/TrimStrings.php(40): Illuminate\\Foundation\\Http\\Middleware\\TransformsRequest->handle()
+#42 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Foundation\\Http\\Middleware\\TrimStrings->handle()
+#43 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/ValidatePostSize.php(27): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#44 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Foundation\\Http\\Middleware\\ValidatePostSize->handle()
+#45 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/PreventRequestsDuringMaintenance.php(99): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#46 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Foundation\\Http\\Middleware\\PreventRequestsDuringMaintenance->handle()
+#47 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Http/Middleware/TrustProxies.php(39): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#48 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Http\\Middleware\\TrustProxies->handle()
+#49 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(116): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#50 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Kernel.php(175): Illuminate\\Pipeline\\Pipeline->then()
+#51 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Kernel.php(144): Illuminate\\Foundation\\Http\\Kernel->sendRequestThroughRouter()
+#52 /opt/bantudelice242/public/index.php(52): Illuminate\\Foundation\\Http\\Kernel->handle()
+#53 {main}
+"} 
+[2025-12-22 04:33:04] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":25.73,"count":0,"from_cache":true} 
+[2025-12-22 04:51:24] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":29.09,"count":0,"from_cache":true} 
+[2025-12-22 04:51:24] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":0.33,"count":0,"from_cache":true} 
+[2025-12-22 04:51:25] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":0.29,"count":0,"from_cache":true} 
+[2025-12-22 04:51:25] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":0.3,"count":0,"from_cache":true} 
+[2025-12-22 04:51:25] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":0.29,"count":0,"from_cache":true} 
+[2025-12-22 04:51:25] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":0.3,"count":0,"from_cache":true} 
+[2025-12-22 05:07:54] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":34.88,"count":0,"from_cache":true} 
+[2025-12-22 05:25:33] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":27.08,"count":0,"from_cache":true} 
+[2025-12-22 05:34:00] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":34.16,"count":0,"from_cache":true} 
+[2025-12-22 05:42:10] production.ERROR: SQLSTATE[42P01]: Undefined table: 7 ERROR:  relation "charges" does not exist
+LINE 1: select * from "charges" limit 1
+                      ^ (Connection: pgsql, SQL: select * from "charges" limit 1) {"exception":"[object] (Illuminate\\Database\\QueryException(code: 42P01): SQLSTATE[42P01]: Undefined table: 7 ERROR:  relation \"charges\" does not exist
+LINE 1: select * from \"charges\" limit 1
+                      ^ (Connection: pgsql, SQL: select * from \"charges\" limit 1) at /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Database/Connection.php:801)
+[stacktrace]
+#0 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Database/Connection.php(755): Illuminate\\Database\\Connection->runQueryCallback()
+#1 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Database/Connection.php(424): Illuminate\\Database\\Connection->run()
+#2 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Database/Query/Builder.php(2752): Illuminate\\Database\\Connection->select()
+#3 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Database/Query/Builder.php(2740): Illuminate\\Database\\Query\\Builder->runSelect()
+#4 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Database/Query/Builder.php(3294): Illuminate\\Database\\Query\\Builder->Illuminate\\Database\\Query\\{closure}()
+#5 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Database/Query/Builder.php(2741): Illuminate\\Database\\Query\\Builder->onceWithColumns()
+#6 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Database/Concerns/BuildsQueries.php(300): Illuminate\\Database\\Query\\Builder->get()
+#7 /opt/bantudelice242/app/Services/ConfigService.php(69): Illuminate\\Database\\Query\\Builder->first()
+#8 /opt/bantudelice242/app/Http/Controllers/IndexController.php(57): App\\Services\\ConfigService::getDefaultDeliveryFee()
+#9 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Controller.php(54): App\\Http\\Controllers\\IndexController->allRestaurants()
+#10 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/ControllerDispatcher.php(43): Illuminate\\Routing\\Controller->callAction()
+#11 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Route.php(260): Illuminate\\Routing\\ControllerDispatcher->dispatch()
+#12 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Route.php(205): Illuminate\\Routing\\Route->runController()
+#13 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Router.php(799): Illuminate\\Routing\\Route->run()
+#14 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(141): Illuminate\\Routing\\Router->Illuminate\\Routing\\{closure}()
+#15 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Middleware/SubstituteBindings.php(50): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#16 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Routing\\Middleware\\SubstituteBindings->handle()
+#17 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/VerifyCsrfToken.php(78): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#18 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Foundation\\Http\\Middleware\\VerifyCsrfToken->handle()
+#19 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/View/Middleware/ShareErrorsFromSession.php(49): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#20 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\View\\Middleware\\ShareErrorsFromSession->handle()
+#21 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Session/Middleware/StartSession.php(121): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#22 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Session/Middleware/StartSession.php(64): Illuminate\\Session\\Middleware\\StartSession->handleStatefulRequest()
+#23 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Session\\Middleware\\StartSession->handle()
+#24 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Cookie/Middleware/AddQueuedCookiesToResponse.php(37): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#25 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Cookie\\Middleware\\AddQueuedCookiesToResponse->handle()
+#26 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Cookie/Middleware/EncryptCookies.php(67): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#27 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Cookie\\Middleware\\EncryptCookies->handle()
+#28 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(116): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#29 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Router.php(800): Illuminate\\Pipeline\\Pipeline->then()
+#30 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Router.php(777): Illuminate\\Routing\\Router->runRouteWithinStack()
+#31 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Router.php(741): Illuminate\\Routing\\Router->runRoute()
+#32 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Router.php(730): Illuminate\\Routing\\Router->dispatchToRoute()
+#33 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Kernel.php(200): Illuminate\\Routing\\Router->dispatch()
+#34 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(141): Illuminate\\Foundation\\Http\\Kernel->Illuminate\\Foundation\\Http\\{closure}()
+#35 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/TransformsRequest.php(21): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#36 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/ConvertEmptyStringsToNull.php(31): Illuminate\\Foundation\\Http\\Middleware\\TransformsRequest->handle()
+#37 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Foundation\\Http\\Middleware\\ConvertEmptyStringsToNull->handle()
+#38 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/TransformsRequest.php(21): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#39 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/TrimStrings.php(40): Illuminate\\Foundation\\Http\\Middleware\\TransformsRequest->handle()
+#40 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Foundation\\Http\\Middleware\\TrimStrings->handle()
+#41 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/ValidatePostSize.php(27): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#42 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Foundation\\Http\\Middleware\\ValidatePostSize->handle()
+#43 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/PreventRequestsDuringMaintenance.php(99): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#44 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Foundation\\Http\\Middleware\\PreventRequestsDuringMaintenance->handle()
+#45 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Http/Middleware/TrustProxies.php(39): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#46 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Http\\Middleware\\TrustProxies->handle()
+#47 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(116): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#48 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Kernel.php(175): Illuminate\\Pipeline\\Pipeline->then()
+#49 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Kernel.php(144): Illuminate\\Foundation\\Http\\Kernel->sendRequestThroughRouter()
+#50 /opt/bantudelice242/public/index.php(52): Illuminate\\Foundation\\Http\\Kernel->handle()
+#51 {main}
+
+[previous exception] [object] (PDOException(code: 42P01): SQLSTATE[42P01]: Undefined table: 7 ERROR:  relation \"charges\" does not exist
+LINE 1: select * from \"charges\" limit 1
+                      ^ at /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Database/Connection.php:421)
+[stacktrace]
+#0 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Database/Connection.php(421): PDOStatement->execute()
+#1 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Database/Connection.php(788): Illuminate\\Database\\Connection->Illuminate\\Database\\{closure}()
+#2 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Database/Connection.php(755): Illuminate\\Database\\Connection->runQueryCallback()
+#3 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Database/Connection.php(424): Illuminate\\Database\\Connection->run()
+#4 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Database/Query/Builder.php(2752): Illuminate\\Database\\Connection->select()
+#5 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Database/Query/Builder.php(2740): Illuminate\\Database\\Query\\Builder->runSelect()
+#6 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Database/Query/Builder.php(3294): Illuminate\\Database\\Query\\Builder->Illuminate\\Database\\Query\\{closure}()
+#7 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Database/Query/Builder.php(2741): Illuminate\\Database\\Query\\Builder->onceWithColumns()
+#8 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Database/Concerns/BuildsQueries.php(300): Illuminate\\Database\\Query\\Builder->get()
+#9 /opt/bantudelice242/app/Services/ConfigService.php(69): Illuminate\\Database\\Query\\Builder->first()
+#10 /opt/bantudelice242/app/Http/Controllers/IndexController.php(57): App\\Services\\ConfigService::getDefaultDeliveryFee()
+#11 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Controller.php(54): App\\Http\\Controllers\\IndexController->allRestaurants()
+#12 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/ControllerDispatcher.php(43): Illuminate\\Routing\\Controller->callAction()
+#13 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Route.php(260): Illuminate\\Routing\\ControllerDispatcher->dispatch()
+#14 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Route.php(205): Illuminate\\Routing\\Route->runController()
+#15 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Router.php(799): Illuminate\\Routing\\Route->run()
+#16 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(141): Illuminate\\Routing\\Router->Illuminate\\Routing\\{closure}()
+#17 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Middleware/SubstituteBindings.php(50): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#18 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Routing\\Middleware\\SubstituteBindings->handle()
+#19 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/VerifyCsrfToken.php(78): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#20 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Foundation\\Http\\Middleware\\VerifyCsrfToken->handle()
+#21 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/View/Middleware/ShareErrorsFromSession.php(49): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#22 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\View\\Middleware\\ShareErrorsFromSession->handle()
+#23 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Session/Middleware/StartSession.php(121): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#24 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Session/Middleware/StartSession.php(64): Illuminate\\Session\\Middleware\\StartSession->handleStatefulRequest()
+#25 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Session\\Middleware\\StartSession->handle()
+#26 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Cookie/Middleware/AddQueuedCookiesToResponse.php(37): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#27 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Cookie\\Middleware\\AddQueuedCookiesToResponse->handle()
+#28 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Cookie/Middleware/EncryptCookies.php(67): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#29 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Cookie\\Middleware\\EncryptCookies->handle()
+#30 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(116): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#31 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Router.php(800): Illuminate\\Pipeline\\Pipeline->then()
+#32 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Router.php(777): Illuminate\\Routing\\Router->runRouteWithinStack()
+#33 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Router.php(741): Illuminate\\Routing\\Router->runRoute()
+#34 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Routing/Router.php(730): Illuminate\\Routing\\Router->dispatchToRoute()
+#35 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Kernel.php(200): Illuminate\\Routing\\Router->dispatch()
+#36 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(141): Illuminate\\Foundation\\Http\\Kernel->Illuminate\\Foundation\\Http\\{closure}()
+#37 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/TransformsRequest.php(21): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#38 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/ConvertEmptyStringsToNull.php(31): Illuminate\\Foundation\\Http\\Middleware\\TransformsRequest->handle()
+#39 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Foundation\\Http\\Middleware\\ConvertEmptyStringsToNull->handle()
+#40 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/TransformsRequest.php(21): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#41 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/TrimStrings.php(40): Illuminate\\Foundation\\Http\\Middleware\\TransformsRequest->handle()
+#42 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Foundation\\Http\\Middleware\\TrimStrings->handle()
+#43 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/ValidatePostSize.php(27): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#44 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Foundation\\Http\\Middleware\\ValidatePostSize->handle()
+#45 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Middleware/PreventRequestsDuringMaintenance.php(99): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#46 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Foundation\\Http\\Middleware\\PreventRequestsDuringMaintenance->handle()
+#47 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Http/Middleware/TrustProxies.php(39): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#48 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(180): Illuminate\\Http\\Middleware\\TrustProxies->handle()
+#49 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Pipeline/Pipeline.php(116): Illuminate\\Pipeline\\Pipeline->Illuminate\\Pipeline\\{closure}()
+#50 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Kernel.php(175): Illuminate\\Pipeline\\Pipeline->then()
+#51 /opt/bantudelice242/vendor/laravel/framework/src/Illuminate/Foundation/Http/Kernel.php(144): Illuminate\\Foundation\\Http\\Kernel->sendRequestThroughRouter()
+#52 /opt/bantudelice242/public/index.php(52): Illuminate\\Foundation\\Http\\Kernel->handle()
+#53 {main}
+"} 
+[2025-12-22 05:45:08] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":28.23,"count":0,"from_cache":true} 
+[2025-12-22 06:00:46] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":27.56,"count":0,"from_cache":true} 
+[2025-12-22 06:42:56] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":27.92,"count":0,"from_cache":true} 
+[2025-12-22 06:47:55] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":26.25,"count":0,"from_cache":true} 
+[2025-12-22 06:58:42] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":30.02,"count":0,"from_cache":true} 
+[2025-12-22 07:16:42] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":28.96,"count":0,"from_cache":true} 
+[2025-12-22 07:20:10] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":29.21,"count":0,"from_cache":true} 
+[2025-12-22 07:39:44] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":32.86,"count":0,"from_cache":true} 
+[2025-12-22 07:39:45] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":0.34,"count":0,"from_cache":true} 
+[2025-12-22 07:39:49] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":0.69,"count":0,"from_cache":true} 
+[2025-12-22 08:06:22] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":30.13,"count":0,"from_cache":true} 
+[2025-12-22 08:06:47] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":0.55,"count":0,"from_cache":true} 
+[2025-12-22 08:06:48] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":0.3,"count":0,"from_cache":true} 
+[2025-12-22 08:52:24] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":31.25,"count":0,"from_cache":true} 
+[2025-12-22 09:14:21] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":30.03,"count":0,"from_cache":true} 
+[2025-12-22 09:18:06] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":27.15,"count":0,"from_cache":true} 
+[2025-12-22 09:22:19] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":29.85,"count":0,"from_cache":true} 
+[2025-12-22 09:43:08] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":27.62,"count":0,"from_cache":true} 
+[2025-12-22 10:53:53] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":30.31,"count":0,"from_cache":true} 
+[2025-12-22 11:22:31] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":31.81,"count":0,"from_cache":true} 
+[2025-12-22 11:31:09] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":33.89,"count":0,"from_cache":true} 
+[2025-12-22 11:31:10] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":45.38,"count":0,"from_cache":true} 
+[2025-12-22 11:34:39] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":31.16,"count":0,"from_cache":true} 
+[2025-12-22 11:35:09] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":0.58,"count":0,"from_cache":true} 
+[2025-12-22 12:49:45] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":35.17,"count":0,"from_cache":true} 
+[2025-12-22 12:58:43] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":31.19,"count":0,"from_cache":true} 
+[2025-12-22 12:59:27] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":0.54,"count":0,"from_cache":true} 
+[2025-12-22 13:22:51] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":36.8,"count":0,"from_cache":true} 
+[2025-12-22 13:30:34] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":26.09,"count":0,"from_cache":true} 
+[2025-12-22 13:33:55] production.INFO: DataSyncService::getActiveRestaurants {"cache_key":"restaurants_active_all_8_d751713988987e9331980363e24189ce","execution_time_ms":25.55,"count":0,"from_cache":true} 
