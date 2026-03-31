@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
 <title>@yield('title')</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-<meta name="keywords" content="abc" />
+<meta name="keywords" content="livraison repas, livraison colis, transport local, BantuDelice" />
 <link rel="icon" type="image/x-icon" href="{{asset('favicon.ico')}}">
 <script type="application/x-javascript"> addEventListener("load", function() { setTimeout(hideURLbar, 0); }, false); function hideURLbar(){ window.scrollTo(0,1); } </script>
 <!-- Custom Theme files -->
@@ -22,8 +22,84 @@
 <link href="//fonts.googleapis.com/css?family=Berkshire+Swash" rel="stylesheet">
 <link href="//fonts.googleapis.com/css?family=Yantramanav:100,300,400,500,700,900" rel="stylesheet">
 <!-- //web-fonts -->
+<style>
+html, body {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
+img, video, iframe, canvas, svg {
+    max-width: 100%;
+    height: auto;
+}
+
+.container,
+.container-fluid {
+    max-width: 100%;
+}
+
+.navigation .navbar {
+    margin-bottom: 0;
+}
+
+.navigation .navbar-nav {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.navigation .navbar-nav > li > a {
+    white-space: normal;
+}
+
+.cart.box_1 {
+    max-width: 100%;
+}
+
+.cart.box_1 .m9view-cart {
+    white-space: nowrap;
+}
+
+.footer .footer-grids ul,
+.footer .footer-grids li,
+.footer p {
+    overflow-wrap: anywhere;
+}
+
+@media (max-width: 1199px) {
+    .navigation .navbar-nav {
+        gap: 0;
+    }
+
+    .navigation .navbar-nav > li > a {
+        padding-left: 10px;
+        padding-right: 10px;
+        font-size: 0.9rem;
+    }
+}
+
+@media (max-width: 991px) {
+    .navigation .navbar-collapse {
+        max-height: calc(100vh - 100px);
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    .cart.box_1 {
+        float: none !important;
+        margin: 0.75rem 0 0;
+        text-align: left;
+    }
+}
+</style>
 </head>
 <body>
+@php
+    $foodEnabled = config('bantudelice_modules.food', true);
+    $colisEnabled = config('bantudelice_modules.colis', true);
+    $transportEnabled = config('bantudelice_modules.transport', true);
+@endphp
 <!-- banner -->
 	<div class="banner @if(url()->current()!=url('/')) about-m9bnr @else @endif" style="background: url({{asset('images/thedrop24BG.jpg')}}) no-repeat center; background-size: cover;
     -webkit-background-size: cover;">
@@ -36,20 +112,17 @@
 					</div>
 					<div class="m9ls-header-right">
 						<ul>
+							@if(Auth::check())
 							<li class="head-dpdn">
-							    @if(Auth::check())
-								<a href="{{route('user.profile')}}"><i class="fa fa-user" aria-hidden="true"></i> Profil</a>
-								@else
-								<a href="{{route('user.login')}}"><i class="fa fa-sign-in" aria-hidden="true"></i> Connexion</a>
-								@endif
+								<a href="{{route('user.profile')}}">Profil</a>
 							</li>
 							<li class="head-dpdn">
-							    @if(Auth::check())
-								<a href="{{ route('user.logout') }}"><i class="fa fa-power-off" aria-hidden="true"></i> Déconnexion</a>
-								@else
-								<a href="{{route('user.signup')}}"><i class="fa fa-user-plus" aria-hidden="true"></i> Inscription</a>
-								@endif
+								<form method="POST" action="{{ route('user.logout') }}" style="display:inline;">
+									@csrf
+									<button type="submit" style="background:none;border:0;padding:0;color:inherit;font:inherit;cursor:pointer;">Déconnexion</button>
+								</form>
 							</li>
+							@endif
 						</ul>
 					</div>
 					<div class="clearfix"> </div>
@@ -68,59 +141,69 @@
 								<span class="icon-bar"></span>
 								<span class="icon-bar"></span>
 							</button>
-							<a href="{{route('home')}}"><img src="{{asset('frontend/images/BuntuDelice.png')}}" class="img-responsive" height="70" width="150"></a>
+							<a href="{{route('home')}}"><img src="{{asset('frontend/images/BuntuDelice.png')}}" class="img-responsive" height="70" width="150" alt="BantuDelice"></a>
 						</div>
 						<div class="collapse navbar-collapse" id="bs-megadropdown-tabs">
 							<ul class="nav navbar-nav navbar-right">
 								<li><a href="{{route('home')}}" class="active">ACCUEIL</a></li>
 								<!-- Mega Menu -->
-								<li class="dropdown">
-									<a href="#" class="dropdown-toggle" data-toggle="dropdown">MENU <b class="caret"></b></a>
-									<ul class="dropdown-menu multi-column columns-3">
-										<div class="row">
-											<div class="col-sm-12">
-												<ul class="multi-column-dropdown">
-													<h6>Cuisines populaires</h6>
-												</ul>
+								@if($foodEnabled)
+									<li class="dropdown">
+										<button type="button" class="dropdown-toggle bd-nav-dropdown-btn" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style="background:none;border:0;padding:0;">CUISINES <b class="caret"></b></button>
+										<ul class="dropdown-menu multi-column columns-3">
+											<div class="row">
+												<div class="col-sm-12">
+													<ul class="multi-column-dropdown">
+														<h6>Explorer par cuisine</h6>
+													</ul>
+												</div>
+												@php $cuisines=DB::table('cuisines')->get(); @endphp
+												<div class="col-sm-4">
+													<ul class="multi-column-dropdown">
+													    @foreach($cuisines->slice(0,4) as $cuisine)
+														<li><a href="{{route('restaurant.cuisine',$cuisine->id)}}">{{$cuisine->name}}</a></li>
+														@endforeach
+													</ul>
+												</div>
+												<div class="col-sm-4">
+													<ul class="multi-column-dropdown">
+														@foreach($cuisines->slice(4,4) as $cuisine)
+														<li><a href="{{route('restaurant.cuisine',$cuisine->id)}}">{{$cuisine->name}}</a></li>
+														@endforeach
+													</ul>
+												</div>
+												<div class="col-sm-4">
+													<ul class="multi-column-dropdown">
+														@foreach($cuisines->slice(8,4) as $cuisine)
+														<li><a href="{{route('restaurant.cuisine',$cuisine->id)}}">{{$cuisine->name}}</a></li>
+														@endforeach
+													</ul>
+												</div>
+												<div class="clearfix"></div>
 											</div>
-											@php $cuisines=DB::table('cuisines')->get(); @endphp
-											<div class="col-sm-4">
-												<ul class="multi-column-dropdown">
-												    @foreach($cuisines->slice(0,4) as $cuisine)
-													<li><a href="{{route('restaurant.cuisine',$cuisine->id)}}">{{$cuisine->name}}</a></li>
-													@endforeach
-												</ul>
-											</div>
-											<div class="col-sm-4">
-												<ul class="multi-column-dropdown">
-													@foreach($cuisines->slice(4,4) as $cuisine)
-													<li><a href="{{route('restaurant.cuisine',$cuisine->id)}}">{{$cuisine->name}}</a></li>
-													@endforeach
-												</ul>
-											</div>
-											<div class="col-sm-4">
-												<ul class="multi-column-dropdown">
-													@foreach($cuisines->slice(8,4) as $cuisine)
-													<li><a href="{{route('restaurant.cuisine',$cuisine->id)}}">{{$cuisine->name}}</a></li>
-													@endforeach
-												</ul>
-											</div>
-											<div class="clearfix"></div>
-										</div>
-									</ul>
-								</li>
-								<li><a href="#services">SERVICES</a></li>
-								<li><a href="{{ route('colis.landing') }}" style="color: #ff0000 !important; font-weight: bold;">LIVRAISON COLIS</a></li>
-								<li><a href="{{ route('colis.track_public') }}">SUIVI COLIS</a></li>
+										</ul>
+									</li>
+								@endif
+								<li><a href="{{ route('home') }}#services">NOS SERVICES</a></li>
+								@if($foodEnabled)
+									<li><a href="{{ route('track.order') }}">SUIVI COMMANDE</a></li>
+								@endif
+								@if($colisEnabled || $transportEnabled)
+									<li class="dropdown">
+										<button type="button" class="dropdown-toggle bd-nav-dropdown-btn" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style="background:none;border:0;padding:0;">AUTRES SERVICES <b class="caret"></b></button>
+										<ul class="dropdown-menu">
+											@if($colisEnabled)
+												<li><a href="{{ route('colis.landing') }}">Colis</a></li>
+												<li><a href="{{ route('colis.track_public') }}">Suivi colis</a></li>
+											@endif
+											@if($transportEnabled)
+												<li><a href="{{ route('transport.taxi') }}">Transport</a></li>
+											@endif
+										</ul>
+									</li>
+								@endif
 								<li><a href="{{route('about.us')}}">À PROPOS</a></li>
 								<li><a href="{{route('contact.us')}}">CONTACT</a></li>
-								<li class="dropdown">
-									<a href="#" class="dropdown-toggle" data-toggle="dropdown">COLIS <b class="caret"></b></a>
-									<ul class="dropdown-menu">
-										<li><a href="{{ route('colis.mes-envois') }}">Mes envois</a></li>
-										<li><a href="{{ route('colis.create') }}">Nouvel envoi</a></li>
-									</ul>
-								</li>
 							</ul>
 						</div>
 						@php
@@ -134,9 +217,7 @@
                         }
                        @endphp
 						<div class="cart cart box_1" style=" ">
-								<a href="{{route('cart.detail')}}" class="m9view-cart" style="width:50px; margin-top:-17px;">
-								<span class="badge badge-primary" style="float:right;">{{$count_items}}</span><br><i class="fa fa-cart-arrow-down"></i>
-								</a>
+								<a href="{{route('cart.detail')}}" class="m9view-cart" style="width:auto; margin-top:-17px; padding: 0.4rem 0.75rem; display: inline-block; text-decoration:none;">Panier <span class="badge badge-primary" style="margin-left:0.35rem;">{{$count_items}}</span></a>
 						</div>
 					</nav>
 				</div>
@@ -150,22 +231,28 @@
 		<div class="container">
 			<div class="m9_footer_grids">
 				<div class="col-xs-6 col-sm-3 footer-grids m9-agileits">
-					<h3>Rejoignez-nous</h3>
+					<h3>Food</h3>
 					<ul>
-						<li><a href="{{ route('colis.landing') }}" style="color: #ff0000; font-weight: bold;">LIVRAISON COLIS</a></li>
-						<li><a href="{{ route('colis.track_public') }}">Suivre un colis</a></li>
+						@if($foodEnabled)
+							<li><a href="{{ route('restaurants.all') }}">Restaurants</a></li>
+							<li><a href="{{ route('track.order') }}">Suivre une commande</a></li>
+						@endif
 						<li><a href="{{route('about.us')}}">À propos</a></li>
 						<li><a href="{{route('driver')}}">Devenir livreur</a></li>
 						<li><a href="{{route('partner')}}">Devenir partenaire</a></li>
 					</ul>
 				</div>
 				<div class="col-xs-6 col-sm-3 footer-grids m9-agileits">
-					<h3>Menu</h3>
+					<h3>Autres services</h3>
 					<ul>
-						<li><a href="#">Menu du jour</a></li>
-						<li><a href="#">Déjeuner</a></li>
-						<li><a href="#">Dîner</a></li>
-						<li><a href="#">Petit-déjeuner</a></li>
+						@if($colisEnabled)
+							<li><a href="{{ route('colis.landing') }}">Service colis</a></li>
+							<li><a href="{{ route('colis.track_public') }}">Suivre un colis</a></li>
+						@endif
+						@if($transportEnabled)
+							<li><a href="{{ route('transport.taxi') }}">Transport</a></li>
+							<li><a href="{{ route('transport.my_bookings') }}">Mes réservations</a></li>
+						@endif
 					</ul>
 				</div>
 				<div class="col-xs-6 col-sm-3 footer-grids m9-agileits">
@@ -175,24 +262,18 @@
 						<li><a href="{{route('privacy.policy')}}">Politique de confidentialité</a></li>
 						<li><a href="{{route('refund.policy')}}">Politique de remboursement</a></li>
 						<li><a href="{{route('data.deletion')}}">Suppression des données</a></li>
+						<li><a href="{{ route('guidance.execution') }}">Guidance execution</a></li>
 					</ul>
 				</div>
 				<div class="col-xs-6 col-sm-3 footer-grids m9-agileits">
-					<h3>Aide</h3>
+					<h3>Support</h3>
 					<ul>
-						<li><a href="#">FAQ</a></li>
-						<li><a href="#">Retours</a></li>
+						<li><a href="{{route('faq')}}">FAQ</a></li>
+						<li><a href="{{route('refund.policy')}}">Retours et remboursements</a></li>
 						<li><a href="{{route('contact.us')}}">Nous contacter</a></li>
 						
-					</ul
-					<div class="row">
-                    <div class="col-lg-4 col-md-6 col-sm-6 col-6" style="padding:0px;margin:0px;">
-                        <img src="{{asset('images/playstore.png')}}" width="80">
-                    </div>
-                    <div class="col-lg-4 col-md-6 col-sm-6 col-6" style="padding:0px;margin:0px;">
-                        <img src="{{asset('images/applestore.png')}}" width="80">
-                    </div>
-                </div>
+					</ul>
+					<p style="margin-top: 1rem; color: #999; font-size: 0.9rem;">Assistance client, suivi de commande et informations utiles.</p>
 				</div>
 				<div class="clearfix"> </div>
 			</div>
