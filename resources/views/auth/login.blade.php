@@ -568,24 +568,28 @@
         @endif
 
         <div class="divider">
-            <span>Connexion par email</span>
+            <span>Connexion</span>
         </div>
-        
+
         <form method="post" action="{{ url('login') }}" class="login-form" id="loginForm">
             @csrf
-            
+
             <div class="form-group">
-                <label for="email">Adresse email</label>
+                <label for="identifier">Email, téléphone ou nom d'utilisateur</label>
                 <div class="input-wrapper">
-                    <input type="email" 
-                           id="email" 
-                           name="email" 
-                           value="{{ old('email') }}" 
-                           placeholder="votre@email.com"
+                    <input type="text"
+                           id="identifier"
+                           name="identifier"
+                           value="{{ old('identifier') }}"
+                           placeholder="email, +242 06…, ou nom"
                            required
-                           autocomplete="email">
-                    <i class="fas fa-envelope"></i>
+                           autocomplete="username"
+                           autofocus>
+                    <i class="fas fa-user" id="identifierIcon"></i>
                 </div>
+                @error('identifier')
+                    <span style="color:#dc2626;font-size:.8rem;">{{ $message }}</span>
+                @enderror
             </div>
             
             <div class="form-group">
@@ -634,6 +638,20 @@
     </div>
     
     <script>
+        // Icône dynamique selon le type de saisie
+        document.getElementById('identifier')?.addEventListener('input', function() {
+            var val  = this.value.trim();
+            var icon = document.getElementById('identifierIcon');
+            if (!icon) return;
+            if (val.includes('@')) {
+                icon.className = 'fas fa-envelope';
+            } else if (/^(\+|0[456]|\d{3})/.test(val)) {
+                icon.className = 'fas fa-phone';
+            } else {
+                icon.className = 'fas fa-user';
+            }
+        });
+
         // Toggle password visibility
         function togglePassword() {
             const passwordInput = document.getElementById('password');

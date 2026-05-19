@@ -20,8 +20,8 @@ class LoginRedirectTest extends TestCase
         ]);
 
         $this->post('/login', [
-            'email' => $driver->email,
-            'password' => $password,
+            'identifier' => $driver->email,
+            'password'   => $password,
         ])->assertRedirect(route('driver.deliveries'));
 
         $this->assertAuthenticatedAs($driver);
