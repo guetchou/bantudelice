@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1024" y2="1024" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#FF6B35"/>
+      <stop offset="1" stop-color="#05944F"/>
+    </linearGradient>
+    <filter id="shadow" x="0" y="0" width="1024" height="1024" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feOffset dy="24"/>
+      <feGaussianBlur stdDeviation="32"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 0   0 0 0 0 0   0 0 0 0 0   0 0 0 0.25 0"/>
+      <feBlend mode="normal" in2="SourceGraphic" result="shape"/>
+    </filter>
+  </defs>
+
+  <rect x="0" y="0" width="1024" height="1024" rx="240" fill="url(#bg)"/>
+
+  <g filter="url(#shadow)">
+    <rect x="160" y="160" width="704" height="704" rx="160" fill="rgba(255,255,255,0.12)"/>
+  </g>
+
+  <!-- Monogram -->
+  <g>
+    <text x="50%" y="52%" text-anchor="middle" dominant-baseline="middle"
+          font-family="Outfit, Plus Jakarta Sans, Arial, sans-serif"
+          font-size="320" font-weight="800" fill="#FFFFFF" letter-spacing="8">
+      BD
+    </text>
+    <text x="50%" y="67%" text-anchor="middle" dominant-baseline="middle"
+          font-family="Plus Jakarta Sans, Arial, sans-serif"
+          font-size="54" font-weight="700" fill="rgba(255,255,255,0.92)">
+      BantuDelice
+    </text>
+  </g>
+</svg>
+
+

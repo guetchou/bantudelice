@@ -1,0 +1,95 @@
+@extends('layouts.restaurant_app')
+@section('title','Ajouter un bons')
+@section('topbar_title', 'Ajouter un bon')
+@section('vouchers_nav', 'active')
+@section('vouchers_nav_open', 'menu-open')
+@section('vouchers_nav_create', 'active')
+@section('style')
+
+@endsection
+@section('content')
+    <div class="content-header">
+        <div class="container-fluid">
+            <div class="row mb-2">
+                <div class="col-sm-6">
+                    <h1 class="m-0 text-dark">Ajouter un bons</h1>
+                </div><!-- /.col -->
+                <div class="col-sm-6">
+                    <ol class="breadcrumb float-sm-right">
+                        <li class="breadcrumb-item"><a href="{{ route('restaurant.dashboard') }}">Accueil</a></li>
+                        <li class="breadcrumb-item"><a href="{{route('voucher.index')}}">Vouchers</a></li>
+                        <li class="breadcrumb-item active">Create Vouchers</li>
+                    </ol>
+                </div><!-- /.col -->
+            </div><!-- /.row -->
+        </div><!-- /.container-fluid -->
+    </div>
+    <section class="content">
+        <div class="container-fluid">
+            <!-- Small boxes (Stat box) -->
+            <div class="row">
+                <div class="col-md-7 col-xs-12">
+
+                    <div class="card">
+                        <div class="card-header">
+                            <h4>Create Your Own Voucher</h4>
+                        </div>
+                        <div class="card-body">
+                            <form role="form" method="post" action="{{route('voucher.store')}}">
+                                @csrf
+                                <div class="form-row">
+                                    <div class="form-group col-md-6 col-xs-12">
+                                        <label for="name">Nom</label>
+                                        <input type="text" name="name" class="form-control" placeholder="Saisir le nom du bon" required />
+                                    </div>
+                                    <div class="form-group col-md-6 col-xs-12">
+                                        <label for="discount">Réduction (%)</label>
+                                        <input type="text" name="discount" class="form-control" placeholder="Saisir la réduction en %" required />
+                                    </div>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group col-md-6 col-xs-12">
+                                        <label for="start_date">Du</label>
+                                        <input type="date" name="start_date" class="form-control" required />
+                                    </div>
+                                    <div class="form-group col-md-6 col-xs-12">
+                                        <label for="end_date">Au</label>
+                                        <input type="date" name="end_date" class="form-control" required />
+                                    </div>
+                                </div>
+                                <div class="form-row mt-3">
+                                    <div class="form-group col-12">
+                                        <button type="submit" class="btn bg-gradient-success">Ajouter le bon</button>
+                                        <button type="reset" class="btn bg-gradient-danger">Annuler</button>
+                                    </div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-5 d-sm-block">
+                    <div class="card mx-5">
+                        <div class="card-body">
+                            <img src="{{asset('images/coupons.jpg')}}" width="300" height="300">
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+@endsection
+@section('script')
+<script>
+    $(function () {
+      $("#example1").DataTable();
+      $('#example2').DataTable({
+        "paging": true,
+        "lengthChange": false,
+        "searching": false,
+        "ordering": true,
+        "info": true,
+        "autoWidth": false,
+      });
+    });
+  </script>
+@endsection

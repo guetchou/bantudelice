@@ -1,0 +1,1301 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>BantuDelice - Livraison à domicile | Restaurants, Courses &amp; Plus</title>
+    <meta name="description" content="Commandez vos repas préférés, courses, fleurs et plus encore. Livraison rapide à domicile avec BantuDelice.">
+    <meta name="keywords" content="livraison, restaurant, courses, fleurs, Congo, Brazzaville">
+    <meta name="csrf-token" content="2lLldI3VQvFahtrqyD2erRlrGwmihYf6eyjEkUdv">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/x-icon" href="https://bantudelice.cg/favicon.ico">
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    
+    <!-- Bootstrap 5 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+    
+    <!-- Modern CSS -->
+    <link href="https://bantudelice.cg/frontend/css/modern.css" rel="stylesheet">
+    
+    <style>
+    /* Dropdown Menu */
+    .nav-dropdown {
+        position: relative;
+    }
+    
+    .nav-dropdown-menu {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        min-width: 200px;
+        background: white;
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow-xl);
+        padding: var(--space-sm) 0;
+        opacity: 0;
+        visibility: hidden;
+        transform: translateY(10px);
+        transition: all var(--transition-base);
+        z-index: 100;
+    }
+    
+    .nav-dropdown:hover .nav-dropdown-menu {
+        opacity: 1;
+        visibility: visible;
+        transform: translateY(0);
+    }
+    
+    .nav-dropdown-menu a {
+        display: block;
+        padding: var(--space-sm) var(--space-lg);
+        color: var(--gray-700);
+        font-size: 0.9375rem;
+        transition: all var(--transition-fast);
+    }
+    
+    .nav-dropdown-menu a:hover {
+        background: var(--gray-50);
+        color: var(--primary);
+        padding-left: var(--space-xl);
+    }
+    
+    /* Recherche en temps réel */
+    .hero-search-wrapper {
+        position: relative;
+        width: 100%;
+        max-width: 600px;
+        margin: 0 auto;
+    }
+    
+    .search-input-wrapper {
+        position: relative;
+        display: flex;
+        gap: 0.5rem;
+    }
+    
+    .search-results-dropdown {
+        position: absolute;
+        top: calc(100% + 8px);
+        left: 0;
+        right: 0;
+        background: white;
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+        max-height: 400px;
+        overflow-y: auto;
+        z-index: 1000;
+        margin-top: 8px;
+    }
+    
+    .search-result-item {
+        padding: 12px 16px;
+        border-bottom: 1px solid #F0F0F0;
+        cursor: pointer;
+        transition: background 0.2s;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+    }
+    
+    .search-result-item:hover {
+        background: #F8F8F8;
+    }
+    
+    .search-result-item:last-child {
+        border-bottom: none;
+    }
+    
+    .search-result-image {
+        width: 50px;
+        height: 50px;
+        border-radius: 8px;
+        object-fit: cover;
+        flex-shrink: 0;
+    }
+    
+    .search-result-content {
+        flex: 1;
+        min-width: 0;
+    }
+    
+    .search-result-name {
+        font-weight: 600;
+        color: #191919;
+        margin-bottom: 4px;
+        font-size: 0.9375rem;
+    }
+    
+    .search-result-meta {
+        font-size: 0.8125rem;
+        color: #6B6B6B;
+    }
+    
+    .search-loading {
+        padding: 16px;
+        text-align: center;
+        color: #6B6B6B;
+    }
+    
+    .search-no-results {
+        padding: 16px;
+        text-align: center;
+        color: #6B6B6B;
+    }
+</style>
+        
+    <!-- Styles pour le menu déroulant -->
+    <style>
+        /* Dropdown Menu - Cacher par défaut (spécificité élevée) */
+        .modern-header .nav-dropdown {
+            position: relative;
+        }
+        
+        .modern-header .nav-dropdown-menu {
+            position: absolute !important;
+            top: 100% !important;
+            left: 0 !important;
+            min-width: 200px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            padding: 8px 0;
+            margin-top: 8px;
+            opacity: 0 !important;
+            visibility: hidden !important;
+            transform: translateY(-10px);
+            transition: all 0.3s ease;
+            z-index: 1000;
+            display: flex;
+            flex-direction: column;
+            pointer-events: none;
+        }
+        
+        .modern-header .nav-dropdown-menu a {
+            padding: 10px 16px;
+            color: #191919;
+            text-decoration: none;
+            font-size: 0.9375rem;
+            transition: background 0.2s ease;
+            white-space: nowrap;
+            display: block;
+        }
+        
+        .modern-header .nav-dropdown-menu a:hover {
+            background: #F6F6F6;
+            color: #05944F;
+        }
+        
+        /* Afficher le menu au hover */
+        .modern-header .nav-dropdown:hover .nav-dropdown-menu {
+            opacity: 1 !important;
+            visibility: visible !important;
+            transform: translateY(0);
+            pointer-events: auto;
+        }
+        
+        /* Mobile : menu toujours visible si actif */
+        @media (max-width: 767px) {
+            .modern-header .nav-dropdown-menu {
+                position: static !important;
+                opacity: 1 !important;
+                visibility: visible !important;
+                transform: none !important;
+                box-shadow: none;
+                background: transparent;
+                padding: 0;
+                margin: 0;
+                margin-left: 1rem;
+                pointer-events: auto;
+            }
+            
+            .modern-header .nav-dropdown-menu a {
+                padding: 8px 0;
+                font-size: 0.875rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header Moderne -->
+    <header class="modern-header" id="header">
+        <div class="header-container">
+            <!-- Logo -->
+            <a href="https://bantudelice.cg" class="logo">
+                <img src="https://bantudelice.cg/frontend/images/BuntuDelice.png" alt="BantuDelice" style="height: 50px;">
+            </a>
+            
+            <!-- Navigation -->
+            <nav class="nav-menu" id="navMenu">
+                <a href="https://bantudelice.cg" class="nav-link">Accueil</a>
+                <div class="nav-dropdown">
+                    <a href="#" class="nav-link">
+                        Menu <i class="fas fa-chevron-down" style="font-size: 0.7rem; margin-left: 4px;"></i>
+                    </a>
+                    <div class="nav-dropdown-menu">
+                                                                    </div>
+                </div>
+                <a href="#services" class="nav-link">Services</a>
+                <a href="https://bantudelice.cg/about-us" class="nav-link">À propos</a>
+                <a href="https://bantudelice.cg/contact-us" class="nav-link">Contact</a>
+            </nav>
+            
+            <!-- Actions -->
+            <div class="nav-actions">
+                                
+                <a href="https://bantudelice.cg/cart" class="cart-icon">
+                    <i class="fas fa-shopping-bag"></i>
+                                            <span class="cart-badge" id="cartBadge" style="display: none;">0</span>
+                                    </a>
+                
+                                    <a href="https://bantudelice.cg/user/login" class="btn btn-secondary btn-sm">Connexion</a>
+                    <a href="https://bantudelice.cg/signup" class="btn btn-primary btn-sm">Inscription</a>
+                                
+                <!-- Mobile Menu Toggle -->
+                <button class="menu-toggle" id="menuToggle" aria-label="Menu">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </div>
+        </div>
+    </header>
+    
+    <!-- Messages Flash (Notifications) -->
+        
+        
+    <!-- Contenu Principal -->
+    <main>
+            <!-- Hero Section -->
+    <section class="hero-section">
+        <div class="hero-background">
+            <img src="https://bantudelice.cg/images/thedrop24BG.jpg" alt="BantuDelice Background">
+        </div>
+        <div class="container">
+            <div class="hero-content animate-fadeInUp">
+                <div class="hero-badge">
+                    <span class="hero-badge-dot"></span>
+                    Service disponible maintenant
+                </div>
+                <h1 class="hero-title">
+                    Des plats délicieux <br>
+                    <span>livrés chez vous</span>
+                </h1>
+                <p class="hero-description">
+                    Découvrez les meilleurs restaurants de votre ville et faites-vous livrer 
+                    vos plats préférés en quelques clics. Rapide, simple et savoureux.
+                </p>
+                
+                <!-- Search Box avec recherche en temps réel -->
+                <div class="hero-search-wrapper">
+                    <form action="https://bantudelice.cg/search" method="get" class="hero-search" id="searchForm">
+                        <div class="search-input-wrapper">
+                            <input type="text" 
+                                   name="qurey" 
+                                   id="searchInput"
+                                   placeholder="Rechercher un restaurant, une cuisine..." 
+                                   autocomplete="off"
+                                   required>
+                            <button type="submit" class="btn btn-primary">
+                                <i class="fas fa-search"></i> Rechercher
+                            </button>
+                        </div>
+                        <!-- Résultats de recherche en temps réel -->
+                        <div class="search-results-dropdown" id="searchResults" style="display: none;"></div>
+                    </form>
+                </div>
+                
+                <!-- Stats -->
+                <div class="hero-stats">
+                    <div class="hero-stat">
+                        <div class="hero-stat-value">1+</div>
+                        <div class="hero-stat-label">Restaurants</div>
+                    </div>
+                    <div class="hero-stat">
+                        <div class="hero-stat-value">0+</div>
+                        <div class="hero-stat-label">Plats disponibles</div>
+                    </div>
+                    <div class="hero-stat">
+                        <div class="hero-stat-value">30 min</div>
+                        <div class="hero-stat-label">Livraison moyenne</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Restaurants Populaires Section - Style UberEats Moderne -->
+    <section class="section" style="padding-top: 60px; padding-bottom: 60px; background: #FAFAFA;">
+        <div class="container">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                <div>
+                    <h2 style="font-size: 1.75rem; font-weight: 700; margin: 0 0 4px 0; color: #191919;">Restaurants populaires</h2>
+                    <p style="color: #6B6B6B; font-size: 0.9375rem; margin: 0;">Les mieux notés par nos clients</p>
+                </div>
+                <a href="https://bantudelice.cg/restaurants" style="display: flex; align-items: center; gap: 8px; color: #191919; font-weight: 500; text-decoration: none; padding: 8px 16px; border-radius: 500px; background: #F6F6F6; transition: all 0.2s; white-space: nowrap;" 
+                   onmouseover="this.style.background='#EEEEEE'; this.style.transform='translateX(2px)'" 
+                   onmouseout="this.style.background='#F6F6F6'; this.style.transform='translateX(0)'">
+                    Voir tout <i class="fas fa-arrow-right" style="font-size: 0.75rem;"></i>
+                </a>
+            </div>
+            
+                        <!-- Conteneur : Carrousel mobile / Grille desktop -->
+            <div class="restaurants-grid" style="display: flex; overflow-x: auto; gap: 16px; padding-bottom: 8px; -webkit-overflow-scrolling: touch; scroll-snap-type: x mandatory; scrollbar-width: none; -ms-overflow-style: none;">
+                                                                        
+                    <!-- Carte Restaurant -->
+                    <article class="restaurant-card" style="min-width: 240px; max-width: 280px; flex-shrink: 0; position: relative; border-radius: 16px; background: white; box-shadow: 0 2px 8px rgba(0,0,0,0.08); overflow: hidden; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); scroll-snap-align: start; cursor: pointer;"
+                            onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 8px 24px rgba(0,0,0,0.12)'"
+                            onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(0,0,0,0.08)'"
+                            onclick="window.location.href='https://bantudelice.cg/resturant/view/1'">
+                        
+                        <!-- Image Container avec overlay gradient -->
+                        <div style="position: relative; height: 160px; overflow: hidden; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                                                        <div style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; font-size: 2rem;">
+                                Re
+                            </div>
+                                                        
+                            <!-- Overlay gradient léger pour lisibilité -->
+                            <div style="pointer-events: none; position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.05) 50%, transparent 100%);"></div>
+                            
+                            <!-- Badge temps de livraison -->
+                            <div style="position: absolute; bottom: 8px; left: 8px; display: flex; align-items: center; gap: 4px; background: rgba(255,255,255,0.95); backdrop-filter: blur(8px); padding: 4px 10px; border-radius: 500px; font-size: 0.75rem; font-weight: 500; box-shadow: 0 2px 8px rgba(0,0,0,0.15);">
+                                <i class="fas fa-clock" style="font-size: 0.625rem; color: #6B6B6B;"></i>
+                                <span>20-35 min</span>
+                            </div>
+                            
+                            <!-- Badge Top noté (si featured ou rating élevé) -->
+                                                                                    <div style="position: absolute; top: 8px; left: 8px; display: flex; gap: 4px;">
+                                <span style="background: #05944F; color: white; padding: 4px 10px; border-radius: 500px; font-size: 0.6875rem; font-weight: 600; box-shadow: 0 2px 8px rgba(5,148,79,0.3);">
+                                                                            Top noté
+                                                                    </span>
+                            </div>
+                                                    </div>
+                        
+                        <!-- Contenu de la carte -->
+                        <div style="padding: 14px 16px 16px;">
+                            <!-- Titre + Rating -->
+                            <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 6px;">
+                                <h3 style="font-size: 1rem; font-weight: 600; margin: 0; color: #191919; line-height: 1.3; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                    Restaurant Test 1
+                                </h3>
+                                <div style="display: flex; align-items: center; gap: 3px; background: #F6F6F6; padding: 4px 8px; border-radius: 500px; font-size: 0.8125rem; font-weight: 600; flex-shrink: 0; white-space: nowrap;">
+                                    <span style="color: #191919;">4.5</span>
+                                    <i class="fas fa-star" style="color: #FFB800; font-size: 0.625rem;"></i>
+                                </div>
+                            </div>
+                            
+                            <!-- Types de cuisine (chips) -->
+                            <p style="color: #6B6B6B; font-size: 0.8125rem; margin: 0 0 8px 0; line-height: 1.4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="">
+                                Cuisine variée
+                            </p>
+                            
+                            <!-- Frais de livraison -->
+                            <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 8px; border-top: 1px solid #F0F0F0;">
+                                <span style="color: #6B6B6B; font-size: 0.8125rem;">
+                                    Frais de livraison : <strong style="color: #191919;">1 000 FCFA</strong>
+                                </span>
+                            </div>
+                        </div>
+                    </article>
+                            </div>
+            
+            <!-- Styles pour desktop (grille) -->
+            <style>
+                @media (min-width: 768px) {
+                    .restaurants-grid {
+                        display: grid !important;
+                        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+                        overflow-x: visible !important;
+                        gap: 24px;
+                    }
+                    .restaurant-card {
+                        min-width: auto !important;
+                        max-width: none !important;
+                    }
+                }
+                
+                @media (min-width: 1280px) {
+                    .restaurants-grid {
+                        grid-template-columns: repeat(4, 1fr);
+                    }
+                }
+                
+                /* Masquer la scrollbar sur mobile */
+                .restaurants-grid::-webkit-scrollbar {
+                    display: none;
+                }
+            </style>
+                    </div>
+    </section>
+    
+    <!-- Services Spéciaux Section -->
+    <section class="section services-section" id="services">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-badge">
+                    <img src="https://bantudelice.cg/images/svg/delivery.png" alt="Services" style="width: 20px; height: 20px; vertical-align: middle; margin-right: 6px;">
+                    Services
+                </span>
+                <h2 class="section-title">Nos Services Spéciaux</h2>
+                <p class="section-description">
+                    Bien plus qu'une simple livraison de repas, découvrez tous nos services à votre disposition.
+                </p>
+            </div>
+            
+            <div class="services-grid">
+                <!-- Service 1: Collecte & Livraison -->
+                <div class="service-card">
+                    <div class="service-icon">
+                        <img src="https://bantudelice.cg/images/svg/pick-up-truck.png" alt="Livraison">
+                    </div>
+                    <h3 class="service-title">Collecte & Livraison</h3>
+                    <p class="service-description">
+                        Commandez auprès de nos marchands de nourriture et d'alcool. 
+                        Nous récupérons votre commande et la livrons à votre porte.
+                    </p>
+                </div>
+                
+                <!-- Service 2: Réservation de Table -->
+                <div class="service-card">
+                    <div class="service-icon">
+                        <img src="https://bantudelice.cg/images/svg/reservation.png" alt="Réservation">
+                    </div>
+                    <h3 class="service-title">Réservation de Table</h3>
+                    <p class="service-description">
+                        Réservez une table dans l'un des restaurants gastronomiques 
+                        de notre liste en quelques clics.
+                    </p>
+                </div>
+                
+                <!-- Service 3: Service Traiteur -->
+                <div class="service-card">
+                    <div class="service-icon">
+                        <img src="https://bantudelice.cg/images/svg/delivery.png" alt="Traiteur">
+                    </div>
+                    <h3 class="service-title">Service Traiteur</h3>
+                    <p class="service-description">
+                        Vous organisez un événement et avez besoin d'un traiteur ? 
+                        Choisissez parmi notre sélection de professionnels.
+                    </p>
+                </div>
+                
+                <!-- Service 4: Livraison de Colis -->
+                <div class="service-card">
+                    <div class="service-icon">
+                        <img src="https://bantudelice.cg/images/svg/package.png" alt="Colis">
+                    </div>
+                    <h3 class="service-title">Livraison de Colis</h3>
+                    <p class="service-description">
+                        Pour les entreprises qui ont besoin d'un professionnel local 
+                        pour récupérer et livrer un colis.
+                    </p>
+                </div>
+                
+                <!-- Service 5: Courses & Épicerie -->
+                <div class="service-card">
+                    <div class="service-icon">
+                        <img src="https://bantudelice.cg/images/svg/supermarket.png" alt="Courses">
+                    </div>
+                    <h3 class="service-title">Courses & Épicerie</h3>
+                    <p class="service-description">
+                        Plus de courses à faire ? Envoyez-nous votre liste par SMS ou email 
+                        et nous faisons vos achats pour vous.
+                    </p>
+                </div>
+                
+                <!-- Service 6: Livraison de Fleurs -->
+                <div class="service-card">
+                    <div class="service-icon">
+                        <img src="https://bantudelice.cg/images/svg/flower.png" alt="Fleurs">
+                    </div>
+                    <h3 class="service-title">Livraison de Fleurs</h3>
+                    <p class="service-description">
+                        Une occasion spéciale ? Surprenez vos proches avec des fleurs 
+                        et laissez-nous faire la livraison pour vous.
+                    </p>
+                </div>
+                
+                <!-- Service 7: Pressing & Linge -->
+                <div class="service-card">
+                    <div class="service-icon">
+                        <img src="https://bantudelice.cg/images/svg/rinse.png" alt="Pressing">
+                    </div>
+                    <h3 class="service-title">Pressing & Linge</h3>
+                    <p class="service-description">
+                        Pas envie de faire la lessive ? Envoyez-nous votre demande 
+                        et nous nous occupons de tout.
+                    </p>
+                </div>
+                
+                <!-- Service 8: Boissons & Spiritueux -->
+                <div class="service-card">
+                    <div class="service-icon">
+                        <img src="https://bantudelice.cg/images/svg/liquor.png" alt="Boissons">
+                    </div>
+                    <h3 class="service-title">Boissons & Spiritueux</h3>
+                    <p class="service-description">
+                        Longue journée ? Besoin de vous détendre ? 
+                        Commandez vos boissons préférées et nous livrons.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Services Marchands Section -->
+    <section class="section" style="background: linear-gradient(135deg, #1A1A2E 0%, #16213E 100%);">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-badge" style="background: rgba(255,255,255,0.1); color: #FF6B35;">
+                    <img src="https://bantudelice.cg/images/svg/bowl.png" alt="Marchands" style="width: 20px; height: 20px; vertical-align: middle; margin-right: 6px;">
+                    Marchands
+                </span>
+                <h2 class="section-title" style="color: white;">Services Marchands</h2>
+                <p class="section-description" style="color: rgba(255,255,255,0.7);">
+                    Découvrez nos partenaires marchands et leurs offres exclusives.
+                </p>
+            </div>
+            
+            <div class="services-grid">
+                <!-- Poissons & Viandes -->
+                <div class="service-card" style="background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1);">
+                    <div class="service-icon">
+                        <img src="https://bantudelice.cg/images/svg/fish1.png" alt="Poisson">
+                    </div>
+                    <h3 class="service-title" style="color: white;">Poissons & Viandes</h3>
+                    <p class="service-description" style="color: rgba(255,255,255,0.6);">
+                        Commandez directement auprès de nos marchands de fruits de mer 
+                        affichés sur le site ou téléchargez l'application.
+                    </p>
+                </div>
+                
+                <!-- Pharmacie -->
+                <div class="service-card" style="background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1);">
+                    <div class="service-icon">
+                        <img src="https://bantudelice.cg/images/svg/bowl.png" alt="Pharmacie">
+                    </div>
+                    <h3 class="service-title" style="color: white;">Pharmacie</h3>
+                    <p class="service-description" style="color: rgba(255,255,255,0.6);">
+                        Besoin de récupérer votre ordonnance ? Choisissez un marchand, 
+                        puis envoyez-nous un SMS ou email pour demander le service.
+                    </p>
+                </div>
+                
+                <!-- Pâtisseries & Gâteaux -->
+                <div class="service-card" style="background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1);">
+                    <div class="service-icon">
+                        <img src="https://bantudelice.cg/images/svg/birthday.png" alt="Gâteaux">
+                    </div>
+                    <h3 class="service-title" style="color: white;">Pâtisseries & Gâteaux</h3>
+                    <p class="service-description" style="color: rgba(255,255,255,0.6);">
+                        Envie de commander ce gâteau d'anniversaire ou cette douceur ? 
+                        Commandez auprès de l'un de nos marchands.
+                    </p>
+                </div>
+                
+                <!-- Colis & Paquets -->
+                <div class="service-card" style="background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.1);">
+                    <div class="service-icon">
+                        <img src="https://bantudelice.cg/images/svg/package.png" alt="Colis">
+                    </div>
+                    <h3 class="service-title" style="color: white;">Colis & Paquets</h3>
+                    <p class="service-description" style="color: rgba(255,255,255,0.6);">
+                        Un colis à récupérer ? Nous récupérons et livrons les colis 
+                        de toutes tailles jusqu'à votre porte.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <!-- Plats Populaires Section - Style UberEats -->
+    <section class="section" style="padding-top: 60px; padding-bottom: 60px;">
+        <div class="container">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                <div>
+                    <h2 style="font-size: 1.75rem; font-weight: 700; margin: 0 0 4px 0; color: #191919;">Plats populaires</h2>
+                    <p style="color: #6B6B6B; font-size: 0.9375rem; margin: 0;">Les plus commandes du moment</p>
+                </div>
+                <a href="#" style="display: flex; align-items: center; gap: 8px; color: #191919; font-weight: 500; text-decoration: none; padding: 8px 16px; border-radius: 500px; background: #F6F6F6; transition: background 0.2s;">
+                    Voir tout <i class="fas fa-arrow-right" style="font-size: 0.75rem;"></i>
+                </a>
+            </div>
+            
+                        <div style="text-align: center; padding: 80px 20px; background: #F6F6F6; border-radius: 16px;">
+                <div style="width: 64px; height: 64px; background: #EEEEEE; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px;">
+                    <i class="fas fa-utensils" style="font-size: 1.5rem; color: #6B6B6B;"></i>
+                </div>
+                <h3 style="color: #191919; font-size: 1.125rem; margin: 0 0 8px 0; font-weight: 500;">Plats bientot disponibles</h3>
+                <p style="color: #6B6B6B; font-size: 0.9375rem; margin: 0;">Nos delicieux plats seront bientot en ligne.</p>
+            </div>
+                    </div>
+    </section>
+    
+    <!-- Témoignages Section -->
+    <section class="section" style="background: var(--gray-50);">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-badge">
+                    <img src="https://bantudelice.cg/images/icons/happy-customer.svg" alt="Avis" style="width: 20px; height: 20px; vertical-align: middle; margin-right: 6px;">
+                    Témoignages
+                </span>
+                <h2 class="section-title">Ce que disent nos clients</h2>
+                <p class="section-description">
+                    Découvrez les avis de nos clients satisfaits.
+                </p>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 24px;">
+                <!-- Témoignage 1 -->
+                <div style="background: white; padding: 24px; border-radius: var(--radius-xl); box-shadow: var(--shadow-sm);">
+                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                        <div style="width: 48px; height: 48px; background: linear-gradient(135deg, #FF6B35 0%, #E55A2B 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: 700;">JM</div>
+                        <div>
+                            <h4 style="font-size: 1rem; margin: 0;">Jean-Marie K.</h4>
+                            <div style="color: #F59E0B;">
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <p style="color: var(--gray-600); font-size: 0.9375rem; line-height: 1.6; margin: 0;">
+                        "Service excellent ! La livraison était rapide et les plats étaient encore chauds. Je recommande vivement BantuDelice."
+                    </p>
+                </div>
+                
+                <!-- Témoignage 2 -->
+                <div style="background: white; padding: 24px; border-radius: var(--radius-xl); box-shadow: var(--shadow-sm);">
+                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                        <div style="width: 48px; height: 48px; background: linear-gradient(135deg, #FF6B35 0%, #E55A2B 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: 700;">AN</div>
+                        <div>
+                            <h4 style="font-size: 1rem; margin: 0;">Arlette N.</h4>
+                            <div style="color: #F59E0B;">
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star-half-alt"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <p style="color: var(--gray-600); font-size: 0.9375rem; line-height: 1.6; margin: 0;">
+                        "J'adore le service de livraison de fleurs ! J'ai pu surprendre ma mère pour son anniversaire. Merci BantuDelice !"
+                    </p>
+                </div>
+                
+                <!-- Témoignage 3 -->
+                <div style="background: white; padding: 24px; border-radius: var(--radius-xl); box-shadow: var(--shadow-sm);">
+                    <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 16px;">
+                        <div style="width: 48px; height: 48px; background: linear-gradient(135deg, #FF6B35 0%, #E55A2B 100%); border-radius: 50%; display: flex; align-items: center; justify-content: center; color: white; font-weight: 700;">PM</div>
+                        <div>
+                            <h4 style="font-size: 1rem; margin: 0;">Patrick M.</h4>
+                            <div style="color: #F59E0B;">
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                                <i class="fas fa-star"></i>
+                            </div>
+                        </div>
+                    </div>
+                    <p style="color: var(--gray-600); font-size: 0.9375rem; line-height: 1.6; margin: 0;">
+                        "Le service traiteur pour mon événement était parfait. Qualité professionnelle et ponctualité. Bravo !"
+                    </p>
+                </div>
+            </div>
+        </div>
+    </section>
+    
+    <!-- CTA Section -->
+    <section class="section" style="background: linear-gradient(135deg, #FF6B35 0%, #E55A2B 100%); padding: 80px 0;">
+        <div class="container text-center">
+            <img src="https://bantudelice.cg/images/icons/delivery-scooter.svg" alt="Livraison" style="width: 80px; height: 80px; margin-bottom: 20px;">
+            <h2 style="color: white; margin-bottom: 16px;">Prêt à commander ?</h2>
+            <p style="color: rgba(255,255,255,0.9); font-size: 1.125rem; margin-bottom: 32px; max-width: 500px; margin-left: auto; margin-right: auto;">
+                Téléchargez notre application et commencez à commander dès maintenant. 
+                C'est simple, rapide et délicieux !
+            </p>
+            <div style="display: flex; gap: 16px; justify-content: center; flex-wrap: wrap;">
+                <a href="#" class="btn" style="background: white; color: #FF6B35; padding: 12px 24px;">
+                    <i class="fab fa-google-play"></i> Google Play
+                </a>
+                <a href="#" class="btn" style="background: white; color: #FF6B35; padding: 12px 24px;">
+                    <i class="fab fa-apple"></i> App Store
+                </a>
+            </div>
+        </div>
+    </section>
+    </main>
+    
+    <!-- Footer Moderne -->
+    <footer class="modern-footer">
+        <div class="container">
+            <div class="footer-grid">
+                <!-- Brand -->
+                <div class="footer-brand">
+                    <div class="footer-logo">
+                        <img src="https://bantudelice.cg/frontend/images/BuntuDelice.png" alt="BantuDelice" style="height: 45px; margin-bottom: 1rem;">
+                    </div>
+                    <p>Votre partenaire de confiance pour la livraison à domicile. Restaurants, courses, fleurs et bien plus encore, livrés directement chez vous.</p>
+                    <div class="footer-social">
+                        <a href="#" aria-label="Facebook"><i class="fab fa-facebook-f"></i></a>
+                        <a href="#" aria-label="Instagram"><i class="fab fa-instagram"></i></a>
+                        <a href="#" aria-label="Twitter"><i class="fab fa-twitter"></i></a>
+                        <a href="#" aria-label="WhatsApp"><i class="fab fa-whatsapp"></i></a>
+                    </div>
+                </div>
+                
+                <!-- Liens Rapides -->
+                <div class="footer-column">
+                    <h4>Liens Rapides</h4>
+                    <div class="footer-links">
+                        <a href="https://bantudelice.cg/about-us">À propos de nous</a>
+                        <a href="https://bantudelice.cg/driver/registration">Devenir livreur</a>
+                        <a href="https://bantudelice.cg/partner/registration">Devenir partenaire</a>
+                        <a href="https://bantudelice.cg/contact-us">Nous contacter</a>
+                    </div>
+                </div>
+                
+                <!-- Informations -->
+                <div class="footer-column">
+                    <h4>Informations</h4>
+                    <div class="footer-links">
+                        <a href="https://bantudelice.cg/terms-and-conditions">Conditions générales</a>
+                        <a href="#">Politique de confidentialité</a>
+                        <a href="https://bantudelice.cg/return-policy">Politique de remboursement</a>
+                        <a href="#">FAQ</a>
+                    </div>
+                </div>
+                
+                <!-- Applications -->
+                <div class="footer-column">
+                    <h4>Téléchargez l'App</h4>
+                    <p style="color: rgba(255,255,255,0.6); font-size: 0.875rem; margin-bottom: 1rem;">
+                        Commandez encore plus facilement avec notre application mobile.
+                    </p>
+                    <div class="footer-app-buttons">
+                        <a href="#">
+                            <img src="https://bantudelice.cg/images/playstore.png" alt="Google Play">
+                        </a>
+                        <a href="#">
+                            <img src="https://bantudelice.cg/images/applestore.png" alt="App Store">
+                        </a>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Bottom -->
+            <div class="footer-bottom">
+                <p class="footer-copyright">
+                    &copy; 2025 BantuDelice. Tous droits réservés.
+                </p>
+                <div class="footer-bottom-links">
+                    <a href="#">Mentions légales</a>
+                    <a href="#">Cookies</a>
+                    <a href="#">Plan du site</a>
+                </div>
+            </div>
+        </div>
+    </footer>
+    
+    <!-- Back to Top -->
+    <a href="#" id="backToTop" style="
+        position: fixed;
+        bottom: 30px;
+        right: 30px;
+        width: 50px;
+        height: 50px;
+        background: var(--primary);
+        color: white;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        visibility: hidden;
+        transition: all 0.3s ease;
+        z-index: 999;
+        box-shadow: 0 4px 15px rgba(255, 107, 53, 0.4);
+    ">
+        <i class="fas fa-arrow-up"></i>
+    </a>
+    
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        // Header scroll effect
+        const header = document.getElementById('header');
+        window.addEventListener('scroll', () => {
+            if (window.scrollY > 50) {
+                header.classList.add('scrolled');
+            } else {
+                header.classList.remove('scrolled');
+            }
+        });
+        
+        // Mobile menu toggle
+        const menuToggle = document.getElementById('menuToggle');
+        const navMenu = document.getElementById('navMenu');
+        
+        menuToggle?.addEventListener('click', () => {
+            navMenu.classList.toggle('active');
+        });
+        
+        // Back to top button
+        const backToTop = document.getElementById('backToTop');
+        window.addEventListener('scroll', () => {
+            if (window.scrollY > 300) {
+                backToTop.style.opacity = '1';
+                backToTop.style.visibility = 'visible';
+            } else {
+                backToTop.style.opacity = '0';
+                backToTop.style.visibility = 'hidden';
+            }
+        });
+        
+        backToTop?.addEventListener('click', (e) => {
+            e.preventDefault();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+        
+        // Smooth scroll for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function(e) {
+                const href = this.getAttribute('href');
+                if (href !== '#') {
+                    e.preventDefault();
+                    const target = document.querySelector(href);
+                    if (target) {
+                        target.scrollIntoView({ behavior: 'smooth' });
+                    }
+                }
+            });
+        });
+    </script>
+    
+    <!-- Toast Container -->
+    <div id="toastContainer" style="position: fixed; top: 20px; right: 20px; z-index: 10000; display: flex; flex-direction: column; gap: 0.75rem; pointer-events: none;"></div>
+    
+    <script>
+        // Fonction globale pour afficher un toast (utilisable partout)
+        function showToast(message, type = 'success') {
+            const container = document.getElementById('toastContainer');
+            if (!container) {
+                // Créer le container s'il n'existe pas
+                const newContainer = document.createElement('div');
+                newContainer.id = 'toastContainer';
+                newContainer.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 10000; display: flex; flex-direction: column; gap: 0.75rem; pointer-events: none;';
+                document.body.appendChild(newContainer);
+                return showToast(message, type);
+            }
+            
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                background: ${type === 'success' ? '#05944F' : '#EF4444'};
+                color: white;
+                padding: 1rem 1.5rem;
+                border-radius: 12px;
+                box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+                font-weight: 500;
+                display: flex;
+                align-items: center;
+                gap: 0.75rem;
+                min-width: 300px;
+                max-width: 400px;
+                animation: slideInRight 0.3s ease-out;
+                pointer-events: auto;
+            `;
+            
+            const icon = type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle';
+            toast.innerHTML = `
+                <i class="fas ${icon}" style="font-size: 1.25rem;"></i>
+                <span>${message}</span>
+            `;
+            
+            container.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.animation = 'slideOutRight 0.3s ease-out';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+        
+        // Alias pour compatibilité avec l'ancien code
+        function showMessage(message, type = 'success') {
+            showToast(message, type);
+        }
+        
+        // Ajouter les styles d'animation si pas déjà présents
+        if (!document.getElementById('toast-animations-style')) {
+            const style = document.createElement('style');
+            style.id = 'toast-animations-style';
+            style.textContent = `
+                @keyframes slideInRight {
+                    from {
+                        transform: translateX(100%);
+                        opacity: 0;
+                    }
+                    to {
+                        transform: translateX(0);
+                        opacity: 1;
+                    }
+                }
+                @keyframes slideOutRight {
+                    from {
+                        transform: translateX(0);
+                        opacity: 1;
+                    }
+                    to {
+                        transform: translateX(100%);
+                        opacity: 0;
+                    }
+                }
+            `;
+            document.head.appendChild(style);
+        }
+        
+        // Mettre à jour le badge du panier au chargement
+        document.addEventListener('DOMContentLoaded', function() {
+            updateCartCount();
+        });
+        
+        // Fonction pour mettre à jour le compteur du panier
+        function updateCartCount() {
+            fetch('https://bantudelice.cg/cart/count', {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                const badge = document.getElementById('cartBadge');
+                if (badge) {
+                    const count = data.count || 0;
+                    badge.textContent = count;
+                    badge.style.display = count > 0 ? 'inline-block' : 'none';
+                }
+                
+                // Mettre à jour aussi le badge flottant si présent
+                const floatingBadge = document.getElementById('floatingCartBadge');
+                if (floatingBadge) {
+                    floatingBadge.textContent = count;
+                    floatingBadge.style.display = count > 0 ? 'inline-block' : 'none';
+                }
+            })
+            .catch(error => console.error('Error updating cart count:', error));
+        }
+    </script>
+    
+    <script>
+// Recherche en temps réel
+(function() {
+    const searchInput = document.getElementById('searchInput');
+    const searchResults = document.getElementById('searchResults');
+    let searchTimeout;
+    let currentSearch = '';
+    
+    if (!searchInput || !searchResults) return;
+    
+    searchInput.addEventListener('input', function(e) {
+        const query = e.target.value.trim();
+        
+        // Masquer les résultats si la recherche est vide
+        if (query.length < 2) {
+            searchResults.style.display = 'none';
+            return;
+        }
+        
+        // Délai pour éviter trop de requêtes
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            performSearch(query);
+        }, 300);
+    });
+    
+    // Masquer les résultats quand on clique ailleurs
+    document.addEventListener('click', function(e) {
+        if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
+            searchResults.style.display = 'none';
+        }
+    });
+    
+    function performSearch(query) {
+        if (query === currentSearch) return;
+        currentSearch = query;
+        
+        searchResults.innerHTML = '<div class="search-loading"><i class="fas fa-spinner fa-spin"></i> Recherche...</div>';
+        searchResults.style.display = 'block';
+        
+        fetch(`https://bantudelice.cg/search/ajax?q=${encodeURIComponent(query)}`, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest',
+                'Accept': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.results && data.results.length > 0) {
+                let html = '';
+                data.results.forEach(result => {
+                    html += `
+                        <a href="${result.url}" class="search-result-item">
+                            ${result.logo ? `<img src="${result.logo}" alt="${result.name}" class="search-result-image">` : `<div class="search-result-image" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); display: flex; align-items: center; justify-content: center; color: white; font-weight: 600; border-radius: 8px;">${result.name ? result.name.substring(0, 2) : ''}</div>`}
+                            <div class="search-result-content">
+                                <div class="search-result-name">${result.name}</div>
+                                <div class="search-result-meta">
+                                    ${result.cuisines} • <i class="fas fa-star" style="color: #FBBF24;"></i> ${result.rating}
+                                </div>
+                            </div>
+                        </a>
+                    `;
+                });
+                searchResults.innerHTML = html;
+            } else {
+                searchResults.innerHTML = '<div class="search-no-results">Aucun résultat trouvé</div>';
+            }
+        })
+        .catch(error => {
+            console.error('Erreur de recherche:', error);
+            searchResults.innerHTML = '<div class="search-no-results">Erreur lors de la recherche</div>';
+        });
+    }
+})();
+
+// Fonction pour ajouter un produit au panier
+function addToCart(productId, restaurantId = null) {
+    // ===== VALIDATION CÔTÉ CLIENT =====
+    if (!productId || productId <= 0) {
+        showMessage('ID produit invalide', 'error');
+        return;
+    }
+    
+    if (restaurantId && restaurantId <= 0) {
+        showMessage('ID restaurant invalide', 'error');
+        return;
+    }
+    
+    const qty = 1; // Quantité par défaut
+    if (qty < 1 || qty > 20) {
+        showMessage('La quantité doit être entre 1 et 20', 'error');
+        return;
+    }
+    
+    // Récupérer le bouton qui a déclenché l'événement
+    let button = null;
+    if (window.event && window.event.target) {
+        button = window.event.target.closest('button');
+    }
+    if (!button) {
+        // Fallback : trouver le bouton par son onclick
+        const buttons = document.querySelectorAll('button[onclick*="addToCart(' + productId);
+        button = buttons[0];
+    }
+    
+    if (!button) {
+        console.error('Bouton non trouvé');
+        showMessage('Erreur : bouton non trouvé', 'error');
+        return;
+    }
+    
+    // Vérifier le token CSRF
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+    if (!csrfToken) {
+        showMessage('Erreur de sécurité : token CSRF manquant', 'error');
+        return;
+    }
+    
+    // Désactiver le bouton et afficher le chargement
+    const originalHTML = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin" style="font-size: 0.75rem;"></i>';
+    button.disabled = true;
+    
+    // Préparer les données
+    const formData = new FormData();
+    formData.append('product_id', productId);
+    formData.append('qty', qty.toString());
+    if (restaurantId) {
+        formData.append('restaurant_id', restaurantId);
+    }
+    formData.append('_token', csrfToken);
+    
+    // ===== REQUÊTE AJAX AVEC TIMEOUT =====
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 10000); // Timeout de 10 secondes
+    
+    fetch('https://bantudelice.cg/cart', {
+        method: 'POST',
+        body: formData,
+        signal: controller.signal,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json'
+        }
+    })
+    .then(async response => {
+        clearTimeout(timeoutId);
+        
+        // Gérer les différents codes de statut
+        if (response.status === 419) {
+            throw new Error('Session expirée. Veuillez rafraîchir la page.');
+        }
+        
+        if (response.status === 422) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.message || 'Erreur de validation');
+        }
+        
+        if (response.status >= 500) {
+            throw new Error('Erreur serveur. Veuillez réessayer plus tard.');
+        }
+        
+        // Si redirection, c'est une requête classique (non-AJAX)
+        if (response.redirected) {
+            // Recharger la page pour afficher le message flash
+            window.location.reload();
+            return;
+        }
+        
+        // Parser la réponse JSON
+        const data = await response.json();
+        return data;
+    })
+    .then(data => {
+        if (data && data.success) {
+            // Succès : afficher message et mettre à jour le compteur
+            showMessage(data.message || 'Produit ajouté au panier !', 'success');
+            
+            // Mettre à jour le compteur avec la valeur retournée par le serveur
+            if (data.total_items !== undefined) {
+                updateCartBadge(data.total_items);
+            } else {
+                // Fallback : appeler l'API pour récupérer le compteur
+                updateCartCount();
+            }
+        } else if (data && data.message) {
+            // Erreur avec message
+            showMessage(data.message, 'error');
+        }
+    })
+    .catch(error => {
+        clearTimeout(timeoutId);
+        console.error('Erreur ajout au panier:', error);
+        
+        // Messages d'erreur spécifiques selon le type d'erreur
+        let errorMessage = 'Erreur lors de l\'ajout au panier';
+        
+        if (error.name === 'AbortError') {
+            errorMessage = 'Délai d\'attente dépassé. Vérifiez votre connexion internet.';
+        } else if (error.message) {
+            errorMessage = error.message;
+        } else if (error instanceof TypeError && error.message.includes('fetch')) {
+            errorMessage = 'Erreur de connexion. Vérifiez votre connexion internet.';
+        }
+        
+        showMessage(errorMessage, 'error');
+    })
+    .finally(() => {
+        // Restaurer le bouton
+        button.innerHTML = originalHTML;
+        button.disabled = false;
+    });
+}
+
+// Fonction pour mettre à jour le badge du panier directement
+function updateCartBadge(count) {
+    const cartBadge = document.getElementById('cartBadge') || document.querySelector('.cart-badge');
+    if (cartBadge) {
+        const countNum = parseInt(count) || 0;
+        if (countNum > 0) {
+            cartBadge.textContent = countNum;
+            cartBadge.style.display = 'inline-block';
+            // Animation de mise à jour
+            cartBadge.style.transform = 'scale(1.2)';
+            cartBadge.style.transition = 'transform 0.2s ease';
+            setTimeout(() => {
+                cartBadge.style.transform = 'scale(1)';
+            }, 200);
+        } else {
+            cartBadge.style.display = 'none';
+        }
+    }
+}
+
+// Fonction pour mettre à jour le compteur de panier via API
+function updateCartCount() {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000); // Timeout de 5 secondes
+    
+    fetch('https://bantudelice.cg/cart/count', {
+        signal: controller.signal,
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json'
+        }
+    })
+    .then(response => {
+        clearTimeout(timeoutId);
+        if (!response.ok) {
+            throw new Error('Erreur HTTP ' + response.status);
+        }
+        return response.json();
+    })
+    .then(data => {
+        updateCartBadge(data.count);
+    })
+    .catch(error => {
+        clearTimeout(timeoutId);
+        // Ne pas afficher d'erreur pour le compteur (non bloquant)
+        console.warn('Erreur mise à jour compteur:', error);
+    });
+}
+
+// Fonction pour afficher un message
+function showMessage(message, type = 'success') {
+    // Créer ou réutiliser un élément de notification
+    let notification = document.getElementById('cart-notification');
+    if (!notification) {
+        notification = document.createElement('div');
+        notification.id = 'cart-notification';
+        notification.style.cssText = 'position: fixed; top: 20px; right: 20px; padding: 1rem 1.5rem; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 10000; font-weight: 500; transition: all 0.3s;';
+        document.body.appendChild(notification);
+    }
+    
+    notification.style.background = type === 'success' ? '#05944F' : '#DC2626';
+    notification.style.color = 'white';
+    notification.textContent = message;
+    notification.style.display = 'block';
+    notification.style.opacity = '0';
+    notification.style.transform = 'translateY(-20px)';
+    
+    // Animation d'apparition
+    setTimeout(() => {
+        notification.style.opacity = '1';
+        notification.style.transform = 'translateY(0)';
+    }, 10);
+    
+    // Masquer après 3 secondes
+    setTimeout(() => {
+        notification.style.opacity = '0';
+        notification.style.transform = 'translateY(-20px)';
+        setTimeout(() => {
+            notification.style.display = 'none';
+        }, 300);
+    }, 3000);
+}
+</script>
+</body>
+</html>
+

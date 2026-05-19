@@ -1,0 +1,83 @@
+# Laravel
+/node_modules
+/public/hot
+/public/storage
+/storage/*.key
+/vendor
+.env
+.env.backup
+.env.production
+.phpunit.result.cache
+Homestead.json
+Homestead.yaml
+auth.json
+npm-debug.log
+yarn-error.log
+/.fleet
+/.idea
+/.vscode
+
+# CI/CD Secrets
+GITHUB_SECRETS.md
+
+# Backups
+backups/
+*.backup
+*.sql
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+
+# Backups horodatés générés par les agents
+*.bak.*
+*.bak_*
+*.bak-*
+*.bak
+
+# Cache PHPUnit
+.phpunit.cache/
+
+# Test results
+test-results/
+
+# Env backups
+.env.backup.*
+.env.*.backup
+.env.queue-backup.*
+
+# Scripts et fichiers loose à la racine (pas du projet Laravel)
+CREER_CONFIG_NGINX_DOCKER.sh
+scan-reseau.sh
+setup-nginx-config.sh
+update-env-production.sh
+upgrade-php.sh
+bantudelice-thedrop247.conf
+composer.phar
+routes.json
+ui.php
+web.php
+app-modern.blade.php
+cms_page.blade.php
+site_switcher.blade.php
+checkout.js
+reconcile_payments.php
+release.php
+smoke_payments.php
+test_*.php
+MobileMoneyService.php
+PaymentCallbackController.php
+PaymentController.php
+PaymentService.php
+notification.mp3
+favicon.ico
+robots.txt
+bantudelice_state_machine.php
