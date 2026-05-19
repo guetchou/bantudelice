@@ -42,6 +42,11 @@ self.addEventListener('fetch', event => {
     const { request } = event;
     const url = new URL(request.url);
 
+    // Ignorer les schemes non supportés par l'API Cache (chrome-extension, moz-extension, etc.)
+    if (!url.protocol.startsWith('http')) {
+        return;
+    }
+
     // Ignorer les requêtes non-GET vers l'API checkout (gérées par Background Sync)
     if (request.method !== 'GET') {
         // Intercepter POST /checkout/api pour Background Sync
