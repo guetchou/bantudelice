@@ -874,7 +874,7 @@
                     <i class="fas fa-bell"></i>
                     <span class="badge badge-warning" id="notiBell"></span>
                 </a>
-                <a href="{{ route('restaurant.profile') }}" class="bd-restaurant-user" title="Mon profil">
+                <button onclick="bdDrawerOpen()" class="bd-restaurant-user" title="Mon profil" style="border:none;background:none;padding:0;cursor:pointer;" aria-label="Ouvrir le profil">
                     @php
                         $initials = strtoupper(substr($restaurantUser->name ?? $restaurant->name ?? 'R', 0, 1));
                     @endphp
@@ -888,7 +888,7 @@
                     <span class="bd-restaurant-user__copy">
                         <span class="bd-restaurant-user__name">{{ $restaurant->name ?? $restaurantUser->name ?? 'Mon profil' }}</span>
                     </span>
-                </a>
+                </button>
             </div>
         </header>
 
@@ -1079,5 +1079,7 @@ setInterval(get_notification, 5000);
 })();
 </script>
 @yield('script')
+
+@include('admin.partials._profile_drawer')
 </body>
 </html>

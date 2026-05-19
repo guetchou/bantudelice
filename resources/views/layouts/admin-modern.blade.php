@@ -620,8 +620,8 @@
 
                 <div class="adm-topbar-divider"></div>
 
-                <!-- Avatar topbar -->
-                <div class="adm-topbar-avatar" title="{{ auth()->user()->name ?? 'Admin' }}">
+                <!-- Avatar topbar — ouvre le drawer profil -->
+                <div class="adm-topbar-avatar" title="Mon profil" onclick="bdDrawerOpen()" role="button" aria-label="Ouvrir le profil" style="cursor:pointer;">
                     {{ strtoupper(substr(auth()->user()->name ?? 'A', 0, 1)) }}
                 </div>
             </div>
@@ -631,6 +631,8 @@
         <main class="adm-content">
             @yield('content')
         </main>
+
+        @include('admin.partials._profile_drawer')
 
     </div>
 
