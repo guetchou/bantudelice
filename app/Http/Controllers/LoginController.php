@@ -75,13 +75,34 @@ class LoginController extends Controller
 
     /**
      * Si un livreur existe dans `drivers` mais pas dans `users`, le synchronise
-     * pour permettre la connexion web. C'est un filet de sécurité pour les
-     * livreurs créés avant la correction de driverRegistration().
+     * pour permettre la connexion web. Shim pour les livreurs créés avant la
+     * correction de driverRegistration().
+     *
+     * Sécurité :
+     * - Refusé si l'email appartient déjà à un User de type non-driver (évite le takeover).
+     * - Refusé si le Driver n'a pas d'email vérifié (email_verified_at requis).
+     * - Le type reste toujours 'driver' — pas d'escalade de privilèges.
      */
     private function syncDriverAsUser(string $identifier, string $field): ?User
     {
         $driver = \App\Driver::where($field, $identifier)->first();
-        if (!$driver) {
+        if (!$driver || empty($driver->email)) {
+            return null;
+        }
+
+        // Bloquer si l'email est déjà pris par un compte non-driver
+        $existingUser = User::where('email', $driver->email)->first();
+        if ($existingUser && $existingUser->type !== 'driver') {
+            \Log::warning('[syncDriverAsUser] Email appartient à un compte non-driver', [
+                'email'         => $driver->email,
+                'existing_type' => $existingUser->type,
+            ]);
+            return null;
+        }
+
+        // Shim uniquement pour drivers déjà vérifiés (email_verified_at présent)
+        if (empty($driver->email_verified_at) && !$existingUser) {
+            \Log::info('[syncDriverAsUser] Sync refusé : email non vérifié', ['driver_id' => $driver->id]);
             return null;
         }
 
@@ -92,7 +113,7 @@ class LoginController extends Controller
                 'email'    => $driver->email,
                 'phone'    => $driver->phone,
                 'password' => $driver->password,
-                'type'     => 'driver',
+                'type'     => 'driver', // jamais escaladé
             ]
         );
     }

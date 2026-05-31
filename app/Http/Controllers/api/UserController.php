@@ -192,7 +192,7 @@ class UserController extends Controller
     {
         // IDOR guard: if a Passport token is present, the token owner must match user_id
         $tokenUser = auth('api')->user();
-        if ($tokenUser && (int)$tokenUser->id !== (int)$request->user_id) {
+        if (!$tokenUser || (int)$tokenUser->id !== (int)$request->user_id) {
             return response()->json(['status' => false, 'message' => 'Accès non autorisé'], 403);
         }
 
@@ -257,7 +257,7 @@ class UserController extends Controller
     {
         // IDOR guard
         $tokenUser = auth('api')->user();
-        if ($tokenUser && (int)$tokenUser->id !== (int)$request->user_id) {
+        if (!$tokenUser || (int)$tokenUser->id !== (int)$request->user_id) {
             return response()->json(['status' => false, 'message' => 'Accès non autorisé'], 403);
         }
 
@@ -444,7 +444,7 @@ class UserController extends Controller
 
         // IDOR guard: if a Passport token is present, the token owner must match user_id
         $tokenUser = auth('api')->user();
-        if ($tokenUser && (int)$tokenUser->id !== $userId) {
+        if (!$tokenUser || (int)$tokenUser->id !== $userId) {
             return response()->json(['status' => false, 'message' => 'Accès non autorisé'], 403);
         }
 

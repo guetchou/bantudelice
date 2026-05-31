@@ -119,7 +119,7 @@ class CartController extends Controller
         {
         // IDOR guard: if a Passport token is present, the token owner must match {user}
         $tokenUser = auth('api')->user();
-        if ($tokenUser && (int)$tokenUser->id !== (int)$user) {
+        if (!$tokenUser || (int)$tokenUser->id !== (int)$user) {
             return response()->json(['status' => false, 'message' => 'Accès non autorisé'], 403);
         }
 
@@ -195,7 +195,7 @@ class CartController extends Controller
     {
         // IDOR guard: if a Passport token is present, the token owner must match {user}
         $tokenUser = auth('api')->user();
-        if ($tokenUser && (int)$tokenUser->id !== (int)$user) {
+        if (!$tokenUser || (int)$tokenUser->id !== (int)$user) {
             return response()->json(['status' => false, 'message' => 'Accès non autorisé'], 403);
         }
 
@@ -226,7 +226,7 @@ class CartController extends Controller
 
         // IDOR guard: if a Passport token is present, the token owner must own this cart item
         $tokenUser = auth('api')->user();
-        if ($tokenUser && (int)$tokenUser->id !== (int)$getProduct->user_id) {
+        if (!$tokenUser || (int)$tokenUser->id !== (int)$getProduct->user_id) {
             return response()->json(['status' => false, 'message' => 'Accès non autorisé'], 403);
         }
 
@@ -266,7 +266,7 @@ class CartController extends Controller
 
         // IDOR guard: if a Passport token is present, the token owner must own this cart item
         $tokenUser = auth('api')->user();
-        if ($tokenUser && (int)$tokenUser->id !== (int)$getCart->user_id) {
+        if (!$tokenUser || (int)$tokenUser->id !== (int)$getCart->user_id) {
             return response()->json(['status' => false, 'message' => 'Accès non autorisé'], 403);
         }
 

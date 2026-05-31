@@ -98,7 +98,7 @@ class DriverProfileController extends Controller
     {
         // IDOR guard: if driver_api token present, it must belong to this driver
         $tokenDriver = auth('driver_api')->user();
-        if ($tokenDriver && (int)$tokenDriver->id !== (int)$driver) {
+        if (!$tokenDriver || (int)$tokenDriver->id !== (int)$driver) {
             return response()->json(['status' => false, 'message' => 'Accès non autorisé'], 403);
         }
 
@@ -162,7 +162,7 @@ class DriverProfileController extends Controller
     {
         // IDOR guard
         $tokenDriver = auth('driver_api')->user();
-        if ($tokenDriver && (int)$tokenDriver->id !== (int)$user) {
+        if (!$tokenDriver || (int)$tokenDriver->id !== (int)$user) {
             return response()->json(['status' => false, 'message' => 'Accès non autorisé'], 403);
         }
 

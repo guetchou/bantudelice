@@ -27,7 +27,7 @@ class DriverOrderController extends Controller
     {
         // IDOR guard: if driver_api token present, it must belong to this driver
         $tokenDriver = auth('driver_api')->user();
-        if ($tokenDriver && (int)$tokenDriver->id !== (int)$driver) {
+        if (!$tokenDriver || (int)$tokenDriver->id !== (int)$driver) {
             return response()->json(['status' => false, 'message' => 'Accès non autorisé'], 403);
         }
 
@@ -114,7 +114,7 @@ class DriverOrderController extends Controller
     {
         // IDOR guard: if driver_api token present, it must belong to this driver
         $tokenDriver = auth('driver_api')->user();
-        if ($tokenDriver && (int)$tokenDriver->id !== (int)$driver) {
+        if (!$tokenDriver || (int)$tokenDriver->id !== (int)$driver) {
             return response()->json(['status' => false, 'message' => 'Accès non autorisé'], 403);
         }
 
@@ -156,7 +156,7 @@ class DriverOrderController extends Controller
     {
         // IDOR guard: if driver_api token present, it must belong to this driver
         $tokenDriver = auth('driver_api')->user();
-        if ($tokenDriver && (int)$tokenDriver->id !== (int)$driver) {
+        if (!$tokenDriver || (int)$tokenDriver->id !== (int)$driver) {
             return response()->json(['status' => false, 'message' => 'Accès non autorisé'], 403);
         }
 
