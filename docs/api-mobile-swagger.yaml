@@ -1,0 +1,736 @@
+openapi: "3.0.3"
+info:
+  title: "BantuDelice API Mobile"
+  version: "1.0.0"
+  description: |
+    API REST pour les applications mobiles BantuDelice (client, livreur).
+    Base URL : https://bantudelice.cg/api
+    Authentification : Bearer token Passport (Laravel Passport)
+    Deux guards : `api` (client) et `driver_api` (livreur)
+  contact:
+    name: "BantuDelice Engineering"
+    email: "hello@bantudelice.cg"
+
+servers:
+  - url: "https://bantudelice.cg/api"
+    description: "Production"
+
+tags:
+  - name: "Auth Client"
+    description: "Inscription, connexion, mot de passe client"
+  - name: "Auth Livreur"
+    description: "Inscription, connexion livreur"
+  - name: "Catalogue"
+    description: "Restaurants, produits, cuisines"
+  - name: "Panier"
+    description: "Gestion du panier"
+  - name: "Commandes"
+    description: "Passer et suivre les commandes"
+  - name: "Paiement"
+    description: "MoMo, callback, confirmation"
+  - name: "Livreur"
+    description: "Dashboard livreur, missions, GPS"
+  - name: "Profil"
+    description: "Profil utilisateur, adresses, favoris"
+  - name: "Notifications"
+    description: "Device tokens FCM"
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: "Token Passport obtenu via /api/login ou /api/driver_login"
+
+  schemas:
+    ApiResponse:
+      type: object
+      properties:
+        status:
+          type: boolean
+        message:
+          type: string
+        data:
+          type: object
+
+    Restaurant:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string, example: "Nganda Ya Mboka" }
+        address: { type: string, example: "Bacongo, Brazzaville" }
+        phone: { type: string, example: "+242060000001" }
+        logo: { type: string, format: uri }
+        avg_rating: { type: number, format: float }
+        delivery_fee: { type: number, example: 1500 }
+        min_order: { type: number, example: 3000 }
+        eta_min: { type: integer, example: 20 }
+        eta_max: { type: integer, example: 35 }
+        is_open: { type: boolean }
+
+    Product:
+      type: object
+      properties:
+        id: { type: integer }
+        name: { type: string, example: "Saka-Saka au Poisson Fumé" }
+        price: { type: number, example: 4500 }
+        image: { type: string, format: uri }
+        description: { type: string }
+        restaurant_id: { type: integer }
+
+    Order:
+      type: object
+      properties:
+        order_no: { type: string, example: "TD-20260531-2825" }
+        business_status: { type: string, example: "pending_restaurant_acceptance" }
+        total: { type: number, example: 5925 }
+        payment_method: { type: string, enum: [cash, mobile_money, paypal] }
+        delivery_address: { type: string }
+        created_at: { type: string, format: date-time }
+
+    TrackingData:
+      type: object
+      properties:
+        tracking_status: { type: string }
+        business_status: { type: string }
+        tracking_progress: { type: integer, minimum: 0, maximum: 100 }
+        driver:
+          type: object
+          properties:
+            name: { type: string }
+            phone: { type: string }
+            location:
+              type: object
+              properties:
+                latitude: { type: number }
+                longitude: { type: number }
+
+paths:
+  # ── AUTH CLIENT ──────────────────────────────────────────────────────────────
+  /register:
+    post:
+      tags: [Auth Client]
+      summary: Inscription client
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [email, password, phone]
+              properties:
+                name: { type: string }
+                email: { type: string, format: email }
+                password: { type: string, minLength: 6 }
+                phone: { type: string, example: "+242068006730" }
+                image: { type: string, format: binary }
+      responses:
+        "200":
+          description: Inscription réussie
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: boolean }
+                  user_id: { type: integer }
+        "422":
+          description: Validation échouée
+
+  /login:
+    post:
+      tags: [Auth Client]
+      summary: Connexion client (par téléphone)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone, password]
+              properties:
+                phone: { type: string, example: "+242068006730" }
+                password: { type: string }
+      responses:
+        "200":
+          description: Connexion réussie
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: boolean }
+                  user_id: { type: integer }
+                  data: { type: string, description: "Bearer <token>" }
+
+  /user/token:
+    delete:
+      tags: [Auth Client]
+      summary: Déconnexion (révoque le token)
+      security: [{ BearerAuth: [] }]
+      responses:
+        "200":
+          description: Déconnecté
+
+  # ── AUTH LIVREUR ─────────────────────────────────────────────────────────────
+  /driver_login:
+    post:
+      tags: [Auth Livreur]
+      summary: Connexion livreur
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [phone, password]
+              properties:
+                phone: { type: string }
+                password: { type: string }
+      responses:
+        "200":
+          description: Connexion livreur réussie
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: boolean }
+                  data: { type: string, description: "Bearer <token>" }
+                  driver_id: { type: integer }
+
+  /driver_register:
+    post:
+      tags: [Auth Livreur]
+      summary: Inscription livreur
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [name, email, phone, password]
+              properties:
+                name: { type: string }
+                email: { type: string, format: email }
+                phone: { type: string }
+                password: { type: string }
+                image: { type: string, format: binary }
+                licence_image: { type: string, format: binary }
+      responses:
+        "200":
+          description: Inscription réussie
+
+  # ── CATALOGUE ─────────────────────────────────────────────────────────────────
+  /home_data:
+    post:
+      tags: [Catalogue]
+      summary: Données page d'accueil (bannières, restaurants vedettes, cuisines)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                latitude: { type: number }
+                longitude: { type: number }
+      responses:
+        "200":
+          description: Données accueil
+
+  /restaurants:
+    get:
+      tags: [Catalogue]
+      summary: Liste des restaurants (avec filtres GPS et texte)
+      parameters:
+        - name: lat
+          in: query
+          schema: { type: number }
+          description: "Latitude GPS pour recherche par proximité (prioritaire)"
+        - name: lng
+          in: query
+          schema: { type: number }
+        - name: search
+          in: query
+          schema: { type: string }
+          description: "Recherche textuelle (utilisé si lat/lng absents)"
+        - name: cuisine
+          in: query
+          schema: { type: integer }
+        - name: sort
+          in: query
+          schema: { type: string, enum: [popular, rating, delivery_fee, name] }
+        - name: page
+          in: query
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Liste paginée de restaurants
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: boolean }
+                  data:
+                    type: array
+                    items: { $ref: "#/components/schemas/Restaurant" }
+
+  /restaurant_detail/{restaurant}:
+    get:
+      tags: [Catalogue]
+      summary: Détail d'un restaurant avec ses produits par catégorie
+      parameters:
+        - name: restaurant
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Détail restaurant + catalogue
+
+  # ── PANIER ────────────────────────────────────────────────────────────────────
+  /add_to_cart:
+    post:
+      tags: [Panier]
+      summary: Ajouter un produit au panier
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              type: object
+              required: [user_id, product_id, qty, restaurant_id, price]
+              properties:
+                user_id: { type: integer }
+                product_id: { type: integer }
+                qty: { type: integer, minimum: 1, maximum: 99 }
+                restaurant_id: { type: integer }
+                price: { type: number }
+      responses:
+        "200":
+          description: Produit ajouté
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: boolean }
+                  message: { type: string }
+
+  /show_cart_details/{user}:
+    get:
+      tags: [Panier]
+      summary: Contenu du panier
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: user
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Articles du panier
+        "403":
+          description: Accès non autorisé (IDOR guard)
+
+  /delete_cart_product/{cart}:
+    delete:
+      tags: [Panier]
+      summary: Supprimer un article du panier
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: cart
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Article supprimé
+
+  /delete_previous_cart/{user}:
+    delete:
+      tags: [Panier]
+      summary: Vider le panier complet
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: user
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Panier vidé
+
+  # ── COMMANDES ─────────────────────────────────────────────────────────────────
+  /checkout:
+    post:
+      tags: [Commandes]
+      summary: Passer une commande
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [payment_method, fulfillment_mode]
+              properties:
+                payment_method:
+                  type: string
+                  enum: [cash, momo, paypal]
+                fulfillment_mode:
+                  type: string
+                  enum: [delivery, pickup]
+                delivery_address: { type: string }
+                d_lat: { type: number }
+                d_lng: { type: number }
+                address_id: { type: integer }
+                phone: { type: string, description: "Requis si payment_method=momo" }
+                voucher_code: { type: string }
+                scheduled_date: { type: string, format: date-time }
+                use_loyalty_points: { type: boolean }
+                driver_tip: { type: number }
+      responses:
+        "200":
+          description: Commande créée
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: boolean }
+                  order:
+                    $ref: "#/components/schemas/Order"
+                  payment:
+                    type: object
+                    properties:
+                      id: { type: integer }
+                      status: { type: string }
+                      amount: { type: number }
+        "422":
+          description: Validation échouée
+        "401":
+          description: Non authentifié
+
+  /orders/{order}/tracking:
+    get:
+      tags: [Commandes]
+      summary: État de tracking d'une commande (polling 10s)
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: order
+          in: path
+          required: true
+          schema: { type: integer }
+          description: "ID interne de la commande"
+      responses:
+        "200":
+          description: Données de tracking
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: boolean }
+                  data:
+                    $ref: "#/components/schemas/TrackingData"
+        "401":
+          description: Non authentifié
+
+  /orders/{order}/rating:
+    post:
+      tags: [Commandes]
+      summary: Noter la commande (restaurant + livreur)
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: order
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [order_id, rating]
+              properties:
+                order_id: { type: integer }
+                rating: { type: integer, minimum: 1, maximum: 5 }
+                comment: { type: string }
+                driver_rating: { type: integer, minimum: 1, maximum: 5 }
+                driver_comment: { type: string }
+      responses:
+        "200":
+          description: Avis enregistré
+
+  /track_pendings_orders:
+    post:
+      tags: [Commandes]
+      summary: Commandes actives de l'utilisateur
+      security: [{ BearerAuth: [] }]
+      responses:
+        "200":
+          description: Liste des commandes en cours
+
+  /track_completed_orders:
+    post:
+      tags: [Commandes]
+      summary: Historique des commandes terminées
+      security: [{ BearerAuth: [] }]
+      responses:
+        "200":
+          description: Historique
+
+  # ── PAIEMENT ──────────────────────────────────────────────────────────────────
+  /payments/callback/{provider}:
+    post:
+      tags: [Paiement]
+      summary: Callback paiement (MTN MoMo, Airtel, PayPal) — appelé par le provider
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema: { type: string, enum: [momo, airtel, paypal] }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "200":
+          description: Callback traité
+
+  /payments/{payment}/confirm:
+    post:
+      tags: [Paiement]
+      summary: Confirmer un paiement manuellement (client)
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: payment
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Paiement confirmé
+
+  # ── LIVREUR ───────────────────────────────────────────────────────────────────
+  /driver/{driverId}/location:
+    post:
+      tags: [Livreur]
+      summary: Mettre à jour la position GPS du livreur
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: driverId
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [latitude, longitude]
+              properties:
+                latitude: { type: number, example: -4.29 }
+                longitude: { type: number, example: 15.25 }
+                accuracy: { type: number }
+                heading: { type: number }
+                speed: { type: number }
+      responses:
+        "200":
+          description: Position mise à jour
+
+  /driver/deliveries:
+    get:
+      tags: [Livreur]
+      summary: Livraisons actives du livreur
+      security: [{ BearerAuth: [] }]
+      responses:
+        "200":
+          description: Liste des livraisons en cours
+
+  /driver/deliveries/{delivery}/status:
+    patch:
+      tags: [Livreur]
+      summary: Changer le statut d'une livraison
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: delivery
+          in: path
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [PICKED_UP, ON_THE_WAY, DELIVERED]
+                delivery_otp: { type: string, maxLength: 12 }
+                delivery_latitude: { type: number }
+                delivery_longitude: { type: number }
+      responses:
+        "200":
+          description: Statut mis à jour
+
+  /order_accept_by_driver:
+    post:
+      tags: [Livreur]
+      summary: Accepter une commande assignée
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [order_no]
+              properties:
+                order_no: { type: string }
+      responses:
+        "200":
+          description: Commande acceptée
+
+  /order_request/{driver}:
+    get:
+      tags: [Livreur]
+      summary: Commandes disponibles pour le livreur
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: driver
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Commandes disponibles
+
+  /set_driver_online/{driver}:
+    post:
+      tags: [Livreur]
+      summary: Passer en ligne
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: driver
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Statut mis à jour
+
+  /set_driver_offline/{driver}:
+    post:
+      tags: [Livreur]
+      summary: Passer hors ligne
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: driver
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Statut mis à jour
+
+  # ── PROFIL ────────────────────────────────────────────────────────────────────
+  /user/me:
+    get:
+      tags: [Profil]
+      summary: Profil de l'utilisateur connecté
+      security: [{ BearerAuth: [] }]
+      responses:
+        "200":
+          description: Données profil
+    post:
+      tags: [Profil]
+      summary: Mettre à jour le profil
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name: { type: string }
+                phone: { type: string }
+                email: { type: string, format: email }
+      responses:
+        "200":
+          description: Profil mis à jour
+
+  /user/favorites:
+    get:
+      tags: [Profil]
+      summary: Restaurants favoris
+      security: [{ BearerAuth: [] }]
+      responses:
+        "200":
+          description: Liste des favoris
+
+  /user/favorites/{restaurant}:
+    post:
+      tags: [Profil]
+      summary: Ajouter/retirer un favori (toggle)
+      security: [{ BearerAuth: [] }]
+      parameters:
+        - name: restaurant
+          in: path
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Favori mis à jour
+
+  /add_user_address:
+    post:
+      tags: [Profil]
+      summary: Ajouter une adresse de livraison
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [address, user_id]
+              properties:
+                user_id: { type: integer }
+                address: { type: string }
+                latitude: { type: number }
+                longitude: { type: number }
+                title: { type: string }
+                is_default: { type: boolean }
+      responses:
+        "200":
+          description: Adresse ajoutée
+
+  # ── NOTIFICATIONS ─────────────────────────────────────────────────────────────
+  /user_device_token:
+    post:
+      tags: [Notifications]
+      summary: Enregistrer le device token FCM pour les push notifications
+      security: [{ BearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [user_id, device_token]
+              properties:
+                user_id: { type: integer }
+                device_token: { type: string, description: "Token FCM v1" }
+      responses:
+        "200":
+          description: Token enregistré

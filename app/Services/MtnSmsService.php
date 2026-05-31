@@ -9,7 +9,8 @@ use Illuminate\Support\Facades\Log;
 class MtnSmsService
 {
     private const TOKEN_CACHE_KEY = 'mtn_api_oauth_token';
-    private const OAUTH_URL       = 'https://api.mtn.com/oauth/client_credential/accesstoken';
+    // Endpoint officiel selon Swagger MTN MADAPI v1.1
+    private const OAUTH_URL       = 'https://api.mtn.com/v1/oauth/access_token';
     private const SMS_URL         = 'https://api.mtn.com/v3/sms/messages/sms/outbound';
 
     private function getToken(): string
@@ -18,11 +19,15 @@ class MtnSmsService
             $key    = config('external-services.notifications.mtn_sms.consumer_key');
             $secret = config('external-services.notifications.mtn_sms.consumer_secret');
 
-            $response = Http::withHeaders([
-                'Authorization' => 'Basic ' . base64_encode("{$key}:{$secret}"),
-                'Content-Type'  => 'application/x-www-form-urlencoded',
-                'Content-Length' => '0',
-            ])->post(self::OAUTH_URL . '?grant_type=client_credentials');
+            // Auth via formData (méthode officielle Swagger MTN MADAPI v1.1)
+            $response = Http::asForm()->post(
+                self::OAUTH_URL . '?grant_type=client_credentials',
+                [
+                    'client_id'     => $key,
+                    'client_secret' => $secret,
+                    'grant_type'    => 'client_credentials',
+                ]
+            );
 
             if (!$response->ok()) {
                 Log::error('[MTN SMS] Auth failed', ['status' => $response->status(), 'body' => $response->body()]);

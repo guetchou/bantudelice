@@ -72,6 +72,24 @@ class Kernel extends ConsoleKernel
             ->everyFiveMinutes()
             ->name('auto-pause-restaurants')
             ->withoutOverlapping();
+
+        // Vérification fraude : toutes les heures (transactions suspectes, double paiement)
+        $schedule->command('payments:check-fraud')
+            ->hourly()
+            ->name('fraud-check')
+            ->withoutOverlapping();
+
+        // Optimisation DB : index, stats — chaque nuit à 3h
+        $schedule->command('db:optimize')
+            ->dailyAt('03:00')
+            ->name('db-optimize')
+            ->withoutOverlapping();
+
+        // Livraisons bloquées : forcer le traitement des PENDING
+        $schedule->command('dispatch:process-pending --limit=20')
+            ->everyFiveMinutes()
+            ->name('dispatch-process-pending')
+            ->withoutOverlapping();
     }
 
     /**
