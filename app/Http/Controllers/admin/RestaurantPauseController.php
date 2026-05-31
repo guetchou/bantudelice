@@ -18,7 +18,7 @@ class RestaurantPauseController extends Controller
 
         $all = Restaurant::where('is_paused', false)
             ->orderBy('name')
-            ->get(['id', 'name', 'city', 'last_activity_at', 'status']);
+            ->get(['id', 'name', 'city', 'last_activity_at']);
 
         return view('admin.restaurant.paused', compact('paused', 'all'));
     }

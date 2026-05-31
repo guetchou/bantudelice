@@ -7,21 +7,21 @@
  * - POST /checkout/api → Background Sync (retry quand réseau disponible)
  */
 
-const CACHE_VERSION   = '20260517-1';
+const CACHE_VERSION   = '20260527-5';
 const CACHE_NAME      = 'bd-shell-' + CACHE_VERSION;
 const OFFLINE_URL     = '/offline';
 const CHECKOUT_QUEUE  = 'bd-checkout-queue';
 
 const PRECACHE_URLS = [
-    '/',
     '/offline',
-    '/frontend/css/modern.css',
 ];
 
-// ── Install ──────────────────────────────────────────────────────────────────
+// ── Install : vider TOUS les anciens caches et prendre le contrôle ──────────
 self.addEventListener('install', event => {
     event.waitUntil(
-        caches.open(CACHE_NAME)
+        caches.keys()
+            .then(keys => Promise.all(keys.map(k => caches.delete(k))))
+            .then(() => caches.open(CACHE_NAME))
             .then(cache => cache.addAll(PRECACHE_URLS.map(u => new Request(u, { cache: 'reload' }))))
             .then(() => self.skipWaiting())
             .catch(() => self.skipWaiting())
@@ -37,38 +37,26 @@ self.addEventListener('activate', event => {
     );
 });
 
-// ── Fetch ─────────────────────────────────────────────────────────────────────
+// ── Fetch : NETWORK FIRST pour tout (plus de cache-first sur les assets) ─────
 self.addEventListener('fetch', event => {
     const { request } = event;
     const url = new URL(request.url);
 
-    // Ignorer les schemes non supportés par l'API Cache (chrome-extension, moz-extension, etc.)
-    if (!url.protocol.startsWith('http')) {
-        return;
-    }
+    if (!url.protocol.startsWith('http')) return;
 
-    // Ignorer les requêtes non-GET vers l'API checkout (gérées par Background Sync)
     if (request.method !== 'GET') {
-        // Intercepter POST /checkout/api pour Background Sync
         if (url.pathname === '/checkout/api' || url.pathname.endsWith('/checkout/api')) {
             event.respondWith(handleCheckoutPost(request));
         }
         return;
     }
 
-    // Assets statiques (CSS/JS/fonts/images) → Cache First
-    if (isStaticAsset(url)) {
-        event.respondWith(cacheFirst(request));
-        return;
-    }
-
-    // Pages HTML → Network First
+    // TOUT passe en Network First — plus de stale cache
     if (request.headers.get('accept')?.includes('text/html')) {
         event.respondWith(networkFirstHtml(request));
         return;
     }
 
-    // Autres GET → Network with cache fallback
     event.respondWith(networkWithCacheFallback(request));
 });
 
@@ -111,7 +99,7 @@ async function cacheFirst(request) {
     if (cached) return cached;
     try {
         const response = await fetch(request);
-        if (response.ok) {
+        if (response.ok && response.status !== 206) {
             const cache = await caches.open(CACHE_NAME);
             cache.put(request, response.clone());
         }
@@ -124,7 +112,7 @@ async function cacheFirst(request) {
 async function networkFirstHtml(request) {
     try {
         const response = await fetch(request);
-        if (response.ok) {
+        if (response.ok && response.status !== 206) {
             const cache = await caches.open(CACHE_NAME);
             cache.put(request, response.clone());
         }

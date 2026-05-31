@@ -106,43 +106,42 @@ class CheckoutService implements \App\Domain\Checkout\Contracts\CheckoutOrchestr
                 $orders = Order::where('order_no', $orderNo)->get();
                 $deliveryAssignment = null;
                 
-                // Créer les livraisons
+                // Créer UNE SEULE livraison (pas une par item) et lancer l'offre broadcast
                 if ($fulfillmentMode !== 'pickup') {
-                    foreach ($orders as $order) {
-                        try {
-                            $delivery = $this->deliveryService->createForOrder($order);
-                            $dispatchResult = app(DispatchService::class)->autoAssignResult($delivery);
-                            $delivery = $delivery->fresh(['driver']);
+                    $primaryOrder = $orders->first();
+                    try {
+                        $delivery = $this->deliveryService->createForOrder($primaryOrder);
 
-                            if ($deliveryAssignment === null) {
-                                $deliveryAssignment = [
-                                    'status' => $dispatchResult['status'] ?? 'pending',
-                                    'delivery_id' => $delivery->id,
-                                    'driver_id' => $delivery->driver_id,
-                                    'driver' => $delivery->driver ? [
-                                        'id' => $delivery->driver->id,
-                                        'name' => $delivery->driver->name,
-                                        'phone' => $delivery->driver->phone,
-                                    ] : null,
-                                    'available_drivers_count' => $deliveryServiceability['available_drivers_count'] ?? 0,
-                                    'serviceable' => $deliveryServiceability['serviceable'] ?? false,
-                                    'capacity_state' => $deliveryServiceability['capacity_state'] ?? null,
-                                    'next_capacity_check_minutes' => $deliveryServiceability['next_capacity_check_minutes'] ?? null,
-                                ];
-                            }
+                        $deliveryAssignment = [
+                            'status' => 'pending',
+                            'delivery_id' => $delivery->id,
+                            'driver_id' => null,
+                            'driver' => null,
+                            'available_drivers_count' => $deliveryServiceability['available_drivers_count'] ?? 0,
+                            'serviceable' => $deliveryServiceability['serviceable'] ?? false,
+                            'capacity_state' => $deliveryServiceability['capacity_state'] ?? null,
+                            'next_capacity_check_minutes' => $deliveryServiceability['next_capacity_check_minutes'] ?? null,
+                        ];
 
-                            if (($dispatchResult['status'] ?? null) !== 'assigned') {
-                                enqueue_job('food', 'auto_assign_delivery', [
-                                    'delivery' => $delivery,
-                                ]);
-                            }
-                        } catch (\Exception $e) {
-                            Log::error('Erreur création livraison', [
-                                'order_id' => $order->id,
-                                'error' => $e->getMessage()
-                            ]);
-                        }
+                        enqueue_job('food', 'auto_assign_delivery', [
+                            'delivery' => $delivery,
+                        ]);
+                    } catch (\Exception $e) {
+                        Log::error('Erreur création livraison', [
+                            'order_id' => $primaryOrder->id,
+                            'error' => $e->getMessage()
+                        ]);
                     }
+                }
+
+                // Notifier le restaurant et le client
+                try {
+                    $primaryOrder = $orders->first();
+                    $primaryOrder->loadMissing(['user', 'restaurant']);
+                    app(\App\Services\FoodOrderNotificationService::class)
+                        ->notifyStatusChange($primaryOrder, 'pending_restaurant_acceptance', []);
+                } catch (\Exception $e) {
+                    Log::warning('Erreur notification commande', ['error' => $e->getMessage()]);
                 }
 
                 // Paiement à la livraison : commande créée, encaissement en attente

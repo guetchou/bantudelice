@@ -188,9 +188,10 @@
                                     Indisponible
                                 </span>
                                 @endif
-                                <img src="{{ method_exists($pro, 'publicImageUrl') ? $pro->publicImageUrl() : ($pro->image ? (strpos($pro->image, 'http') === 0 ? $pro->image : asset('images/product_images/' . $pro->image)) : asset('images/product_images/default-food.jpg')) }}" 
+                                <img src="{{ method_exists($pro, 'publicImageUrl') ? $pro->publicImageUrl() : ($pro->image ? (strpos($pro->image, 'http') === 0 ? $pro->image : asset('images/product_images/' . $pro->image)) : asset('images/product_images/default-food.jpg')) }}"
                                      alt="{{ $pro->name }}"
                                      class="product-image"
+                                     loading="lazy"
                                      onerror="this.src='{{ asset('images/product_images/default-food.jpg') }}'">
                             </div>
                             

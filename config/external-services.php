@@ -112,7 +112,8 @@ return [
             'enabled' => env('FCM_ENABLED', true),
             'server_key' => env('FCM_SERVER_KEY'),
             'sender_id' => env('FCM_SENDER_ID'),
-            'project_id' => env('FCM_PROJECT_ID'),
+            'project_id' => env('FIREBASE_PROJECT_ID', env('FCM_PROJECT_ID')),
+            'credentials_path' => env('FIREBASE_CREDENTIALS'),
             // Clés par type d'utilisateur (optionnel, pour apps séparées)
             'user_key' => env('FCM_USER_KEY'),
             'restaurant_key' => env('FCM_RESTAURANT_KEY'),
@@ -121,11 +122,20 @@ return [
 
         // SMS via Twilio
         'twilio' => [
-            'enabled' => env('TWILIO_ENABLED', false),
-            'sid' => env('TWILIO_SID'),
-            'token' => env('TWILIO_TOKEN'),
-            'from' => env('TWILIO_FROM'),
-            'verify_sid' => env('TWILIO_VERIFY_SID'), // Pour OTP
+            'enabled'        => env('TWILIO_ENABLED', false),
+            'sid'            => env('TWILIO_SID'),
+            'token'          => env('TWILIO_TOKEN'),
+            'from'           => env('TWILIO_FROM'),
+            'verify_sid'     => env('TWILIO_VERIFY_SID'),
+            'whatsapp_from'  => env('TWILIO_WHATSAPP_FROM', 'whatsapp:+14155238886'),
+        ],
+
+        // SMS via MTN Congo (SMS v3 API directe)
+        'mtn_sms' => [
+            'enabled'         => env('MTN_SMS_ENABLED', false),
+            'consumer_key'    => env('MTN_SMS_CONSUMER_KEY'),
+            'consumer_secret' => env('MTN_SMS_CONSUMER_SECRET'),
+            'sender_id'       => env('MTN_SMS_SENDER_ID', 'BantuDelice'),
         ],
 
         // SMS via Africa's Talking

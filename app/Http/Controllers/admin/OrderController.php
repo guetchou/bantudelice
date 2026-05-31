@@ -44,16 +44,10 @@ class OrderController extends Controller
     {
         $nearby_drivers = null;
 
-        if($request->has('date')) {
-            $arr = explode("-", $request->date, 2);
-            $start = $arr[0];
-            $end = $arr[1];
-
-            $timestamp1 = strtotime($start);
-            $start = date('Y-m-d H:i:s', $timestamp1);
-
-            $timestamp = strtotime($end);
-            $end = date('Y-m-d H:i:s', $timestamp);
+        if($request->filled('date')) {
+            $arr = explode(' - ', $request->date, 2);
+            $start = Carbon::createFromFormat('d/m/Y', trim($arr[0]))->startOfDay();
+            $end = Carbon::createFromFormat('d/m/Y', trim($arr[1] ?? $arr[0]))->endOfDay();
             $orders=Order::whereBetween('created_at', [$start, $end])->latest()->get()->unique('order_no');
         }else{
             $orders=Order::latest()->get()->unique('order_no');
@@ -69,16 +63,10 @@ class OrderController extends Controller
     {
         $query = $this->completedOrdersQuery();
 
-        if($request->has('date')) {
-            $arr = explode("-", $request->date, 2);
-            $start = $arr[0];
-            $end = $arr[1];
-
-            $timestamp1 = strtotime($start);
-            $start = date('Y-m-d H:i:s', $timestamp1);
-
-            $timestamp = strtotime($end);
-            $end = date('Y-m-d H:i:s', $timestamp);
+        if($request->filled('date')) {
+            $arr = explode(' - ', $request->date, 2);
+            $start = Carbon::createFromFormat('d/m/Y', trim($arr[0]))->startOfDay();
+            $end = Carbon::createFromFormat('d/m/Y', trim($arr[1] ?? $arr[0]))->endOfDay();
             $orders=$query->whereBetween('created_at', [$start, $end])->latest()->get()->unique('order_no');
         }else{
             $orders=$query->latest()->get()->unique('order_no');
@@ -102,16 +90,10 @@ class OrderController extends Controller
             $query->where('status', 'pending');
         }
 
-        if($request->has('date')) {
-            $arr = explode("-", $request->date, 2);
-            $start = $arr[0];
-            $end = $arr[1];
-
-            $timestamp1 = strtotime($start);
-            $start = date('Y-m-d H:i:s', $timestamp1);
-
-            $timestamp = strtotime($end);
-            $end = date('Y-m-d H:i:s', $timestamp);
+        if($request->filled('date')) {
+            $arr = explode(' - ', $request->date, 2);
+            $start = Carbon::createFromFormat('d/m/Y', trim($arr[0]))->startOfDay();
+            $end = Carbon::createFromFormat('d/m/Y', trim($arr[1] ?? $arr[0]))->endOfDay();
             $orders=$query->whereBetween('created_at', [$start, $end])->latest()->get()->unique('order_no');
         }else{
             $orders=$query->latest()->get()->unique('order_no');
@@ -133,16 +115,10 @@ class OrderController extends Controller
             $query->where('status', 'cancelled');
         }
 
-        if($request->has('date')) {
-            $arr = explode("-", $request->date, 2);
-            $start = $arr[0];
-            $end = $arr[1];
-
-            $timestamp1 = strtotime($start);
-            $start = date('Y-m-d H:i:s', $timestamp1);
-
-            $timestamp = strtotime($end);
-            $end = date('Y-m-d H:i:s', $timestamp);
+        if($request->filled('date')) {
+            $arr = explode(' - ', $request->date, 2);
+            $start = Carbon::createFromFormat('d/m/Y', trim($arr[0]))->startOfDay();
+            $end = Carbon::createFromFormat('d/m/Y', trim($arr[1] ?? $arr[0]))->endOfDay();
             $orders=$query->whereBetween('created_at', [$start, $end])->latest()->get()->unique('order_no');
         }else{
             $orders=$query->latest()->get()->unique('order_no');
@@ -312,28 +288,81 @@ class OrderController extends Controller
     public function cancel_order(Order $order, Request $request)
     {
         $request->validate([
-            'reason' => 'required|string|max:191',
+            'reason' => 'required|string|max:500',
         ]);
-        $user=auth()->user();
-        $user->cancellation_reasons()->create($request->all());
-        $this->foodOrderFinanceService->cancelOrderGroup($order->order_no, [
-            'actor_type' => 'admin',
-            'actor_id' => auth()->id(),
-            'reason_code' => 'admin_cancelled',
-            'notes' => $request->reason,
-        ]);
-        $this->refunds->refundOrder($order, 'admin_cancelled', [
-            'actor_type' => 'admin',
-            'actor_id' => auth()->id(),
-            'idempotency_key' => 'admin-cancelled-' . $order->id,
-            'amount' => (float) ($order->total ?? 0),
-        ]);
-        $order->cancel_by = 'Admin';
-        $order->save();
-        $alert['type'] = 'success';
-        $alert['message'] = 'Commande annulée avec succès';
-        return redirect()->route('admin.all_orders')->with('alert', $alert);
-        
+
+        // Enregistrer la raison d'annulation dans la table dédiée
+        $user = auth()->user();
+        if ($user && method_exists($user, 'cancellation_reasons')) {
+            try {
+                $user->cancellation_reasons()->create([
+                    'reason' => $request->input('reason'),
+                    'user_id' => $user->id,
+                ]);
+            } catch (\Throwable $e) {
+                \Log::warning('cancel_order: impossile de sauver cancellation_reason', ['err' => $e->getMessage()]);
+            }
+        }
+
+        try {
+            // Annuler le groupe de commandes (state machine + livraison + points fidélité)
+            $this->foodOrderFinanceService->cancelOrderGroup($order->order_no, [
+                'actor_type' => 'admin',
+                'actor_id'   => $user?->id,
+                'reason_code'=> 'admin_cancelled',
+                'notes'      => $request->input('reason'),
+            ]);
+
+            // Marquer le remboursement si nécessaire
+            $this->refunds->refundOrder($order, 'admin_cancelled', [
+                'actor_type'      => 'admin',
+                'actor_id'        => $user?->id,
+                'idempotency_key' => 'admin-cancelled-' . $order->id,
+                'amount'          => (float) ($order->total ?? 0),
+            ]);
+
+            // Notifier le client par email si possible
+            try {
+                $order->loadMissing('user');
+                if ($order->user?->email) {
+                    $orderNo   = $order->order_no;
+                    $userEmail = $order->user->email;
+                    $userName  = $order->user->name ?? 'Client';
+                    $reason    = $request->input('reason');
+                    $contactUrl= route('contact.us');
+                    \Illuminate\Support\Facades\Mail::send([], [], function ($m) use ($userEmail, $userName, $orderNo, $reason, $contactUrl) {
+                        $m->to($userEmail, $userName)
+                          ->subject("Commande #$orderNo annulée par l'administration — BantuDelice")
+                          ->html(
+                            "<div style='font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px;'>"
+                            . "<h2 style='color:#ef4444;'>Commande annulée</h2>"
+                            . "<p>Bonjour " . htmlspecialchars($userName, ENT_QUOTES) . ",</p>"
+                            . "<p>Votre commande <strong>#" . htmlspecialchars($orderNo, ENT_QUOTES) . "</strong> a été annulée par notre équipe.</p>"
+                            . "<div style='background:#fef2f2;border-left:4px solid #ef4444;padding:12px 16px;border-radius:0 8px 8px 0;margin:16px 0;'>"
+                            . "<strong>Motif :</strong> " . htmlspecialchars($reason, ENT_QUOTES)
+                            . "</div>"
+                            . "<p>Si vous avez été débité, un remboursement est en cours de traitement.</p>"
+                            . "<a href='" . htmlspecialchars($contactUrl, ENT_QUOTES) . "' style='color:#009543;'>Contacter le support</a>"
+                            . "</div>"
+                          );
+                    });
+                }
+            } catch (\Throwable $e) {
+                \Log::warning('cancel_order admin: email client échoué', ['err' => $e->getMessage()]);
+            }
+
+            return redirect()->route('admin.all_orders')->with('alert', [
+                'type'    => 'success',
+                'message' => 'Commande #' . $order->order_no . ' annulée avec succès.',
+            ]);
+
+        } catch (\Throwable $e) {
+            \Log::error('cancel_order admin: échec', ['order_no' => $order->order_no, 'err' => $e->getMessage()]);
+            return redirect()->back()->with('alert', [
+                'type'    => 'danger',
+                'message' => 'Erreur lors de l\'annulation : ' . $e->getMessage(),
+            ]);
+        }
     }
 
     public function assign_order(Order $order)

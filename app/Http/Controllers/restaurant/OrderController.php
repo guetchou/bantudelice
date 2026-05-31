@@ -82,7 +82,7 @@ class OrderController extends Controller
         $count = $orders->count();
         $new = false;
         foreach ($orders as $key => $value) {
-            $value['time'] = Carbon::parse($value->created_at)->diffForhumans();
+            $value['time'] = Carbon::parse($value->created_at)->diffForHumans();
             $time = Carbon::parse($value->created_at)->diffInSeconds();
             if($time < 10){
                 $new = true;
@@ -111,27 +111,20 @@ class OrderController extends Controller
             $query->where('status', 'pending');
         }
 
-        if($request->has('date')) {
-            $arr = explode("-", $request->date, 2);
-            $start = $arr[0];
-            $end = $arr[1];
-
-            $timestamp1 = strtotime($start);
-            $start = date('Y-m-d H:i:s', $timestamp1);
-
-            $timestamp = strtotime($end);
-            $end = date('Y-m-d H:i:s', $timestamp);
-            $orders=$query->whereBetween('created_at', [$start, $end])->latest()->get()->unique('order_no');
-        }else{
-            $orders=$query->latest()->get()->unique('order_no');
+        if($request->filled('date')) {
+            $arr   = explode(' - ', $request->date, 2);
+            $start = Carbon::createFromFormat('d/m/Y', trim($arr[0]))->startOfDay();
+            $end   = Carbon::createFromFormat('d/m/Y', trim($arr[1] ?? $arr[0]))->endOfDay();
+            $orders = $query->whereBetween('created_at', [$start, $end])->latest()->get()->unique('order_no');
+        } else {
+            $orders = $query->latest()->get()->unique('order_no');
         }
         $chatService = app(OrderChatService::class);
         $orders = $orders->map(function ($order) use ($chatService) {
             $order->chatBadge = $chatService->badgeDataForOrder($order, auth()->user());
             return $order;
         });
-         //dd($restuarantId);
-        return view('restaurant.order.all_orders',compact('orders'));
+        return view('restaurant.order.all_orders', compact('orders'));
     }
     public function complete_orders(Request $request)
     {
@@ -145,19 +138,13 @@ class OrderController extends Controller
             $query->where('status', 'completed');
         }
 
-        if($request->has('date')) {
-            $arr = explode("-", $request->date, 2);
-            $start = $arr[0];
-            $end = $arr[1];
-
-            $timestamp1 = strtotime($start);
-            $start = date('Y-m-d H:i:s', $timestamp1);
-
-            $timestamp = strtotime($end);
-            $end = date('Y-m-d H:i:s', $timestamp);
-            $orders=$query->whereBetween('created_at', [$start, $end])->latest()->get()->unique('order_no');
-        }else{
-            $orders=$query->latest()->get()->unique('order_no');
+        if($request->filled('date')) {
+            $arr   = explode(' - ', $request->date, 2);
+            $start = Carbon::createFromFormat('d/m/Y', trim($arr[0]))->startOfDay();
+            $end   = Carbon::createFromFormat('d/m/Y', trim($arr[1] ?? $arr[0]))->endOfDay();
+            $orders = $query->whereBetween('created_at', [$start, $end])->latest()->get()->unique('order_no');
+        } else {
+            $orders = $query->latest()->get()->unique('order_no');
         }
         $chatService = app(OrderChatService::class);
         $orders = $orders->map(function ($order) use ($chatService) {
@@ -165,7 +152,7 @@ class OrderController extends Controller
             return $order;
         });
 
-        return view('restaurant.order.complete_orders')->with('orders',$orders);
+        return view('restaurant.order.complete_orders')->with('orders', $orders);
     }
     public function pending_orders(Request $request)
     {
@@ -188,18 +175,12 @@ class OrderController extends Controller
             $query->where('status', 'assign');
         }
 
-        if($request->has('date')) {
-            $arr = explode("-", $request->date, 2);
-            $start = $arr[0];
-            $end = $arr[1];
-
-            $timestamp1 = strtotime($start);
-            $start = date('Y-m-d H:i:s', $timestamp1);
-
-            $timestamp = strtotime($end);
-            $end = date('Y-m-d H:i:s', $timestamp);
-            $orders=$query->whereBetween('created_at', [$start, $end])->latest()->get()->unique('order_no');
-        }else {
+        if($request->filled('date')) {
+            $arr   = explode(' - ', $request->date, 2);
+            $start = Carbon::createFromFormat('d/m/Y', trim($arr[0]))->startOfDay();
+            $end   = Carbon::createFromFormat('d/m/Y', trim($arr[1] ?? $arr[0]))->endOfDay();
+            $orders = $query->whereBetween('created_at', [$start, $end])->latest()->get()->unique('order_no');
+        } else {
             $orders = $query->latest()->get()->unique('order_no');
         }
         $chatService = app(OrderChatService::class);
@@ -207,7 +188,7 @@ class OrderController extends Controller
             $order->chatBadge = $chatService->badgeDataForOrder($order, auth()->user());
             return $order;
         });
-        return view('restaurant.order.pending_orders')->with('orders',$orders);
+        return view('restaurant.order.pending_orders')->with('orders', $orders);
     }
     public function cancel_orders(Request $request)
     {
@@ -221,26 +202,20 @@ class OrderController extends Controller
             $query->where('status', 'cancelled');
         }
 
-        if($request->has('date')) {
-            $arr = explode("-", $request->date, 2);
-            $start = $arr[0];
-            $end = $arr[1];
-
-            $timestamp1 = strtotime($start);
-            $start = date('Y-m-d H:i:s', $timestamp1);
-
-            $timestamp = strtotime($end);
-            $end = date('Y-m-d H:i:s', $timestamp);
-            $orders=$query->whereBetween('created_at', [$start, $end])->latest()->get()->unique('order_no');
-        }else {
-            $orders = $query->get()->unique('order_no');
+        if($request->filled('date')) {
+            $arr   = explode(' - ', $request->date, 2);
+            $start = Carbon::createFromFormat('d/m/Y', trim($arr[0]))->startOfDay();
+            $end   = Carbon::createFromFormat('d/m/Y', trim($arr[1] ?? $arr[0]))->endOfDay();
+            $orders = $query->whereBetween('created_at', [$start, $end])->latest()->get()->unique('order_no');
+        } else {
+            $orders = $query->latest()->get()->unique('order_no');
         }
         $chatService = app(OrderChatService::class);
         $orders = $orders->map(function ($order) use ($chatService) {
             $order->chatBadge = $chatService->badgeDataForOrder($order, auth()->user());
             return $order;
         });
-        return view('restaurant.order.cancel_orders')->with('orders',$orders);
+        return view('restaurant.order.cancel_orders')->with('orders', $orders);
     }
     public function getPreparingOrders()
     {
@@ -302,23 +277,25 @@ class OrderController extends Controller
 
                 // Email de refus au client
                 if ($orderModel->user?->email) {
-                    $orderNo   = $orderModel->order_no;
-                    $userEmail = $orderModel->user->email;
-                    $userName  = $orderModel->user->name ?? 'Client';
-                    \Illuminate\Support\Facades\Mail::send([], [], function ($m) use ($userEmail, $userName, $orderNo, $notes) {
+                    $orderNo      = $orderModel->order_no;
+                    $userEmail    = $orderModel->user->email;
+                    $userName     = $orderModel->user->name ?? 'Client';
+                    $contactUrl   = route('contact.us');
+                    $logoUrl      = url('frontend/images/BuntuDelice.png');
+                    \Illuminate\Support\Facades\Mail::send([], [], function ($m) use ($userEmail, $userName, $orderNo, $notes, $contactUrl, $logoUrl) {
                         $m->to($userEmail, $userName)
                           ->subject("Commande #$orderNo annulée — BantuDelice")
                           ->html(
                             "<div style='font-family:sans-serif;max-width:480px;margin:0 auto;padding:24px;'>"
-                            . "<img src='" . url('frontend/images/BuntuDelice.png') . "' alt='BantuDelice' style='height:36px;margin-bottom:16px;'>"
+                            . "<img src='$logoUrl' alt='BantuDelice' style='height:36px;margin-bottom:16px;'>"
                             . "<h2 style='color:#ef4444;'>Commande annulée</h2>"
-                            . "<p>Bonjour $userName,</p>"
-                            . "<p>Votre commande <strong>#$orderNo</strong> a été annulée par le restaurant.</p>"
+                            . "<p>Bonjour " . htmlspecialchars($userName, ENT_QUOTES) . ",</p>"
+                            . "<p>Votre commande <strong>#" . htmlspecialchars($orderNo, ENT_QUOTES) . "</strong> a été annulée par le restaurant.</p>"
                             . "<div style='background:#fef2f2;border-left:4px solid #ef4444;padding:12px 16px;border-radius:0 8px 8px 0;margin:16px 0;'>"
-                            . "<strong>Motif :</strong> $notes"
+                            . "<strong>Motif :</strong> " . htmlspecialchars($notes, ENT_QUOTES)
                             . "</div>"
                             . "<p>Si vous avez été débité, un remboursement est en cours de traitement.</p>"
-                            . "<a href='" . route('contact.us') . "' style='color:#009543;'>Contacter le support</a>"
+                            . "<a href='" . htmlspecialchars($contactUrl, ENT_QUOTES) . "' style='color:#009543;'>Contacter le support</a>"
                             . "<p style='color:#94a3b8;font-size:12px;margin-top:20px;'>BantuDelice — Brazzaville &amp; Pointe-Noire</p>"
                             . "</div>"
                           );
@@ -461,10 +438,15 @@ class OrderController extends Controller
             'id'=>'required',
         ]);
         
-        $restuarantId=auth()->user()->id;
-        $restaurant=Restaurant::where('id',$restuarantId)->first();
-        $latitude=$restaurant->latitude;
-        $longitude=$restaurant->longitude;
+        $restaurant = Restaurant::where('user_id', auth()->id())->first();
+        if (!$restaurant) {
+            return redirect()->back()->with('alert', ['type' => 'danger', 'message' => 'Restaurant introuvable']);
+        }
+        $latitude  = $restaurant->latitude;
+        $longitude = $restaurant->longitude;
+        if (!$latitude || !$longitude) {
+            return redirect()->back()->with('alert', ['type' => 'danger', 'message' => 'Coordonnées du restaurant non configurées — impossible d\'assigner un livreur']);
+        }
         $radius=6371;
         
          //     //Notification for New Ride
@@ -482,41 +464,41 @@ class OrderController extends Controller
         $checkDriverData=DB::table('reason_reject')->whereIn('order_no',$request->id)->get();
         //dd($checkDriverData);
         $checkIds=$checkDriverData->pluck('driver_id')->toArray();
-        if(!$checkDriverData){
-        $driversIfNot = Driver::selectRaw("id, name, address, latitude, longitude,device_token,
-        
-                     ( 6371 * acos( cos( radians(?) ) *
-                       cos( radians( latitude ) )
-                       * cos( radians( longitude ) - radians(?)
-                       ) + sin( radians(?) ) *
-                       sin( radians( latitude ) ) )
-                     ) AS distance", [$latitude, $longitude, $latitude])
-        ->where('status', '=', 'online')
-        ->having("distance", "<", $radius)
-        ->orderBy("distance",'asc')
-        ->first();
-        $driver_id=$driversIfNot->id;
-        $user_id=$driversIfNot->id;
-        $device_token=$driversIfNot->device_token;
-       }
-       else{
-           $drivers = Driver::selectRaw("id, name, address, latitude, longitude,device_token,
-        
-                     ( 6371 * acos( cos( radians(?) ) *
-                       cos( radians( latitude ) )
-                       * cos( radians( longitude ) - radians(?)
-                       ) + sin( radians(?) ) *
-                       sin( radians( latitude ) ) )
-                     ) AS distance", [$latitude, $longitude, $latitude])
-        ->whereNotIn("id",$checkIds)->where('status', '=', 'online')
-        ->having("distance", "<", $radius)
-        ->orderBy("distance",'asc')
-        ->first();
-        $driver_id=$drivers->id;
-        $device_token=$drivers->device_token;
-       }
-        $updateProduct = Order::whereIn('id',$request->id)
-        ->update(['driver_id' => $drivers->id]);
+        if(!$checkDriverData->count()){
+            $selectedDriver = Driver::selectRaw("id, name, address, latitude, longitude, device_token,
+                         ( 6371 * acos( cos( radians(?) ) *
+                           cos( radians( latitude ) )
+                           * cos( radians( longitude ) - radians(?)
+                           ) + sin( radians(?) ) *
+                           sin( radians( latitude ) ) )
+                         ) AS distance", [$latitude, $longitude, $latitude])
+            ->where('status', '=', 'online')
+            ->having("distance", "<", $radius)
+            ->orderBy("distance", 'asc')
+            ->first();
+        } else {
+            $selectedDriver = Driver::selectRaw("id, name, address, latitude, longitude, device_token,
+                         ( 6371 * acos( cos( radians(?) ) *
+                           cos( radians( latitude ) )
+                           * cos( radians( longitude ) - radians(?)
+                           ) + sin( radians(?) ) *
+                           sin( radians( latitude ) ) )
+                         ) AS distance", [$latitude, $longitude, $latitude])
+            ->whereNotIn("id", $checkIds)->where('status', '=', 'online')
+            ->having("distance", "<", $radius)
+            ->orderBy("distance", 'asc')
+            ->first();
+        }
+
+        if (!$selectedDriver) {
+            return redirect()->back()->with('alert', ['type' => 'danger', 'message' => 'Aucun livreur disponible dans la zone']);
+        }
+
+        $driver_id    = $selectedDriver->id;
+        $device_token = $selectedDriver->device_token;
+
+        $updateProduct = Order::whereIn('id', $request->id)
+            ->update(['driver_id' => $selectedDriver->id]);
          $data=$this->notification($body,$title,$device_token,$key,$driver_id);
         //dd($data);
         $alert = [];

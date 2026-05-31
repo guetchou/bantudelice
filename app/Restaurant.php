@@ -14,6 +14,10 @@ class Restaurant extends Model
         'latitude','longitude','min_order','avg_delivery_time',
         'services','account_name','account_number','bank_name','branch_name',
         'is_paused','paused_until','pause_reason','last_activity_at'];
+    protected $casts = [
+        'last_activity_at' => 'datetime',
+        'paused_until'     => 'datetime',
+    ];
     public function cuisines()
     {
         return $this->belongsToMany(Cuisine::class);

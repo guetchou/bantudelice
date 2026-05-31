@@ -154,6 +154,10 @@ class FoodOrderStateMachineService
                 }
 
                 event(new FoodMissionPresenceUpdated($freshFirst));
+
+                if ($targetBusinessStatus === 'ready_for_pickup' && !$freshFirst->isPickup() && $freshFirst->delivery && !$driverId) {
+                    \App\Jobs\AutoAssignDeliveryJob::dispatch($freshFirst->delivery);
+                }
             }
         }
 

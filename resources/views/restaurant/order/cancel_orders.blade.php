@@ -1,186 +1,114 @@
 @extends('layouts.restaurant_app')
-@section('title','Annuler orders')
+@section('title', 'Commandes annulées | ' . \App\Services\ConfigService::getCompanyName())
 @section('topbar_title', 'Commandes annulées')
-
-@section('style')
-<link rel="stylesheet" href="{{asset('plugins/datatables-bs4/css/dataTables.bootstrap4.css')}}">
-<link rel="stylesheet" href="{{asset('plugins/sweetalert2/sweetalert2.css')}}">
-<link rel="stylesheet" href="https://cdn.datatables.net/buttons/1.6.5/css/buttons.dataTables.min.css">
-@endsection
 @section('order_nav', 'active')
-@section('order_nav_open', 'menu-open')
-@section('order_nav_cancel', 'active')
 
 @section('content')
-    <div class="content-header">
-        @if(session()->has('alert'))
-            <div class="alert alert-{{ session()->get('alert.type') }}">
-                {{ session()->get('alert.message') }}
-            </div>
-        @endif
-        <div class="container-fluid">
-            <div class="row mb-2">
-                <div class="col-sm-6">
-                    <h1 class="m-0 text-dark">Annuler Restaurant</h1>
-                </div><!-- /.col -->
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-right">
-                        <li class="breadcrumb-item"><a href="{{ route('restaurant.dashboard') }}">Accueil</a></li>
-                        <li class="breadcrumb-item active">Commandes annulées</li>
-                    </ol>
-                </div><!-- /.col -->
-            </div><!-- /.row -->
-        </div><!-- /.container-fluid -->
-    </div>
-    <section class="content">
-        <div class="container-fluid">
-            <!-- Small boxes (Stat box) -->
-            <div class="row justify-content-center">
-                <div class="col-md-8">
-                    <div class="card card-danger">
-                        <div class="card-header">
-                            <h3 class="card-title">Filter</h3>
-                        </div>
-                        <div class="card-body">
-                            <form action="" method="get">
-                                <div class="row">
-                                    <div class="col-7">
-                                        <div class="input-group">
-                                            <div class="input-group-prepend">
-                                                <span class="input-group-text"><i class="far fa-clock"></i></span>
-                                            </div>
-                                            <input type="text" class="form-control float-right" name="date" id="reservationtime">
-                                        </div>
-                                    </div>
-                                    <div class="col-5">
-                                        <button class="btn btn-danger" type="submit">Filter Now</button>
-                                    </div>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                    <!-- /.card-body -->
-                </div>
-            </div>
-            <div class="row">
-                <div class="col-12">
-                    <div class="card">
-                         <div class="card-header">
-                           <div class="row">
-                               <div class="col-sm-6"><h6 class="m-0"><b>Total :</b> {{ number_format((float) $orders->sum('total'), 0, ',', ' ') }} FCFA</h6></div> 
-                           <div class="col-sm-6"></div>
-                        </div>
-                          
-                      </div>
-                        <!-- /.card-header -->
-                        <div class="card-body table-responsive p-2">
-                            <table class="table table-head-fixed text-nowrap" id="example1">
-                                <thead>
-                                <tr>
-                                    <th>ID</th>
-                                    <th>N° de commande.</th>
-                                    <th>Restaurant</th>
-                                    <th>Montant</th>
-                                    <th>Statut</th>
-                                    <th>Action</th>
-                                </tr>
-                                </thead>
-                                <tbody>
-                                @foreach($orders as $index => $order)
-                                    <tr>
-                                        <td>{{++$index}}</td>
-                                        <td>{{$order->order_no}}</td>
-                                        <td>{{$order->restaurant->name}}</td>
-                                        <td>{{$order->total}}</td>
-                                        <td>{{$order->status}}</td>
-                                        <td><a href="{{route('restaurant.show_order',$order->order_no)}}" class="btn btn-outline-info btn-sm" title="view">Voir</a></td>
-                                    </tr>
-                                @endforeach
-                                </tbody>
-                                <tfoot>
-                                <tr>
-                                    <th></th>
-                                    <th></th>
-                                    <th></th>
-                                    <th></th>
-                                    <th>Total:</th>
-                                    <th></th>
-                                </tr>
-                                </tfoot>
-                            </table>
-                        </div>
-                        <!-- /.card-body -->
-                    </div>
-                    <!-- /.card -->
-                </div>
+@include('restaurant.order._ord_shared', ['activeTab' => 'cancelled'])
 
+<div class="ord" style="margin-top:20px;">
+
+    @if(session()->has('alert'))
+        <div class="alert alert-{{ session()->get('alert.type') }} alert-dismissible" role="alert">
+            {{ session()->get('alert.message') }}
+            <button type="button" class="close" data-dismiss="alert"><span>&times;</span></button>
+        </div>
+    @endif
+
+    {{-- Filtre date --}}
+    <div class="ord-toolbar">
+        <form method="get" action="" style="display:contents;">
+            <label class="ord-dateinput">
+                <i class="fas fa-calendar-range"></i>
+                <input type="text" name="date" id="ordDateRange"
+                       value="{{ request('date','') }}" placeholder="Filtrer par période…" autocomplete="off">
+            </label>
+            <button type="submit" class="ord-btn ord-btn--outline"><i class="fas fa-filter"></i> Filtrer</button>
+            @if(request('date'))
+                <a href="{{ route('restaurant.cancel_orders') }}" class="ord-btn ord-btn--outline">
+                    <i class="fas fa-times"></i> Réinitialiser
+                </a>
+            @endif
+        </form>
+        <span style="font-size:12px;color:var(--bd-text-3);">{{ $orders->count() }} commande(s)</span>
+    </div>
+
+    {{-- Tableau --}}
+    <div class="ord-card">
+        <div class="ord-card__head">
+            <div>
+                <div class="ord-card__title">Commandes annulées</div>
+                <div class="ord-card__meta">Annulées par le client ou le restaurant</div>
+            </div>
+            <div>
+                <div class="ord-total" style="color:#dc2626;">{{ number_format((float) $orders->sum('total'), 0, ',', ' ') }} <small>FCFA</small></div>
+                <div style="font-size:10px;color:var(--bd-text-3);text-align:right;margin-top:2px;">Total annulé</div>
             </div>
         </div>
-    </section>
+        <div class="ord-table-wrap">
+            @if($orders->count() > 0)
+                <table class="ord-table">
+                    <thead>
+                        <tr>
+                            <th>Référence</th>
+                            <th class="ord-col-hide">Client</th>
+                            <th>Montant</th>
+                            <th class="ord-col-hide">Adresse</th>
+                            <th>Statut</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($orders as $order)
+                            <tr>
+                                <td>
+                                    <span class="ord-ref">{{ $order->order_no }}</span>
+                                    <span class="ord-ref-time">{{ \Carbon\Carbon::parse($order->created_at)->format('d/m · H:i') }}</span>
+                                </td>
+                                <td class="ord-col-hide">{{ $order->user->name ?? $order->customer_name ?? '—' }}</td>
+                                <td>
+                                    <span class="ord-amount" style="color:var(--bd-text-3);">{{ number_format((float) $order->total, 0, ',', ' ') }}</span>
+                                    <span class="ord-amount-cur">FCFA</span>
+                                </td>
+                                <td class="ord-col-hide">
+                                    <div class="ord-address" title="{{ $order->delivery_address }}">{{ $order->delivery_address ?? '—' }}</div>
+                                </td>
+                                <td><span class="ord-badge ord-badge--cancelled">Annulée</span></td>
+                                <td>
+                                    <a href="{{ route('restaurant.show_order', $order->order_no) }}" class="ord-action-btn" title="Voir">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            @else
+                <div class="ord-empty">
+                    <i class="fas fa-ban" style="color:var(--bd-text-3);"></i>
+                    Aucune commande annulée sur cette période
+                </div>
+            @endif
+        </div>
+    </div>
+
+</div>
 @endsection
+
 @section('script')
-    <script src="{{asset('plugins/datatables/jquery.dataTables.js')}}"></script>
-    <script src="{{asset('plugins/datatables-bs4/js/dataTables.bootstrap4.js')}}"></script>
-<script src="https://cdn.datatables.net/buttons/1.6.5/js/dataTables.buttons.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.3/jszip.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/pdfmake.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/vfs_fonts.js"></script>
-<script src="https://cdn.datatables.net/buttons/1.6.5/js/buttons.html5.min.js"></script>
-<script src="https://cdn.datatables.net/buttons/1.6.5/js/buttons.colVis.min.js"></script>
 <script>
-    $(function () {
-        $("#example1").DataTable({
-            dom: 'Bfrtip',
-            buttons: [
-                'colvis',
-                { extend: 'excelHtml5', footer: true },
-                { extend: 'csvHtml5', footer: true },
-                { extend: 'pdfHtml5', footer: true }
-            ],
-            "footerCallback": function ( row, data, start, end, display ) {
-                var api = this.api(), data;
-
-                // Remove the formatting to get integer data for summation
-                var intVal = function ( i ) {
-                    return typeof i === 'string' ?
-                        i.replace(/[\$,]/g, '')*1 :
-                        typeof i === 'number' ?
-                            i : 0;
-                };
-
-                // Total over all pages
-                total = api
-                    .column( 3 )
-                    .data()
-                    .reduce( function (a, b) {
-                        return intVal(a) + intVal(b);
-                    }, 0 );
-
-                // Total over this page
-                pageTotal = api
-                    .column( 3, { page: 'current'} )
-                    .data()
-                    .reduce( function (a, b) {
-                        return intVal(a) + intVal(b);
-                    }, 0 );
-
-                // Update footer
-                $( api.column( 5 ).footer() ).html(
-                    '$'+pageTotal.toFixed(2) +' ( $'+ total.toFixed(2) +' total)'
-                );
-            }
-        } );
-        //Date range picker
-        $('#reservation').daterangepicker()
-        //Date range picker with time picker
-        $('#reservationtime').daterangepicker({
-            timePicker: true,
-            timePickerIncrement: 30,
-            locale: {
-                format: 'MM/DD/YYYY hh:mm A'
-            }
-        })
-
-    });
+$(function () {
+    if ($.fn.daterangepicker) {
+        $('#ordDateRange').daterangepicker({
+            autoUpdateInput: false,
+            locale: { cancelLabel:'Vider', applyLabel:'Appliquer', format:'DD/MM/YYYY',
+                      daysOfWeek:['Di','Lu','Ma','Me','Je','Ve','Sa'],
+                      monthNames:['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'],
+                      firstDay:1 }
+        });
+        $('#ordDateRange').on('apply.daterangepicker', function(ev,p){ $(this).val(p.startDate.format('DD/MM/YYYY')+' - '+p.endDate.format('DD/MM/YYYY')); });
+        $('#ordDateRange').on('cancel.daterangepicker', function(){ $(this).val(''); });
+    }
+});
 </script>
 @endsection

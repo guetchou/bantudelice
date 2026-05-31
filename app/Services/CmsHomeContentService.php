@@ -28,6 +28,7 @@ class CmsHomeContentService
         'opportunity_one',
         'opportunity_two',
         'opportunity_three',
+        'mosaic',
     ];
 
     public function __construct(private CmsContentService $cmsContentService)
@@ -115,6 +116,9 @@ class CmsHomeContentService
             'opportunity_1_image' => $request->file('home_opportunity_1_image') ?: $request->input('home_opportunity_1_image_media_path'),
             'opportunity_2_image' => $request->file('home_opportunity_2_image') ?: $request->input('home_opportunity_2_image_media_path'),
             'opportunity_3_image' => $request->file('home_opportunity_3_image') ?: $request->input('home_opportunity_3_image_media_path'),
+            'mosaic_cuisine_image' => $request->file('home_mosaic_cuisine_image') ?: $request->input('home_mosaic_cuisine_image_media_path'),
+            'mosaic_driver_image' => $request->file('home_mosaic_driver_image') ?: $request->input('home_mosaic_driver_image_media_path'),
+            'mosaic_restaurant_image' => $request->file('home_mosaic_restaurant_image') ?: $request->input('home_mosaic_restaurant_image_media_path'),
         ];
 
         $this->persistSections($payload, $userId, true, $workspace);
@@ -161,6 +165,7 @@ class CmsHomeContentService
         $opportunityOne = $sections->get($this->sectionSlug('opportunity_one', $workspace));
         $opportunityTwo = $sections->get($this->sectionSlug('opportunity_two', $workspace));
         $opportunityThree = $sections->get($this->sectionSlug('opportunity_three', $workspace));
+        $mosaic = $sections->get($this->sectionSlug('mosaic', $workspace));
 
         return array_filter([
             'hero_badge' => $this->fieldValue($hero, 'home_section_eyebrow'),
@@ -223,6 +228,9 @@ class CmsHomeContentService
             'opportunity_3_image' => $this->fieldValue($opportunityThree, 'home_section_image')
                 ?: $this->fieldValue($opportunityThree, 'home_section_image_secondary')
                 ?: $this->fieldValue($opportunityThree, 'home_section_image_tertiary'),
+            'mosaic_cuisine_image' => $this->fieldValue($mosaic, 'home_section_image'),
+            'mosaic_driver_image' => $this->fieldValue($mosaic, 'home_section_image_secondary'),
+            'mosaic_restaurant_image' => $this->fieldValue($mosaic, 'home_section_image_tertiary'),
         ], static fn ($value) => $value !== null && $value !== '');
     }
 
@@ -461,6 +469,19 @@ class CmsHomeContentService
                     'home_section_primary_cta_label' => $payload['opportunity_3_cta'] ?? '',
                     'home_section_primary_cta_url' => $payload['opportunity_3_url'] ?? '',
                     'home_section_sort_order' => 73,
+                    'home_section_is_active' => 1,
+                ],
+            ],
+            [
+                'slug' => $this->sectionSlug('mosaic', $workspace),
+                'title' => 'Mosaïque livraison',
+                'excerpt' => null,
+                'fields' => [
+                    'home_section_key' => 'mosaic',
+                    'home_section_image' => $payload['mosaic_cuisine_image'] ?? null,
+                    'home_section_image_secondary' => $payload['mosaic_driver_image'] ?? null,
+                    'home_section_image_tertiary' => $payload['mosaic_restaurant_image'] ?? null,
+                    'home_section_sort_order' => 80,
                     'home_section_is_active' => 1,
                 ],
             ],

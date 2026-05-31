@@ -34,4 +34,12 @@ return [
         'public_token' => env('MAPBOX_PUBLIC_TOKEN'),
     ],
 
+    'firebase' => [
+        'rtdb_url' => env('FIREBASE_URL'),
+    ],
+
+    'google' => [
+        'maps_key' => env('GOOGLE_MAPS_API_KEY'),
+    ],
+
 ];

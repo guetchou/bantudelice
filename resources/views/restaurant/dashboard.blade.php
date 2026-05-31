@@ -5,518 +5,431 @@
 
 @section('style')
 <style>
-/* ═══════════════════════════════════════════════════════
-   Dashboard restaurant — design professionnel
-   Palette : neutre + vert accent strict
-   Typographie : Inter uniquement
-   ═══════════════════════════════════════════════════════ */
-
-/* ── Reset de page ─────────────────────────────────── */
 .db { display: flex; flex-direction: column; gap: 20px; }
 
-/* ── En-tête de page ───────────────────────────────── */
-.db-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    flex-wrap: wrap;
+/* ── Bandeau statut ─────────────────────────────────────── */
+.db-status {
+    display: flex; align-items: center; gap: 14px; flex-wrap: wrap;
+    padding: 13px 18px;
+    border-radius: var(--bd-radius);
+    border: 1px solid var(--bd-border);
+    background: var(--bd-surface);
+    transition: background .2s, border-color .2s;
 }
-.db-header__left {}
-.db-header__title {
-    font-size: 20px;
-    font-weight: 700;
-    color: #111827;
-    letter-spacing: -.02em;
-    line-height: 1.2;
+.db-status--online { border-color: rgba(34,197,94,.3); background: rgba(34,197,94,.04); }
+.db-status--paused { border-color: rgba(245,158,11,.3); background: rgba(245,158,11,.04); }
+[data-theme="dark"] .db-status--online { background: rgba(0,201,87,.06); }
+[data-theme="dark"] .db-status--paused { background: rgba(245,158,11,.06); }
+.db-status__dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+.db-status__dot--online { background: #22c55e; box-shadow: 0 0 0 3px rgba(34,197,94,.2); animation: bd-pulse 2s infinite; }
+.db-status__dot--paused { background: #f59e0b; box-shadow: 0 0 0 3px rgba(245,158,11,.2); }
+.db-status__text { flex: 1; font-size: 13px; font-weight: 600; color: var(--bd-text); }
+.db-status__sub  { font-size: 11px; color: var(--bd-text-3); margin-top: 1px; }
+.db-status__controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.db-status__select {
+    border: 1px solid var(--bd-border); border-radius: 7px;
+    padding: 5px 9px; font-size: 12px; font-weight: 500;
+    background: var(--bd-surface); color: var(--bd-text);
+    font-family: var(--bd-font); cursor: pointer;
 }
-.db-header__sub {
-    font-size: 13px;
-    color: #6b7280;
-    margin-top: 2px;
+.db-status__btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 6px 13px; border-radius: 7px; border: none;
+    font-size: 12px; font-weight: 600; cursor: pointer;
+    font-family: var(--bd-font);
 }
-.db-header__actions { display: flex; gap: 8px; align-items: center; }
-.db-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 7px 14px;
-    border-radius: 6px;
-    font-size: 13px;
-    font-weight: 500;
-    cursor: pointer;
-    transition: .12s;
-    font-family: 'Inter', sans-serif;
-}
-.db-btn--outline {
-    background: #fff;
-    border: 1px solid #e5e7eb;
-    color: #374151;
-}
-.db-btn--outline:hover { border-color: #009543; color: #009543; }
-.db-btn--primary {
-    background: #009543;
-    border: 1px solid #009543;
-    color: #fff;
-    text-decoration: none;
-}
-.db-btn--primary:hover { background: #007836; border-color: #007836; color: #fff; }
+.db-status__btn--pause  { background: #f59e0b; color: #fff; }
+.db-status__btn--resume { background: var(--bd-green); color: #fff; }
 
-/* ── KPI strip ─────────────────────────────────────── */
-.db-kpi-row {
+/* ── Ligne supérieure : KPIs financiers (aujourd'hui) ─── */
+.db-kpis {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 12px;
 }
 .db-kpi {
-    background: #fff;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    padding: 16px 18px;
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-    text-decoration: none;
-    color: inherit;
-    transition: border-color .12s, box-shadow .12s;
+    background: var(--bd-surface);
+    border: 1px solid var(--bd-border);
+    border-radius: var(--bd-radius);
+    padding: 18px 20px 16px;
+    text-decoration: none; color: inherit;
+    display: flex; flex-direction: column;
+    gap: 4px;
+    transition: border-color .12s, box-shadow .12s, background .2s;
+    position: relative; overflow: hidden;
 }
-.db-kpi:hover { border-color: #009543; box-shadow: 0 0 0 3px rgba(0,149,67,.06); }
+.db-kpi:hover { border-color: var(--bd-green); box-shadow: var(--bd-shadow-md); }
+.db-kpi__accent {
+    position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    border-radius: var(--bd-radius) var(--bd-radius) 0 0;
+}
+.db-kpi__accent--green  { background: var(--bd-green); }
+.db-kpi__accent--amber  { background: #f59e0b; }
+.db-kpi__accent--blue   { background: #3b82f6; }
+.db-kpi__accent--purple { background: #8b5cf6; }
+.db-kpi__header { display: flex; align-items: center; justify-content: space-between; margin-top: 4px; }
+.db-kpi__icon {
+    width: 32px; height: 32px; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; flex-shrink: 0;
+}
+.db-kpi__icon--green  { background: rgba(0,149,67,.1);  color: var(--bd-green); }
+.db-kpi__icon--amber  { background: rgba(245,158,11,.1); color: #d97706; }
+.db-kpi__icon--blue   { background: rgba(59,130,246,.1); color: #2563eb; }
+.db-kpi__icon--purple { background: rgba(139,92,246,.1); color: #7c3aed; }
+[data-theme="dark"] .db-kpi__icon--green  { background: rgba(0,201,87,.12);  color: #00c957; }
+[data-theme="dark"] .db-kpi__icon--amber  { background: rgba(251,191,36,.12); color: #fbbf24; }
+[data-theme="dark"] .db-kpi__icon--blue   { background: rgba(96,165,250,.12); color: #60a5fa; }
+[data-theme="dark"] .db-kpi__icon--purple { background: rgba(167,139,250,.12);color: #a78bfa; }
 .db-kpi__label {
-    font-size: 12px;
-    font-weight: 500;
-    color: #6b7280;
-    white-space: nowrap;
+    font-size: 11px; font-weight: 600; letter-spacing: .05em;
+    text-transform: uppercase; color: var(--bd-text-3);
+    margin-top: 12px;
 }
 .db-kpi__value {
-    font-size: 26px;
-    font-weight: 700;
-    color: #111827;
-    letter-spacing: -.03em;
-    line-height: 1.1;
-    margin: 6px 0 4px;
+    font-family: var(--bd-font-display);
+    font-size: 28px; font-weight: 800; color: var(--bd-text);
+    letter-spacing: -.03em; line-height: 1.1;
 }
-.db-kpi__hint { font-size: 11px; color: #9ca3af; }
-.db-kpi__indicator {
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-    font-size: 11px;
-    font-weight: 600;
-    margin-top: 4px;
+.db-kpi__value--green  { color: var(--bd-green); }
+.db-kpi__value--amber  { color: #f59e0b; }
+.db-kpi__value--blue   { color: #3b82f6; }
+.db-kpi__value--purple { color: #8b5cf6; }
+.db-kpi__sub { font-size: 11px; color: var(--bd-text-3); font-family: var(--bd-font-body); }
+.db-kpi__trend {
+    display: inline-flex; align-items: center; gap: 3px;
+    font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 999px;
 }
-.db-kpi__indicator--green { color: #009543; }
-.db-kpi__indicator--amber { color: #d97706; }
-.db-kpi__indicator--neutral { color: #9ca3af; }
+.db-kpi__trend--up   { background: rgba(34,197,94,.1);  color: #16a34a; }
+.db-kpi__trend--down { background: rgba(239,68,68,.1);  color: #dc2626; }
+.db-kpi__trend--flat { background: var(--bd-surface-2); color: var(--bd-text-3); }
+[data-theme="dark"] .db-kpi__trend--up   { background: rgba(0,201,87,.12);  color: #00c957; }
+[data-theme="dark"] .db-kpi__trend--down { background: rgba(248,113,113,.12); color: #f87171; }
 
-/* ── Grid 2 colonnes ───────────────────────────────── */
-.db-main-grid {
+/* ── Deuxième ligne : pipeline opérationnel ─────────────── */
+.db-pipeline {
     display: grid;
-    grid-template-columns: 1fr 320px;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 2px;
+    background: var(--bd-surface);
+    border: 1px solid var(--bd-border);
+    border-radius: var(--bd-radius);
+    overflow: hidden;
+}
+.db-pipe {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 3px;
+    padding: 14px 12px; text-decoration: none; color: inherit;
+    background: var(--bd-surface);
+    border-right: 1px solid var(--bd-border-2);
+    transition: background .12s;
+    position: relative;
+}
+.db-pipe:last-child { border-right: none; }
+.db-pipe:hover { background: var(--bd-surface-2); }
+.db-pipe__num {
+    font-family: var(--bd-font-display);
+    font-size: 24px; font-weight: 800; line-height: 1;
+}
+.db-pipe__num--amber  { color: #f59e0b; }
+.db-pipe__num--blue   { color: #3b82f6; }
+.db-pipe__num--indigo { color: #6366f1; }
+.db-pipe__num--green  { color: var(--bd-green); }
+.db-pipe__label { font-size: 11px; font-weight: 600; color: var(--bd-text-2); text-align: center; }
+.db-pipe__arrow {
+    position: absolute; right: -7px; top: 50%; transform: translateY(-50%);
+    width: 14px; height: 14px; background: var(--bd-surface);
+    border-right: 1px solid var(--bd-border-2); border-top: 1px solid var(--bd-border-2);
+    transform: translateY(-50%) rotate(45deg);
+    z-index: 1;
+}
+.db-pipe:last-child .db-pipe__arrow { display: none; }
+
+/* ── Troisième ligne : grille principale ────────────────── */
+.db-main {
+    display: grid;
+    grid-template-columns: 1fr 340px;
     gap: 16px;
     align-items: start;
 }
 
-/* ── Card ──────────────────────────────────────────── */
+/* ── Carte générique ─────────────────────────────────────── */
 .db-card {
-    background: #fff;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
+    background: var(--bd-surface);
+    border: 1px solid var(--bd-border);
+    border-radius: var(--bd-radius);
     overflow: hidden;
+    transition: background .2s;
 }
 .db-card__head {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 14px 18px;
-    border-bottom: 1px solid #f3f4f6;
-    flex-wrap: wrap;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; padding: 14px 20px;
+    border-bottom: 1px solid var(--bd-border-2);
 }
-.db-card__title {
-    font-size: 13px;
-    font-weight: 600;
-    color: #111827;
-}
-.db-card__sub { font-size: 12px; color: #9ca3af; margin-top: 1px; }
-.db-card__body { padding: 18px; }
-.db-card__body--flush { padding: 0; }
+.db-card__title { font-size: 13px; font-weight: 600; color: var(--bd-text); }
+.db-card__sub   { font-size: 11px; color: var(--bd-text-3); }
+.db-card__body  { padding: 20px; }
 
-/* ── Tabs ──────────────────────────────────────────── */
+/* Chart tabs */
 .db-tabs {
-    display: inline-flex;
-    border: 1px solid #e5e7eb;
-    border-radius: 6px;
-    overflow: hidden;
-    background: #f9fafb;
+    display: inline-flex; border: 1px solid var(--bd-border);
+    border-radius: 6px; overflow: hidden; background: var(--bd-surface-2);
 }
 .db-tabs a {
-    display: inline-flex;
-    align-items: center;
-    padding: 5px 12px;
-    font-size: 12px;
-    font-weight: 500;
-    color: #6b7280;
-    border: none;
-    background: transparent;
-    cursor: pointer;
-    transition: .12s;
-    text-decoration: none;
+    display: inline-flex; align-items: center;
+    padding: 4px 12px; font-size: 12px; font-weight: 500;
+    color: var(--bd-text-2); background: transparent;
+    cursor: pointer; transition: .12s; text-decoration: none; border: none;
 }
-.db-tabs a.active { background: #fff; color: #009543; font-weight: 600; }
-.db-tabs a:not(:last-child) { border-right: 1px solid #e5e7eb; }
-
-/* ── Chart ─────────────────────────────────────────── */
-.db-chart-wrap { position: relative; height: 220px; }
+.db-tabs a.active { background: var(--bd-surface); color: var(--bd-green); font-weight: 600; }
+.db-tabs a:not(:last-child) { border-right: 1px solid var(--bd-border); }
+.db-chart-wrap { position: relative; height: 210px; }
 .db-chart-wrap canvas { width: 100% !important; height: 100% !important; }
 
-/* ── Pipeline stack ────────────────────────────────── */
-.db-pipeline { display: flex; flex-direction: column; }
-.db-pipeline-item {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    padding: 12px 18px;
-    border-bottom: 1px solid #f3f4f6;
-    text-decoration: none;
-    color: inherit;
-    transition: background .1s;
+/* ── Panneau droite (commandes + top plats) ─────────────── */
+.db-right { display: flex; flex-direction: column; gap: 16px; }
+
+/* Commandes actives */
+.db-orders { display: flex; flex-direction: column; }
+.db-order {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 16px; border-bottom: 1px solid var(--bd-border-2);
+    text-decoration: none; color: inherit; transition: background .1s;
 }
-.db-pipeline-item:last-child { border-bottom: none; }
-.db-pipeline-item:hover { background: #f9fafb; }
-.db-pipeline-item__left { display: flex; align-items: center; gap: 10px; }
-.db-pipeline-item__dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
+.db-order:last-child { border-bottom: none; }
+.db-order:hover { background: var(--bd-surface-2); }
+.db-order__ref  { font-size: 12px; font-weight: 700; color: var(--bd-text); min-width: 72px; font-family: var(--bd-font-display); }
+.db-order__name { font-size: 12px; color: var(--bd-text-2); flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.db-order__amt  { font-size: 12px; font-weight: 700; color: var(--bd-green); white-space: nowrap; }
+.db-order__time { font-size: 10px; color: var(--bd-text-3); white-space: nowrap; }
+
+/* Badges statut */
+.db-badge {
+    display: inline-flex; align-items: center; gap: 3px;
+    padding: 2px 7px; border-radius: 999px; font-size: 10px; font-weight: 700;
     flex-shrink: 0;
 }
-.db-pipeline-item__dot--amber { background: #f59e0b; }
-.db-pipeline-item__dot--blue  { background: #3b82f6; }
-.db-pipeline-item__dot--indigo{ background: #6366f1; }
-.db-pipeline-item__dot--green { background: #009543; }
-.db-pipeline-item__label { font-size: 13px; font-weight: 500; color: #374151; }
-.db-pipeline-item__hint { font-size: 11px; color: #9ca3af; }
-.db-pipeline-item__value {
-    font-size: 18px;
-    font-weight: 700;
-    color: #111827;
-    letter-spacing: -.02em;
-}
+.db-badge::before { content:''; width:5px;height:5px;border-radius:50%;background:currentColor;display:block; }
+.db-badge--new       { background:rgba(245,158,11,.12); color:#d97706; }
+.db-badge--preparing { background:rgba(59,130,246,.12);  color:#2563eb; }
+.db-badge--delivering{ background:rgba(99,102,241,.12);  color:#4f46e5; }
+.db-badge--done      { background:rgba(0,149,67,.1);     color:var(--bd-green); }
+.db-badge--cancelled { background:rgba(239,68,68,.1);    color:#dc2626; }
+[data-theme="dark"] .db-badge--new        { background:rgba(251,191,36,.15); color:#fbbf24; }
+[data-theme="dark"] .db-badge--preparing  { background:rgba(96,165,250,.15); color:#60a5fa; }
+[data-theme="dark"] .db-badge--delivering { background:rgba(129,140,248,.15);color:#818cf8; }
+[data-theme="dark"] .db-badge--done       { background:rgba(0,201,87,.15);   color:#00c957; }
+[data-theme="dark"] .db-badge--cancelled  { background:rgba(248,113,113,.15);color:#f87171; }
 
-/* ── Séparateur section ────────────────────────────── */
-.db-section-label {
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: .07em;
-    text-transform: uppercase;
-    color: #9ca3af;
-    margin-bottom: -8px;
+/* Top plats */
+.db-dish {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 16px; border-bottom: 1px solid var(--bd-border-2);
 }
+.db-dish:last-child { border-bottom: none; }
+.db-dish__rank {
+    font-family: var(--bd-font-display);
+    font-size: 18px; font-weight: 800; color: var(--bd-text-3);
+    min-width: 24px; text-align: center; line-height: 1;
+}
+.db-dish__rank--1 { color: #f59e0b; }
+.db-dish__rank--2 { color: var(--bd-text-2); }
+.db-dish__rank--3 { color: #cd7c3a; }
+.db-dish__img {
+    width: 40px; height: 40px; border-radius: 8px; object-fit: cover;
+    border: 1px solid var(--bd-border); flex-shrink: 0;
+}
+.db-dish__img--placeholder {
+    width: 40px; height: 40px; border-radius: 8px;
+    background: var(--bd-surface-2); border: 1px solid var(--bd-border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px; flex-shrink: 0; color: var(--bd-text-3);
+}
+.db-dish__info { flex: 1; min-width: 0; }
+.db-dish__name { font-size: 12px; font-weight: 600; color: var(--bd-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.db-dish__meta { font-size: 11px; color: var(--bd-text-3); margin-top: 1px; }
+.db-dish__qty  { font-family: var(--bd-font-display); font-size: 16px; font-weight: 800; color: var(--bd-green); white-space: nowrap; }
 
-/* ── Finance row ───────────────────────────────────── */
-.db-finance-row {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 12px;
-}
-.db-finance-card {
-    background: #fff;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
-    padding: 16px 18px;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-    border-top: 3px solid transparent;
-}
-.db-finance-card--green  { border-top-color: #009543; }
-.db-finance-card--blue   { border-top-color: #3b82f6; }
-.db-finance-card--amber  { border-top-color: #f59e0b; }
-.db-finance-card--slate  { border-top-color: #64748b; }
-.db-finance-card__label  { font-size: 12px; font-weight: 500; color: #6b7280; }
-.db-finance-card__value  { font-size: 20px; font-weight: 700; color: #111827; letter-spacing: -.025em; line-height: 1.2; }
-.db-finance-card--green .db-finance-card__value  { color: #009543; }
-.db-finance-card__desc   { font-size: 11px; color: #9ca3af; margin-top: 2px; }
-
-/* ── Performance cards ─────────────────────────────── */
-.db-perf-row {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    gap: 12px;
-}
-.db-perf-card {
-    background: #fff;
-    border: 1px solid #e5e7eb;
-    border-radius: 8px;
+/* Actions rapides */
+.db-actions {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
     padding: 14px 16px;
-    text-decoration: none;
-    color: inherit;
-    transition: border-color .12s;
 }
-.db-perf-card:hover { border-color: #009543; }
-.db-perf-card__label { font-size: 12px; font-weight: 500; color: #6b7280; }
-.db-perf-card__value { font-size: 22px; font-weight: 700; color: #111827; letter-spacing: -.025em; margin: 4px 0 2px; line-height: 1.2; }
-.db-perf-card__hint { font-size: 11px; color: #9ca3af; }
+.db-action {
+    display: flex; align-items: center; gap: 8px;
+    padding: 9px 12px; border-radius: 7px;
+    border: 1px solid var(--bd-border);
+    background: var(--bd-surface-2);
+    text-decoration: none; color: var(--bd-text-2);
+    font-size: 12px; font-weight: 500;
+    transition: border-color .12s, background .12s, color .12s;
+}
+.db-action:hover { border-color: var(--bd-green); background: var(--bd-surface); color: var(--bd-green); }
+.db-action i { font-size: 12px; width: 14px; text-align: center; }
 
-/* ── Table ─────────────────────────────────────────── */
-.db-table { width: 100%; border-collapse: collapse; }
-.db-table th {
-    padding: 10px 16px;
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: .06em;
-    text-transform: uppercase;
-    color: #9ca3af;
-    text-align: left;
-    border-bottom: 1px solid #f3f4f6;
-    background: #f9fafb;
+.db-empty {
+    padding: 28px 16px; text-align: center;
+    font-size: 12px; color: var(--bd-text-3); font-family: var(--bd-font-body);
 }
-.db-table td {
-    padding: 12px 16px;
-    font-size: 13px;
-    color: #374151;
-    border-bottom: 1px solid #f9fafb;
-    vertical-align: middle;
+.db-empty i { font-size: 22px; display: block; margin-bottom: 8px; }
+.db-see-all {
+    display: block; text-align: center;
+    padding: 10px; font-size: 12px; font-weight: 600;
+    color: var(--bd-green); text-decoration: none;
+    border-top: 1px solid var(--bd-border-2);
+    transition: background .12s;
 }
-.db-table tr:last-child td { border-bottom: none; }
-.db-table tr:hover td { background: #f9fafb; }
-.db-table td:first-child { font-weight: 600; color: #111827; }
+.db-see-all:hover { background: var(--bd-surface-2); }
 
-/* ── Badge statut ──────────────────────────────────── */
-.db-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
-    padding: 2px 8px;
-    border-radius: 999px;
-    font-size: 11px;
-    font-weight: 600;
-}
-.db-badge::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: currentColor; display: block; }
-.db-badge--new       { background: #fef9c3; color: #854d0e; }
-.db-badge--preparing { background: #fef3c7; color: #d97706; }
-.db-badge--delivering{ background: #dbeafe; color: #1d4ed8; }
-.db-badge--done      { background: #dcfce7; color: #007836; }
-.db-badge--cancelled { background: #fee2e2; color: #b91c1c; }
-
-/* ── Reversement aside ─────────────────────────────── */
-.db-rev-stack { display: flex; flex-direction: column; gap: 0; }
-.db-rev-item {
-    padding: 14px 18px;
-    border-bottom: 1px solid #f3f4f6;
-}
-.db-rev-item:last-child { border-bottom: none; }
-.db-rev-item__label { font-size: 11px; font-weight: 600; color: #9ca3af; text-transform: uppercase; letter-spacing: .06em; }
-.db-rev-item__value { font-size: 18px; font-weight: 700; color: #111827; letter-spacing: -.025em; margin: 3px 0 1px; line-height: 1.2; }
-.db-rev-item__value--green { color: #009543; }
-.db-rev-item__value--amber { color: #d97706; }
-.db-rev-item__desc { font-size: 11px; color: #9ca3af; }
-
-/* ── Quick links ───────────────────────────────────── */
-.db-quick-links { display: flex; flex-wrap: wrap; gap: 8px; }
-.db-quick-link {
-    display: inline-flex;
-    align-items: center;
-    gap: 6px;
-    padding: 6px 14px;
-    border-radius: 6px;
-    border: 1px solid #e5e7eb;
-    background: #fff;
-    font-size: 13px;
-    font-weight: 500;
-    color: #374151;
-    text-decoration: none;
-    transition: .12s;
-}
-.db-quick-link:hover { border-color: #009543; color: #009543; }
-.db-quick-link i { font-size: 11px; color: #9ca3af; }
-
-/* ── Responsive ────────────────────────────────────── */
-@media (max-width: 1280px) {
-    .db-main-grid { grid-template-columns: 1fr; }
-    .db-finance-row { grid-template-columns: repeat(2, 1fr); }
-    .db-perf-row { grid-template-columns: repeat(2, 1fr); }
-}
-@media (max-width: 768px) {
-    .db-kpi-row { grid-template-columns: repeat(2, 1fr); }
-    .db-finance-row { grid-template-columns: 1fr 1fr; }
-    .db-perf-row { grid-template-columns: 1fr 1fr; }
-}
-@media (max-width: 480px) {
-    .db-kpi-row { grid-template-columns: 1fr 1fr; }
-    .db-finance-row { grid-template-columns: 1fr; }
-    .db-perf-row { grid-template-columns: 1fr; }
-}
+/* Responsive */
+@media (max-width: 1100px) { .db-main { grid-template-columns: 1fr; } }
+@media (max-width: 900px)  { .db-kpis { grid-template-columns: 1fr 1fr; } .db-pipeline { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 480px)  { .db-kpis { grid-template-columns: 1fr 1fr; } }
 </style>
 @endsection
 
 @section('content')
+@php
+    $rest     = \App\Restaurant::where('user_id', auth()->id())->first();
+    $isPaused = $rest && $rest->is_paused;
+    $pauseLabels = [
+        'e2c'        => 'Coupure électrique',
+        'weather'    => 'Routes impraticables',
+        'overloaded' => 'Trop de commandes',
+        'short_break'=> 'Pause courte',
+        'manual'     => 'Fermeture manuelle',
+        'other'      => 'Autre raison',
+    ];
+
+    // Ventes du jour
+    $venteDuJour     = $kpis['gross_today'] ?? 0;
+    $commandesAujourd = ($pipeline[0]['value'] ?? 0) + ($pipeline[1]['value'] ?? 0) + ($pipeline[2]['value'] ?? 0) + ($pipeline[3]['value'] ?? 0);
+    $ticketMoyen     = $kpis['average_ticket'] ?? 0;
+    $revenuNet       = $kpis['available_withdrawal'] ?? 0;
+@endphp
+
 <div class="db">
 
-    {{-- ── T1.1 — Bandeau disponibilité restaurant ────────── --}}
-    @php
-        $restaurant = \App\Restaurant::where('user_id', auth()->id())->first();
-        $isPaused   = $restaurant && $restaurant->is_paused;
-        $pauseUntil = $restaurant?->paused_until;
-        $pauseLabel = [
-            'e2c'         => 'Coupure électrique',
-            'weather'     => 'Routes impraticables',
-            'overloaded'  => 'Trop de commandes',
-            'short_break' => 'Pause courte',
-            'manual'      => 'Fermeture manuelle',
-            'auto_inactive' => 'Pause automatique (inactivité)',
-            'other'       => 'Autre raison',
-        ][$restaurant?->pause_reason] ?? null;
-    @endphp
-    <div id="availability-banner"
-         class="db-availability-banner {{ $isPaused ? 'db-availability-banner--paused' : 'db-availability-banner--online' }}"
-         style="border-radius:12px;padding:14px 20px;margin-bottom:20px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
-
-        <span id="availability-dot" style="width:12px;height:12px;border-radius:50%;flex-shrink:0;background:{{ $isPaused ? '#f59e0b' : '#22c55e' }};box-shadow:0 0 0 3px {{ $isPaused ? 'rgba(245,158,11,.25)' : 'rgba(34,197,94,.25)' }};"></span>
-
-        <div style="flex:1;min-width:180px;">
-            <div id="availability-status-text" style="font-weight:700;font-size:15px;color:{{ $isPaused ? '#92400e' : '#14532d' }};">
+    {{-- ── 1. Bandeau statut ──────────────────────────────── --}}
+    <div class="db-status {{ $isPaused ? 'db-status--paused' : 'db-status--online' }}">
+        <span class="db-status__dot {{ $isPaused ? 'db-status__dot--paused' : 'db-status__dot--online' }}"></span>
+        <div style="flex:1;min-width:0;">
+            <div class="db-status__text">
                 @if($isPaused)
                     Restaurant en pause
-                    @if($pauseLabel) — {{ $pauseLabel }} @endif
+                    @if($rest->pause_reason && isset($pauseLabels[$rest->pause_reason])) — {{ $pauseLabels[$rest->pause_reason] }} @endif
+                    @if($rest->paused_until) <span class="db-status__sub">· Réouverture à {{ $rest->paused_until->format('H:i') }}</span> @endif
                 @else
-                    Restaurant en ligne — vous recevez des commandes
+                    En ligne — vous recevez des commandes
                 @endif
             </div>
-            @if($isPaused && $pauseUntil)
-                <div style="font-size:12px;color:#78350f;margin-top:2px;">
-                    Réouverture automatique à {{ $pauseUntil->format('H:i') }}
-                </div>
+        </div>
+        <div class="db-status__controls">
+            @if(!$isPaused)
+                <select id="db-pause-reason" class="db-status__select">
+                    @foreach($pauseLabels as $k => $v)<option value="{{ $k }}">{{ $v }}</option>@endforeach
+                </select>
+                <select id="db-pause-duration" class="db-status__select">
+                    <option value="">Durée libre</option>
+                    <option value="30">30 min</option>
+                    <option value="60">1 h</option>
+                    <option value="120">2 h</option>
+                </select>
+                <button onclick="dbAvail('pause')" class="db-status__btn db-status__btn--pause">
+                    <i class="fas fa-pause"></i> Mettre en pause
+                </button>
+            @else
+                <button onclick="dbAvail('resume')" class="db-status__btn db-status__btn--resume">
+                    <i class="fas fa-play"></i> Reprendre
+                </button>
             @endif
         </div>
+    </div>
 
-        @if(!$isPaused)
-            {{-- Bouton Mettre en pause + sélecteur raison --}}
-            <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-                <select id="pause-reason-select" style="border-radius:8px;border:1px solid #d1d5db;padding:6px 10px;font-size:13px;background:#fff;">
-                    <option value="e2c">⚡ Coupure électrique (E2C)</option>
-                    <option value="weather">🌧 Routes impraticables</option>
-                    <option value="overloaded">🔥 Trop de commandes</option>
-                    <option value="short_break">☕ Pause courte</option>
-                    <option value="manual">🔒 Fermeture manuelle</option>
-                    <option value="other">Autre raison</option>
-                </select>
-                <select id="pause-duration-select" style="border-radius:8px;border:1px solid #d1d5db;padding:6px 10px;font-size:13px;background:#fff;">
-                    <option value="">Durée libre</option>
-                    <option value="30">30 minutes</option>
-                    <option value="60">1 heure</option>
-                    <option value="120">2 heures</option>
-                    <option value="240">4 heures</option>
-                    <option value="480">8 heures</option>
-                </select>
-                <button onclick="toggleAvailability('pause')"
-                        style="background:#f59e0b;color:#fff;border:none;border-radius:8px;padding:7px 16px;font-weight:600;cursor:pointer;font-size:13px;">
-                    <i class="fas fa-pause-circle"></i> Mettre en pause
-                </button>
+    {{-- ── 2. KPIs financiers du jour ─────────────────────── --}}
+    <div class="db-kpis">
+
+        {{-- Vente du jour --}}
+        <a href="{{ route('r_earnings.index') }}" class="db-kpi">
+            <div class="db-kpi__accent db-kpi__accent--green"></div>
+            <div class="db-kpi__header">
+                <div class="db-kpi__icon db-kpi__icon--green"><i class="fas fa-coins"></i></div>
             </div>
-        @else
-            {{-- Bouton Reprendre --}}
-            <button onclick="toggleAvailability('resume')"
-                    style="background:#22c55e;color:#fff;border:none;border-radius:8px;padding:7px 16px;font-weight:600;cursor:pointer;font-size:13px;">
-                <i class="fas fa-play-circle"></i> Reprendre l'activité
-            </button>
-        @endif
+            <div class="db-kpi__label">Vente du jour</div>
+            <div class="db-kpi__value db-kpi__value--green">{{ number_format($venteDuJour, 0, ',', ' ') }} <small style="font-size:14px;font-weight:600;">F</small></div>
+            <div class="db-kpi__sub">CA brut · {{ now()->format('d/m/Y') }}</div>
+        </a>
+
+        {{-- Commandes aujourd'hui --}}
+        <a href="{{ route('restaurant.all_orders') }}" class="db-kpi">
+            <div class="db-kpi__accent db-kpi__accent--amber"></div>
+            <div class="db-kpi__header">
+                <div class="db-kpi__icon db-kpi__icon--amber"><i class="fas fa-bag-shopping"></i></div>
+                @if($commandesAujourd > 0)
+                    <span class="db-kpi__trend db-kpi__trend--up"><i class="fas fa-arrow-up" style="font-size:8px;"></i> {{ $commandesAujourd }}</span>
+                @endif
+            </div>
+            <div class="db-kpi__label">Commandes</div>
+            <div class="db-kpi__value db-kpi__value--amber">{{ $commandesAujourd }}</div>
+            <div class="db-kpi__sub">Reçues aujourd'hui</div>
+        </a>
+
+        {{-- Ticket moyen --}}
+        <div class="db-kpi" style="cursor:default;">
+            <div class="db-kpi__accent db-kpi__accent--blue"></div>
+            <div class="db-kpi__header">
+                <div class="db-kpi__icon db-kpi__icon--blue"><i class="fas fa-receipt"></i></div>
+            </div>
+            <div class="db-kpi__label">Ticket moyen</div>
+            <div class="db-kpi__value db-kpi__value--blue">{{ number_format($ticketMoyen, 0, ',', ' ') }} <small style="font-size:14px;font-weight:600;">F</small></div>
+            <div class="db-kpi__sub">Par commande · aujourd'hui</div>
+        </div>
+
+        {{-- À encaisser --}}
+        <a href="{{ route('r_earnings.index') }}" class="db-kpi">
+            <div class="db-kpi__accent db-kpi__accent--purple"></div>
+            <div class="db-kpi__header">
+                <div class="db-kpi__icon db-kpi__icon--purple"><i class="fas fa-wallet"></i></div>
+            </div>
+            <div class="db-kpi__label">À encaisser</div>
+            <div class="db-kpi__value db-kpi__value--purple">{{ number_format($revenuNet, 0, ',', ' ') }} <small style="font-size:14px;font-weight:600;">F</small></div>
+            <div class="db-kpi__sub">Solde disponible · mois</div>
+        </a>
+
     </div>
 
-    <style>
-    .db-availability-banner--online  { background: #f0fdf4; border: 1px solid #bbf7d0; }
-    .db-availability-banner--paused  { background: #fffbeb; border: 1px solid #fde68a; }
-    </style>
-
-    <script>
-    function toggleAvailability(action) {
-        const url    = action === 'pause'
-            ? '{{ route("restaurant.availability.pause") }}'
-            : '{{ route("restaurant.availability.resume") }}';
-        const reason   = document.getElementById('pause-reason-select')?.value || 'manual';
-        const duration = document.getElementById('pause-duration-select')?.value || '';
-
-        const body = action === 'pause'
-            ? JSON.stringify({ reason, duration_minutes: duration ? parseInt(duration) : null })
-            : '{}';
-
-        fetch(url, {
-            method:  'POST',
-            headers: {
-                'Content-Type':     'application/json',
-                'Accept':           'application/json',
-                'X-CSRF-TOKEN':     '{{ csrf_token() }}',
-            },
-            body,
-        })
-        .then(r => r.json())
-        .then(data => {
-            if (data.status) {
-                window.location.reload();
-            } else {
-                alert(data.message || 'Erreur lors de la mise à jour.');
-            }
-        })
-        .catch(() => alert('Erreur réseau. Réessayez.'));
-    }
-    </script>
-
-    {{-- ── En-tête de page ──────────────────────────────── --}}
-    <div class="db-header">
-        <div class="db-header__left">
-            <div class="db-header__title">Tableau de bord</div>
-            <div class="db-header__sub">{{ \Carbon\Carbon::now()->locale('fr')->isoFormat('dddd D MMMM YYYY') }}</div>
-        </div>
-        <div class="db-header__actions">
-            <a href="{{ route('restaurant.all_orders') }}" class="db-btn db-btn--outline">
-                <i class="fas fa-receipt"></i> Commandes
-            </a>
-            <a href="{{ route('product.index') }}" class="db-btn db-btn--primary">
-                <i class="fas fa-plus"></i> Nouveau produit
-            </a>
-        </div>
-    </div>
-
-    {{-- ── 4 KPI du jour ─────────────────────────────────── --}}
-    <div class="db-kpi-row">
-        @foreach($pipeline as $i => $step)
-            @php
-                $dotColors = ['amber','amber','blue','green'];
-                $dotClass  = 'db-pipeline-item__dot--' . ($dotColors[$i] ?? 'green');
-                $indClass  = $step['value'] > 0
-                    ? ($i === 3 ? 'db-kpi__indicator--green' : 'db-kpi__indicator--amber')
-                    : 'db-kpi__indicator--neutral';
-            @endphp
-            <a href="{{ $step['route'] }}" class="db-kpi" style="text-decoration:none;">
-                <span class="db-kpi__label">{{ $step['label'] }}</span>
-                <span class="db-kpi__value">{{ $step['value'] }}</span>
-                <span class="db-kpi__hint">{{ $step['hint'] }}</span>
-                <span class="db-kpi__indicator {{ $indClass }}">
-                    @if($step['value'] > 0)
-                        <i class="fas fa-circle" style="font-size:6px;"></i>
-                        {{ $step['value'] > 1 ? 'Commande' . 's' : 'Commande' }}
-                    @else
-                        <i class="fas fa-minus" style="font-size:9px;"></i> Aucune
-                    @endif
-                </span>
+    {{-- ── 3. Pipeline opérationnel (commandes en cours) ───── --}}
+    <div class="db-pipeline">
+        @php
+            $pipeConfig = [
+                ['num' => $pipeline[0]['value']??0, 'label' => 'Nouvelles',     'cls' => 'amber',  'route' => route('restaurant.all_orders')],
+                ['num' => $pipeline[1]['value']??0, 'label' => 'Préparation',   'cls' => 'blue',   'route' => route('restaurant.all_orders')],
+                ['num' => $pipeline[2]['value']??0, 'label' => 'Livraison',     'cls' => 'indigo', 'route' => route('restaurant.pending_orders')],
+                ['num' => $pipeline[3]['value']??0, 'label' => 'Terminées auj.','cls' => 'green',  'route' => route('restaurant.complete_orders')],
+            ];
+        @endphp
+        @foreach($pipeConfig as $p)
+            <a href="{{ $p['route'] }}" class="db-pipe">
+                <span class="db-pipe__num db-pipe__num--{{ $p['cls'] }}">{{ $p['num'] }}</span>
+                <span class="db-pipe__label">{{ $p['label'] }}</span>
+                @if(!$loop->last)<span class="db-pipe__arrow"></span>@endif
             </a>
         @endforeach
     </div>
 
-    {{-- ── Graphique + Pipeline ──────────────────────────── --}}
-    <div class="db-main-grid">
+    {{-- ── 4. Grille principale : graphique + colonne droite ── --}}
+    <div class="db-main">
 
-        {{-- Chart hebdo --}}
+        {{-- Graphique ventes de la semaine --}}
         <div class="db-card">
             <div class="db-card__head">
                 <div>
                     <div class="db-card__title">Ventes de la semaine</div>
-                    <div class="db-card__sub">CA brut jour par jour · semaine en cours</div>
+                    <div class="db-card__sub">CA brut · semaine en cours</div>
                 </div>
-                <div class="db-tabs nav nav-pills" role="tablist">
-                    <a class="active" href="#db-bar" data-toggle="tab">Barres</a>
-                    <a href="#db-line" data-toggle="tab">Courbe</a>
+                <div class="db-tabs nav nav-pills">
+                    <a class="active" href="#db-bar"  data-toggle="tab">Barres</a>
+                    <a             href="#db-line" data-toggle="tab">Courbe</a>
                 </div>
             </div>
             <div class="db-card__body">
@@ -531,153 +444,144 @@
             </div>
         </div>
 
-        {{-- Reversements --}}
-        <div class="db-card">
-            <div class="db-card__head">
-                <div>
-                    <div class="db-card__title">Reversements</div>
-                    <div class="db-card__sub">État de votre trésorerie partenaire</div>
+        {{-- Colonne droite --}}
+        <div class="db-right">
+
+            {{-- Commandes actives --}}
+            <div class="db-card">
+                <div class="db-card__head">
+                    <div>
+                        <div class="db-card__title">À traiter maintenant</div>
+                        <div class="db-card__sub">Nouvelles &amp; en préparation</div>
+                    </div>
+                    @php $activeCount = collect($recentOrders)->whereIn('status', ['Nouvelle','Préparation'])->count(); @endphp
+                    @if($activeCount > 0)
+                        <span style="background:rgba(245,158,11,.12);color:#d97706;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;">{{ $activeCount }}</span>
+                    @endif
                 </div>
-            </div>
-            <div class="db-card__body--flush">
-                <div class="db-rev-stack">
-                    <div class="db-rev-item">
-                        <div class="db-rev-item__label">Net partenaire — mois</div>
-                        <div class="db-rev-item__value db-rev-item__value--green">{{ number_format($kpis['net_partner_month'], 0, ',', ' ') }} F</div>
-                        <div class="db-rev-item__desc">CA du mois après commission plateforme</div>
+                @php
+                    $activeOrders = collect($recentOrders)
+                        ->sortByDesc(fn($o) => $o['status'] === 'Nouvelle' ? 1 : 0)
+                        ->take(5);
+                @endphp
+                @if($activeOrders->isNotEmpty())
+                    <div class="db-orders">
+                        @foreach($activeOrders as $order)
+                            @php
+                                $bCls = match($order['status']) {
+                                    'Nouvelle'    => 'db-badge--new',
+                                    'Préparation' => 'db-badge--preparing',
+                                    'Livraison'   => 'db-badge--delivering',
+                                    'Terminée'    => 'db-badge--done',
+                                    default       => 'db-badge--cancelled',
+                                };
+                            @endphp
+                            <div class="db-order">
+                                <span class="db-order__ref">{{ $order['ref'] }}</span>
+                                <span class="db-order__name">{{ $order['customer'] }}</span>
+                                <span class="db-badge {{ $bCls }}">{{ $order['status'] }}</span>
+                                <span class="db-order__time">{{ $order['time'] }}</span>
+                            </div>
+                        @endforeach
                     </div>
-                    <div class="db-rev-item">
-                        <div class="db-rev-item__label">En attente de versement</div>
-                        <div class="db-rev-item__value db-rev-item__value--amber">{{ number_format($kpis['pending_settlement'], 0, ',', ' ') }} F</div>
-                        <div class="db-rev-item__desc">Retenu par validation ou rapprochement</div>
+                @else
+                    <div class="db-empty">
+                        <i class="fas fa-check-circle" style="color:var(--bd-green);"></i>
+                        Aucune commande active
                     </div>
-                    <div class="db-rev-item">
-                        <div class="db-rev-item__label">Disponible au retrait</div>
-                        <div class="db-rev-item__value db-rev-item__value--green" style="font-size:22px;">{{ number_format($kpis['available_withdrawal'], 0, ',', ' ') }} F</div>
-                        <div class="db-rev-item__desc">Net libéré sur le ledger de reversement</div>
-                    </div>
-                    <div class="db-rev-item">
-                        <div class="db-rev-item__label">Ticket moyen aujourd'hui</div>
-                        <div class="db-rev-item__value">{{ number_format($kpis['average_ticket'], 0, ',', ' ') }} F</div>
-                        <div class="db-rev-item__desc">Moyenne par commande sur la journée</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-    </div>{{-- /.db-main-grid --}}
-
-    {{-- ── Finance ────────────────────────────────────────── --}}
-    <p class="db-section-label">Finances du mois</p>
-    <div class="db-finance-row">
-        <div class="db-finance-card db-finance-card--green">
-            <div class="db-finance-card__label">CA aujourd'hui</div>
-            <div class="db-finance-card__value">{{ number_format($kpis['gross_today'], 0, ',', ' ') }} F</div>
-            <div class="db-finance-card__desc">{{ $kpis['orders_today'] }} commande{{ $kpis['orders_today'] !== 1 ? 's' : '' }} reçue{{ $kpis['orders_today'] !== 1 ? 's' : '' }}</div>
-        </div>
-        <div class="db-finance-card db-finance-card--blue">
-            <div class="db-finance-card__label">CA du mois</div>
-            <div class="db-finance-card__value">{{ number_format($kpis['gross_month'], 0, ',', ' ') }} F</div>
-            <div class="db-finance-card__desc">Cumul brut du mois calendaire</div>
-        </div>
-        <div class="db-finance-card db-finance-card--amber">
-            <div class="db-finance-card__label">Commission plateforme</div>
-            <div class="db-finance-card__value">{{ number_format($kpis['commission_month'], 0, ',', ' ') }} F</div>
-            <div class="db-finance-card__desc">Déduite du CA mensuel brut</div>
-        </div>
-        <div class="db-finance-card db-finance-card--slate">
-            <div class="db-finance-card__label">Net partenaire</div>
-            <div class="db-finance-card__value">{{ number_format($kpis['net_partner_month'], 0, ',', ' ') }} F</div>
-            <div class="db-finance-card__desc">Après déduction commission</div>
-        </div>
-    </div>
-
-    {{-- ── Performance ─────────────────────────────────────── --}}
-    <p class="db-section-label">Catalogue & performance</p>
-    <div class="db-perf-row">
-        @foreach($performanceCards as $card)
-            @if($card['route'])
-                <a href="{{ $card['route'] }}" class="db-perf-card">
-            @else
-                <div class="db-perf-card">
-            @endif
-                <div class="db-perf-card__label">{{ $card['label'] }}</div>
-                <div class="db-perf-card__value">{{ $card['value'] }}</div>
-                <div class="db-perf-card__hint">{{ $card['hint'] }}</div>
-            @if($card['route'])
+                @endif
+                <a href="{{ route('restaurant.all_orders') }}" class="db-see-all">
+                    Toutes les commandes <i class="fas fa-arrow-right fa-xs"></i>
                 </a>
-            @else
+            </div>
+
+            {{-- Top plats du jour --}}
+            <div class="db-card">
+                <div class="db-card__head">
+                    <div>
+                        <div class="db-card__title">Top plats du jour</div>
+                        <div class="db-card__sub">Par quantité vendue · {{ now()->format('d/m') }}</div>
+                    </div>
+                    <i class="fas fa-fire" style="color:#f59e0b;font-size:14px;"></i>
                 </div>
-            @endif
-        @endforeach
-    </div>
+                @if(!empty($topDishes))
+                    <div class="db-orders">
+                        @foreach($topDishes as $i => $dish)
+                            <div class="db-dish">
+                                <span class="db-dish__rank db-dish__rank--{{ $i+1 }}">{{ $i+1 }}</span>
+                                @if($dish['image'])
+                                    <img src="{{ $dish['image'] }}" alt="{{ $dish['name'] }}" class="db-dish__img" onerror="this.style.display='none'">
+                                @else
+                                    <div class="db-dish__img--placeholder">🍽</div>
+                                @endif
+                                <div class="db-dish__info">
+                                    <div class="db-dish__name">{{ $dish['name'] }}</div>
+                                    <div class="db-dish__meta">{{ number_format($dish['revenue'], 0, ',', ' ') }} FCFA</div>
+                                </div>
+                                <span class="db-dish__qty">×{{ $dish['qty'] }}</span>
+                            </div>
+                        @endforeach
+                    </div>
+                @else
+                    <div class="db-empty">
+                        <i class="fas fa-utensils"></i>
+                        Aucune vente aujourd'hui
+                    </div>
+                @endif
+                <a href="{{ route('restaurant.menu.index') }}" class="db-see-all">
+                    Gérer le menu <i class="fas fa-arrow-right fa-xs"></i>
+                </a>
+            </div>
 
-    {{-- ── Accès rapides ────────────────────────────────────── --}}
-    <div class="db-card">
-        <div class="db-card__head">
-            <div class="db-card__title">Accès rapides</div>
-        </div>
-        <div class="db-card__body">
-            <div class="db-quick-links">
-                @foreach($quickActions as $action)
-                    <a href="{{ $action['route'] }}" class="db-quick-link">
-                        <i class="fas fa-arrow-up-right-from-square"></i>
-                        {{ $action['label'] }}
+            {{-- Actions rapides --}}
+            <div class="db-card">
+                <div class="db-card__head">
+                    <div class="db-card__title">Actions rapides</div>
+                </div>
+                <div class="db-actions">
+                    <a href="{{ route('product.create') }}" class="db-action">
+                        <i class="fas fa-plus-circle"></i> Ajouter un plat
                     </a>
-                @endforeach
+                    <a href="{{ route('restaurant.all_orders') }}" class="db-action">
+                        <i class="fas fa-receipt"></i> Commandes
+                    </a>
+                    <a href="{{ route('restaurant.profile') }}?tab=horaires" class="db-action">
+                        <i class="fas fa-clock"></i> Horaires
+                    </a>
+                    <a href="{{ route('r_earnings.index') }}" class="db-action">
+                        <i class="fas fa-wallet"></i> Finances
+                    </a>
+                    <a href="{{ route('voucher.create') }}" class="db-action">
+                        <i class="fas fa-tag"></i> Créer promo
+                    </a>
+                    <a href="{{ route('restaurant.profile') }}" class="db-action">
+                        <i class="fas fa-gear"></i> Paramètres
+                    </a>
+                </div>
             </div>
+
         </div>
+
     </div>
 
-    {{-- ── Commandes récentes ───────────────────────────────── --}}
-    @if(!empty($recentOrders))
-    <div class="db-card">
-        <div class="db-card__head">
-            <div>
-                <div class="db-card__title">Commandes récentes</div>
-                <div class="db-card__sub">8 dernières commandes</div>
-            </div>
-            <a href="{{ route('restaurant.all_orders') }}" class="db-btn db-btn--outline" style="font-size:12px;padding:5px 12px;">
-                Tout voir <i class="fas fa-arrow-right fa-xs"></i>
-            </a>
-        </div>
-        <div class="db-card__body--flush">
-            <table class="db-table">
-                <thead>
-                    <tr>
-                        <th>Référence</th>
-                        <th>Client</th>
-                        <th>Montant</th>
-                        <th>Statut</th>
-                        <th>Heure</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    @foreach($recentOrders as $order)
-                        @php
-                            $badgeClass = match($order['status']) {
-                                'Nouvelle'    => 'db-badge--new',
-                                'Préparation' => 'db-badge--preparing',
-                                'Livraison'   => 'db-badge--delivering',
-                                'Terminée'    => 'db-badge--done',
-                                default       => 'db-badge--cancelled',
-                            };
-                        @endphp
-                        <tr>
-                            <td>{{ $order['ref'] }}</td>
-                            <td style="color:#6b7280;">{{ $order['customer'] }}</td>
-                            <td style="font-weight:600;color:#009543;">{{ number_format($order['amount'], 0, ',', ' ') }} F</td>
-                            <td><span class="db-badge {{ $badgeClass }}">{{ $order['status'] }}</span></td>
-                            <td style="color:#9ca3af;">{{ $order['time'] }}</td>
-                        </tr>
-                    @endforeach
-                </tbody>
-            </table>
-        </div>
-    </div>
-    @endif
+</div>
 
-</div>{{-- /.db --}}
+<script>
+function dbAvail(action) {
+    var url = action === 'pause'
+        ? '{{ route("restaurant.availability.pause") }}'
+        : '{{ route("restaurant.availability.resume") }}';
+    var payload = action === 'pause' ? {
+        reason:           document.getElementById('db-pause-reason')?.value || 'manual',
+        duration_minutes: parseInt(document.getElementById('db-pause-duration')?.value) || null,
+    } : {};
+    fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+        body: JSON.stringify(payload),
+    }).then(r => r.json()).then(d => { if (d.status) location.reload(); });
+}
+</script>
 @endsection
 
 @section('script')
@@ -685,64 +589,32 @@
 $(function () {
     var labels  = {!! json_encode($salesLabels) !!};
     var series  = {!! json_encode($salesSeries) !!};
-    var green   = '#009543';
-    var pale    = 'rgba(0,149,67,.08)';
-    var today   = (new Date().getDay() + 6) % 7; // 0=Lun
-
-    var gridOpts = {
-        xAxes: [{ gridLines: { display: false }, ticks: { fontColor: '#9ca3af', fontSize: 11, fontFamily: 'Inter' } }],
-        yAxes: [{ gridLines: { color: '#f3f4f6', drawBorder: false }, ticks: { fontColor: '#9ca3af', fontSize: 11, fontFamily: 'Inter' } }]
+    var isDark  = document.documentElement.getAttribute('data-theme') === 'dark';
+    var green   = isDark ? '#00c957' : '#009543';
+    var barPale = isDark ? 'rgba(0,201,87,.18)' : 'rgba(0,149,67,.15)';
+    var grid    = isDark ? 'rgba(255,255,255,.05)' : '#f3f4f6';
+    var tick    = isDark ? '#4a5568' : '#9ca3af';
+    var today   = (new Date().getDay() + 6) % 7;
+    var tip     = { callbacks: { label: function(t){ return ' ' + parseInt(t.yLabel).toLocaleString('fr-FR') + ' FCFA'; } } };
+    var axes    = {
+        xAxes: [{ gridLines:{display:false}, ticks:{fontColor:tick,fontSize:11,fontFamily:'Poppins'} }],
+        yAxes: [{ gridLines:{color:grid,drawBorder:false}, ticks:{fontColor:tick,fontSize:11,fontFamily:'Poppins'} }]
     };
-
-    /* Bar */
     new Chart(document.getElementById('barCanvas').getContext('2d'), {
         type: 'bar',
-        data: {
-            labels: labels,
-            datasets: [{
-                data: series,
-                backgroundColor: series.map(function(_, i) { return i === today ? green : 'rgba(0,149,67,.18)'; }),
-                borderRadius: 5,
-                borderWidth: 0,
-            }]
-        },
-        options: {
-            maintainAspectRatio: false, responsive: true,
-            legend: { display: false },
-            tooltips: { callbacks: { label: function(t) { return ' ' + parseInt(t.yLabel).toLocaleString('fr') + ' F'; } } },
-            scales: gridOpts,
-        }
+        data: { labels:labels, datasets:[{ data:series, backgroundColor:series.map((_,i)=>i===today?green:barPale), borderRadius:4, borderWidth:0 }] },
+        options: { maintainAspectRatio:false, responsive:true, legend:{display:false}, tooltips:{callbacks:tip}, scales:axes }
     });
-
-    /* Line */
-    var lineCtx = document.getElementById('lineCanvas').getContext('2d');
-    var grad = lineCtx.createLinearGradient(0, 0, 0, 220);
-    grad.addColorStop(0, 'rgba(0,149,67,.18)');
+    var lCtx = document.getElementById('lineCanvas').getContext('2d');
+    var grad = lCtx.createLinearGradient(0,0,0,210);
+    grad.addColorStop(0, isDark ? 'rgba(0,201,87,.2)' : 'rgba(0,149,67,.15)');
     grad.addColorStop(1, 'rgba(0,149,67,0)');
-    new Chart(lineCtx, {
+    new Chart(lCtx, {
         type: 'line',
-        data: {
-            labels: labels,
-            datasets: [{
-                data: series,
-                borderColor: green,
-                backgroundColor: grad,
-                borderWidth: 2,
-                pointBackgroundColor: green,
-                pointBorderColor: '#fff',
-                pointBorderWidth: 2,
-                pointRadius: 4,
-                pointHoverRadius: 6,
-                fill: true,
-                lineTension: 0.4,
-            }]
-        },
-        options: {
-            maintainAspectRatio: false, responsive: true,
-            legend: { display: false },
-            tooltips: { callbacks: { label: function(t) { return ' ' + parseInt(t.yLabel).toLocaleString('fr') + ' F'; } } },
-            scales: gridOpts,
-        }
+        data: { labels:labels, datasets:[{ data:series, borderColor:green, backgroundColor:grad, borderWidth:2,
+            pointBackgroundColor:green, pointBorderColor:isDark?'#1a1d27':'#fff',
+            pointBorderWidth:2, pointRadius:4, fill:true, lineTension:0.4 }] },
+        options: { maintainAspectRatio:false, responsive:true, legend:{display:false}, tooltips:{callbacks:tip}, scales:axes }
     });
 });
 </script>

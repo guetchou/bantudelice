@@ -113,6 +113,7 @@ class IndexController extends Controller
             $productRecommendations = collect();
         }
 
+        // Carte principale food — seule mise en avant centrale
         $serviceCards = collect([
             [
                 'title' => trans('ui.home.service_cards.restaurants.title'),
@@ -121,6 +122,10 @@ class IndexController extends Controller
                 'url' => route('restaurants.all'),
                 'cta' => trans('ui.home.service_cards.restaurants.cta'),
             ],
+        ]);
+
+        // Plateformes sœurs — bloc secondaire écosystème (non affichées au même niveau que food)
+        $ecosystemCards = collect([
             [
                 'title' => trans('ui.home.service_cards.parcels.title'),
                 'description' => trans('ui.home.service_cards.parcels.description'),
@@ -147,6 +152,7 @@ class IndexController extends Controller
                 'categories',
                 'drivers',
                 'serviceCards',
+                'ecosystemCards',
                 'homeContent',
                 'recommendations',
                 'productRecommendations',
@@ -176,5 +182,46 @@ class IndexController extends Controller
             'mema' => 'mema',
             default => 'bantudelice',
         };
+    }
+
+    /**
+     * API : retourne le statut en temps réel d'une commande (pour polling page thanks)
+     * GET /api/order/{orderNo}/status
+     *
+     * Sécurité : deux chemins acceptés, aucun fallback ouvert :
+     *  1. Utilisateur authentifié → doit être propriétaire de la commande.
+     *  2. Invité → order_no doit correspondre à celui stocké en session lors du checkout.
+     */
+    public function getOrderStatus(Request $request, string $orderNo)
+    {
+        $order = \App\Order::select(['id','order_no','user_id','status','business_status','technical_status','payment_status'])
+            ->where('order_no', $orderNo)
+            ->first();
+
+        if (! $order) {
+            return response()->json(['error' => 'not_found'], 404);
+        }
+
+        if (auth()->check()) {
+            // Utilisateur connecté — doit posséder la commande
+            if ((int) $order->user_id !== (int) auth()->id()) {
+                return response()->json(['error' => 'forbidden'], 403);
+            }
+        } else {
+            // Invité — vérifie que la session contient cet order_no
+            // (mis en session par CustomerOrderController avant redirect vers /thanks)
+            $sessionOrderNo = $request->session()->get('order_no');
+            if (empty($sessionOrderNo) || $sessionOrderNo !== $orderNo) {
+                return response()->json(['error' => 'forbidden'], 403);
+            }
+        }
+
+        return response()->json([
+            'order_no'         => $order->order_no,
+            'business_status'  => $order->business_status,
+            'technical_status' => $order->technical_status,
+            'payment_status'   => $order->payment_status,
+            'status'           => $order->status,
+        ]);
     }
 }

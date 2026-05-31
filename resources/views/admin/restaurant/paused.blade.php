@@ -12,7 +12,7 @@
             <h1 style="font-size:1.3rem;font-weight:900;color:#111827;margin:0;">Restaurants en pause</h1>
             <p style="font-size:.82rem;color:#9ca3af;margin:4px 0 0;">Surveillance temps réel — {{ $paused->count() }} en pause actuellement</p>
         </div>
-        <a href="{{ route('admin.restaurants') }}" style="font-size:.82rem;color:#e85d04;font-weight:700;text-decoration:none;">
+        <a href="{{ route('restaurant.index') }}" style="font-size:.82rem;color:#e85d04;font-weight:700;text-decoration:none;">
             ← Tous les restaurants
         </a>
     </div>

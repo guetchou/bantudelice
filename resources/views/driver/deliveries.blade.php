@@ -1,1535 +1,1265 @@
-@extends('layouts.app')
-@section('title', 'Espace livreur | ' . \App\Services\ConfigService::getCompanyName())
-@section('deliveries_nav', 'active')
+@extends('layouts.driver-modern')
+@section('title', 'Livraisons | ' . \App\Services\ConfigService::getCompanyName())
 
-@section('style')
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-<style>
-/* ── RESET AdminLTE ─────────────────────────────────── */
-.main-sidebar, .main-header { display:none!important; }
-.content-wrapper {
-    margin-left:0!important;
-    background:#f5f6fa!important;
-    font-family:'Manrope',sans-serif;
-    padding:0!important;
-}
-/* Neutraliser les règles bd-role-admin sur content-wrapper */
-.bd-role-admin .content-wrapper,
-.bd-role-driver .content-wrapper {
-    margin-left:0!important;
-    padding:0!important;
-}
-
-/* ── LAYOUT 2 COLONNES ──────────────────────────────── */
-.fd-shell {
-    display:flex;
-    min-height:100vh;
-    width:100%;
-}
-
-/* ── SIDEBAR ────────────────────────────────────────── */
-.fd-sidebar {
-    width:220px;
-    flex-shrink:0;
-    background:#fff;
-    border-right:1px solid #f0f0f0;
-    display:flex;
-    flex-direction:column;
-    position:sticky;
-    top:0;
-    height:100vh;
-    overflow-y:auto;
-    z-index:200;
-}
-.fd-sidebar::-webkit-scrollbar { width:3px; }
-.fd-sidebar::-webkit-scrollbar-thumb { background:#e0e0e0; }
-
-.fd-logo {
-    padding:20px 20px 16px;
-    display:flex;
-    align-items:center;
-    gap:10px;
-    border-bottom:1px solid #f5f5f5;
-    text-decoration:none;
-}
-.fd-logo-circle {
-    width:36px; height:36px;
-    border-radius:10px;
-    background:linear-gradient(135deg,#ff8c00,#e85d04);
-    display:flex; align-items:center; justify-content:center;
-    font-weight:900; font-size:.9rem; color:#fff;
-    flex-shrink:0;
-}
-.fd-logo-name { font-size:.9rem; font-weight:900; color:#1a1a1a; line-height:1.2; }
-.fd-logo-role { font-size:.65rem; color:#aaa; font-weight:600; text-transform:uppercase; letter-spacing:.06em; }
-
-.fd-nav { padding:12px 0; flex:1; }
-.fd-nav-section {
-    padding:10px 20px 4px;
-    font-size:.62rem;
-    font-weight:800;
-    text-transform:uppercase;
-    letter-spacing:.1em;
-    color:#bbb;
-}
-.fd-nav-item {
-    display:flex;
-    align-items:center;
-    gap:10px;
-    padding:10px 20px;
-    margin:1px 10px;
-    border-radius:10px;
-    text-decoration:none;
-    font-size:.82rem;
-    font-weight:600;
-    color:#888;
-    transition:all .15s;
-    cursor:pointer;
-}
-.fd-nav-item:hover { background:#fff7f0; color:#e85d04; }
-.fd-nav-item.active {
-    background:linear-gradient(135deg,#ff8c00,#e85d04);
-    color:#fff;
-    font-weight:700;
-    box-shadow:0 4px 14px rgba(232,93,4,.3);
-}
-.fd-nav-icon { width:18px; text-align:center; font-size:.85rem; flex-shrink:0; }
-.fd-nav-badge {
-    margin-left:auto;
-    background:rgba(255,255,255,.25);
-    color:#fff;
-    border-radius:99px;
-    padding:1px 7px;
-    font-size:.65rem;
-    font-weight:800;
-}
-.fd-nav-item:not(.active) .fd-nav-badge {
-    background:#fff3e8;
-    color:#e85d04;
-}
-
-.fd-sidebar-user {
-    border-top:1px solid #f5f5f5;
-    padding:14px 20px;
-    display:flex;
-    align-items:center;
-    gap:10px;
-}
-.fd-sidebar-avatar {
-    width:34px; height:34px;
-    border-radius:50%;
-    background:linear-gradient(135deg,#ff8c00,#e85d04);
-    display:flex; align-items:center; justify-content:center;
-    font-weight:900; font-size:.85rem; color:#fff;
-    flex-shrink:0;
-}
-.fd-sidebar-uname { font-size:.8rem; font-weight:700; color:#1a1a1a; }
-.fd-sidebar-urole { font-size:.65rem; color:#aaa; }
-
-/* ── COLONNE DROITE ─────────────────────────────────── */
-.fd-right-col {
-    flex:1 1 0;
-    min-width:0;
-    display:flex;
-    flex-direction:column;
-    min-height:100vh;
-}
-
-/* ── TOPBAR ─────────────────────────────────────────── */
-.fd-topbar {
-    background:#fff;
-    border-bottom:1px solid #f0f0f0;
-    height:56px;
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    padding:0 24px;
-    position:sticky;
-    top:0;
-    z-index:100;
-}
-.fd-topbar-title {
-    font-size:1rem;
-    font-weight:800;
-    color:#1a1a1a;
-}
-.fd-topbar-right {
-    display:flex;
-    align-items:center;
-    gap:12px;
-}
-.fd-status-pill {
-    display:inline-flex;
-    align-items:center;
-    gap:6px;
-    padding:6px 14px;
-    border-radius:99px;
-    font-size:.75rem;
-    font-weight:700;
-    border:2px solid;
-    cursor:pointer;
-    transition:all .18s;
-    background:#fff;
-}
-.fd-status-pill.is-online  { border-color:#ef4444; color:#ef4444; }
-.fd-status-pill.is-online:hover  { background:#ef4444; color:#fff; }
-.fd-status-pill.is-offline { border-color:#22c55e; color:#22c55e; }
-.fd-status-pill.is-offline:hover { background:#22c55e; color:#fff; }
-.fd-status-pill:disabled { opacity:.5; cursor:wait; }
-.fd-status-dot { width:7px; height:7px; border-radius:50%; background:currentColor; flex-shrink:0; }
-
-/* ── MAIN BODY ──────────────────────────────────────── */
-.fd-main {
-    flex:1;
-    min-width:0;
-    padding:20px 24px 40px;
-}
-.fd-grid {
-    display:grid;
-    gap:20px;
-}
-
-/* ── SECTION HEADER ─────────────────────────────────── */
-.fd-section-header {
-    display:flex;
-    align-items:center;
-    justify-content:space-between;
-    margin-bottom:4px;
-}
-.fd-section-title {
-    font-size:.82rem;
-    font-weight:800;
-    text-transform:uppercase;
-    letter-spacing:.08em;
-    color:#aaa;
-}
-
-/* ── TOP ROW : Profil + Stats + Perf ────────────────── */
-.fd-top-row {
-    display:grid;
-    grid-template-columns:300px 1fr;
-    gap:16px;
-    min-width:0;
-}
-.fd-top-row > * { min-width:0; }
-
-/* ── PROFIL CARD ────────────────────────────────────── */
-.fd-card {
-    background:#fff;
-    border-radius:16px;
-    border:1px solid #f0f0f0;
-    overflow:hidden;
-}
-.fd-profile-card {
-    padding:20px;
-}
-.fd-profile-head {
-    display:flex;
-    align-items:center;
-    gap:14px;
-    margin-bottom:16px;
-    padding-bottom:16px;
-    border-bottom:1px solid #f5f5f5;
-}
-.fd-profile-avatar {
-    width:52px; height:52px;
-    border-radius:14px;
-    background:linear-gradient(135deg,#ff8c00,#e85d04);
-    display:flex; align-items:center; justify-content:center;
-    font-size:1.3rem; font-weight:900; color:#fff;
-    flex-shrink:0;
-}
-.fd-profile-name { font-size:1rem; font-weight:800; color:#1a1a1a; }
-.fd-profile-phone { font-size:.75rem; color:#aaa; margin-top:2px; }
-.fd-profile-status {
-    display:inline-flex; align-items:center; gap:5px;
-    margin-top:4px;
-    font-size:.72rem; font-weight:700;
-}
-.fd-profile-status.online  { color:#22c55e; }
-.fd-profile-status.offline { color:#94a3b8; }
-.fd-profile-status-dot {
-    width:7px; height:7px; border-radius:50%;
-    background:currentColor;
-}
-
-/* Stat counters */
-.fd-stat-row {
-    display:grid;
-    grid-template-columns:repeat(3,1fr);
-    gap:8px;
-    margin-bottom:14px;
-}
-.fd-stat-cell {
-    background:#f9f9f9;
-    border-radius:12px;
-    padding:12px 8px;
-    text-align:center;
-}
-.fd-stat-val {
-    font-size:1.2rem;
-    font-weight:900;
-    color:#1a1a1a;
-    line-height:1;
-}
-.fd-stat-lbl {
-    font-size:.65rem;
-    font-weight:700;
-    color:#aaa;
-    text-transform:uppercase;
-    letter-spacing:.04em;
-    margin-top:3px;
-}
-.fd-stat-cell.green .fd-stat-val { color:#22c55e; }
-.fd-stat-cell.orange .fd-stat-val { color:#f97316; }
-.fd-stat-cell.red .fd-stat-val { color:#ef4444; }
-
-/* Earnings mini cards */
-.fd-earnings-row {
-    display:grid;
-    grid-template-columns:1fr 1fr;
-    gap:8px;
-    margin-bottom:14px;
-}
-.fd-earning-card {
-    border-radius:12px;
-    padding:12px 14px;
-    display:flex;
-    align-items:center;
-    gap:10px;
-}
-.fd-earning-card.today { background:#f0fdf4; }
-.fd-earning-card.week  { background:#fff7ed; }
-.fd-earning-icon {
-    width:36px; height:36px;
-    border-radius:10px;
-    display:flex; align-items:center; justify-content:center;
-    font-size:14px; color:#fff; flex-shrink:0;
-}
-.fd-earning-card.today .fd-earning-icon { background:linear-gradient(135deg,#22c55e,#16a34a); }
-.fd-earning-card.week  .fd-earning-icon { background:linear-gradient(135deg,#f97316,#ea580c); }
-.fd-earning-lbl { font-size:.65rem; font-weight:700; color:#aaa; text-transform:uppercase; letter-spacing:.05em; }
-.fd-earning-val { font-size:.95rem; font-weight:900; color:#1a1a1a; line-height:1.2; }
-
-/* Trip summary strip */
-.fd-trip-strip {
-    display:grid;
-    grid-template-columns:repeat(3,1fr);
-    gap:0;
-    border:1px solid #f0f0f0;
-    border-radius:12px;
-    overflow:hidden;
-}
-.fd-trip-cell {
-    padding:10px 8px;
-    text-align:center;
-    border-right:1px solid #f0f0f0;
-}
-.fd-trip-cell:last-child { border-right:none; }
-.fd-trip-val { font-size:.88rem; font-weight:800; color:#1a1a1a; }
-.fd-trip-lbl { font-size:.62rem; color:#aaa; font-weight:600; text-transform:uppercase; letter-spacing:.04em; }
-
-/* ── PERF CHART CARD ────────────────────────────────── */
-.fd-perf-card {
-    padding:20px;
-    display:flex;
-    flex-direction:column;
-    gap:14px;
-}
-.fd-perf-head {
-    display:flex;
-    align-items:flex-start;
-    justify-content:space-between;
-}
-.fd-perf-title { font-size:.88rem; font-weight:800; color:#1a1a1a; }
-.fd-perf-meta  { font-size:.72rem; color:#aaa; margin-top:2px; }
-.fd-perf-pill  {
-    padding:4px 12px; border-radius:99px;
-    background:#f5f5f5; font-size:.72rem; font-weight:700; color:#555;
-}
-.fd-perf-legend {
-    display:flex;
-    align-items:center;
-    gap:16px;
-}
-.fd-perf-legend-item {
-    display:flex; align-items:center; gap:5px;
-    font-size:.72rem; font-weight:600; color:#555;
-}
-.fd-perf-legend-dot {
-    width:8px; height:8px; border-radius:50%;
-}
-.fd-perf-chart-area {
-    position:relative;
-    height:140px;
-    background:linear-gradient(180deg,#fff7f0 0%,#fff 100%);
-    border-radius:12px;
-    overflow:hidden;
-    padding:10px 8px 0;
-}
-.fd-perf-avg {
-    display:flex;
-    align-items:center;
-    gap:10px;
-    font-size:.75rem;
-    font-weight:600;
-    color:#555;
-}
-.fd-perf-avg-bar {
-    flex:1;
-    height:4px;
-    border-radius:99px;
-    background:#f0f0f0;
-    overflow:hidden;
-}
-.fd-perf-avg-fill {
-    height:100%;
-    border-radius:99px;
-    background:linear-gradient(90deg,#ff8c00,#e85d04);
-}
-
-/* ── MISSIONS ROW ───────────────────────────────────── */
-.fd-missions-row {
-    display:grid;
-    grid-template-columns:repeat(auto-fill,minmax(340px,1fr));
-    gap:16px;
-}
-
-/* ── MISSION CARD ───────────────────────────────────── */
-.fd-mission {
-    background:#fff;
-    border-radius:16px;
-    border:1px solid #f0f0f0;
-    overflow:hidden;
-}
-.fd-mission-stripe { height:3px; }
-.fd-mission-stripe.assigned { background:linear-gradient(90deg,#f97316,#fb923c); }
-.fd-mission-stripe.picked   { background:linear-gradient(90deg,#3b82f6,#60a5fa); }
-.fd-mission-stripe.onway    { background:linear-gradient(90deg,#8b5cf6,#a78bfa); }
-
-.fd-mission-head {
-    padding:14px 16px 0;
-    display:flex;
-    align-items:flex-start;
-    justify-content:space-between;
-    gap:8px;
-}
-.fd-mission-ref {
-    font-size:.95rem;
-    font-weight:900;
-    color:#1a1a1a;
-    font-family:monospace;
-}
-.fd-mission-fee {
-    text-align:right;
-}
-.fd-mission-fee-val {
-    font-size:1rem;
-    font-weight:900;
-    color:#e85d04;
-    line-height:1;
-}
-.fd-mission-fee-lbl {
-    font-size:.6rem;
-    font-weight:700;
-    color:#aaa;
-    text-transform:uppercase;
-}
-
-.fd-badge {
-    display:inline-flex;
-    align-items:center;
-    gap:4px;
-    padding:3px 8px;
-    border-radius:6px;
-    font-size:.65rem;
-    font-weight:800;
-    text-transform:uppercase;
-    letter-spacing:.04em;
-}
-.fd-badge.assigned { background:#fff7ed; color:#c2410c; }
-.fd-badge.picked   { background:#eff6ff; color:#1d4ed8; }
-.fd-badge.onway    { background:#f5f3ff; color:#6d28d9; }
-.fd-badge.warn     { background:#fef3c7; color:#92400e; }
-.fd-badge.green    { background:#dcfce7; color:#15803d; }
-
-.fd-mission-badges {
-    padding:8px 16px 0;
-    display:flex;
-    flex-wrap:wrap;
-    gap:4px;
-}
-
-/* Progress steps */
-.fd-steps {
-    padding:12px 16px;
-    display:flex;
-    align-items:center;
-    gap:0;
-    position:relative;
-}
-.fd-steps::before {
-    content:'';
-    position:absolute;
-    top:17px; left:28px; right:28px;
-    height:2px;
-    background:#f0f0f0;
-    z-index:0;
-}
-.fd-step {
-    flex:1; text-align:center; position:relative; z-index:1;
-}
-.fd-step-dot {
-    width:16px; height:16px;
-    border-radius:50%;
-    border:2px solid #e0e0e0;
-    background:#fff;
-    margin:0 auto 4px;
-    transition:all .2s;
-}
-.fd-step.done  .fd-step-dot { background:#22c55e; border-color:#22c55e; }
-.fd-step.active .fd-step-dot { background:#e85d04; border-color:#e85d04; box-shadow:0 0 0 3px rgba(232,93,4,.18); }
-.fd-step-lbl { font-size:.6rem; font-weight:700; color:#bbb; }
-.fd-step.done  .fd-step-lbl  { color:#22c55e; }
-.fd-step.active .fd-step-lbl { color:#e85d04; }
-
-/* Info collapsible */
-.fd-info-toggle {
-    width:100%;
-    border:none; background:none; cursor:pointer;
-    padding:8px 16px;
-    display:flex; align-items:center; justify-content:space-between;
-    font-size:.75rem; font-weight:700; color:#aaa;
-    border-top:1px solid #f5f5f5;
-    text-align:left;
-}
-.fd-info-toggle svg { transition:transform .2s; }
-.fd-info-toggle.open svg { transform:rotate(180deg); }
-.fd-info-body {
-    max-height:0; overflow:hidden;
-    transition:max-height .25s ease;
-    padding:0 16px;
-}
-.fd-info-body.open { max-height:300px; padding-bottom:12px; }
-.fd-info-row {
-    display:flex; align-items:flex-start; gap:8px;
-    margin-bottom:8px;
-}
-.fd-info-icon { font-size:.85rem; flex-shrink:0; margin-top:1px; }
-.fd-info-lbl  { font-size:.65rem; font-weight:700; color:#aaa; text-transform:uppercase; letter-spacing:.04em; }
-.fd-info-val  { font-size:.8rem; font-weight:700; color:#1a1a1a; }
-.fd-info-sub  { font-size:.72rem; color:#aaa; }
-.fd-call-btn  {
-    display:inline-flex; align-items:center; gap:4px;
-    margin-top:4px;
-    background:#f0fdf4; color:#15803d;
-    border:1px solid #bbf7d0;
-    border-radius:7px; padding:3px 8px;
-    font-size:.7rem; font-weight:700; text-decoration:none;
-}
-
-/* Action zone */
-.fd-action-zone {
-    padding:12px 16px 14px;
-    border-top:1px solid #f5f5f5;
-}
-.fd-main-btn {
-    display:block; width:100%;
-    border:none; border-radius:12px;
-    padding:13px;
-    font-size:.88rem; font-weight:800;
-    cursor:pointer; text-align:center;
-    transition:all .18s;
-    letter-spacing:.01em;
-    margin-bottom:8px;
-}
-.fd-main-btn.green { background:linear-gradient(135deg,#22c55e,#16a34a); color:#fff; box-shadow:0 4px 14px rgba(34,197,94,.3); }
-.fd-main-btn.blue  { background:linear-gradient(135deg,#3b82f6,#2563eb); color:#fff; box-shadow:0 4px 14px rgba(59,130,246,.3); }
-.fd-main-btn.dark  { background:linear-gradient(135deg,#111827,#1e293b); color:#fff; box-shadow:0 4px 14px rgba(17,24,39,.3); }
-.fd-main-btn:disabled { opacity:.5; cursor:wait; }
-.fd-incident-btn {
-    display:block; width:100%;
-    border:1px solid #fee2e2; background:#fef2f2;
-    border-radius:10px; padding:9px;
-    font-size:.78rem; font-weight:700; color:#b91c1c;
-    cursor:pointer; text-align:center;
-    transition:all .15s;
-}
-.fd-incident-btn:hover { background:#fee2e2; }
-
-/* Pickup panel */
-.fd-pickup-panel { display:none; margin-top:8px; }
-.fd-pickup-panel.open { display:block; }
-.fd-field { margin-bottom:8px; }
-.fd-field label { display:block; font-size:.72rem; font-weight:700; color:#555; margin-bottom:3px; }
-.fd-field input, .fd-field textarea, .fd-field select {
-    width:100%; border:1px solid #e5e7eb; border-radius:9px;
-    padding:8px 10px; font-size:.8rem; background:#fff;
-    font-family:'Manrope',sans-serif;
-}
-.fd-field textarea { min-height:72px; resize:vertical; }
-.fd-hint { font-size:.7rem; color:#aaa; margin-bottom:8px; }
-.fd-deliver-submit {
-    width:100%; border:none; border-radius:10px;
-    background:#e85d04; color:#fff; padding:11px;
-    font-size:.85rem; font-weight:800; cursor:pointer;
-}
-
-/* Deliver panel */
-.fd-deliver-panel { display:none; margin-top:8px; }
-.fd-deliver-panel.open { display:block; }
-
-/* Bottom sheet incident */
-.fd-bs-overlay {
-    display:none; position:fixed; inset:0;
-    background:rgba(0,0,0,.5); z-index:9000;
-    backdrop-filter:blur(2px);
-}
-.fd-bs-overlay.open { display:block; }
-.fd-bs-panel {
-    position:fixed; bottom:0; left:0; right:0;
-    background:#fff; border-radius:20px 20px 0 0;
-    padding:0 20px 24px;
-    z-index:9001;
-    transform:translateY(100%);
-    transition:transform .3s cubic-bezier(.32,.72,0,1);
-    max-height:85vh; overflow-y:auto;
-}
-.fd-bs-panel.open { transform:translateY(0); }
-.fd-bs-handle {
-    width:36px; height:4px; border-radius:99px;
-    background:#e0e0e0; margin:12px auto 16px;
-    cursor:pointer;
-}
-.fd-bs-title {
-    display:flex; align-items:center; justify-content:space-between;
-    margin-bottom:16px;
-}
-.fd-bs-title span { font-size:.95rem; font-weight:800; color:#1a1a1a; }
-.fd-bs-close {
-    width:28px; height:28px; border-radius:50%;
-    background:#f5f5f5; border:none; cursor:pointer;
-    font-size:1rem; font-weight:700; color:#555;
-    display:flex; align-items:center; justify-content:center;
-}
-.fd-bs-field { margin-bottom:12px; }
-.fd-bs-field label { display:block; font-size:.75rem; font-weight:700; color:#555; margin-bottom:4px; }
-.fd-bs-field select, .fd-bs-field textarea {
-    width:100%; border:1px solid #e5e7eb; border-radius:10px;
-    padding:10px 12px; font-size:.82rem; background:#fff;
-    font-family:'Manrope',sans-serif;
-}
-.fd-bs-field textarea { min-height:80px; resize:vertical; }
-.fd-bs-submit {
-    width:100%; border:none; border-radius:12px;
-    background:#e85d04; color:#fff; padding:13px;
-    font-size:.88rem; font-weight:800; cursor:pointer;
-    margin-top:4px;
-}
-.fd-bs-zone-alert {
-    display:none;
-    background:#fef2f2; border:1px solid #fca5a5;
-    border-radius:10px; padding:10px 12px;
-    margin-bottom:10px; font-size:.78rem; color:#991b1b; font-weight:600;
-}
-
-/* Empty state */
-.fd-empty {
-    text-align:center; padding:40px 20px;
-    background:#fff; border-radius:16px;
-    border:1px dashed #e0e0e0;
-}
-.fd-empty-icon { font-size:2.5rem; margin-bottom:12px; }
-@keyframes pulse {
-    0%,100% { opacity:1; transform:scale(1); }
-    50% { opacity:.4; transform:scale(1.3); }
-}
-
-/* Proofs */
-.fd-proofs { padding:0 16px 10px; display:flex; flex-wrap:wrap; gap:6px; }
-.fd-proof-link {
-    display:inline-flex; align-items:center; gap:4px;
-    background:#f8fafc; border:1px solid #e2e8f0;
-    border-radius:8px; padding:4px 10px;
-    font-size:.72rem; font-weight:700; color:#334155;
-    text-decoration:none;
-}
-
-/* Chat badge */
-.fd-chat-badge {
-    display:inline-flex; align-items:center; gap:4px;
-    border-radius:99px; padding:4px 10px;
-    background:linear-gradient(135deg,#ff5a1f,#f59e0b);
-    color:#fff; font-size:.7rem; font-weight:800;
-}
-
-/* Responsive */
-@media (max-width:900px) {
-    .fd-sidebar { display:none; }
-    .fd-top-row { grid-template-columns:1fr; }
-    .fd-missions-row { grid-template-columns:1fr; }
-}
-</style>
-@endsection
-
-@section('content')
 @php
-    $stepOrder   = ['ASSIGNED','PICKED_UP','ON_THE_WAY'];
-    $statusLabels = ['ASSIGNED'=>'À récupérer','PICKED_UP'=>'Récupérée','ON_THE_WAY'=>'En route','DELIVERED'=>'Livrée'];
-    $businessLabels = ['driver_assigned'=>'Livreur assigné','picked_up'=>'Récupérée','out_for_delivery'=>'En livraison','delivery_attempt_failed'=>'Tentative échouée','incident_open'=>'Incident ouvert','delivered'=>'Livrée'];
-
     $driverIsOnline = ($driver->status ?? 'offline') === 'online';
     $driverInitials = strtoupper(substr($driver->name ?? 'L', 0, 2));
+    $heroH          = (int) date('H');
+    $greeting       = $heroH < 12 ? 'Bonjour' : ($heroH < 18 ? 'Bon après-midi' : 'Bonsoir');
 
-    // Compteurs stats (today from DB)
-    $todayCompleted  = \App\Delivery::where('driver_id', $driver->id)->where('status','DELIVERED')->whereDate('delivered_at', today())->count();
-    $todayAll        = \App\Delivery::where('driver_id', $driver->id)->whereDate('created_at', today())->count();
-    $todayCancelled  = \App\Delivery::where('driver_id', $driver->id)->where('status','CANCELLED')->whereDate('created_at', today())->count();
-    $activeCount     = $deliveries->count();
+    $todayDelivered = \App\Delivery::where('driver_id',$driver->id)->where('status','DELIVERED')->whereDate('delivered_at',today())->count();
+    $activeCount    = $deliveries->count();
 
-    // Finance
-    $finNet       = 0; $finAvailable = 0; $finGross = 0;
+    $finNet = 0; $finAvailable = 0; $finGross = 0;
     if (!empty($financialDashboard['rows'])) {
         foreach ($financialDashboard['rows'] as $row) {
             foreach ((array)$row as $card) {
                 if (!is_array($card)) continue;
                 $lbl = strtolower($card['label'] ?? '');
-                if (str_contains($lbl,'brut'))       $finGross     = $card['amount'] ?? 0;
-                if (str_contains($lbl,'net partenaire')) $finNet   = $card['amount'] ?? 0;
-                if (str_contains($lbl,'disponible')) $finAvailable = $card['amount'] ?? 0;
+                if (str_contains($lbl,'brut'))           $finGross     = $card['amount'] ?? 0;
+                if (str_contains($lbl,'net partenaire')) $finNet       = $card['amount'] ?? 0;
+                if (str_contains($lbl,'disponible'))     $finAvailable = $card['amount'] ?? 0;
             }
         }
     }
 
-    // Performance chart (7 derniers jours)
-    $perfDays = [];
-    for ($i = 6; $i >= 0; $i--) {
-        $d = now()->subDays($i);
-        $cnt = \App\Delivery::where('driver_id', $driver->id)->where('status','DELIVERED')->whereDate('delivered_at', $d)->count();
-        $perfDays[] = ['label' => $d->format('D'), 'count' => $cnt];
-    }
-    $perfMax = max(max(array_column($perfDays, 'count')), 1);
-
-    // Trip distance & time (approx)
-    $totalTrips = \App\Delivery::where('driver_id', $driver->id)->where('status','DELIVERED')->count();
+    $stepOrder    = ['ASSIGNED','PICKED_UP','ON_THE_WAY'];
+    $statusLabels = ['ASSIGNED'=>'À récupérer','PICKED_UP'=>'Ramassage','ON_THE_WAY'=>'En route'];
 @endphp
 
-<div class="fd-shell">
+@section('nav_deliveries', 'is-active')
+@section('driver_initials', $driverInitials)
+@section('driver_name', $driver->name ?? 'Livreur')
+@section('driver_phone', $driver->phone ?? '')
+@section('online_pill_class', $driverIsOnline ? 'online' : 'offline')
+@section('online_pill_label', $driverIsOnline ? 'En ligne' : 'Hors ligne')
+@section('page_title', 'Mes livraisons')
 
-    {{-- ── SIDEBAR ─────────────────────────────────────── --}}
-    <aside class="fd-sidebar">
-        <a href="{{ route('driver.deliveries') }}" class="fd-logo">
-            <div class="fd-logo-circle">B</div>
-            <div>
-                <div class="fd-logo-name">BantuDelice</div>
-                <div class="fd-logo-role">Espace livreur</div>
-            </div>
-        </a>
-
-        <nav class="fd-nav">
-            <div class="fd-nav-section">Mon espace</div>
-            <a href="{{ route('driver.deliveries') }}" class="fd-nav-item active">
-                <span class="fd-nav-icon"><i class="fas fa-motorcycle"></i></span>
-                Mes livraisons
-                @if($activeCount > 0)
-                    <span class="fd-nav-badge">{{ $activeCount }}</span>
-                @endif
-            </a>
-            @if(app('router')->has('driver.transport.index'))
-            <a href="{{ route('driver.transport.index') }}" class="fd-nav-item">
-                <span class="fd-nav-icon"><i class="fas fa-car"></i></span>
-                Courses transport
-            </a>
-            @endif
-            <div class="fd-nav-section">Compte</div>
-            <a href="{{ route('logout') }}"
-               onclick="event.preventDefault(); document.getElementById('fd-logout-form').submit();"
-               class="fd-nav-item">
-                <span class="fd-nav-icon"><i class="fas fa-sign-out-alt"></i></span>
-                Déconnexion
-            </a>
-        </nav>
-
-        <div class="fd-sidebar-user">
-            <div class="fd-sidebar-avatar">{{ $driverInitials }}</div>
-            <div>
-                <div class="fd-sidebar-uname">{{ $driver->name ?? 'Livreur' }}</div>
-                <div class="fd-sidebar-urole">{{ $driver->phone ?? '' }}</div>
-            </div>
-        </div>
-    </aside>
-    <form id="fd-logout-form" action="{{ route('logout') }}" method="POST" style="display:none;">@csrf</form>
-
-    {{-- ── COLONNE DROITE ──────────────────────────────── --}}
-    <div class="fd-right-col">
-
-    {{-- ── TOPBAR ──────────────────────────────────────── --}}
-    <header class="fd-topbar">
-        <div class="fd-topbar-title">Tableau de bord livreur</div>
-        <div class="fd-topbar-right">
-            <span id="driverStatusLabel" style="font-size:.75rem;font-weight:600;color:{{ $driverIsOnline ? '#22c55e' : '#94a3b8' }};">
-                {{ $driverIsOnline ? 'En ligne' : 'Hors ligne' }}
-            </span>
-            <button type="button"
-                    id="driverToggleBtn"
-                    class="fd-status-pill {{ $driverIsOnline ? 'is-online' : 'is-offline' }}"
-                    data-driver-id="{{ $driver->id }}"
-                    data-is-online="{{ $driverIsOnline ? '1' : '0' }}"
-                    data-url-online="{{ url('api/set_driver_online/' . $driver->id) }}"
-                    data-url-offline="{{ url('api/set_driver_offline/' . $driver->id) }}"
-                    data-csrf="{{ csrf_token() }}">
-                <span class="fd-status-dot" id="driverStatusDot"></span>
-                <span id="driverToggleBtnLabel">{{ $driverIsOnline ? 'Passer hors ligne' : 'Passer en ligne' }}</span>
-            </button>
-        </div>
-    </header>
-
-    {{-- ── MAIN ────────────────────────────────────────── --}}
-    <main class="fd-main">
-    <div class="fd-grid">
-
-        {{-- TOP ROW : Profil + Chart Perf --}}
-        <div class="fd-top-row">
-
-            {{-- Profil Card --}}
-            <div class="fd-card fd-profile-card">
-                <div class="fd-profile-head">
-                    <div class="fd-profile-avatar">{{ $driverInitials }}</div>
-                    <div>
-                        <div class="fd-profile-name">{{ $driver->name ?? 'Livreur' }}</div>
-                        <div class="fd-profile-phone">{{ $driver->phone ?? 'Téléphone non renseigné' }}</div>
-                        <div class="fd-profile-status {{ $driverIsOnline ? 'online' : 'offline' }}">
-                            <span class="fd-profile-status-dot"></span>
-                            {{ $driverIsOnline ? 'En ligne' : 'Hors ligne' }}
-                        </div>
-                    </div>
-                </div>
-
-                {{-- Stat counters --}}
-                <div class="fd-stat-row">
-                    <div class="fd-stat-cell green">
-                        <div class="fd-stat-val">{{ $todayCompleted }}</div>
-                        <div class="fd-stat-lbl">Livrées</div>
-                    </div>
-                    <div class="fd-stat-cell orange">
-                        <div class="fd-stat-val">{{ $activeCount }}</div>
-                        <div class="fd-stat-lbl">Actives</div>
-                    </div>
-                    <div class="fd-stat-cell red">
-                        <div class="fd-stat-val">{{ $todayCancelled }}</div>
-                        <div class="fd-stat-lbl">Annulées</div>
-                    </div>
-                </div>
-
-                {{-- Earnings --}}
-                <div class="fd-earnings-row">
-                    <div class="fd-earning-card today">
-                        <div class="fd-earning-icon"><i class="fas fa-coins"></i></div>
-                        <div>
-                            <div class="fd-earning-lbl">Disponible</div>
-                            <div class="fd-earning-val">{{ number_format(round($finAvailable),0,',',' ') }} FCFA</div>
-                        </div>
-                    </div>
-                    <div class="fd-earning-card week">
-                        <div class="fd-earning-icon"><i class="fas fa-chart-line"></i></div>
-                        <div>
-                            <div class="fd-earning-lbl">Net total</div>
-                            <div class="fd-earning-val">{{ number_format(round($finNet),0,',',' ') }} FCFA</div>
-                        </div>
-                    </div>
-                </div>
-
-                {{-- Trip summary --}}
-                <div class="fd-trip-strip">
-                    <div class="fd-trip-cell">
-                        <div class="fd-trip-val">{{ $totalTrips }}</div>
-                        <div class="fd-trip-lbl">Courses total</div>
-                    </div>
-                    <div class="fd-trip-cell">
-                        <div class="fd-trip-val">{{ $todayAll }}</div>
-                        <div class="fd-trip-lbl">Aujourd'hui</div>
-                    </div>
-                    <div class="fd-trip-cell">
-                        <div class="fd-trip-val">{{ number_format(round($finGross),0,',',' ') }}</div>
-                        <div class="fd-trip-lbl">CA Brut FCFA</div>
-                    </div>
-                </div>
-            </div>
-
-            {{-- Performance Chart --}}
-            <div class="fd-card fd-perf-card">
-                <div class="fd-perf-head">
-                    <div>
-                        <div class="fd-perf-title">Performance — 7 derniers jours</div>
-                        <div class="fd-perf-meta">Livraisons complétées par jour</div>
-                    </div>
-                    <span class="fd-perf-pill">Cette semaine</span>
-                </div>
-
-                <div class="fd-perf-legend">
-                    <div class="fd-perf-legend-item">
-                        <span class="fd-perf-legend-dot" style="background:#e85d04;"></span> Livraisons
-                    </div>
-                    <div style="margin-left:auto;font-size:.75rem;font-weight:600;color:#aaa;">
-                        Moy. : <strong style="color:#1a1a1a;">{{ $perfMax > 0 ? number_format(collect($perfDays)->avg('count'),1) : '0' }}/j</strong>
-                    </div>
-                </div>
-
-                {{-- SVG Line Chart --}}
-                @php
-                    $svgPts = collect($perfDays)->map(function($d, $i) use ($perfMax) {
-                        $x = round($i / 6 * 100, 2);
-                        $y = round(100 - ($d['count'] / $perfMax * 85), 2);
-                        return $x.','.$y;
-                    })->implode(' ');
-                @endphp
-                <div class="fd-perf-chart-area">
-                    <svg viewBox="0 0 100 100" preserveAspectRatio="none" style="width:100%;height:110px;" aria-hidden="true">
-                        <defs>
-                            <linearGradient id="perfGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-                                <stop offset="0%" stop-color="rgba(232,93,4,.18)"/>
-                                <stop offset="100%" stop-color="rgba(232,93,4,.02)"/>
-                            </linearGradient>
-                        </defs>
-                        <polyline fill="url(#perfGrad)" stroke="none"
-                            points="0,100 {{ $svgPts }} 100,100"/>
-                        <polyline fill="none" stroke="#e85d04" stroke-width="2.5"
-                            stroke-linecap="round" stroke-linejoin="round"
-                            points="{{ $svgPts }}"/>
-                        @foreach($perfDays as $i => $pd)
-                            @php $px = round($i/6*100,1); $py = round(100-($pd['count']/$perfMax*85),1); @endphp
-                            <circle cx="{{ $px }}" cy="{{ $py }}" r="3" fill="#fff" stroke="#e85d04" stroke-width="2"/>
-                        @endforeach
-                    </svg>
-                </div>
-
-                {{-- Axis labels --}}
-                <div style="display:flex;justify-content:space-between;margin-top:-4px;">
-                    @foreach($perfDays as $pd)
-                        <span style="font-size:.62rem;color:#bbb;text-align:center;flex:1;">{{ $pd['label'] }}</span>
-                    @endforeach
-                </div>
-
-                {{-- Avg bar --}}
-                @php $avgPct = $perfMax > 0 ? min(100, round(collect($perfDays)->avg('count') / $perfMax * 100)) : 0; @endphp
-                <div class="fd-perf-avg">
-                    <span>Perf. moy.</span>
-                    <div class="fd-perf-avg-bar">
-                        <div class="fd-perf-avg-fill" style="width:{{ $avgPct }}%;"></div>
-                    </div>
-                    <strong>{{ $avgPct }}%</strong>
-                </div>
-            </div>
-        </div>
-
-        {{-- MISSIONS ACTIVES --}}
-        @if(session()->has('alert'))
-            <div class="alert alert-{{ session('alert.type','info') }} alert-dismissible fade show">
-                {{ session('alert.message') }}
-                <button type="button" class="close" data-dismiss="alert">&times;</button>
-            </div>
-        @endif
-
-        <div class="fd-section-header">
-            <div class="fd-section-title">Missions en cours ({{ $activeCount }})</div>
-        </div>
-
-        <div class="fd-missions-row">
-        @forelse($deliveries as $delivery)
-        @php
-            $businessStatus  = optional($delivery->order)->resolveEffectiveBusinessStatus();
-            $currentStepIdx  = array_search($delivery->status, $stepOrder, true);
-            $currentStepIdx  = $currentStepIdx === false ? 0 : $currentStepIdx;
-            $requiresCash    = ($delivery->order->payment_method ?? null) === 'cash' && empty($delivery->cash_collected_at);
-            $infoOpen        = $delivery->status === 'ASSIGNED';
-            $stripeClass     = ['ASSIGNED'=>'assigned','PICKED_UP'=>'picked','ON_THE_WAY'=>'onway'][$delivery->status] ?? 'assigned';
-            $badgeClass      = ['ASSIGNED'=>'assigned','PICKED_UP'=>'picked','ON_THE_WAY'=>'onway'][$delivery->status] ?? 'assigned';
-            $restPhone       = $delivery->restaurant->phone ?? null;
-            $clientPhone     = $delivery->order->user->phone ?? null;
-            $incidentPhase   = ['ASSIGNED'=>'pre','PICKED_UP'=>'pickup','ON_THE_WAY'=>'otw'][$delivery->status] ?? 'pre';
-        @endphp
-
-        <div class="fd-mission">
-            <div class="fd-mission-stripe {{ $stripeClass }}"></div>
-
-            {{-- Head --}}
-            <div class="fd-mission-head">
-                <div>
-                    <div class="fd-mission-ref">#{{ $delivery->order->order_no ?? $delivery->order_id }}</div>
-                </div>
-                <div class="fd-mission-fee">
-                    <div class="fd-mission-fee-val">{{ number_format($delivery->delivery_fee??0,0,',',' ') }}</div>
-                    <div class="fd-mission-fee-lbl">FCFA</div>
-                </div>
-            </div>
-
-            {{-- Badges --}}
-            <div class="fd-mission-badges">
-                <span class="fd-badge {{ $badgeClass }}">{{ $statusLabels[$delivery->status] ?? $delivery->status }}</span>
-                @if($delivery->requiresOtp()) <span class="fd-badge warn">OTP requis</span> @endif
-                @if($requiresCash)            <span class="fd-badge warn">Cash à encaisser</span> @endif
-                @if($delivery->incident_status === 'open') <span class="fd-badge" style="background:#fee2e2;color:#b91c1c;">Incident</span> @endif
-                @if(!empty($delivery->chatBadge['has_unread']))
-                    <span class="fd-chat-badge"><i class="fas fa-comments"></i> {{ $delivery->chatBadge['label'] }}</span>
-                @endif
-            </div>
-
-            {{-- Progress --}}
-            <div class="fd-steps">
-                @foreach(['ASSIGNED'=>'Récupérer','PICKED_UP'=>'Ramassage','ON_THE_WAY'=>'En route'] as $sc => $sl)
-                @php
-                    $si = array_search($sc, $stepOrder, true);
-                    $cls = $si < $currentStepIdx ? 'done' : ($sc === $delivery->status ? 'active' : '');
-                @endphp
-                <div class="fd-step {{ $cls }}">
-                    <div class="fd-step-dot"></div>
-                    <div class="fd-step-lbl">{{ $sl }}</div>
-                </div>
-                @endforeach
-            </div>
-
-            {{-- Preuves --}}
-            @if($delivery->pickup_proof_path || $delivery->delivery_proof_path || $delivery->customer_confirmed_at)
-            <div class="fd-proofs">
-                @if($delivery->pickup_proof_path)
-                    <a class="fd-proof-link" href="{{ asset($delivery->pickup_proof_path) }}" target="_blank">📷 Ramassage</a>
-                @endif
-                @if($delivery->delivery_proof_path)
-                    <a class="fd-proof-link" href="{{ asset($delivery->delivery_proof_path) }}" target="_blank">📷 Remise</a>
-                @endif
-                @if($delivery->customer_confirmed_at)
-                    <span class="fd-proof-link">✓ Client confirmé {{ $delivery->customer_confirmed_at->format('d/m H:i') }}</span>
-                @endif
-            </div>
-            @endif
-
-            {{-- Infos collapsible --}}
-            <button class="fd-info-toggle {{ $infoOpen ? 'open' : '' }}" type="button" onclick="fdToggleInfos(this)">
-                <span>Détails commande</span>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
-            </button>
-            <div class="fd-info-body {{ $infoOpen ? 'open' : '' }}">
-                <div class="fd-info-row">
-                    <span class="fd-info-icon">🍽</span>
-                    <div>
-                        <div class="fd-info-lbl">Restaurant</div>
-                        <div class="fd-info-val">{{ $delivery->restaurant->name ?? 'N/A' }}</div>
-                        <div class="fd-info-sub">{{ $delivery->restaurant->address ?? '' }}</div>
-                        @if($restPhone) <a class="fd-call-btn" href="tel:{{ $restPhone }}">📞 Appeler</a> @endif
-                    </div>
-                </div>
-                <div class="fd-info-row">
-                    <span class="fd-info-icon">👤</span>
-                    <div>
-                        <div class="fd-info-lbl">Client</div>
-                        <div class="fd-info-val">{{ $delivery->order->user->name ?? 'N/A' }}</div>
-                        @if($clientPhone)
-                            <div class="fd-info-sub">{{ $clientPhone }}</div>
-                            <a class="fd-call-btn" href="tel:{{ $clientPhone }}">📞 Appeler</a>
-                        @endif
-                    </div>
-                </div>
-                <div class="fd-info-row">
-                    <span class="fd-info-icon">📍</span>
-                    <div>
-                        <div class="fd-info-lbl">Adresse de livraison</div>
-                        <div class="fd-info-val">{{ $delivery->order->delivery_address ?? 'N/A' }}</div>
-                    </div>
-                </div>
-                <div class="fd-info-row">
-                    <span class="fd-info-icon">💰</span>
-                    <div>
-                        <div class="fd-info-lbl">Commande</div>
-                        <div class="fd-info-val">{{ number_format($delivery->order->total??0,0,',',' ') }} FCFA</div>
-                        <div class="fd-info-sub">
-                            @if($requiresCash) Cash à encaisser à la remise
-                            @elseif(($delivery->order->payment_status??null)==='paid') Paiement confirmé
-                            @else Paiement en cours @endif
-                            @if($delivery->assigned_at) · Assignée le {{ $delivery->assigned_at->format('d/m à H:i') }} @endif
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {{-- Action principale --}}
-            <div class="fd-action-zone">
-                @if($delivery->status === 'ASSIGNED')
-                    <button type="button" class="fd-main-btn green"
-                            onclick="fdOpenPanel('pickup-panel-{{ $delivery->id }}', this)">
-                        ✓ Récupérer la commande
-                    </button>
-                    <div class="fd-pickup-panel" id="pickup-panel-{{ $delivery->id }}">
-                        <form method="POST" action="{{ route('driver.deliveries.update', $delivery->id) }}" enctype="multipart/form-data" class="delivery-action-form" data-lat-prefix="pickup">
-                            @csrf
-                            <input type="hidden" name="status" value="PICKED_UP">
-                            <input type="hidden" name="pickup_latitude">
-                            <input type="hidden" name="pickup_longitude">
-                            <div class="fd-field"><label>Note de ramassage</label><textarea name="pickup_notes" placeholder="Commande récupérée, vérifiée…"></textarea></div>
-                            <div class="fd-field"><label>Photo de prise en charge</label><input type="file" name="pickup_proof" accept="image/*"></div>
-                            <div class="fd-hint">Géolocalisation ajoutée automatiquement.</div>
-                            <button type="submit" class="fd-deliver-submit">Confirmer le ramassage</button>
-                        </form>
-                    </div>
-
-                @elseif($delivery->status === 'PICKED_UP')
-                    <button type="button" class="fd-main-btn blue"
-                            onclick="fdOpenPanel('onway-panel-{{ $delivery->id }}', this)">
-                        🛵 Démarrer la livraison
-                    </button>
-                    <div class="fd-pickup-panel" id="onway-panel-{{ $delivery->id }}">
-                        <form method="POST" action="{{ route('driver.deliveries.update', $delivery->id) }}" class="delivery-action-form" data-lat-prefix="delivery">
-                            @csrf
-                            <input type="hidden" name="status" value="ON_THE_WAY">
-                            <input type="hidden" name="delivery_latitude">
-                            <input type="hidden" name="delivery_longitude">
-                            <div class="fd-field"><label>Note de livraison</label><textarea name="delivery_notes" placeholder="Départ du restaurant…"></textarea></div>
-                            <div class="fd-hint">Position de départ capturée automatiquement.</div>
-                            <button type="submit" class="fd-deliver-submit">Passer en route</button>
-                        </form>
-                    </div>
-
-                @elseif($delivery->status === 'ON_THE_WAY')
-                    <button type="button" class="fd-main-btn dark"
-                            onclick="fdTogglePanel('deliver-panel-{{ $delivery->id }}', this)">
-                        📦 Confirmer la remise
-                    </button>
-                    <div class="fd-deliver-panel" id="deliver-panel-{{ $delivery->id }}">
-                        <form method="POST" action="{{ route('driver.deliveries.update', $delivery->id) }}" enctype="multipart/form-data" class="delivery-action-form" data-lat-prefix="delivery">
-                            @csrf
-                            <input type="hidden" name="status" value="DELIVERED">
-                            <input type="hidden" name="delivery_latitude">
-                            <input type="hidden" name="delivery_longitude">
-                            <div class="fd-field"><label>Code OTP client</label><input type="text" name="delivery_otp" inputmode="numeric" placeholder="Code communiqué par le client"></div>
-                            <div class="fd-field"><label>Preuve photo</label><input type="file" name="delivery_proof" accept="image/*"></div>
-                            <div class="fd-field"><label>Note de remise</label><textarea name="delivery_notes" placeholder="Remise au client…"></textarea></div>
-                            <div class="fd-field">
-                                <label style="display:flex;align-items:center;gap:6px;">
-                                    <input type="checkbox" name="customer_confirmed" value="1" style="width:auto;">
-                                    Client confirme la réception sur place
-                                </label>
-                            </div>
-                            <div class="fd-hint">
-                                @if($requiresCash) Encaisse {{ number_format($delivery->order->total??0,0,',',' ') }} FCFA avant de confirmer. @endif
-                            </div>
-                            <button type="submit" class="fd-deliver-submit">Marquer comme livrée</button>
-                        </form>
-                    </div>
-                @endif
-
-                <button type="button" class="fd-incident-btn" style="margin-top:6px;"
-                        onclick="fdOpenIncident('{{ $delivery->id }}')">
-                    ⚠ Signaler un problème
-                </button>
-            </div>
-
-            {{-- Chat --}}
-            @if(!empty($delivery->chatData) && ($delivery->chatData['can_view'] ?? false))
-                @include('frontend.partials.order_chat', ['chatData' => $delivery->chatData])
-            @endif
-        </div>
-
-        {{-- Bottom sheet incident --}}
-        <div class="fd-bs-overlay" id="bs-overlay-{{ $delivery->id }}" onclick="fdCloseIncident('{{ $delivery->id }}')"></div>
-        <div class="fd-bs-panel" id="bs-panel-{{ $delivery->id }}">
-            <div class="fd-bs-handle" onclick="fdCloseIncident('{{ $delivery->id }}')"></div>
-            <div class="fd-bs-title">
-                <span>⚠ Signaler un incident</span>
-                <button type="button" class="fd-bs-close" onclick="fdCloseIncident('{{ $delivery->id }}')">×</button>
-            </div>
-            <form method="POST" action="{{ route('driver.deliveries.incident', $delivery->id) }}" id="incident-form-{{ $delivery->id }}-{{ $incidentPhase }}">
-                @csrf
-                <div id="zone-alert-{{ $delivery->id }}-{{ $incidentPhase }}" class="fd-bs-zone-alert">
-                    🚧 Zone inaccessible — le support et le dispatch seront notifiés immédiatement.
-                </div>
-                <div class="fd-bs-field">
-                    <label>Motif</label>
-                    <select name="reason" onchange="bdShowZoneAlert(this, '{{ $delivery->id }}-{{ $incidentPhase }}')">
-                        @if($delivery->status === 'ASSIGNED')
-                            <option value="restaurant_issue">Restaurant indisponible</option>
-                            <option value="order_missing">Commande introuvable</option>
-                            <option value="address_issue">Adresse problématique</option>
-                            <option value="zone_inaccessible">🚧 Zone inaccessible (route coupée / pluies)</option>
-                        @elseif($delivery->status === 'PICKED_UP')
-                            <option value="packaging_issue">Produit endommagé</option>
-                            <option value="restaurant_issue">Restaurant bloqué</option>
-                            <option value="zone_inaccessible">🚧 Zone inaccessible (route coupée / pluies)</option>
-                            <option value="incident_open">Autre incident</option>
-                        @elseif($delivery->status === 'ON_THE_WAY')
-                            <option value="customer_absent">Client absent</option>
-                            <option value="recipient_unreachable">Client injoignable</option>
-                            <option value="address_issue">Adresse introuvable</option>
-                            <option value="zone_inaccessible">🚧 Zone inaccessible (route coupée / pluies)</option>
-                            <option value="delivery_failed">Tentative échouée</option>
-                            <option value="courier_issue">Problème livreur</option>
-                        @endif
-                    </select>
-                </div>
-                <div class="fd-bs-field">
-                    <label>Détails</label>
-                    <textarea name="notes" placeholder="Décrivez le blocage pour le support."></textarea>
-                </div>
-                <button type="submit" class="fd-bs-submit">Soumettre l'incident</button>
-            </form>
-        </div>
-
-        @empty
-        @if(!$driverIsOnline)
-        <div class="fd-empty" style="border-color:#fca5a5;background:#fff7f7;">
-            <div class="fd-empty-icon">🔴</div>
-            <div style="font-size:.95rem;font-weight:800;color:#1a1a1a;margin-bottom:6px;">Vous êtes hors ligne</div>
-            <div style="font-size:.82rem;color:#aaa;margin-bottom:16px;">Passez en ligne pour recevoir des missions de livraison.</div>
-            <button type="button"
-                    id="emptyStateToggleBtn"
-                    class="fd-main-btn green"
-                    style="width:auto;padding:10px 24px;font-size:.85rem;"
-                    onclick="document.getElementById('driverToggleBtn').click()">
-                Passer en ligne
-            </button>
-        </div>
-        @else
-        <div class="fd-empty">
-            <div class="fd-empty-icon">🛵</div>
-            <div style="font-size:.95rem;font-weight:800;color:#1a1a1a;margin-bottom:6px;">En attente de missions</div>
-            <div style="font-size:.82rem;color:#aaa;">Vous êtes en ligne. Les nouvelles missions apparaîtront ici automatiquement.</div>
-            <div style="margin-top:12px;display:flex;align-items:center;justify-content:center;gap:6px;">
-                <span style="width:6px;height:6px;border-radius:50%;background:#22c55e;display:inline-block;animation:pulse 1.4s infinite;"></span>
-                <span style="font-size:.75rem;color:#22c55e;font-weight:700;">Actif — en attente</span>
-            </div>
-        </div>
-        @endif
-        @endforelse
-        </div>
-
-    </div>
-    </main>
-
-    </div>{{-- fd-right-col --}}
-</div>{{-- fd-shell --}}
+@section('nav_deliveries_badge')
+    @if($activeCount > 0)<span class="bd-drv-nav-badge">{{ $activeCount }}</span>@endif
 @endsection
 
-@section('scripts')
+@section('topbar_right')
+    <button type="button"
+            id="driverToggleBtn"
+            class="drv-toggle-btn {{ $driverIsOnline ? 'online' : 'offline' }}"
+            data-driver-id="{{ $driver->id }}"
+            data-is-online="{{ $driverIsOnline ? '1' : '0' }}"
+            data-url-online="{{ url('api/set_driver_online/'.$driver->id) }}"
+            data-url-offline="{{ url('api/set_driver_offline/'.$driver->id) }}"
+            data-csrf="{{ csrf_token() }}">
+        <span class="drv-toggle-dot" id="driverStatusDot"></span>
+        <span id="driverToggleBtnLabel">{{ $driverIsOnline ? 'En ligne' : 'Hors ligne' }}</span>
+    </button>
+@endsection
+
+@section('style')
+<style>
+/* ── GPS indicator ─────────────────────────────────── */
+.drv-gps-bar {
+    display: flex; align-items: center; gap: 8px;
+    padding: 9px 14px; margin-bottom: 16px;
+    border-radius: var(--bd-radius);
+    font-size: 12px; font-weight: 600;
+    transition: all .3s;
+}
+.drv-gps-bar.active {
+    background: var(--bd-green-pale); border: 1px solid rgba(0,149,67,.2); color: var(--bd-green-dark);
+}
+.drv-gps-bar.error {
+    background: rgba(239,68,68,.06); border: 1px solid rgba(239,68,68,.2); color: #991b1b;
+}
+.drv-gps-bar.off {
+    background: var(--bd-surface-2); border: 1px solid var(--bd-border); color: var(--bd-text-3);
+}
+.drv-gps-dot {
+    width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+}
+.drv-gps-bar.active .drv-gps-dot { background: var(--bd-green); animation: gpsPulse 2s infinite; }
+.drv-gps-bar.error .drv-gps-dot  { background: #ef4444; }
+.drv-gps-bar.off .drv-gps-dot    { background: var(--bd-text-3); }
+@keyframes gpsPulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+/* ── Toggle button ─────────────────────────────────── */
+.drv-toggle-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 5px 12px; border-radius: 7px;
+    font-size: 12px; font-weight: 600;
+    border: 1px solid var(--bd-border);
+    background: var(--bd-surface); color: var(--bd-text-2);
+    cursor: pointer; font-family: var(--bd-font);
+    transition: all .15s;
+}
+.drv-toggle-btn:disabled { opacity: .5; cursor: wait; }
+.drv-toggle-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--bd-text-3); flex-shrink: 0; }
+.drv-toggle-btn.online .drv-toggle-dot { background: #22c55e; }
+.drv-toggle-btn.online { border-color: rgba(34,197,94,.3); color: #16a34a; }
+
+/* ── WELCOME BANNER ────────────────────────────────── */
+.drv-welcome {
+    background: var(--bd-green-pale);
+    border-left: 4px solid var(--bd-green);
+    border-radius: var(--bd-radius);
+    padding: 18px 22px;
+    margin-bottom: 20px;
+    display: flex; align-items: center; gap: 14px;
+}
+.drv-welcome-avatar {
+    width: 48px; height: 48px; border-radius: 50%;
+    background: var(--bd-green);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; font-weight: 800; color: #fff;
+    flex-shrink: 0;
+}
+.drv-welcome-text h2 {
+    font-family: var(--bd-font-display);
+    font-size: 18px; font-weight: 800; color: var(--bd-text);
+    margin: 0 0 2px;
+}
+.drv-welcome-text p {
+    font-size: 13px; color: var(--bd-text-2); margin: 0;
+}
+[data-theme="dark"] .drv-welcome { background: rgba(0,149,67,.08); }
+
+/* ── KPI CARDS (style ElektriNet) ──────────────────── */
+.drv-kpis {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+}
+.drv-kpi {
+    background: var(--bd-surface);
+    border: 1px solid var(--bd-border);
+    border-radius: 12px;
+    padding: 24px 16px 20px;
+    text-align: center;
+    box-shadow: var(--bd-shadow-sm);
+    transition: box-shadow .15s, transform .15s;
+    position: relative;
+}
+.drv-kpi:hover { box-shadow: var(--bd-shadow-md); transform: translateY(-2px); }
+.drv-kpi-icon {
+    width: 52px; height: 52px; border-radius: 16px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; margin: 0 auto 14px;
+}
+.drv-kpi-icon.green  { background: rgba(0,149,67,.1);  color: var(--bd-green); }
+.drv-kpi-icon.amber  { background: rgba(245,158,11,.1); color: #d97706; }
+.drv-kpi-icon.blue   { background: rgba(59,130,246,.1); color: #2563eb; }
+.drv-kpi-value {
+    font-family: var(--bd-font-display);
+    font-size: 32px; font-weight: 800; color: var(--bd-text);
+    letter-spacing: -.03em; line-height: 1;
+}
+.drv-kpi-label {
+    font-size: 12px; font-weight: 600; color: var(--bd-text-3);
+    margin-top: 6px;
+}
+
+/* ── Section header ────────────────────────────────── */
+.drv-sec {
+    display: flex; align-items: center; gap: 8px; margin-bottom: 12px;
+}
+.drv-sec-title {
+    font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .08em;
+    color: var(--bd-text-3);
+}
+.drv-sec-count {
+    background: var(--bd-green); color: #fff;
+    border-radius: 99px; padding: 1px 7px;
+    font-size: 10px; font-weight: 700;
+}
+
+/* ── Mission card ──────────────────────────────────── */
+.drv-missions { display: flex; flex-direction: column; gap: 10px; }
+
+.drv-mission {
+    background: var(--bd-surface);
+    border: 1px solid var(--bd-border);
+    border-radius: var(--bd-radius);
+    overflow: hidden;
+    transition: border-color .12s, box-shadow .12s;
+}
+.drv-mission:hover { box-shadow: var(--bd-shadow); }
+.drv-mission-bar { height: 3px; }
+.drv-mission-bar.assigned { background: #f59e0b; }
+.drv-mission-bar.picked   { background: #3b82f6; }
+.drv-mission-bar.onway    { background: var(--bd-green); }
+
+/* Head row */
+.drv-mh {
+    display: flex; align-items: center; gap: 12px;
+    padding: 10px 14px;
+}
+.drv-mh-ref {
+    font-family: 'Courier New', monospace;
+    font-size: 13px; font-weight: 700;
+    color: var(--bd-text); flex-shrink: 0;
+}
+.drv-mh-route {
+    flex: 1; min-width: 0;
+    font-size: 12px; color: var(--bd-text-2);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.drv-mh-route strong { color: var(--bd-text); font-weight: 600; }
+.drv-mh-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+
+/* Badges */
+.drv-badge {
+    display: inline-flex; align-items: center;
+    padding: 2px 7px; border-radius: 999px;
+    font-size: 10px; font-weight: 700; text-transform: uppercase;
+    white-space: nowrap;
+}
+.drv-badge.assigned { background: rgba(245,158,11,.1); color: #d97706; }
+.drv-badge.picked   { background: rgba(59,130,246,.1);  color: #1d4ed8; }
+.drv-badge.onway    { background: rgba(0,149,67,.1);    color: #15803d; }
+.drv-badge.warn     { background: rgba(245,158,11,.12); color: #92400e; }
+.drv-badge.danger   { background: rgba(239,68,68,.1);   color: #b91c1c; }
+[data-theme="dark"] .drv-badge.assigned { background: rgba(251,191,36,.15); color: #fbbf24; }
+[data-theme="dark"] .drv-badge.picked   { background: rgba(96,165,250,.15); color: #60a5fa; }
+[data-theme="dark"] .drv-badge.onway    { background: rgba(0,201,87,.12);   color: #00c957; }
+
+.drv-mh-fee { font-size: 13px; font-weight: 700; color: var(--bd-text); white-space: nowrap; }
+.drv-mh-fee small { font-size: 10px; color: var(--bd-text-3); font-weight: 500; }
+
+/* Expand */
+.drv-expand-btn {
+    background: none; border: none; cursor: pointer;
+    color: var(--bd-text-3); padding: 2px 4px;
+    border-radius: 4px; font-size: 12px;
+    transition: color .12s;
+}
+.drv-expand-btn:hover { color: var(--bd-text-2); }
+.drv-expand-btn i { transition: transform .2s; }
+.drv-expand-btn.open i { transform: rotate(180deg); }
+
+/* Steps bar */
+.drv-steps-bar { display: flex; align-items: center; gap: 0; padding: 0 14px 8px; }
+.drv-step-item { display: flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600; color: var(--bd-text-3); }
+.drv-step-item.done   { color: var(--bd-green); }
+.drv-step-item.active { color: #d97706; font-weight: 700; }
+.drv-step-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--bd-border); flex-shrink: 0; }
+.drv-step-item.done   .drv-step-dot { background: #22c55e; }
+.drv-step-item.active .drv-step-dot { background: #f59e0b; }
+.drv-step-line { flex: 1; height: 1px; background: var(--bd-border); min-width: 16px; max-width: 40px; }
+
+/* Details */
+.drv-details { max-height: 0; overflow: hidden; transition: max-height .25s ease; border-top: 1px solid transparent; }
+.drv-details.open { max-height: 500px; border-top-color: var(--bd-border); }
+.drv-details-inner { padding: 12px 14px; display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.drv-detail-cell { display: flex; flex-direction: column; gap: 1px; }
+.drv-detail-lbl {
+    font-size: 10px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .06em;
+    color: var(--bd-text-3);
+}
+.drv-detail-val { font-size: 13px; font-weight: 600; color: var(--bd-text); }
+.drv-detail-val.addr { font-weight: 500; color: var(--bd-text-2); font-size: 12px; }
+.drv-call-link {
+    display: inline-flex; align-items: center; gap: 3px;
+    margin-top: 3px; font-size: 11px; font-weight: 600;
+    color: var(--bd-green); text-decoration: none;
+}
+
+/* Proofs */
+.drv-proofs { display: flex; gap: 6px; flex-wrap: wrap; padding: 0 14px 10px; }
+.drv-proof-link {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 3px 8px; border-radius: 6px;
+    background: var(--bd-surface-2); border: 1px solid var(--bd-border);
+    font-size: 11px; font-weight: 600; color: var(--bd-text-2);
+    text-decoration: none;
+}
+
+/* Actions */
+.drv-actions {
+    padding: 10px 14px 12px;
+    border-top: 1px solid var(--bd-border);
+    display: flex; align-items: center; gap: 8px;
+}
+.drv-btn {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 7px 14px; border-radius: 7px;
+    font-size: 12px; font-weight: 600;
+    border: none; cursor: pointer;
+    font-family: var(--bd-font);
+    transition: all .15s; white-space: nowrap;
+}
+.drv-btn:disabled { opacity: .5; cursor: wait; }
+.drv-btn.green  { background: var(--bd-green); color: #fff; }
+.drv-btn.green:hover { background: var(--bd-green-dark); }
+.drv-btn.blue   { background: #3b82f6; color: #fff; }
+.drv-btn.blue:hover { background: #2563eb; }
+.drv-btn.dark   { background: #111827; color: #fff; }
+.drv-btn.dark:hover { background: #0f172a; }
+.drv-btn.ghost  { background: transparent; color: var(--bd-text-2); border: 1px solid var(--bd-border); font-size: 11px; }
+.drv-btn.ghost:hover { background: var(--bd-surface-2); border-color: var(--bd-green); color: var(--bd-green); }
+
+/* Form panel */
+.drv-form-panel { display: none; }
+.drv-form-panel.open {
+    display: block; border-top: 1px solid var(--bd-border);
+    padding: 12px 14px; background: var(--bd-surface-2);
+}
+.drv-field { margin-bottom: 8px; }
+.drv-field label {
+    display: block; font-size: 11px; font-weight: 600;
+    color: var(--bd-text-2); margin-bottom: 3px;
+}
+.drv-field input,
+.drv-field textarea,
+.drv-field select {
+    width: 100%; border: 1px solid var(--bd-border); border-radius: 6px;
+    padding: 7px 10px; font-size: 13px; font-family: var(--bd-font);
+    color: var(--bd-text); background: var(--bd-surface);
+    transition: border-color .12s;
+}
+.drv-field input:focus, .drv-field textarea:focus {
+    outline: none; border-color: var(--bd-green);
+    box-shadow: 0 0 0 3px var(--bd-green-glow);
+}
+.drv-field textarea { min-height: 56px; resize: vertical; }
+.drv-form-hint { font-size: 11px; color: var(--bd-text-3); margin-bottom: 8px; }
+.drv-form-actions { display: flex; align-items: center; gap: 8px; }
+.drv-form-submit {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 7px 16px; background: var(--bd-green); color: #fff;
+    border: none; border-radius: 7px;
+    font-size: 12px; font-weight: 600;
+    cursor: pointer; font-family: var(--bd-font);
+}
+.drv-form-submit:hover { background: var(--bd-green-dark); }
+.drv-form-cancel {
+    font-size: 12px; font-weight: 500; color: var(--bd-text-3);
+    background: none; border: none; cursor: pointer; font-family: var(--bd-font);
+}
+
+/* Incident bottom sheet */
+.drv-bs-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 9000; }
+.drv-bs-overlay.open { display: block; }
+.drv-bs-panel {
+    position: fixed; bottom: 0; left: 50%; right: auto;
+    transform: translateX(-50%) translateY(100%);
+    width: min(460px, 95vw);
+    background: var(--bd-surface); border-radius: 14px 14px 0 0;
+    padding: 0 20px 24px; z-index: 9001;
+    transition: transform .28s cubic-bezier(.32,.72,0,1);
+    max-height: 80vh; overflow-y: auto;
+    box-shadow: 0 -4px 30px rgba(0,0,0,.15);
+}
+.drv-bs-panel.open { transform: translateX(-50%) translateY(0); }
+.drv-bs-handle { width: 32px; height: 3px; background: var(--bd-border); border-radius: 99px; margin: 12px auto 16px; }
+.drv-bs-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; font-size: 14px; font-weight: 600; color: var(--bd-text); }
+.drv-bs-close { width: 28px; height: 28px; border-radius: 50%; background: var(--bd-surface-2); border: none; cursor: pointer; font-size: 14px; color: var(--bd-text-3); display: flex; align-items: center; justify-content: center; }
+.drv-bs-field { margin-bottom: 12px; }
+.drv-bs-field label { display: block; font-size: 12px; font-weight: 600; color: var(--bd-text-2); margin-bottom: 4px; }
+.drv-bs-field select, .drv-bs-field textarea {
+    width: 100%; border: 1px solid var(--bd-border); border-radius: 7px;
+    padding: 8px 10px; font-size: 13px; font-family: var(--bd-font); color: var(--bd-text); background: var(--bd-surface);
+}
+.drv-bs-field select:focus, .drv-bs-field textarea:focus { outline: none; border-color: var(--bd-green); box-shadow: 0 0 0 3px var(--bd-green-glow); }
+.drv-bs-field textarea { min-height: 80px; resize: vertical; }
+.drv-bs-submit {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 18px; background: var(--bd-green); color: #fff;
+    border: none; border-radius: 7px; font-size: 13px; font-weight: 600;
+    cursor: pointer; font-family: var(--bd-font);
+    width: fit-content;
+}
+.drv-zone-alert {
+    display: none; padding: 8px 12px; margin-bottom: 10px;
+    background: rgba(239,68,68,.06); border: 1px solid rgba(239,68,68,.2);
+    border-radius: 7px; font-size: 12px; color: #991b1b; font-weight: 500;
+}
+
+/* Avatar in details */
+.drv-avatar-sm {
+    width: 36px; height: 36px; border-radius: 50%;
+    object-fit: cover; border: 2px solid var(--bd-border);
+    flex-shrink: 0;
+}
+.drv-avatar-placeholder {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: var(--bd-surface-2); border: 2px solid var(--bd-border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 700; color: var(--bd-text-3);
+    flex-shrink: 0;
+}
+.drv-contact-row {
+    display: flex; align-items: center; gap: 10px;
+}
+.drv-contact-info { flex: 1; min-width: 0; }
+.drv-contact-phone {
+    font-size: 11px; color: var(--bd-text-3); margin-top: 1px;
+}
+
+/* Chat compact */
+.drv-chat-section {
+    border-top: 1px solid var(--bd-border);
+    padding: 12px 14px;
+}
+.drv-chat-toggle {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: none; border: 1px solid var(--bd-border);
+    border-radius: 7px; padding: 7px 12px;
+    font-size: 12px; font-weight: 600; color: var(--bd-text-2);
+    cursor: pointer; font-family: var(--bd-font);
+    transition: border-color .12s;
+}
+.drv-chat-toggle:hover { border-color: var(--bd-green); color: var(--bd-green); }
+.drv-chat-toggle .drv-chat-unread {
+    margin-left: auto; background: var(--bd-green);
+    color: #fff; border-radius: 99px; padding: 1px 7px;
+    font-size: 10px; font-weight: 700;
+}
+.drv-chat-body { display: none; margin-top: 10px; }
+.drv-chat-body.open { display: block; }
+.drv-chat-messages {
+    max-height: 220px; overflow-y: auto;
+    display: flex; flex-direction: column; gap: 6px;
+    padding: 4px 0; margin-bottom: 10px;
+    max-width: 520px;
+}
+.drv-chat-msg {
+    padding: 8px 10px; border-radius: 10px;
+    max-width: 85%; font-size: 12px; line-height: 1.45;
+}
+.drv-chat-msg.mine {
+    margin-left: auto;
+    background: rgba(0,149,67,.08); border: 1px solid rgba(0,149,67,.2);
+    color: var(--bd-text);
+}
+.drv-chat-msg.other {
+    margin-right: auto;
+    background: var(--bd-surface-2); border: 1px solid var(--bd-border);
+    color: var(--bd-text);
+}
+.drv-chat-msg-meta {
+    display: flex; justify-content: space-between; gap: 8px;
+    font-size: 10px; font-weight: 700; margin-bottom: 3px;
+}
+.drv-chat-msg-role { text-transform: uppercase; letter-spacing: .04em; }
+.drv-chat-msg.mine .drv-chat-msg-role { color: var(--bd-green); }
+.drv-chat-msg.other .drv-chat-msg-role { color: var(--bd-text-3); }
+.drv-chat-msg-time { color: var(--bd-text-3); font-weight: 500; }
+.drv-chat-msg-body { word-break: break-word; }
+.drv-chat-form {
+    display: flex; gap: 6px; align-items: flex-end;
+    max-width: 480px;
+}
+.drv-chat-input {
+    flex: 1; border: 1px solid var(--bd-border); border-radius: 7px;
+    padding: 7px 10px; font-size: 12px; font-family: var(--bd-font);
+    color: var(--bd-text); background: var(--bd-surface);
+    resize: none; min-height: 36px; max-height: 80px;
+    width: auto;
+}
+.drv-chat-input:focus { outline: none; border-color: var(--bd-green); box-shadow: 0 0 0 2px var(--bd-green-glow); }
+.drv-chat-send {
+    background: var(--bd-green); color: #fff; border: none;
+    border-radius: 7px; padding: 7px 12px; font-size: 12px;
+    font-weight: 600; cursor: pointer; font-family: var(--bd-font);
+    white-space: nowrap;
+}
+.drv-chat-send:hover { background: var(--bd-green-dark); }
+.drv-chat-empty {
+    text-align: center; padding: 16px 10px;
+    font-size: 12px; color: var(--bd-text-3);
+}
+
+/* Empty state */
+.drv-empty {
+    text-align: center; padding: 40px 20px;
+    background: var(--bd-surface); border: 1px dashed var(--bd-border);
+    border-radius: var(--bd-radius);
+}
+.drv-empty-icon {
+    width: 44px; height: 44px; border-radius: 12px;
+    background: var(--bd-surface-2);
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 14px;
+    font-size: 18px; color: var(--bd-text-3);
+}
+.drv-empty-title { font-size: 14px; font-weight: 600; color: var(--bd-text); margin-bottom: 5px; }
+.drv-empty-sub   { font-size: 12px; color: var(--bd-text-2); line-height: 1.5; margin-bottom: 16px; }
+.drv-wait-dots span {
+    display: inline-block; width: 6px; height: 6px;
+    border-radius: 50%; background: #22c55e;
+    margin: 0 2px; animation: wdot 1.4s infinite;
+}
+.drv-wait-dots span:nth-child(2) { animation-delay: .2s; }
+.drv-wait-dots span:nth-child(3) { animation-delay: .4s; }
+@keyframes wdot { 0%,80%{transform:scale(.6);opacity:.3} 40%{transform:scale(1);opacity:1} }
+
+/* Finance strip */
+.drv-finance { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 20px; }
+.drv-fin-cell {
+    background: var(--bd-surface); border: 1px solid var(--bd-border);
+    border-radius: var(--bd-radius); padding: 14px 16px;
+    transition: border-color .12s;
+}
+.drv-fin-cell:hover { border-color: var(--bd-green); }
+.drv-fin-cell.hi { border-color: rgba(0,149,67,.25); background: var(--bd-green-pale); }
+.drv-fin-lbl { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--bd-text-3); margin-bottom: 4px; }
+.drv-fin-cell.hi .drv-fin-lbl { color: var(--bd-green-dark); }
+.drv-fin-val { font-family: var(--bd-font-display); font-size: 18px; font-weight: 800; color: var(--bd-text); line-height: 1; }
+.drv-fin-cell.hi .drv-fin-val { color: var(--bd-green); }
+
+@media (max-width: 768px) {
+    .drv-kpis { grid-template-columns: 1fr; gap: 10px; }
+    .drv-kpi { padding: 18px 14px 16px; }
+    .drv-kpi-icon { width: 40px; height: 40px; font-size: 18px; margin-bottom: 10px; }
+    .drv-kpi-value { font-size: 26px; }
+    .drv-welcome { flex-direction: column; text-align: center; }
+    .drv-details-inner { grid-template-columns: 1fr; }
+    .drv-finance { grid-template-columns: 1fr; }
+    .drv-missions { max-width: 100%; }
+}
+</style>
+@endsection
+
+@section('content')
+
+{{-- ── GPS INDICATOR ── --}}
+<div class="drv-gps-bar {{ $driverIsOnline ? 'active' : 'off' }}" id="gpsBar">
+    <span class="drv-gps-dot"></span>
+    <span id="gpsLabel">{{ $driverIsOnline ? 'Localisation GPS en cours...' : 'GPS inactif — passez en ligne pour activer' }}</span>
+</div>
+
+{{-- ── WELCOME BANNER ── --}}
+<div class="drv-welcome">
+    <div class="drv-welcome-avatar">{{ $driverInitials }}</div>
+    <div class="drv-welcome-text">
+        <h2>{{ $greeting }}, {{ explode(' ', $driver->name ?? 'Livreur')[0] }} !</h2>
+        <p>
+            @if($driverIsOnline)
+                Vous êtes en ligne — {{ $activeCount > 0 ? $activeCount . ' mission' . ($activeCount > 1 ? 's' : '') . ' en cours' : 'en attente de missions' }}.
+            @else
+                Passez en ligne pour recevoir des missions.
+            @endif
+        </p>
+    </div>
+</div>
+
+{{-- ── KPIs ── --}}
+<div class="drv-kpis">
+    <div class="drv-kpi">
+        <div class="drv-kpi-icon green"><i class="fas fa-circle-check"></i></div>
+        <div class="drv-kpi-value" style="color:var(--bd-green);">{{ $todayDelivered }}</div>
+        <div class="drv-kpi-label">Livrées aujourd'hui</div>
+    </div>
+    <div class="drv-kpi">
+        <div class="drv-kpi-icon amber"><i class="fas fa-motorcycle"></i></div>
+        <div class="drv-kpi-value">{{ $activeCount }}</div>
+        <div class="drv-kpi-label">Missions actives</div>
+    </div>
+    <div class="drv-kpi">
+        <div class="drv-kpi-icon blue"><i class="fas fa-wallet"></i></div>
+        <div class="drv-kpi-value" data-countup="{{ round($finAvailable) }}">{{ number_format(round($finAvailable),0,',',' ') }}</div>
+        <div class="drv-kpi-label">Disponible FCFA</div>
+    </div>
+</div>
+
+{{-- ── MISSIONS ── --}}
+<div class="drv-sec">
+    <span class="drv-sec-title">Missions actives</span>
+    @if($activeCount > 0)<span class="drv-sec-count">{{ $activeCount }}</span>@endif
+</div>
+
+<div class="drv-missions">
+@forelse($deliveries as $delivery)
+@php
+    $stepIdx     = array_search($delivery->status, $stepOrder, true);
+    $stepIdx     = $stepIdx === false ? 0 : $stepIdx;
+    $requiresCash= ($delivery->order->payment_method ?? null) === 'cash' && empty($delivery->cash_collected_at);
+    $stripeClass = ['ASSIGNED'=>'assigned','PICKED_UP'=>'picked','ON_THE_WAY'=>'onway'][$delivery->status] ?? 'assigned';
+    $badgeClass  = $stripeClass;
+    $restName    = $delivery->restaurant->name ?? '—';
+    $restPhone   = $delivery->restaurant->phone ?? null;
+    $restLogo    = $delivery->restaurant->logo ?? null;
+    $restLogoUrl = $restLogo ? (\Str::startsWith($restLogo, ['http://', 'https://']) ? $restLogo : asset('images/restaurant_images/' . $restLogo)) : null;
+    $clientName  = $delivery->order->user->name ?? '—';
+    $clientPhone = $delivery->order->user->phone ?? null;
+    $clientImg   = $delivery->order->user->image ?? $delivery->order->user->social_avatar ?? null;
+    $clientImgUrl= $clientImg ? (\Str::startsWith($clientImg, ['http://', 'https://']) ? $clientImg : asset('images/user_images/' . $clientImg)) : null;
+    $delivAddr   = $delivery->order->delivery_address ?? '—';
+    $incPhase    = ['ASSIGNED'=>'pre','PICKED_UP'=>'pickup','ON_THE_WAY'=>'otw'][$delivery->status] ?? 'pre';
+    $chatData    = $delivery->chatData ?? null;
+    $chatBadge   = $delivery->chatBadge ?? [];
+    $hasUnread   = !empty($chatBadge['has_unread']);
+    $unreadCount = $chatBadge['count'] ?? 0;
+@endphp
+
+<div class="drv-mission" id="mission-{{ $delivery->id }}">
+    <div class="drv-mission-bar {{ $stripeClass }}"></div>
+
+    <div class="drv-mh">
+        <span class="drv-mh-ref">#{{ $delivery->order->order_no ?? $delivery->order_id }}</span>
+        <span class="drv-mh-route">
+            <strong>{{ Str::limit($restName, 22) }}</strong>
+            <i class="fas fa-arrow-right" style="font-size:9px;margin:0 3px;color:var(--bd-text-3);"></i>
+            {{ Str::limit($delivAddr, 28) }}
+        </span>
+        <div class="drv-mh-right">
+            <span class="drv-badge {{ $badgeClass }}">{{ $statusLabels[$delivery->status] ?? $delivery->status }}</span>
+            @if($requiresCash) <span class="drv-badge warn">Cash</span> @endif
+            @if($delivery->incident_status === 'open') <span class="drv-badge danger">Incident</span> @endif
+            @if($hasUnread)
+            <span class="drv-badge" style="background:rgba(0,149,67,.1);color:var(--bd-green);">
+                <i class="fas fa-comment-dots" style="font-size:9px;"></i> {{ $unreadCount }}
+            </span>
+            @endif
+            <span class="drv-mh-fee">{{ number_format($delivery->delivery_fee??0,0,',',' ') }} <small>FCFA</small></span>
+            <button type="button" class="drv-expand-btn" id="exp-btn-{{ $delivery->id }}"
+                    onclick="drvToggleDetails('{{ $delivery->id }}')">
+                <i class="fas fa-chevron-down"></i>
+            </button>
+        </div>
+    </div>
+
+    <div class="drv-steps-bar">
+        @foreach(['ASSIGNED'=>'Récupération','PICKED_UP'=>'Ramassage','ON_THE_WAY'=>'Livraison'] as $sc => $sl)
+        @php
+            $si  = array_search($sc, $stepOrder, true);
+            $cls = $si < $stepIdx ? 'done' : ($sc === $delivery->status ? 'active' : '');
+        @endphp
+        @if(!$loop->first)<div class="drv-step-line"></div>@endif
+        <div class="drv-step-item {{ $cls }}">
+            <span class="drv-step-dot"></span>
+            {{ $sl }}
+        </div>
+        @endforeach
+    </div>
+
+    <div class="drv-details" id="details-{{ $delivery->id }}">
+        <div class="drv-details-inner">
+            <div class="drv-detail-cell">
+                <span class="drv-detail-lbl">Restaurant</span>
+                <div class="drv-contact-row">
+                    @if($restLogoUrl)
+                    <img src="{{ $restLogoUrl }}" alt="{{ $restName }}" class="drv-avatar-sm">
+                    @else
+                    <span class="drv-avatar-placeholder"><i class="fas fa-store"></i></span>
+                    @endif
+                    <div class="drv-contact-info">
+                        <span class="drv-detail-val">{{ $restName }}</span>
+                        @if($restPhone)
+                        <div class="drv-contact-phone">{{ $restPhone }}</div>
+                        <a class="drv-call-link" href="tel:{{ $restPhone }}"><i class="fas fa-phone" style="font-size:10px;"></i> Appeler</a>
+                        @endif
+                    </div>
+                </div>
+            </div>
+            <div class="drv-detail-cell">
+                <span class="drv-detail-lbl">Client</span>
+                <div class="drv-contact-row">
+                    @if($clientImgUrl)
+                    <img src="{{ $clientImgUrl }}" alt="{{ $clientName }}" class="drv-avatar-sm">
+                    @else
+                    <span class="drv-avatar-placeholder">{{ strtoupper(substr($clientName, 0, 1)) }}</span>
+                    @endif
+                    <div class="drv-contact-info">
+                        <span class="drv-detail-val">{{ $clientName }}</span>
+                        @if($clientPhone)
+                        <div class="drv-contact-phone">{{ $clientPhone }}</div>
+                        <a class="drv-call-link" href="tel:{{ $clientPhone }}"><i class="fas fa-phone" style="font-size:10px;"></i> Appeler</a>
+                        @endif
+                    </div>
+                </div>
+            </div>
+            <div class="drv-detail-cell" style="grid-column:1/-1">
+                <span class="drv-detail-lbl">Adresse de livraison</span>
+                <span class="drv-detail-val addr">{{ $delivAddr }}</span>
+            </div>
+            <div class="drv-detail-cell">
+                <span class="drv-detail-lbl">Commande</span>
+                <span class="drv-detail-val">{{ number_format($delivery->order->total??0,0,',',' ') }} FCFA</span>
+            </div>
+            <div class="drv-detail-cell">
+                <span class="drv-detail-lbl">Paiement</span>
+                <span class="drv-detail-val">
+                    @if($requiresCash) Cash &mdash; à encaisser
+                    @elseif(($delivery->order->payment_status??null)==='paid') Confirmé
+                    @else En attente
+                    @endif
+                </span>
+            </div>
+        </div>
+        @if($delivery->pickup_proof_path || $delivery->delivery_proof_path || $delivery->customer_confirmed_at)
+        <div class="drv-proofs" style="border-top:1px solid var(--bd-border);padding-top:8px;">
+            @if($delivery->pickup_proof_path)
+            <a class="drv-proof-link" href="{{ asset($delivery->pickup_proof_path) }}" target="_blank"><i class="fas fa-image"></i> Photo ramassage</a>
+            @endif
+            @if($delivery->delivery_proof_path)
+            <a class="drv-proof-link" href="{{ asset($delivery->delivery_proof_path) }}" target="_blank"><i class="fas fa-image"></i> Photo remise</a>
+            @endif
+            @if($delivery->customer_confirmed_at)
+            <span class="drv-proof-link"><i class="fas fa-check"></i> Confirmé {{ $delivery->customer_confirmed_at->format('d/m H:i') }}</span>
+            @endif
+        </div>
+        @endif
+    </div>
+
+    {{-- Chat compact --}}
+    @if($chatData && ($chatData['can_view'] ?? false))
+    <div class="drv-chat-section">
+        <button type="button" class="drv-chat-toggle" onclick="drvToggleChat('{{ $delivery->id }}')">
+            <i class="fas fa-comments"></i>
+            Conversation
+            @if($hasUnread)
+            <span class="drv-chat-unread">{{ $unreadCount }}</span>
+            @endif
+        </button>
+        <div class="drv-chat-body" id="chat-body-{{ $delivery->id }}">
+            <div class="drv-chat-messages" id="chat-msgs-{{ $delivery->id }}"
+                 data-refresh-url="{{ $chatData['messages_url'] ?? '' }}"
+                 data-role="{{ $chatData['role'] ?? 'driver' }}">
+                @php $msgs = $chatData['messages'] ?? []; @endphp
+                @forelse($msgs as $msg)
+                <div class="drv-chat-msg {{ ($msg['mine'] ?? false) ? 'mine' : 'other' }}">
+                    <div class="drv-chat-msg-meta">
+                        <span class="drv-chat-msg-role">{{ $msg['label'] ?? '' }}</span>
+                        <span class="drv-chat-msg-time">{{ $msg['time'] ?? '' }}</span>
+                    </div>
+                    <div class="drv-chat-msg-body">{{ $msg['body'] ?? '' }}</div>
+                </div>
+                @empty
+                <div class="drv-chat-empty">
+                    <i class="fas fa-comments" style="font-size:16px;margin-bottom:4px;display:block;"></i>
+                    Aucun message. Écrivez au client ou au restaurant.
+                </div>
+                @endforelse
+            </div>
+            @if($chatData['can_write'] ?? false)
+            <form class="drv-chat-form" onsubmit="return drvSendChat(event, '{{ $chatData['store_url'] ?? '' }}', '{{ $delivery->id }}')">
+                <textarea class="drv-chat-input" id="chat-input-{{ $delivery->id }}" rows="1" maxlength="500" placeholder="Votre message..."></textarea>
+                <button type="submit" class="drv-chat-send"><i class="fas fa-paper-plane"></i></button>
+            </form>
+            @endif
+        </div>
+    </div>
+    @endif
+
+    <div class="drv-actions">
+        @if($delivery->status === 'ASSIGNED')
+        <button type="button" class="drv-btn green" onclick="drvOpenPanel('pickup-{{ $delivery->id }}')">
+            <i class="fas fa-check"></i> Récupérer
+        </button>
+        @elseif($delivery->status === 'PICKED_UP')
+        <button type="button" class="drv-btn blue" onclick="drvOpenPanel('onway-{{ $delivery->id }}')">
+            <i class="fas fa-motorcycle"></i> Démarrer livraison
+        </button>
+        @elseif($delivery->status === 'ON_THE_WAY')
+        <button type="button" class="drv-btn dark" onclick="drvOpenPanel('deliver-{{ $delivery->id }}')">
+            <i class="fas fa-box-open"></i> Confirmer remise
+        </button>
+        @endif
+
+        <button type="button" class="drv-btn ghost" onclick="drvOpenIncident('{{ $delivery->id }}')">
+            <i class="fas fa-triangle-exclamation"></i> Problème
+        </button>
+    </div>
+
+    {{-- Forms --}}
+    @if($delivery->status === 'ASSIGNED')
+    <div class="drv-form-panel" id="pickup-{{ $delivery->id }}">
+        <form method="POST" action="{{ route('driver.deliveries.update', $delivery->id) }}"
+              enctype="multipart/form-data" class="delivery-action-form" data-lat-prefix="pickup">
+            @csrf
+            <input type="hidden" name="status" value="PICKED_UP">
+            <input type="hidden" name="pickup_latitude">
+            <input type="hidden" name="pickup_longitude">
+            <div class="drv-field">
+                <label>Note de ramassage (optionnel)</label>
+                <textarea name="pickup_notes" placeholder="Commande récupérée, vérifiée..." rows="2"></textarea>
+            </div>
+            <div class="drv-field">
+                <label>Photo de prise en charge</label>
+                <input type="file" name="pickup_proof" accept="image/*" capture="environment">
+            </div>
+            <div class="drv-form-hint"><i class="fas fa-location-dot"></i> Géolocalisation capturée automatiquement</div>
+            <div class="drv-form-actions">
+                <button type="submit" class="drv-form-submit"><i class="fas fa-check"></i> Confirmer</button>
+                <button type="button" class="drv-form-cancel" onclick="drvClosePanel('pickup-{{ $delivery->id }}')">Annuler</button>
+            </div>
+        </form>
+    </div>
+    @elseif($delivery->status === 'PICKED_UP')
+    <div class="drv-form-panel" id="onway-{{ $delivery->id }}">
+        <form method="POST" action="{{ route('driver.deliveries.update', $delivery->id) }}"
+              class="delivery-action-form" data-lat-prefix="delivery">
+            @csrf
+            <input type="hidden" name="status" value="ON_THE_WAY">
+            <input type="hidden" name="delivery_latitude">
+            <input type="hidden" name="delivery_longitude">
+            <div class="drv-field">
+                <label>Note de départ (optionnel)</label>
+                <textarea name="delivery_notes" placeholder="Je pars du restaurant..." rows="2"></textarea>
+            </div>
+            <div class="drv-form-hint"><i class="fas fa-location-dot"></i> Position de départ capturée</div>
+            <div class="drv-form-actions">
+                <button type="submit" class="drv-form-submit"><i class="fas fa-motorcycle"></i> Passer en route</button>
+                <button type="button" class="drv-form-cancel" onclick="drvClosePanel('onway-{{ $delivery->id }}')">Annuler</button>
+            </div>
+        </form>
+    </div>
+    @elseif($delivery->status === 'ON_THE_WAY')
+    <div class="drv-form-panel" id="deliver-{{ $delivery->id }}">
+        <form method="POST" action="{{ route('driver.deliveries.update', $delivery->id) }}"
+              enctype="multipart/form-data" class="delivery-action-form" data-lat-prefix="delivery">
+            @csrf
+            <input type="hidden" name="status" value="DELIVERED">
+            <input type="hidden" name="delivery_latitude">
+            <input type="hidden" name="delivery_longitude">
+            <div class="drv-field">
+                <label>Code OTP client</label>
+                <input type="text" name="delivery_otp" inputmode="numeric" placeholder="Code à 4 chiffres">
+            </div>
+            <div class="drv-field">
+                <label>Photo preuve de remise</label>
+                <input type="file" name="delivery_proof" accept="image/*" capture="environment">
+            </div>
+            <div class="drv-field">
+                <label>Note de remise (optionnel)</label>
+                <textarea name="delivery_notes" placeholder="Remise au client..." rows="2"></textarea>
+            </div>
+            <div class="drv-field">
+                <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+                    <input type="checkbox" name="customer_confirmed" value="1" style="width:auto;">
+                    Le client confirme la réception sur place
+                </label>
+            </div>
+            @if($requiresCash)
+            <div style="padding:8px 10px;background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);border-radius:7px;font-size:12px;color:#92400e;margin-bottom:8px;">
+                <i class="fas fa-money-bill"></i>
+                Encaisser {{ number_format($delivery->order->total??0,0,',',' ') }} FCFA avant de confirmer.
+            </div>
+            @endif
+            <div class="drv-form-actions">
+                <button type="submit" class="drv-form-submit"><i class="fas fa-box"></i> Marquer livrée</button>
+                <button type="button" class="drv-form-cancel" onclick="drvClosePanel('deliver-{{ $delivery->id }}')">Annuler</button>
+            </div>
+        </form>
+    </div>
+    @endif
+</div>
+
+{{-- Incident bottom sheet --}}
+<div class="drv-bs-overlay" id="bs-overlay-{{ $delivery->id }}" onclick="drvCloseIncident('{{ $delivery->id }}')"></div>
+<div class="drv-bs-panel" id="bs-panel-{{ $delivery->id }}">
+    <div class="drv-bs-handle"></div>
+    <div class="drv-bs-head">
+        <span><i class="fas fa-triangle-exclamation" style="color:#f59e0b;margin-right:6px;"></i> Signaler un incident</span>
+        <button class="drv-bs-close" onclick="drvCloseIncident('{{ $delivery->id }}')"><i class="fas fa-xmark"></i></button>
+    </div>
+    <form method="POST" action="{{ route('driver.deliveries.incident', $delivery->id) }}">
+        @csrf
+        <div id="zone-alert-{{ $delivery->id }}-{{ $incPhase }}" class="drv-zone-alert">
+            <i class="fas fa-road-barrier"></i> Zone inaccessible — le support sera notifié.
+        </div>
+        <div class="drv-bs-field">
+            <label>Motif</label>
+            <select name="reason" onchange="drvZoneAlert(this,'{{ $delivery->id }}-{{ $incPhase }}')">
+                @if($delivery->status === 'ASSIGNED')
+                <option value="restaurant_issue">Restaurant indisponible</option>
+                <option value="order_missing">Commande introuvable</option>
+                <option value="address_issue">Adresse problématique</option>
+                <option value="zone_inaccessible">Zone inaccessible</option>
+                @elseif($delivery->status === 'PICKED_UP')
+                <option value="packaging_issue">Produit endommagé</option>
+                <option value="restaurant_issue">Restaurant bloqué</option>
+                <option value="zone_inaccessible">Zone inaccessible</option>
+                <option value="incident_open">Autre incident</option>
+                @elseif($delivery->status === 'ON_THE_WAY')
+                <option value="customer_absent">Client absent</option>
+                <option value="recipient_unreachable">Client injoignable</option>
+                <option value="address_issue">Adresse introuvable</option>
+                <option value="zone_inaccessible">Zone inaccessible</option>
+                <option value="delivery_failed">Tentative échouée</option>
+                @endif
+            </select>
+        </div>
+        <div class="drv-bs-field">
+            <label>Détails</label>
+            <textarea name="notes" placeholder="Décrivez le problème..."></textarea>
+        </div>
+        <button type="submit" class="drv-bs-submit"><i class="fas fa-paper-plane"></i> Soumettre</button>
+    </form>
+</div>
+
+@empty
+
+@if(!$driverIsOnline)
+<div class="drv-empty">
+    <div class="drv-empty-icon"><i class="fas fa-circle-pause"></i></div>
+    <div class="drv-empty-title">Vous êtes hors ligne</div>
+    <div class="drv-empty-sub">Activez votre disponibilité pour recevoir des missions.</div>
+    <button type="button" class="drv-btn green" onclick="document.getElementById('driverToggleBtn').click()">
+        <i class="fas fa-circle-play"></i> Passer en ligne
+    </button>
+</div>
+@else
+<div class="drv-empty" style="border-color:rgba(0,149,67,.2);background:var(--bd-green-pale);">
+    <div class="drv-empty-icon" style="background:rgba(0,149,67,.1);color:var(--bd-green);"><i class="fas fa-satellite-dish"></i></div>
+    <div class="drv-empty-title">En attente de missions</div>
+    <div class="drv-empty-sub">Vous êtes actif. Les missions s'afficheront automatiquement.</div>
+    <div class="drv-wait-dots"><span></span><span></span><span></span></div>
+</div>
+@endif
+
+@endforelse
+</div>
+
+{{-- Gains --}}
+@if($finGross > 0)
+<div style="margin-top:20px;">
+    <div class="drv-sec">
+        <span class="drv-sec-title">Résumé financier</span>
+        @if(app('router')->has('driver.gains'))
+        <a href="{{ route('driver.gains') }}" style="margin-left:auto;font-size:12px;font-weight:600;color:var(--bd-green);text-decoration:none;">
+            Voir le détail <i class="fas fa-arrow-right" style="font-size:10px;"></i>
+        </a>
+        @endif
+    </div>
+    <div class="drv-finance">
+        <div class="drv-fin-cell hi">
+            <div class="drv-fin-lbl">Disponible</div>
+            <div class="drv-fin-val">{{ number_format(round($finAvailable),0,',',' ') }} FCFA</div>
+        </div>
+        <div class="drv-fin-cell">
+            <div class="drv-fin-lbl">Net partenaire</div>
+            <div class="drv-fin-val">{{ number_format(round($finNet),0,',',' ') }} FCFA</div>
+        </div>
+        <div class="drv-fin-cell">
+            <div class="drv-fin-lbl">CA brut</div>
+            <div class="drv-fin-val">{{ number_format(round($finGross),0,',',' ') }} FCFA</div>
+        </div>
+    </div>
+</div>
+@endif
+
+@endsection
+
+@section('script')
 <script>
-// ── T1.4 Zone inaccessible ────────────────────────────────────
-function bdShowZoneAlert(select, key) {
-    var el = document.getElementById('zone-alert-' + key);
-    if (!el) return;
-    el.style.display = select.value === 'zone_inaccessible' ? 'block' : 'none';
+function drvToggleDetails(id) {
+    var d = document.getElementById('details-' + id);
+    var b = document.getElementById('exp-btn-' + id);
+    if (!d) return;
+    var open = d.classList.toggle('open');
+    if (b) b.classList.toggle('open', open);
 }
-
-// ── Infos collapsible ─────────────────────────────────────────
-function fdToggleInfos(btn) {
-    btn.classList.toggle('open');
-    btn.nextElementSibling.classList.toggle('open');
+function drvOpenPanel(panelId) {
+    var p = document.getElementById(panelId);
+    if (p) p.classList.toggle('open');
 }
-
-// ── Panneaux action (pickup / on-the-way) ─────────────────────
-function fdOpenPanel(panelId, btn) {
-    var panel = document.getElementById(panelId);
-    if (!panel) return;
-    var open = panel.classList.toggle('open');
-    btn.style.opacity = open ? '.75' : '1';
+function drvClosePanel(panelId) {
+    var p = document.getElementById(panelId);
+    if (p) p.classList.remove('open');
 }
-function fdTogglePanel(panelId, btn) {
-    var panel = document.getElementById(panelId);
-    if (!panel) return;
-    var open = panel.classList.toggle('open');
-    btn.style.opacity = open ? '.75' : '1';
-}
-
-// ── Bottom sheet incident ──────────────────────────────────────
-function fdOpenIncident(id) {
+function drvOpenIncident(id) {
     document.getElementById('bs-overlay-' + id).classList.add('open');
-    document.getElementById('bs-panel-'   + id).classList.add('open');
+    document.getElementById('bs-panel-' + id).classList.add('open');
     document.body.style.overflow = 'hidden';
 }
-function fdCloseIncident(id) {
+function drvCloseIncident(id) {
     document.getElementById('bs-overlay-' + id).classList.remove('open');
-    document.getElementById('bs-panel-'   + id).classList.remove('open');
+    document.getElementById('bs-panel-' + id).classList.remove('open');
     document.body.style.overflow = '';
 }
+function drvZoneAlert(sel, key) {
+    var el = document.getElementById('zone-alert-' + key);
+    if (el) el.style.display = sel.value === 'zone_inaccessible' ? 'block' : 'none';
+}
+
+// Chat
+function drvToggleChat(id) {
+    var body = document.getElementById('chat-body-' + id);
+    if (!body) return;
+    var open = body.classList.toggle('open');
+    if (open) {
+        var msgs = document.getElementById('chat-msgs-' + id);
+        if (msgs) msgs.scrollTop = msgs.scrollHeight;
+        drvRefreshChat(id);
+    }
+}
+function drvRefreshChat(id) {
+    var msgs = document.getElementById('chat-msgs-' + id);
+    if (!msgs) return;
+    var url = msgs.dataset.refreshUrl;
+    var role = msgs.dataset.role;
+    if (!url) return;
+    fetch(url, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin' })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+        if (d.status && d.html) { msgs.innerHTML = d.html; msgs.scrollTop = msgs.scrollHeight; }
+    }).catch(function() {});
+}
+function drvSendChat(e, url, id) {
+    e.preventDefault();
+    var input = document.getElementById('chat-input-' + id);
+    var msg = (input.value || '').trim();
+    if (!msg || !url) return false;
+    input.disabled = true;
+    fetch(url, {
+        method: 'POST',
+        headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        credentials: 'same-origin',
+        body: 'message=' + encodeURIComponent(msg)
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+        input.value = '';
+        input.disabled = false;
+        drvRefreshChat(id);
+    })
+    .catch(function() { input.disabled = false; });
+    return false;
+}
+// Auto-refresh chat toutes les 10s
+setInterval(function() {
+    document.querySelectorAll('.drv-chat-body.open').forEach(function(el) {
+        var id = el.id.replace('chat-body-', '');
+        drvRefreshChat(id);
+    });
+}, 10000);
 </script>
 
 <script>
-// ── Toggle online / offline ───────────────────────────────────
-(function() {
+(function () {
     var btn = document.getElementById('driverToggleBtn');
     if (!btn) return;
-    btn.addEventListener('click', function() {
+    function applyState(online) {
+        btn.setAttribute('data-is-online', online ? '1' : '0');
+        btn.className = 'drv-toggle-btn ' + (online ? 'online' : 'offline');
+        document.getElementById('driverToggleBtnLabel').textContent = online ? 'En ligne' : 'Hors ligne';
+        var badge = document.getElementById('sidebarStatusBadge');
+        var label = document.getElementById('sidebarStatusLabel');
+        if (badge) badge.className = 'bd-drv-status ' + (online ? 'online' : 'offline');
+        if (label) label.textContent = online ? 'En ligne' : 'Hors ligne';
+    }
+    btn.addEventListener('click', function () {
         var isOnline = btn.getAttribute('data-is-online') === '1';
         var url = isOnline ? btn.getAttribute('data-url-offline') : btn.getAttribute('data-url-online');
         btn.disabled = true;
         fetch(url, {
-            method: isOnline ? 'GET' : 'POST',
-            headers: { 'X-CSRF-TOKEN': btn.getAttribute('data-csrf'), 'Accept': 'application/json', 'Content-Type': 'application/json' }
+            method: 'POST',
+            headers: { 'X-CSRF-TOKEN': btn.getAttribute('data-csrf'), 'Accept': 'application/json', 'Content-Type': 'application/json' },
+            body: JSON.stringify({})
         })
-        .then(function(r){ return r.json(); })
-        .then(function() {
-            var nowOnline = !isOnline;
-            btn.setAttribute('data-is-online', nowOnline ? '1' : '0');
-            btn.className = 'fd-status-pill ' + (nowOnline ? 'is-online' : 'is-offline');
-            document.getElementById('driverToggleBtnLabel').textContent = nowOnline ? 'Passer hors ligne' : 'Passer en ligne';
-            var dot = document.getElementById('driverStatusDot');
-            if (dot) dot.className = 'fd-status-dot';
-            var lbl = document.getElementById('driverStatusLabel');
-            if (lbl) { lbl.textContent = nowOnline ? 'En ligne' : 'Hors ligne'; lbl.style.color = nowOnline ? '#22c55e' : '#94a3b8'; }
+        .then(function (r) { return r.json(); })
+        .then(function (d) {
+            if (d && d.status) applyState(!isOnline);
+            else alert((d && d.message) || 'Erreur serveur');
             btn.disabled = false;
         })
-        .catch(function() { btn.disabled = false; });
+        .catch(function () { btn.disabled = false; });
     });
 })();
 </script>
 
 <script>
-// ── Polling + Offre entrante ──────────────────────────────────
 (function () {
-    var POLL_URL  = "{{ route('driver.deliveries.poll') }}";
-    var POLL_MS   = 10000;
-    var lastCount = -1;
-    var _driverAudioCtx = null;
-    var _driverAudioUnlocked = false;
-
-    (function () {
-        function unlock() { _driverAudioUnlocked = true; }
-        document.addEventListener('click',    unlock, { once: true });
-        document.addEventListener('keydown',  unlock, { once: true });
-        document.addEventListener('touchstart', unlock, { once: true, passive: true });
-    })();
-
-    function playNotifSound() {
-        if (!_driverAudioUnlocked) return;
-        try {
-            var C = window.AudioContext || window.webkitAudioContext;
-            if (!C) return;
-            if (!_driverAudioCtx || _driverAudioCtx.state === 'closed') _driverAudioCtx = new C();
-            if (_driverAudioCtx.state === 'suspended') _driverAudioCtx.resume();
-            var ctx = _driverAudioCtx;
-            var osc = ctx.createOscillator(); var gain = ctx.createGain();
-            osc.connect(gain); gain.connect(ctx.destination);
-            osc.frequency.value = 660;
-            var t = ctx.currentTime;
-            gain.gain.setValueAtTime(0.001, t);
-            gain.gain.exponentialRampToValueAtTime(0.22, t + 0.01);
-            gain.gain.exponentialRampToValueAtTime(0.001, t + 0.4);
-            osc.start(t); osc.stop(t + 0.41);
-        } catch (e) {}
+    function ease(t) { return 1 - Math.pow(1 - t, 4); }
+    function run(el, v) {
+        var s = null;
+        (function step(ts) {
+            if (!s) s = ts;
+            var p = Math.min((ts - s) / 800, 1);
+            el.textContent = Math.round(ease(p) * v).toLocaleString('fr-FR') + (el.dataset.suffix || '');
+            if (p < 1) requestAnimationFrame(step);
+        })(performance.now());
     }
-
-    function updateDriverBadge(count) {
-        var badge = document.getElementById('driverAssignedBadge');
-        if (!badge) {
-            badge = document.createElement('span');
-            badge.id = 'driverAssignedBadge';
-            badge.style.cssText = 'display:inline-block;background:#e85d04;color:#fff;border-radius:50%;padding:2px 7px;font-size:12px;margin-left:8px;font-weight:700;';
-            var title = document.querySelector('.fd-topbar-title');
-            if (title) title.appendChild(badge);
-        }
-        badge.textContent = count;
-        badge.style.display = count > 0 ? 'inline-block' : 'none';
-    }
-
-    var _offerPanel = null; var _offerTimer = null; var _currentOfferId = null;
-
-    function showOfferPanel(offer) {
-        if (_currentOfferId === offer.delivery_id) return;
-        _currentOfferId = offer.delivery_id;
-        if (_offerPanel) _offerPanel.remove();
-        _offerPanel = document.createElement('div');
-        _offerPanel.id = 'offerPanel';
-        _offerPanel.style.cssText = [
-            'position:fixed','bottom:24px','left:50%','transform:translateX(-50%)',
-            'z-index:99999','width:min(420px,95vw)',
-            'background:#fff','border-radius:20px',
-            'box-shadow:0 20px 60px rgba(0,0,0,.22)','border:2px solid #e85d04',
-            'padding:20px 22px','font-family:Manrope,sans-serif',
-        ].join(';');
-
-        var expiresAt = new Date(offer.expires_at).getTime();
-        _offerPanel.innerHTML = [
-            '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">',
-            '  <span style="font-size:28px;">🛵</span>',
-            '  <div>',
-            '    <div style="font-weight:900;font-size:1.05rem;color:#1a1a1a;">Nouvelle mission</div>',
-            '    <div style="font-size:.82rem;color:#888;">' + (offer.restaurant_name||'Restaurant') + ' · Commande #' + offer.order_no + '</div>',
-            '  </div>',
-            '</div>',
-            offer.distance_km ? '<div style="font-size:.85rem;color:#555;margin-bottom:10px;">📍 ' + parseFloat(offer.distance_km).toFixed(1) + ' km du restaurant</div>' : '',
-            '<div style="background:#fff7ed;border-radius:10px;padding:10px 14px;margin-bottom:14px;display:flex;align-items:center;gap:8px;">',
-            '  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#e85d04" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>',
-            '  <span style="font-size:.85rem;color:#c2410c;font-weight:700;">Expire dans <span id="offerCountdown">--</span>s</span>',
-            '</div>',
-            '<div style="display:flex;gap:10px;">',
-            '  <button id="offerAcceptBtn" style="flex:2;background:linear-gradient(135deg,#ff8c00,#e85d04);color:#fff;border:none;border-radius:12px;padding:13px;font-weight:800;font-size:.95rem;cursor:pointer;">✓ Accepter</button>',
-            '  <button id="offerDeclineBtn" style="flex:1;background:#f8fafc;color:#888;border:1.5px solid #e0e0e0;border-radius:12px;padding:13px;font-weight:700;font-size:.9rem;cursor:pointer;">Refuser</button>',
-            '</div>',
-        ].join('');
-
-        document.body.appendChild(_offerPanel);
-        clearInterval(_offerTimer);
-        _offerTimer = setInterval(function() {
-            var remaining = Math.max(0, Math.round((expiresAt - Date.now()) / 1000));
-            var el = document.getElementById('offerCountdown');
-            if (el) el.textContent = remaining;
-            if (remaining <= 0) { clearInterval(_offerTimer); hideOfferPanel(); }
-        }, 500);
-
-        setTimeout(function() {
-            if (_offerPanel) { _offerPanel.style.borderColor = '#ef4444'; if (window.BdAudio) window.BdAudio.play('alert'); }
-        }, (expiresAt - Date.now() - 10000));
-
-        playNotifSound();
-        if (window.BdAudio) window.BdAudio.play('new_order');
-
-        document.getElementById('offerAcceptBtn').addEventListener('click', function() {
-            this.disabled = true; this.textContent = '⏳ Acceptation…';
-            fetch('{{ url('/driver/deliveries') }}/' + offer.delivery_id + '/offer/accept', {
-                method: 'POST',
-                headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json', 'Content-Type': 'application/json' },
-                credentials: 'same-origin',
-            })
-            .then(function(r){ return r.json(); })
-            .then(function(d) {
-                hideOfferPanel();
-                if (d.status) { if (window.BdAudio) window.BdAudio.play('confirm'); setTimeout(function(){ window.location.reload(); }, 800); }
-                else { alert(d.message || 'Mission non disponible.'); }
-            })
-            .catch(function(){ window.location.reload(); });
-        });
-
-        document.getElementById('offerDeclineBtn').addEventListener('click', function() {
-            fetch('{{ url('/driver/deliveries') }}/' + offer.delivery_id + '/offer/decline', {
-                method: 'POST',
-                headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json', 'Content-Type': 'application/json' },
-                credentials: 'same-origin',
-            }).catch(function(){});
-            hideOfferPanel();
-        });
-    }
-
-    function hideOfferPanel() {
-        clearInterval(_offerTimer); _currentOfferId = null;
-        if (_offerPanel) { _offerPanel.remove(); _offerPanel = null; }
-    }
-
-    function poll() {
-        fetch(POLL_URL, { headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' }, credentials: 'same-origin', cache: 'no-store' })
-        .then(function(r) { return r.ok ? r.json() : null; })
-        .then(function(data) {
-            if (!data || !data.status) return;
-            var count = parseInt(data.count) || 0;
-            updateDriverBadge(data.new_assigned || 0);
-            if (data.pending_offer) { showOfferPanel(data.pending_offer); }
-            else if (!data.pending_offer && _currentOfferId) { hideOfferPanel(); }
-            if (lastCount !== -1 && count > lastCount) { playNotifSound(); setTimeout(function(){ window.location.reload(); }, 1500); }
-            lastCount = count;
-        })
-        .catch(function () {});
-    }
-
-    poll();
-    setInterval(poll, POLL_MS);
-
-    @if(config('broadcasting.default') !== 'log')
-    if (window.Echo) {
-        @php $driverModel = auth()->user() ? \App\Driver::where('email', auth()->user()->email)->orWhere('phone', auth()->user()->phone ?? '')->first() : null; @endphp
-        @if($driverModel)
-        window.Echo.private('food.driver.{{ $driverModel->id }}.deliveries')
-            .listen('.food.delivery.assigned', function (e) {
-                playNotifSound();
-                if (typeof toastr !== 'undefined') toastr.info('Nouvelle livraison assignée !');
-                setTimeout(function () { window.location.reload(); }, 1500);
-            });
-        @endif
-    }
-    @endif
+    document.querySelectorAll('[data-countup]').forEach(function (el) {
+        var v = parseFloat(el.getAttribute('data-countup')) || 0;
+        if (v > 0) run(el, Math.round(v));
+    });
 })();
 </script>
 
 <script>
-// ── Géolocalisation avant submit ──────────────────────────────
-function withGeoBeforeSubmit(form) {
-    const prefix = form.dataset.latPrefix;
+(function () {
+    var POLL_URL  = "{{ route('driver.deliveries.poll') }}";
+    var POLL_MS   = 10000;
+    var lastCount = null;
+    var _ctx = null, _unlocked = false, _offerEl = null, _offerTimer = null, _offerId = null;
+
+    ['click','touchstart'].forEach(function(e){ document.addEventListener(e, function(){ _unlocked = true; }, { once:true, passive:true }); });
+
+    function beep() {
+        if (!_unlocked) return;
+        try {
+            var C = window.AudioContext || window.webkitAudioContext;
+            if (!C) return;
+            if (!_ctx || _ctx.state === 'closed') _ctx = new C();
+            if (_ctx.state === 'suspended') _ctx.resume();
+            var o = _ctx.createOscillator(), g = _ctx.createGain();
+            o.connect(g); g.connect(_ctx.destination);
+            o.frequency.value = 660;
+            var t = _ctx.currentTime;
+            g.gain.setValueAtTime(.001,t); g.gain.exponentialRampToValueAtTime(.2,t+.01); g.gain.exponentialRampToValueAtTime(.001,t+.4);
+            o.start(t); o.stop(t+.41);
+        } catch(e){}
+    }
+
+    function showOffer(offer) {
+        if (_offerId === offer.delivery_id) return;
+        _offerId = offer.delivery_id;
+        if (_offerEl) _offerEl.remove();
+        var exp = new Date(offer.expires_at).getTime();
+        _offerEl = document.createElement('div');
+        _offerEl.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:99999;width:min(380px,95vw);background:var(--bd-surface);border:1px solid var(--bd-border);border-radius:var(--bd-radius-lg);box-shadow:0 12px 40px rgba(0,0,0,.18);padding:16px;font-family:var(--bd-font);';
+        _offerEl.innerHTML = '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">'
+            + '<div style="width:36px;height:36px;border-radius:8px;background:var(--bd-green);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="fas fa-motorcycle" style="color:#fff;font-size:14px;"></i></div>'
+            + '<div><div style="font-weight:600;font-size:14px;color:var(--bd-text);">Nouvelle mission</div>'
+            + '<div style="font-size:12px;color:var(--bd-text-3);margin-top:1px;">' + (offer.restaurant_name||'Restaurant') + ' &middot; #' + offer.order_no + '</div></div></div>'
+            + '<div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);border-radius:7px;padding:7px 10px;margin-bottom:12px;font-size:12px;color:#92400e;font-weight:600;">'
+            + '<i class="fas fa-clock"></i> Expire dans <span id="offerCd">--</span>s</div>'
+            + '<button id="offerAccept" style="background:var(--bd-green);color:#fff;border:none;border-radius:7px;padding:8px 20px;font-weight:600;font-size:13px;cursor:pointer;font-family:var(--bd-font);">Accepter la mission</button>';
+        document.body.appendChild(_offerEl);
+        beep();
+        clearInterval(_offerTimer);
+        _offerTimer = setInterval(function(){
+            var r = Math.max(0, Math.round((exp - Date.now()) / 1000));
+            var el = document.getElementById('offerCd'); if (el) el.textContent = r;
+            if (r <= 0) { clearInterval(_offerTimer); hideOffer(); }
+        }, 500);
+        document.getElementById('offerAccept').onclick = function(){
+            this.disabled = true; this.textContent = 'Acceptation...';
+            fetch('{{ url('/driver/deliveries') }}/' + offer.delivery_id + '/offer/accept', {
+                method:'POST', headers:{'X-CSRF-TOKEN':'{{ csrf_token() }}','Accept':'application/json','Content-Type':'application/json'}, credentials:'same-origin'
+            }).then(function(r){return r.json();}).then(function(d){
+                hideOffer();
+                if (d.status) setTimeout(function(){window.location.reload();},600);
+                else alert(d.message || 'Mission non disponible.');
+            }).catch(function(){window.location.reload();});
+        };
+    }
+    function hideOffer() {
+        clearInterval(_offerTimer); _offerId = null;
+        if (_offerEl) { _offerEl.remove(); _offerEl = null; }
+    }
+
+    function poll() {
+        fetch(POLL_URL, {headers:{'Accept':'application/json','X-Requested-With':'XMLHttpRequest'}, credentials:'same-origin', cache:'no-store'})
+        .then(function(r){return r.ok?r.json():null;})
+        .then(function(d){
+            if (!d||!d.status) return;
+            var count = parseInt(d.count)||0;
+            if (d.pending_offer) showOffer(d.pending_offer);
+            else if (!d.pending_offer && _offerId) hideOffer();
+            if (lastCount!==null && count>lastCount) { beep(); setTimeout(function(){window.location.reload();},1500); }
+            lastCount = count;
+        }).catch(function(){});
+    }
+    poll();
+    setInterval(poll, POLL_MS);
+})();
+</script>
+
+<script>
+function drvGeoSubmit(form) {
+    var prefix = form.dataset.latPrefix;
     if (!prefix || !navigator.geolocation) { form.submit(); return; }
     navigator.geolocation.getCurrentPosition(
-        (position) => {
-            const latField = form.querySelector(`input[name="${prefix}_latitude"]`);
-            const lngField = form.querySelector(`input[name="${prefix}_longitude"]`);
-            if (latField) latField.value = position.coords.latitude;
-            if (lngField) lngField.value = position.coords.longitude;
+        function(pos){
+            var lat = form.querySelector('input[name="'+prefix+'_latitude"]');
+            var lng = form.querySelector('input[name="'+prefix+'_longitude"]');
+            if (lat) lat.value = pos.coords.latitude;
+            if (lng) lng.value = pos.coords.longitude;
             form.submit();
         },
-        () => form.submit(),
-        { enableHighAccuracy: true, timeout: 5000, maximumAge: 30000 }
+        function(){ form.submit(); },
+        { enableHighAccuracy:true, timeout:5000, maximumAge:30000 }
     );
 }
-document.addEventListener('DOMContentLoaded', function () {
-    document.querySelectorAll('.delivery-action-form').forEach((form) => {
-        form.addEventListener('submit', function (event) {
-            if (form.dataset.submitting === '1') return;
-            event.preventDefault();
-            form.dataset.submitting = '1';
-            withGeoBeforeSubmit(form);
+document.addEventListener('DOMContentLoaded', function(){
+    document.querySelectorAll('.delivery-action-form').forEach(function(form){
+        form.addEventListener('submit', function(e){
+            if (form.dataset.submitting==='1') return;
+            e.preventDefault(); form.dataset.submitting = '1';
+            drvGeoSubmit(form);
         });
     });
 });
 </script>
 
 <script>
-// ── GPS continu livreur ───────────────────────────────────────
-(function () {
-    var GPS_URL    = @json(route('driver.location.update'));
-    var MIN_DIST_M = 30;
-    var CSRF       = @json(csrf_token());
-    var _watchId   = null; var _lastLat = null; var _lastLng = null;
-    var _isOnline  = {{ $driverIsOnline ? 'true' : 'false' }};
-    var _sending   = false;
+(function(){
+    var GPS_URL = @json(route('driver.location.update'));
+    var CSRF    = @json(csrf_token());
+    var MIN_M   = 30;
+    var _wid = null, _lat = null, _lng = null, _on = {{ $driverIsOnline ? 'true' : 'false' }}, _send = false;
+    var gpsBar = document.getElementById('gpsBar');
+    var gpsLabel = document.getElementById('gpsLabel');
 
-    function haversineM(lat1,lng1,lat2,lng2) {
-        var dLat=(lat2-lat1)*Math.PI/180, dLng=(lng2-lng1)*Math.PI/180;
-        var a=Math.sin(dLat/2)*Math.sin(dLat/2)+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)*Math.sin(dLng/2);
-        return 2*6371000*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+    function setGps(state, text) {
+        if (gpsBar) gpsBar.className = 'drv-gps-bar ' + state;
+        if (gpsLabel) gpsLabel.textContent = text;
     }
 
-    function sendPosition(pos) {
-        var lat=pos.coords.latitude, lng=pos.coords.longitude;
-        if (_lastLat!==null && haversineM(_lastLat,_lastLng,lat,lng)<MIN_DIST_M) return;
-        if (_sending) return;
-        _sending = true;
-        fetch(GPS_URL, {
-            method:'POST',
-            headers:{'X-CSRF-TOKEN':CSRF,'Content-Type':'application/json','Accept':'application/json'},
-            credentials:'same-origin',
-            body:JSON.stringify({latitude:lat,longitude:lng,accuracy:pos.coords.accuracy||null,heading:pos.coords.heading||null,speed:pos.coords.speed||null}),
-        })
+    function hdist(a,b,c,d){var e=(c-a)*Math.PI/180,f=(d-b)*Math.PI/180,g=Math.sin(e/2)*Math.sin(e/2)+Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(f/2)*Math.sin(f/2);return 2*6371000*Math.atan2(Math.sqrt(g),Math.sqrt(1-g));}
+
+    function send(pos){
+        var la=pos.coords.latitude,ln=pos.coords.longitude;
+        if (_lat!==null && hdist(_lat,_lng,la,ln)<MIN_M) {
+            setGps('active', 'Position OK · ' + new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}));
+            return;
+        }
+        if (_send) return; _send=true;
+        setGps('active', 'Envoi de la position...');
+        fetch(GPS_URL,{method:'POST',headers:{'X-CSRF-TOKEN':CSRF,'Content-Type':'application/json','Accept':'application/json'},credentials:'same-origin',body:JSON.stringify({latitude:la,longitude:ln,accuracy:pos.coords.accuracy||null,heading:pos.coords.heading||null,speed:pos.coords.speed||null})})
         .then(function(r){return r.ok?r.json():null;})
-        .then(function(d){if(d&&d.status){_lastLat=lat;_lastLng=lng;}})
-        .catch(function(){})
-        .finally(function(){_sending=false;});
+        .then(function(d){
+            if(d&&d.status){_lat=la;_lng=ln; setGps('active', 'Position envoyée · ' + new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}));}
+            else setGps('error', 'Erreur serveur · réessai en cours');
+        })
+        .catch(function(){ setGps('error', 'Connexion perdue · réessai...'); })
+        .finally(function(){_send=false;});
     }
 
-    function startWatching() {
-        if (_watchId!==null||!navigator.geolocation) return;
-        _watchId = navigator.geolocation.watchPosition(sendPosition, function(err){if(err.code!==err.TIMEOUT)stopWatching();},{enableHighAccuracy:true,maximumAge:10000,timeout:20000});
-    }
-    function stopWatching() {
-        if (_watchId!==null){navigator.geolocation.clearWatch(_watchId);_watchId=null;}
+    function onGpsError(e) {
+        if (e.code === e.PERMISSION_DENIED) setGps('error', 'Géolocalisation refusée — autorisez-la dans les paramètres du navigateur');
+        else if (e.code === e.POSITION_UNAVAILABLE) setGps('error', 'Position indisponible — activez le GPS');
+        else if (e.code !== e.TIMEOUT) { setGps('error', 'Erreur GPS · réessai...'); stop(); }
     }
 
-    if (_isOnline) startWatching();
+    function start(){
+        if(_wid!==null||!navigator.geolocation)return;
+        setGps('active', 'Localisation GPS en cours...');
+        _wid=navigator.geolocation.watchPosition(send, onGpsError, {enableHighAccuracy:true,maximumAge:10000,timeout:20000});
+    }
+    function stop(){
+        if(_wid!==null){navigator.geolocation.clearWatch(_wid);_wid=null;}
+        if(!_on) setGps('off', 'GPS inactif — passez en ligne pour activer');
+    }
 
-    var toggleBtn = document.getElementById('driverToggleBtn');
-    if (toggleBtn) {
-        toggleBtn.addEventListener('click', function(){
-            setTimeout(function(){
-                var nowOnline = toggleBtn.getAttribute('data-is-online')==='1';
-                if (nowOnline){startWatching();}else{stopWatching();}
-            }, 300);
+    if(_on) start();
+    else setGps('off', 'GPS inactif — passez en ligne pour activer');
+
+    var tb=document.getElementById('driverToggleBtn');
+    if(tb){tb.addEventListener('click',function(){setTimeout(function(){
+        _on=tb.getAttribute('data-is-online')==='1';
+        if(_on) start(); else stop();
+    },600);});}
+    window.addEventListener('beforeunload',stop);
+    document.addEventListener('visibilitychange',function(){if(document.hidden)stop();else if(_on)start();});
+})();
+</script>
+
+<script>
+(function(){
+    var input = document.getElementById('drvSearchInput');
+    if (!input) return;
+    input.addEventListener('input', function() {
+        var q = this.value.toLowerCase().trim();
+        document.querySelectorAll('.drv-mission').forEach(function(card) {
+            var text = card.textContent.toLowerCase();
+            card.style.display = (!q || text.indexOf(q) !== -1) ? '' : 'none';
         });
-    }
-
-    window.addEventListener('beforeunload', stopWatching);
-    document.addEventListener('visibilitychange', function(){
-        if (document.hidden){stopWatching();}else if(_isOnline){startWatching();}
     });
 })();
 </script>

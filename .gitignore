@@ -81,3 +81,13 @@ notification.mp3
 favicon.ico
 robots.txt
 bantudelice_state_machine.php
+
+# Librairies tierces compilées dans public (ne pas versionner)
+/public/dist/
+/public/plugins/
+/public/slick/
+/public/libs/
+
+# Soketi — généré au deploy depuis soketi.json.template
+soketi.json
+firebase-credentials.json

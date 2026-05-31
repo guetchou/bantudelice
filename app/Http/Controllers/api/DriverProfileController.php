@@ -96,10 +96,16 @@ class DriverProfileController extends Controller
 
     public function setOnline(Request $request, $driver)
     {
+        // IDOR guard: if driver_api token present, it must belong to this driver
+        $tokenDriver = auth('driver_api')->user();
+        if ($tokenDriver && (int)$tokenDriver->id !== (int)$driver) {
+            return response()->json(['status' => false, 'message' => 'Accès non autorisé'], 403);
+        }
+
         $validator = Validator::make($request->all(), [
-            'latitude'     => 'required',
-            'longitude'    => 'required',
-            'device_token' => 'required',
+            'latitude'     => 'nullable|numeric|between:-90,90',
+            'longitude'    => 'nullable|numeric|between:-180,180',
+            'device_token' => 'nullable|string|max:512',
         ]);
 
         if ($validator->fails()) {
@@ -116,10 +122,12 @@ class DriverProfileController extends Controller
             return response()->json(['status' => false, 'message' => 'Livreur introuvable'], 404);
         }
 
-        $driverModel->status       = 'online';
-        $driverModel->latitude     = $request->latitude;
-        $driverModel->longitude    = $request->longitude;
-        $driverModel->device_token = $request->device_token;
+        $driverModel->status = 'online';
+        if ($request->filled('latitude'))  $driverModel->latitude  = $request->latitude;
+        if ($request->filled('longitude')) $driverModel->longitude = $request->longitude;
+        if ($request->filled('device_token') && \Illuminate\Support\Facades\Schema::hasColumn('drivers', 'device_token')) {
+            $driverModel->device_token = $request->device_token;
+        }
         $driverModel->save();
 
         return response()->json(['status' => true, 'message' => 'You are online now!']);
@@ -152,6 +160,12 @@ class DriverProfileController extends Controller
 
     public function setOffline($user)
     {
+        // IDOR guard
+        $tokenDriver = auth('driver_api')->user();
+        if ($tokenDriver && (int)$tokenDriver->id !== (int)$user) {
+            return response()->json(['status' => false, 'message' => 'Accès non autorisé'], 403);
+        }
+
         $driver = Driver::where('id', $user)->first();
 
         if (!$driver) {

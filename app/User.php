@@ -48,6 +48,41 @@ class User extends Authenticatable
         return $this->hasOne(Restaurant::class);
     }
 
+    public function adminPermissions()
+    {
+        return $this->hasMany(AdminPermission::class)->whereNull('revoked_at');
+    }
+
+    public function hasAdminWorkspace(string $workspace): bool
+    {
+        if ($this->type !== 'admin') {
+            return false;
+        }
+
+        return $this->adminPermissions()
+            ->whereIn('workspace', [$workspace, '*'])
+            ->exists();
+    }
+
+    public function isSuperAdmin(): bool
+    {
+        return $this->type === 'admin'
+            && $this->adminPermissions()->where('workspace', '*')->exists();
+    }
+
+    public function adminWorkspaces(): array
+    {
+        if ($this->isSuperAdmin()) {
+            return ['bantudelice', 'kende', 'mema'];
+        }
+
+        return $this->adminPermissions()
+            ->pluck('workspace')
+            ->filter(fn($w) => $w !== '*')
+            ->values()
+            ->toArray();
+    }
+
     public function favoriteRestaurants()
     {
         return $this->belongsToMany(Restaurant::class, 'restaurant_favorites')

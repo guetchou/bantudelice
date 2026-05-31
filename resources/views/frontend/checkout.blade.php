@@ -7,6 +7,50 @@
 @section('hide_primary_chrome', '1')
 @section('body_class', 'bd-checkout-page')
 
+@section('style')
+<style>
+/* ── Checkout Wizard ── */
+.co-step-section { display: none; }
+.co-step-section.is-active { display: block; }
+
+.co-step-nav {
+  display: flex; align-items: center; justify-content: flex-end;
+  gap: 12px; margin-top: 20px; padding-top: 16px;
+  border-top: 1px solid #f1f5f9;
+}
+.co-step-nav--split { justify-content: space-between; }
+
+.co-step-btn-back {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 10px 18px;
+  background: transparent; border: 1.5px solid #e2e8f0; border-radius: 10px;
+  color: #64748b; font: 500 .85rem 'Poppins', sans-serif;
+  cursor: pointer; text-decoration: none; transition: background .15s;
+}
+.co-step-btn-back:hover { background: #f8fafc; color: #334155; }
+
+.co-step-btn-next {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 12px 24px;
+  background: #009543; border: none; border-radius: 10px;
+  color: #fff; font: 600 .9rem 'Poppins', sans-serif;
+  cursor: pointer; transition: background .15s, transform .1s;
+}
+.co-step-btn-next:hover { background: #007a38; }
+.co-step-btn-next:active { transform: scale(.97); }
+.co-step-btn-next svg, .co-step-btn-back svg { flex-shrink: 0; }
+
+/* Step 4 mobile summary */
+.co-step4-mobile { display: none; }
+
+@media (max-width: 768px) {
+  .co-sidebar { display: none; }
+  .co-sidebar.is-step4-visible { display: block; }
+  .co-step4-mobile { display: block; padding: 16px 0 4px; }
+}
+</style>
+@endsection
+
 @section('content')
 @php
     $checkoutUi = trans('ui.checkout');
@@ -43,20 +87,34 @@
 <div class="co-stepbar">
   <div class="co-stepbar__inner">
     <div class="co-step-item">
-      <div class="co-step-node co-step-node--done">
+      <div class="co-step-node co-step-node--done" id="stepNode1">
         <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
       </div>
-      <span class="co-step-text co-step-text--done">{{ data_get($checkoutUi, 'step_cart', 'Panier') }}</span>
+      <span class="co-step-text co-step-text--done" id="stepText1">{{ data_get($checkoutUi, 'step_cart', 'Panier') }}</span>
     </div>
-    <div class="co-step-wire co-step-wire--done"></div>
+    <div class="co-step-wire co-step-wire--done" id="stepWire1"></div>
     <div class="co-step-item">
-      <div class="co-step-node co-step-node--active">2</div>
-      <span class="co-step-text co-step-text--active">{{ data_get($checkoutUi, 'step_payment', 'Paiement') }}</span>
+      <div class="co-step-node co-step-node--active" id="stepNode2">
+        <span class="co-step-check" style="display:none"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+        <span class="co-step-num">2</span>
+      </div>
+      <span class="co-step-text co-step-text--active" id="stepText2">Livraison</span>
     </div>
-    <div class="co-step-wire co-step-wire--idle"></div>
+    <div class="co-step-wire co-step-wire--idle" id="stepWire2"></div>
     <div class="co-step-item">
-      <div class="co-step-node co-step-node--idle">3</div>
-      <span class="co-step-text co-step-text--idle">{{ data_get($checkoutUi, 'step_confirm', 'Confirmation') }}</span>
+      <div class="co-step-node co-step-node--idle" id="stepNode3">
+        <span class="co-step-check" style="display:none"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+        <span class="co-step-num">3</span>
+      </div>
+      <span class="co-step-text co-step-text--idle" id="stepText3">{{ data_get($checkoutUi, 'step_payment', 'Paiement') }}</span>
+    </div>
+    <div class="co-step-wire co-step-wire--idle" id="stepWire3"></div>
+    <div class="co-step-item">
+      <div class="co-step-node co-step-node--idle" id="stepNode4">
+        <span class="co-step-check" style="display:none"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+        <span class="co-step-num">4</span>
+      </div>
+      <span class="co-step-text co-step-text--idle" id="stepText4">{{ data_get($checkoutUi, 'step_confirm', 'Confirmation') }}</span>
     </div>
   </div>
 </div>
@@ -131,6 +189,9 @@
              LEFT COLUMN
         ════════════════════════ --}}
         <div class="co-main">
+
+          {{-- ══ STEP 2 : Livraison & Horaire ══ --}}
+          <div class="co-step-section is-active" id="coStep2">
 
           {{-- ── Mode de réception ── --}}
           <div class="co-card">
@@ -294,6 +355,23 @@
             </div>
           </div>
 
+          {{-- ── Step 2 navigation ── --}}
+          <div class="co-step-nav">
+            <a href="{{ route('cart.detail') }}" class="co-step-btn-back">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+              Modifier le panier
+            </a>
+            <button type="button" class="co-step-btn-next" onclick="coGoToStep(3)">
+              Continuer vers le paiement
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </button>
+          </div>
+
+          </div>{{-- /coStep2 --}}
+
+          {{-- ══ STEP 3 : Paiement & Options ══ --}}
+          <div class="co-step-section" id="coStep3">
+
           {{-- ── Promo & Pourboire ── --}}
           <div class="co-card">
             <div class="co-card__hd">
@@ -385,6 +463,45 @@
               </div>
             </div>
           </div>
+
+          {{-- ── Step 3 navigation ── --}}
+          <div class="co-step-nav co-step-nav--split">
+            <button type="button" class="co-step-btn-back" onclick="coGoToStep(2)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+              Livraison
+            </button>
+            <button type="button" class="co-step-btn-next" onclick="coGoToStep(4)">
+              Vérifier la commande
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </button>
+          </div>
+
+          </div>{{-- /coStep3 --}}
+
+          {{-- ══ STEP 4 : Confirmation (desktop = sidebar; mobile = this panel) ══ --}}
+          <div class="co-step-section" id="coStep4">
+            <div class="co-step4-mobile">
+              <div class="co-card" style="border:2px solid #009543;">
+                <div class="co-card__hd">
+                  <div class="co-card__icon" style="background:#dcfce7;color:#009543;"><i class="fas fa-check-circle"></i></div>
+                  <span class="co-card__title">Votre commande est prête</span>
+                </div>
+                <div class="co-card__body">
+                  <p style="color:#64748b;font-size:.88rem;margin-bottom:16px;">Vérifiez le récapitulatif ci-dessous puis validez pour passer commande.</p>
+                  <button type="submit" form="checkoutForm" class="co-step-btn-next" style="width:100%;justify-content:center;padding:14px 20px;font-size:.95rem;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    Commander
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div class="co-step-nav" style="padding-top:8px;margin-top:8px;">
+              <button type="button" class="co-step-btn-back" onclick="coGoToStep(3)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+                Modifier le paiement
+              </button>
+            </div>
+          </div>{{-- /coStep4 --}}
 
         </div>{{-- /co-main --}}
 
@@ -832,8 +949,8 @@ document.getElementById('applyVoucher')?.addEventListener('click', function() {
             setTimeout(() => successMsg.remove(), 3000);
         } else {
             btn.disabled = false;
-            btn.textContent = ‘Appliquer’;
-            showToast(response.message || ‘Code promo invalide ou expiré.’, ‘error’);
+            btn.textContent = 'Appliquer';
+            showToast(response.message || 'Code promo invalide ou expiré.', 'error');
         }
     })
     .catch(error => {
@@ -1138,31 +1255,68 @@ function extractCheckoutContext(feature, preferredTypes) {
     return '';
 }
 
+var _checkoutMapboxOk = null;
+
+async function checkoutReverseGeocodeNominatim(lat, lng) {
+    try {
+        const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=fr&zoom=18`);
+        const d = await r.json();
+        const addr = d.address || {};
+        return {
+            lat, lng,
+            label: d.display_name || `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+            district: addr.suburb || addr.neighbourhood || addr.city_district || '',
+            city: addr.city || addr.town || 'Brazzaville',
+            department: addr.state || 'Brazzaville',
+            precisionLevel: addr.road ? 'address' : 'area',
+            landmark: addr.road || '',
+            addressLine: d.display_name || `${lat.toFixed(6)}, ${lng.toFixed(6)}`
+        };
+    } catch(e) {
+        return { lat, lng, label: `${lat.toFixed(6)}, ${lng.toFixed(6)}`, district:'Brazzaville', city:'Brazzaville', department:'Brazzaville', precisionLevel:'area', landmark:'', addressLine:`${lat.toFixed(6)}, ${lng.toFixed(6)}` };
+    }
+}
+
 async function checkoutReverseGeocode(lat, lng) {
+    if (_checkoutMapboxOk === false) return checkoutReverseGeocodeNominatim(lat, lng);
     try {
         const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${CHECKOUT_MAPBOX_TOKEN}&limit=1&language=fr&types=address,poi,neighborhood,locality,place`;
         const response = await fetch(url);
+        if (!response.ok) { _checkoutMapboxOk = false; return checkoutReverseGeocodeNominatim(lat, lng); }
+        _checkoutMapboxOk = true;
         const data = await response.json().catch(() => ({}));
-        if (response.ok && data.features && data.features[0]) {
+        if (data.features && data.features[0]) {
             return buildCheckoutAddressDetails(lat, lng, data.features[0]);
         }
     } catch (error) {
-        console.error('Checkout reverse geocode error:', error);
+        _checkoutMapboxOk = false;
+        return checkoutReverseGeocodeNominatim(lat, lng);
     }
-    return {
-        lat,
-        lng,
-        label: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
-        district: 'Brazzaville',
-        city: 'Brazzaville',
-        department: 'Brazzaville',
-        precisionLevel: 'area',
-        landmark: '',
-        addressLine: `${lat.toFixed(6)}, ${lng.toFixed(6)}`
-    };
+    return { lat, lng, label: `${lat.toFixed(6)}, ${lng.toFixed(6)}`, district:'Brazzaville', city:'Brazzaville', department:'Brazzaville', precisionLevel:'area', landmark:'', addressLine:`${lat.toFixed(6)}, ${lng.toFixed(6)}` };
+}
+
+async function checkoutSearchNominatim(query, limit = 5) {
+    try {
+        const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=cg&limit=${limit}&accept-language=fr&addressdetails=1`);
+        const results = await r.json();
+        return (results || []).map(function(r) {
+            const addr = r.address || {};
+            return {
+                lat: parseFloat(r.lat), lng: parseFloat(r.lon),
+                label: r.display_name,
+                district: addr.suburb || addr.neighbourhood || addr.city_district || '',
+                city: addr.city || addr.town || 'Brazzaville',
+                department: addr.state || 'Brazzaville',
+                precisionLevel: addr.road ? 'address' : 'area',
+                landmark: addr.road || '',
+                addressLine: r.display_name
+            };
+        });
+    } catch(e) { return []; }
 }
 
 async function checkoutSearch(query, limit = 5) {
+    if (_checkoutMapboxOk === false) return checkoutSearchNominatim(query, limit);
     try {
         let url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${CHECKOUT_MAPBOX_TOKEN}&autocomplete=true&limit=${limit}&language=fr&country=cg&types=address,poi,neighborhood,locality,place`;
         const latitude = document.getElementById('latitude')?.value;
@@ -1171,15 +1325,17 @@ async function checkoutSearch(query, limit = 5) {
             url += `&proximity=${longitude},${latitude}`;
         }
         const response = await fetch(url);
+        if (!response.ok) { _checkoutMapboxOk = false; return checkoutSearchNominatim(query, limit); }
+        _checkoutMapboxOk = true;
         const data = await response.json().catch(() => ({}));
-        if (!response.ok || !data.features) return [];
+        if (!data.features) return [];
         return data.features.map((feature) => {
             const [lng, lat] = feature.center;
             return buildCheckoutAddressDetails(lat, lng, feature);
         });
     } catch (error) {
-        console.error('Checkout geocoding error:', error);
-        return [];
+        _checkoutMapboxOk = false;
+        return checkoutSearchNominatim(query, limit);
     }
 }
 
@@ -1458,5 +1614,116 @@ window.addEventListener('load', function () {
     }
     recalculateCheckoutTotals();
 }, { once: true });
+</script>
+<script>
+/* ── Checkout Wizard ── */
+(function () {
+    'use strict';
+    var _step = 2;
+
+    function validateStep(step) {
+        if (step === 2) {
+            if (typeof getFulfillmentMode === 'function' && getFulfillmentMode() === 'delivery') {
+                var addr = (document.getElementById('searchMapInput') || {}).value || '';
+                if (!addr.trim()) {
+                    if (typeof showToast === 'function') showToast('Veuillez entrer une adresse de livraison.', 'error');
+                    var f = document.getElementById('searchMapInput');
+                    if (f) f.focus();
+                    return false;
+                }
+                if (typeof isCheckoutAddressTooBroad === 'function'
+                    && typeof checkoutAddressState !== 'undefined'
+                    && isCheckoutAddressTooBroad(checkoutAddressState.precisionLevel)
+                    && !checkoutAddressState.confirmed) {
+                    if (typeof showToast === 'function') showToast('Précisez le repère sur la carte avant de continuer.', 'error');
+                    return false;
+                }
+            }
+        }
+        if (step === 3) {
+            var method = (document.querySelector('input[name="payment_method"]:checked') || {}).value;
+            if (method === 'mobile_money') {
+                var phone = ((document.getElementById('paymentPhone') || {}).value || '').trim();
+                if (!phone) {
+                    if (typeof showToast === 'function') showToast('Saisissez le numéro pour le paiement mobile.', 'error');
+                    var pf = document.getElementById('paymentPhone');
+                    if (pf) pf.focus();
+                    return false;
+                }
+                if (typeof detectMobileMoneyOperator === 'function') {
+                    var op = detectMobileMoneyOperator(phone);
+                    if (op.operator === 'unknown') {
+                        if (typeof showToast === 'function') showToast(op.label, 'error');
+                        return false;
+                    }
+                }
+            }
+        }
+        return true;
+    }
+
+    function updateStepper(step) {
+        for (var i = 2; i <= 4; i++) {
+            var node = document.getElementById('stepNode' + i);
+            var text = document.getElementById('stepText' + i);
+            if (!node) continue;
+            var state = i < step ? 'done' : (i === step ? 'active' : 'idle');
+            node.className = 'co-step-node co-step-node--' + state;
+            if (text) text.className = 'co-step-text co-step-text--' + state;
+            var checkEl = node.querySelector('.co-step-check');
+            var numEl = node.querySelector('.co-step-num');
+            if (checkEl) checkEl.style.display = i < step ? '' : 'none';
+            if (numEl) numEl.style.display = i < step ? 'none' : '';
+        }
+        for (var j = 1; j <= 3; j++) {
+            var wire = document.getElementById('stepWire' + j);
+            if (wire) wire.className = 'co-step-wire co-step-wire--' + (j < step ? 'done' : 'idle');
+        }
+    }
+
+    function updateMobileCta(step) {
+        var btn = document.querySelector('.co-mcta-btn');
+        if (!btn) return;
+        btn.onclick = null;
+        if (step === 4) {
+            btn.textContent = 'Commander';
+            btn.onclick = function () {
+                var sb = document.getElementById('checkoutSubmitBtn');
+                if (sb) sb.click();
+            };
+        } else if (step === 3) {
+            btn.textContent = 'Vérifier la commande →';
+            btn.onclick = function () { coGoToStep(4); };
+        } else {
+            btn.textContent = 'Continuer →';
+            btn.onclick = function () { coGoToStep(_step + 1); };
+        }
+    }
+
+    function goToStep(n) {
+        if (n > _step && !validateStep(_step)) return;
+        _step = n;
+        document.querySelectorAll('.co-step-section').forEach(function (s) { s.classList.remove('is-active'); });
+        var section = document.getElementById('coStep' + n);
+        if (section) section.classList.add('is-active');
+        var sidebar = document.querySelector('.co-sidebar');
+        if (sidebar) sidebar.classList.toggle('is-step4-visible', n === 4);
+        updateStepper(n);
+        updateMobileCta(n);
+        if (n === 2 && typeof checkoutMap !== 'undefined' && checkoutMap) {
+            setTimeout(function () { checkoutMap.invalidateSize(); }, 250);
+        }
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    window.coGoToStep = goToStep;
+
+    /* Init after DOM ready */
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function () { goToStep(2); });
+    } else {
+        goToStep(2);
+    }
+})();
 </script>
 @endsection

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Driver;
+use App\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\RegisterEmail;
@@ -34,10 +35,30 @@ class DriverController extends Controller
                 'licence_image' => 'required|image|mimes:jpeg,png,jpg,webp|max:8192',
 
         ]);
-        $request['password'] = bcrypt($request->password);
+        $plainPassword = $request->password;
+        $request['password'] = bcrypt($plainPassword);
         $alert = [];
-        //dd($request->all());
-        $driver=Driver::create($request->all());
+
+        DB::beginTransaction();
+        try {
+            $driver = Driver::create($request->all());
+
+            // Créer le compte users pour permettre la connexion web
+            if (!User::where('email', $driver->email)->exists()) {
+                User::create([
+                    'name'     => $driver->name,
+                    'email'    => $driver->email,
+                    'phone'    => $driver->phone,
+                    'password' => $driver->password,
+                    'type'     => 'driver',
+                ]);
+            }
+
+            DB::commit();
+        } catch (\Throwable $e) {
+            DB::rollBack();
+            return redirect()->back()->withErrors(['email' => 'Erreur lors de la création du compte. Veuillez réessayer.']);
+        }
 
 
         $licence_image = $request->licence_image;

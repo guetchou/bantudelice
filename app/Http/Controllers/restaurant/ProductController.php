@@ -29,9 +29,15 @@ class ProductController extends Controller
      */
     public function index()
     {
-        // dd(auth()->user()->restaurant()->first()->services);
-        $products = Product::where('restaurant_id',auth()->user()->restaurant->id)->get();
-        return view('restaurant.product.index')->with('products', $products);
+        $restaurantId = auth()->user()->restaurant->id;
+        $products = Product::with('categories')
+            ->where('restaurant_id', $restaurantId)
+            ->orderBy('name')
+            ->get();
+        $categories = Category::where('restaurant_id', $restaurantId)
+            ->orderBy('name')
+            ->get();
+        return view('restaurant.product.index', compact('products', 'categories'));
     }
 
     /**

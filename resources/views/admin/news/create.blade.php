@@ -3,72 +3,104 @@
 @section('page_title', 'Nouvelle actualité')
 @section('nav_active', 'news')
 
-@section('content')
-<div class="content-header">
-    <div class="container-fluid">
-        <div class="bd-admin-editor-shell">
-            <section class="bd-admin-editor-hero">
-                <div>
-                    <p class="bd-admin-editor-hero__eyebrow">Newsroom</p>
-                    <h1>Ajouter une actualité</h1>
-                    <p>Créez une publication claire et prête à être diffusée sur le site ou via notification.</p>
-                </div>
-                <a href="{{ route('news.index') }}" class="btn btn-light">Retour à la liste</a>
-            </section>
-        </div>
-    </div>
-</div>
+@section('style')
+<style>
+.nws-form-wrap { max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+.nws-form-hero {
+    display: flex; justify-content: space-between; align-items: center;
+    gap: 16px; padding: 20px 24px; border-radius: 12px;
+    background: linear-gradient(135deg, #020617 0%, #0f172a 60%, #155e75 100%);
+    color: #fff; flex-wrap: wrap;
+}
+.nws-form-hero__eyebrow { font-size: 10px; letter-spacing: .16em; text-transform: uppercase; font-weight: 800; color: #bae6fd; margin: 0 0 4px; }
+.nws-form-hero h1 { margin: 0; font-size: 1.3rem; font-weight: 900; color: #fff; }
+.nws-form-hero p  { margin: 4px 0 0; color: rgba(255,255,255,.8); font-size: 12px; }
+.nws-form-back { display: inline-flex; align-items: center; gap: 5px; padding: 7px 14px; border-radius: 7px; font-size: 12px; font-weight: 600; background: rgba(255,255,255,.12); color: #fff; text-decoration: none; border: 1px solid rgba(255,255,255,.25); white-space: nowrap; }
+.nws-form-back:hover { background: rgba(255,255,255,.22); color: #fff; }
 
-<section class="content">
-    <div class="container-fluid">
-        <div class="row justify-content-center">
-            <div class="col-lg-7">
-                <div class="card bd-admin-editor-card">
-                    <div class="card-header border-0">
-                        <div class="bd-admin-editor-card__header">
-                            <div>
-                                <h3>Nouvelle actualité</h3>
-                                <p>Renseignez un titre précis et une description exploitable sur le site public.</p>
-                            </div>
-                        </div>
-                    </div>
-                    <form method="post" action="{{ route('news.store') }}" enctype="multipart/form-data">
-                        @csrf
-                        <div class="card-body">
-                            <div class="form-group">
-                                <label for="title">Titre <span class="text-danger">*</span></label>
-                                <input type="text" value="{{ old('title') }}" name="title" id="title" class="form-control{{ $errors->has('title') ? ' is-invalid' : ''}}" placeholder="Ex: Nouvelle promotion disponible" required>
-                                @if($errors->has('title'))
-                                    <span class="invalid-feedback" role="alert"><strong>{{ $errors->first('title') }}</strong></span>
-                                @endif
-                            </div>
-                            <div class="form-group mb-0">
-                                <label for="description">Description <span class="text-danger">*</span></label>
-                                <textarea rows="6" id="description" class="form-control{{ $errors->has('description') ? ' is-invalid' : ''}}" name="description" placeholder="Décrivez l'actualité...">{{ old('description') }}</textarea>
-                                @if($errors->has('description'))
-                                    <span class="invalid-feedback" role="alert"><strong>{{ $errors->first('description') }}</strong></span>
-                                @endif
-                            </div>
-                        </div>
-                        <div class="card-footer border-0 d-flex justify-content-end gap-2">
-                            <a href="{{ route('news.index') }}" class="btn btn-secondary">Annuler</a>
-                            <button type="submit" class="btn btn-primary">Publier</button>
-                        </div>
-                    </form>
+.nws-form-card { background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden; }
+.nws-form-card__head { padding: 14px 20px; border-bottom: 1px solid #f3f4f6; }
+.nws-form-card__head h3 { margin: 0; font-size: 14px; font-weight: 700; color: #111827; }
+.nws-form-card__head p  { margin: 3px 0 0; font-size: 12px; color: #6b7280; }
+
+.nws-form-body { padding: 20px 24px; display: flex; flex-direction: column; gap: 16px; }
+
+.nws-field label { display: block; font-size: 12px; font-weight: 600; color: #374151; margin-bottom: 5px; }
+.nws-field label span { color: #ef4444; }
+.nws-input {
+    width: 100%; padding: 9px 12px; border: 1px solid #d1d5db; border-radius: 7px;
+    font-size: 13px; font-family: 'Manrope', sans-serif; color: #111827;
+    background: #fff; outline: none; box-sizing: border-box; transition: border-color .12s;
+    resize: vertical;
+}
+.nws-input:focus { border-color: #1d4ed8; }
+.nws-input--error { border-color: #ef4444; }
+.nws-field-error { font-size: 11px; color: #ef4444; margin-top: 3px; font-weight: 500; }
+
+.nws-form-footer {
+    display: flex; justify-content: flex-end; gap: 8px;
+    padding: 14px 20px; border-top: 1px solid #f3f4f6;
+}
+.nws-btn { display: inline-flex; align-items: center; gap: 5px; padding: 8px 18px; border-radius: 7px; font-size: 13px; font-weight: 600; text-decoration: none; transition: .12s; cursor: pointer; }
+.nws-btn--outline { background: #fff; color: #374151; border: 1px solid #d1d5db; }
+.nws-btn--outline:hover { border-color: #374151; color: #111827; }
+.nws-btn--primary { background: #22c55e; color: #fff; border: none; }
+.nws-btn--primary:hover { background: #16a34a; }
+</style>
+@endsection
+
+@section('content')
+<div class="nws-form-wrap">
+
+    <div class="nws-form-hero">
+        <div>
+            <p class="nws-form-hero__eyebrow">Newsroom</p>
+            <h1>Ajouter une actualité</h1>
+            <p>Créez une publication claire et prête à être diffusée.</p>
+        </div>
+        <a href="{{ route('news.index') }}" class="nws-form-back">
+            <i class="fas fa-arrow-left"></i> Retour
+        </a>
+    </div>
+
+    <div class="nws-form-card">
+        <div class="nws-form-card__head">
+            <h3>Nouvelle actualité</h3>
+            <p>Renseignez un titre précis et une description exploitable sur le site public.</p>
+        </div>
+        <form method="post" action="{{ route('news.store') }}" enctype="multipart/form-data">
+            @csrf
+            <div class="nws-form-body">
+                <div class="nws-field">
+                    <label for="title">Titre <span>*</span></label>
+                    <input type="text" id="title" name="title"
+                           value="{{ old('title') }}"
+                           placeholder="Ex: Nouvelle promotion disponible"
+                           class="nws-input{{ $errors->has('title') ? ' nws-input--error' : '' }}"
+                           required>
+                    @if($errors->has('title'))
+                        <div class="nws-field-error">{{ $errors->first('title') }}</div>
+                    @endif
+                </div>
+                <div class="nws-field">
+                    <label for="description">Description <span>*</span></label>
+                    <textarea id="description" name="description" rows="6"
+                              placeholder="Décrivez l'actualité..."
+                              class="nws-input{{ $errors->has('description') ? ' nws-input--error' : '' }}"
+                              required>{{ old('description') }}</textarea>
+                    @if($errors->has('description'))
+                        <div class="nws-field-error">{{ $errors->first('description') }}</div>
+                    @endif
                 </div>
             </div>
-        </div>
+            <div class="nws-form-footer">
+                <a href="{{ route('news.index') }}" class="nws-btn nws-btn--outline">Annuler</a>
+                <button type="submit" class="nws-btn nws-btn--primary">
+                    <i class="fas fa-paper-plane"></i> Publier
+                </button>
+            </div>
+        </form>
     </div>
-</section>
 
-<style>
-    .bd-admin-editor-shell { display:grid; gap:20px; }
-    .bd-admin-editor-hero { display:flex; justify-content:space-between; align-items:flex-end; gap:20px; padding:28px 32px; border-radius:32px; background:linear-gradient(135deg,#020617 0%,#0f172a 60%,#155e75 100%); color:#fff; box-shadow:0 20px 60px rgba(15,23,42,.22); }
-    .bd-admin-editor-hero__eyebrow { margin:0 0 8px; font-size:.78rem; letter-spacing:.18em; text-transform:uppercase; font-weight:800; color:#bae6fd; }
-    .bd-admin-editor-hero h1 { margin:0; color:#fff !important; font-size:clamp(2rem,4vw,3rem); font-weight:900; line-height:1.04; }
-    .bd-admin-editor-hero p { margin:14px 0 0; max-width:760px; color:rgba(255,255,255,.82); line-height:1.8; }
-    .bd-admin-editor-card__header h3 { margin:0; color:#020617; font-size:1.2rem; font-weight:900; }
-    .bd-admin-editor-card__header p { margin:8px 0 0; color:#64748b; line-height:1.7; }
-    @media (max-width: 991.98px) { .bd-admin-editor-hero { flex-direction:column; align-items:flex-start; } }
-</style>
+</div>
 @endsection

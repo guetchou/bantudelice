@@ -25,10 +25,10 @@ class ApiConfigurationController extends Controller
         
         return view('admin.api-configuration', [
             'config' => $config,
-            'google_maps_key' => env('GOOGLE_MAPS_API_KEY'),
-            'twilio_enabled' => env('TWILIO_ENABLED', false),
+            'google_maps_key' => config('services.google.maps_key'),
+            'twilio_enabled' => config('external-services.notifications.twilio.enabled', false),
             'mtn_enabled' => config('external-services.payments.mtn_momo.enabled'),
-            'airtel_enabled' => env('AIRTEL_MONEY_ENABLED', false),
+            'airtel_enabled' => config('external-services.payments.airtel_money.enabled', false),
             'socialAuthHints' => [
                 'google' => SocialAuthService::getProviderConsoleHints('google'),
                 'facebook' => SocialAuthService::getProviderConsoleHints('facebook'),
@@ -257,8 +257,8 @@ class ApiConfigurationController extends Controller
             'geolocation' => [
                 'google_maps' => [
                     'enabled' => config('external-services.geolocation.google_maps.enabled'),
-                    'configured' => !empty(env('GOOGLE_MAPS_API_KEY')),
-                    'provider' => !empty(env('GOOGLE_MAPS_API_KEY')) ? 'Google Maps' : 'OpenStreetMap',
+                    'configured' => !empty(config('services.google.maps_key')),
+                    'provider' => !empty(config('services.google.maps_key')) ? 'Google Maps' : 'OpenStreetMap',
                 ],
                 'openstreetmap' => [
                     'enabled' => config('external-services.geolocation.openstreetmap.enabled', true),
@@ -268,15 +268,15 @@ class ApiConfigurationController extends Controller
             'sms' => [
                 'twilio' => [
                     'enabled' => config('external-services.notifications.twilio.enabled'),
-                    'configured' => !empty(env('TWILIO_SID')) && !empty(env('TWILIO_TOKEN')),
+                    'configured' => !empty(config('external-services.notifications.twilio.sid')) && !empty(config('external-services.notifications.twilio.token')),
                 ],
                 'africastalking' => [
                     'enabled' => config('external-services.notifications.africastalking.enabled'),
-                    'configured' => !empty(env('AFRICASTALKING_API_KEY')),
+                    'configured' => !empty(config('external-services.notifications.africastalking.api_key')),
                 ],
                 'bulkgate' => [
                     'enabled' => config('external-services.notifications.bulkgate.enabled'),
-                    'configured' => !empty(env('BULKGATE_APPLICATION_ID')) && !empty(env('BULKGATE_API_KEY')),
+                    'configured' => !empty(config('external-services.notifications.bulkgate.application_id')) && !empty(config('external-services.notifications.bulkgate.api_key')),
                 ],
             ],
             'mobile_money' => [
@@ -298,26 +298,26 @@ class ApiConfigurationController extends Controller
                 ],
                 'airtel_money' => [
                     'enabled' => config('external-services.payments.airtel_money.enabled'),
-                    'configured' => !empty(env('AIRTEL_MONEY_CLIENT_ID')),
+                    'configured' => !empty(config('external-services.payments.airtel_money.client_id')),
                 ],
             ],
             'social_auth' => [
                 'google' => [
                     'enabled' => config('external-services.social_auth.google.enabled'),
-                    'configured' => !empty(env('GOOGLE_CLIENT_ID')),
+                    'configured' => !empty(config('external-services.social_auth.google.client_id')),
                 ],
                 'facebook' => [
                     'enabled' => config('external-services.social_auth.facebook.enabled'),
-                    'configured' => !empty(env('FACEBOOK_CLIENT_ID')),
+                    'configured' => !empty(config('external-services.social_auth.facebook.client_id')),
                 ],
             ],
             'email' => [
                 'smtp' => [
-                    'enabled' => env('MAIL_ENABLED', false),
-                    'configured' => !empty(env('MAIL_HOST')) && !empty(env('MAIL_USERNAME')) && !empty(env('MAIL_PASSWORD')),
-                    'host' => env('MAIL_HOST'),
-                    'port' => env('MAIL_PORT', 587),
-                    'from_address' => env('MAIL_FROM_ADDRESS'),
+                    'enabled' => config('external-services.notifications.email.enabled', !empty(config('mail.host'))),
+                    'configured' => !empty(config('mail.host')) && !empty(config('mail.username')) && !empty(config('mail.password')),
+                    'host' => config('mail.host'),
+                    'port' => config('mail.port', 587),
+                    'from_address' => config('mail.from.address'),
                 ],
             ],
         ];
@@ -475,14 +475,14 @@ class ApiConfigurationController extends Controller
      */
     public function getMailStatus()
     {
-        $host = env('MAIL_HOST');
-        $username = env('MAIL_USERNAME');
-        $password = env('MAIL_PASSWORD');
-        $port = env('MAIL_PORT', 587);
-        $encryption = env('MAIL_ENCRYPTION', 'tls');
-        $fromAddress = env('MAIL_FROM_ADDRESS');
-        $fromName = env('MAIL_FROM_NAME');
-        $enabled = env('MAIL_ENABLED', false);
+        $host = config('mail.host');
+        $username = config('mail.username');
+        $password = config('mail.password');
+        $port = config('mail.port', 587);
+        $encryption = config('mail.encryption', 'tls');
+        $fromAddress = config('mail.from.address');
+        $fromName = config('mail.from.name');
+        $enabled = config('external-services.notifications.email.enabled', !empty($host));
         
         $configured = !empty($host) && !empty($username) && !empty($password);
         
@@ -578,10 +578,10 @@ class ApiConfigurationController extends Controller
             $message = $request->input('message', 'Ceci est un email de test depuis ' . $companyName . '. Si vous recevez ce message, la configuration SMTP fonctionne correctement.');
             
             // Vérifier la configuration
-            $host = env('MAIL_HOST');
-            $username = env('MAIL_USERNAME');
-            $password = env('MAIL_PASSWORD');
-            
+            $host = config('mail.host');
+            $username = config('mail.username');
+            $password = config('mail.password');
+
             if (empty($host) || empty($username) || empty($password)) {
                 return response()->json([
                     'success' => false,

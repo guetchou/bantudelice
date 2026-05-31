@@ -19,6 +19,7 @@ use App\Services\CommerceSignalService;
 use App\Services\DeliveryService;
 use App\Services\FinancialLedgerService;
 use App\Services\LoyaltyService;
+use App\Services\PostOrderService;
 use App\Services\NotificationService;
 use App\Services\OrderChatService;
 use App\Services\PaymentExperienceService;
@@ -27,6 +28,10 @@ use App\Services\RiskService;
 use App\Services\SubstitutionService;
 use App\Mail\OrderConfirmationMail;
 use Carbon\Carbon;
+use App\Http\Requests\Order\PlaceOrderRequest;
+use App\Http\Requests\Order\ConfirmReceiptRequest;
+use App\Http\Requests\Order\ReportIncidentRequest;
+use App\Http\Requests\Order\RequestRedeliveryRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Mail;
@@ -38,7 +43,7 @@ class CustomerOrderController extends Controller
     /**
      * Passer une commande (paiement cash ou mobile money)
      */
-    public function getOrders(Request $request)
+    public function getOrders(PlaceOrderRequest $request)
     {
         // Vérifier que l'utilisateur est connecté
         if(!auth()->check()){
@@ -216,25 +221,21 @@ class CustomerOrderController extends Controller
             // Récupérer les commandes créées pour créer les livraisons
             $orders = Order::where('order_no', $orderNo)->get();
 
-            // Créer une livraison pour chaque commande et déclencher dispatch automatique
+            // Créer UNE SEULE livraison pour le groupe de commande (pas une par item)
             if (!$isPickup) {
                 $deliveryService = new \App\Services\DeliveryService();
-                foreach($orders as $order) {
-                    try {
-                        $delivery = $deliveryService->createForOrder($order);
+                $primaryOrder = $orders->first();
+                try {
+                    $delivery = $deliveryService->createForOrder($primaryOrder);
 
-                        // Dispatch automatique : déclencher le job d'assignation
-                        // Le job sera traité immédiatement si queue = 'sync', ou en arrière-plan si queue = 'database'
-                        enqueue_job('food', 'auto_assign_delivery', [
-                            'delivery' => $delivery,
-                        ]);
-                    } catch (\Exception $e) {
-                        \Log::error('Erreur création livraison', [
-                            'order_id' => $order->id,
-                            'error' => $e->getMessage()
-                        ]);
-                        // Ne pas bloquer la commande si la livraison échoue
-                    }
+                    enqueue_job('food', 'auto_assign_delivery', [
+                        'delivery' => $delivery,
+                    ]);
+                } catch (\Exception $e) {
+                    \Log::error('Erreur création livraison', [
+                        'order_id' => $primaryOrder->id,
+                        'error' => $e->getMessage()
+                    ]);
                 }
             }
 
@@ -246,103 +247,22 @@ class CustomerOrderController extends Controller
                 ]);
             }
 
-            app(FinancialLedgerService::class)->record([
-                'module' => 'food',
-                'entry_type' => 'order_created',
-                'direction' => 'credit',
-                'status' => 'posted',
-                'order_id' => $orders->first()->id ?? null,
-                'order_no' => $orderNo,
-                'amount' => $total,
-                'reference' => $orderNo,
-                'actor_type' => 'user',
-                'actor_id' => $userId,
-                'payload' => [
-                    'sub_total' => $subTotal,
-                    'discount' => $discount + $loyaltyDiscount,
-                    'delivery_fee' => $deliveryFee,
-                    'tax' => $tax,
-                    'service_fee' => $serviceFee,
-                    'driver_tip' => $driverTip,
-                    'payment_method' => $request->payment_method,
-                    'fulfillment_mode' => $isPickup ? 'pickup' : 'delivery',
-                ],
-            ]);
-
-            app(CommerceSignalService::class)->emitOrder($orders->first(), 'order.created', [
-                'module' => 'food',
-                'severity' => 'info',
-                'actor_type' => 'customer',
-                'actor_id' => $userId,
-                'payment_method' => $request->payment_method,
-                'fulfillment_mode' => $isPickup ? 'pickup' : 'delivery',
-                'discount' => $discount + $loyaltyDiscount,
-            ]);
-
-            app(RiskService::class)->assessOrder($orders->first(), [
-                'module' => 'food',
-                'payment_method' => $request->payment_method,
-                'fulfillment_mode' => $isPickup ? 'pickup' : 'delivery',
-                'has_discount' => ($discount + $loyaltyDiscount) > 0,
-                'scheduled' => !empty($scheduledAt),
-            ], 'order_created');
-
             DB::commit();
 
-            // Envoyer des notifications
-            try {
-                // Notification à l'utilisateur
-                $userToken = UserToken::where('user_id', $userId)->first();
-                if ($userToken && $userToken->device_tokens) {
-                    NotificationService::sendToDevice(
-                        $userToken->device_tokens,
-                        'Commande confirmée',
-                                $isPickup
-                                    ? 'Votre commande retrait #' . $orderNo . ' a été confirmée et est en préparation.'
-                                    : 'Votre commande #' . $orderNo . ' a été confirmée et est en préparation.',
-                                'orderConfirmed',
-                                $userId,
-                                'user'
-                    );
-                }
-
-                // Notification au restaurant
-                $restaurant = Restaurant::find($cartItems->first()->restaurant_id);
-                if ($restaurant && $restaurant->user_id) {
-                    // Trouver l'utilisateur restaurant
-                    $restaurantUser = User::where('id', $restaurant->user_id)
-                                         ->where('type', 'restaurant')
-                                         ->first();
-                    if ($restaurantUser) {
-                        $restaurantToken = UserToken::where('user_id', $restaurantUser->id)->first();
-                        if ($restaurantToken && $restaurantToken->device_tokens) {
-                            NotificationService::sendToDevice(
-                                $restaurantToken->device_tokens,
-                                'Nouvelle commande',
-                                'Nouvelle commande #' . $orderNo . ' reçue.',
-                                'newOrder',
-                                $restaurantUser->id,
-                                'restaurant'
-                            );
-                        }
-                    }
-                }
-            } catch (\Exception $e) {
-                \Log::error('Erreur lors de l\'envoi des notifications: ' . $e->getMessage());
-            }
-
-            // Email de confirmation commande au client
-            try {
-                $user = auth()->user();
-                if ($user && $user->email) {
-                    $freshOrder = Order::with('cartDetails')->where('order_no', $orderNo)->first();
-                    if ($freshOrder) {
-                        Mail::to($user->email)->queue(new OrderConfirmationMail($freshOrder));
-                    }
-                }
-            } catch (\Exception $e) {
-                \Log::error('Erreur envoi email confirmation commande: ' . $e->getMessage());
-            }
+            // Opérations post-commit déléguées au PostOrderService
+            $primaryOrder = $orders->first();
+            app(PostOrderService::class)->run($primaryOrder, [
+                'total'            => $total,
+                'sub_total'        => $subTotal,
+                'delivery_fee'     => $deliveryFee,
+                'tax'              => $tax,
+                'service_fee'      => $serviceFee,
+                'driver_tip'       => $driverTip,
+                'discount'         => $discount + $loyaltyDiscount,
+                'payment_method'   => $request->payment_method,
+                'fulfillment_mode' => $isPickup ? 'pickup' : 'delivery',
+                'scheduled'        => !empty($scheduledAt),
+            ]);
 
             // Stocker le numéro de commande en session
             session()->put('order_no', $orderNo);
@@ -428,7 +348,7 @@ class CustomerOrderController extends Controller
             ->header('Expires', '0');
     }
 
-    public function confirmOrderReceipt(Request $request, $orderNo)
+    public function confirmOrderReceipt(ConfirmReceiptRequest $request, $orderNo)
     {
         $request->validate([
             'delivery_otp' => 'nullable|string|max:12',
@@ -537,7 +457,7 @@ class CustomerOrderController extends Controller
         return back()->with('success', 'Votre retrait a été réactivé. Présentez votre code au restaurant.');
     }
 
-    public function reportOrderIncident(Request $request, $orderNo)
+    public function reportOrderIncident(ReportIncidentRequest $request, $orderNo)
     {
         $request->validate([
             'reason' => 'required|string|max:100',
@@ -568,7 +488,7 @@ class CustomerOrderController extends Controller
         return back()->with('success', 'Votre signalement a été transmis au support.');
     }
 
-    public function requestOrderRedelivery(Request $request, $orderNo)
+    public function requestOrderRedelivery(RequestRedeliveryRequest $request, $orderNo)
     {
         $request->validate([
             'notes' => 'nullable|string|max:1000',

@@ -10,8 +10,7 @@ class HomeController extends Controller
 {
     public function delivery_boundary()
     {
-        $name=auth()->user()->name;
-        $restaurant=Restaurant::where('name',$name)->first();
+        $restaurant = Restaurant::where('user_id', auth()->id())->first();
         return view('restaurant.delivery_boundary')->with('restaurant', $restaurant);
     }
 }

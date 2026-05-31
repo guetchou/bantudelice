@@ -169,9 +169,12 @@ class FcmTransport
 
         try {
             // Construire le JWT pour Google OAuth2
+            // JWT exige base64url (RFC 4648 §5) : +→- /→_ sans padding =
+            $b64url = static fn(string $s): string => rtrim(strtr(base64_encode($s), '+/', '-_'), '=');
+
             $now    = time();
-            $header = base64_encode(json_encode(['alg' => 'RS256', 'typ' => 'JWT']));
-            $claim  = base64_encode(json_encode([
+            $header = $b64url(json_encode(['alg' => 'RS256', 'typ' => 'JWT']));
+            $claim  = $b64url(json_encode([
                 'iss'   => $credentials['client_email'],
                 'scope' => self::FCM_SCOPE,
                 'aud'   => self::FCM_OAUTH_URL,
@@ -181,7 +184,7 @@ class FcmTransport
 
             $signInput = $header . '.' . $claim;
             openssl_sign($signInput, $signature, $credentials['private_key'], 'sha256WithRSAEncryption');
-            $jwt = $signInput . '.' . base64_encode($signature);
+            $jwt = $signInput . '.' . $b64url($signature);
 
             $result = self::curlPost(self::FCM_OAUTH_URL, http_build_query([
                 'grant_type' => 'urn:ietf:params:oauth:grant-type:jwt-bearer',

@@ -51,7 +51,7 @@ Route::group(['namespace'=>'api'],function() {
     Route::get('driver_profile/{driver}',       'DriverProfileController@profile');
     Route::post('driver_update_profile/',       'DriverProfileController@updateProfile');
     Route::post('set_driver_online/{driver}',   'DriverProfileController@setOnline');
-    Route::get('set_driver_offline/{driver}',   'DriverProfileController@setOffline');
+    Route::post('set_driver_offline/{driver}',  'DriverProfileController@setOffline');
     Route::post('set_time_for_online',          'DriverProfileController@setOnlineTime');
     Route::get('order_request/{dirver}',        'DriverOrderController@orderRequests');
     Route::post('order_accept_by_driver',       'DriverOrderController@acceptOrderRequests');
@@ -104,7 +104,11 @@ Route::group(['namespace'=>'api'],function() {
      Route::get('latest_news', 'DriverOrderController@latestNews');
      
      // Real-time tracking APIs
-     Route::get('order/{orderNo}/status', [\App\Http\Controllers\IndexController::class, 'getOrderStatus'])->middleware('module:food');
+     // NOTE: /order/{orderNo}/status est exposé sur la route WEB (routes/web.php) pour avoir accès à la session.
+     // La version API ici est réservée aux clients authentifiés (app mobile, etc.).
+     Route::middleware('auth.web_or_api')->group(function () {
+         Route::get('order/{orderNo}/status', [\App\Http\Controllers\IndexController::class, 'getOrderStatus'])->middleware('module:food');
+     });
      Route::post('driver/{driverId}/location', 'DriverOrderController@updateLocation')->middleware(['module:food', 'auth:driver_api']);
      
      // Order Rating APIs
@@ -126,7 +130,7 @@ Route::group(['namespace'=>'api'],function() {
          Route::post('orders/{order}/redelivery', 'OrderTrackingController@requestRedelivery')->middleware('module:food');
      });
 
-     Route::middleware('auth:api')->group(function () {
+     Route::middleware('auth.web_or_api')->group(function () {
          // Checkout & Payment APIs
          Route::post('checkout', [\App\Http\Controllers\Api\CheckoutController::class, '__invoke'])->middleware('module:food');
          Route::get('payments/{payment}', [\App\Http\Controllers\Api\PaymentController::class, 'show'])->middleware('module:food');

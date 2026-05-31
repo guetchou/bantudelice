@@ -134,7 +134,7 @@ class DashboardController extends Controller
                 'chart_mode'     => 'currency',
             ],
             'kpis' => [
-                ['label' => 'Commandes aujourd hui',       'value' => number_format($data['ordersTodayCount'], 0, ',', ' '),                      'meta' => 'Volume journalier',       'icon' => 'fas fa-shopping-bag'],
+                ['label' => 'Commandes aujourd hui',       'value' => number_format($data['ordersTodayCount'], 0, ',', ' '),                      'meta' => 'Volume journalier',       'icon' => 'fas fa-shopping-bag', 'delta' => $data['volumeVsYesterday']],
                 ['label' => 'Chiffre traite aujourd hui',  'value' => number_format($data['revenueToday'], 0, ',', ' ') . ' FCFA',                'meta' => 'Encaissement du jour',    'icon' => 'fas fa-coins'],
                 ['label' => 'Commandes bloquees',          'value' => number_format($data['pendingOrdersCount'], 0, ',', ' '),                    'meta' => 'Demandent une action',    'icon' => 'fas fa-clock'],
                 ['label' => 'Incidents critiques',         'value' => number_format($data['criticalIncidentCount'], 0, ',', ' '),                 'meta' => strtoupper($data['globalState']), 'icon' => 'fas fa-exclamation-circle'],

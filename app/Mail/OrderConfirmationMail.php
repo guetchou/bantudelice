@@ -12,6 +12,8 @@ class OrderConfirmationMail extends Mailable
 {
     use Queueable, SerializesModels;
 
+    public int $tries = 1;
+
     public Order $order;
 
     public function __construct(Order $order)

@@ -108,12 +108,12 @@ class DriverController extends Controller
                 . '.'
                 . $image->getClientOriginalExtension()
             );
+            $filename = str_replace(" ", "-", $filename);
             $image->move($destination, $filename);
-            str_replace(" ", "-", $filename);
             $driver->image = $filename;
             $driver->save();
         }
-        
+
         $destination = 'images/driver_images';
         if ($request->hasFile('licence_image')) {
             $file = strtolower(
@@ -123,8 +123,8 @@ class DriverController extends Controller
                 . '.'
                 . $licence_image->getClientOriginalExtension()
             );
+            $file = str_replace(" ", "-", $file);
             $licence_image->move($destination, $file);
-            str_replace(" ", "-", $file);
             $driver->licence_image = $file;
             $driver->save();
         }
@@ -353,17 +353,12 @@ class DriverController extends Controller
                 . '.'
                 . $image->getClientOriginalExtension()
             );
+            $filename = str_replace(" ", "-", $filename);
             $image->move($destination, $filename);
-            str_replace(" ", "-", $filename);
             $driver->image = $filename;
-            $driver->update();
+            $driver->save();
         }
-        else{
-            $driver->image = $driver->image;
-            $driver->update();
-        }
-        
-        
+
         $licence_image = $request->licence_image;
         $destination = 'images/driver_images';
         if ($request->hasFile('licence_image')) {
@@ -374,14 +369,10 @@ class DriverController extends Controller
                 . '.'
                 . $licence_image->getClientOriginalExtension()
             );
+            $filename = str_replace(" ", "-", $filename);
             $licence_image->move($destination, $filename);
-            str_replace(" ", "-", $filename);
             $driver->licence_image = $filename;
-            $driver->update();
-        }
-        else{
-            $driver->licence_image = $driver->licence_image;
-            $driver->update();
+            $driver->save();
         }
         
         $alert['type'] = 'success';
@@ -398,7 +389,7 @@ class DriverController extends Controller
     public function destroy(Driver $driver)
     {
         if ($driver->image)
-            Storage::delete($driver->cover_image);
+            Storage::delete('images/driver_images/' . $driver->image);
         $driver->delete();
         $alert = [];
         $alert['type'] = 'success';

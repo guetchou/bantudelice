@@ -80,6 +80,8 @@ RSYNC_ARGS=(
     --exclude="public/images/driver_images/"
     --exclude="public/images/profile_images/"
     --exclude="public/images/banner_images/"
+    --exclude="soketi.json"
+    --exclude="firebase-credentials.json"
 )
 
 if [[ "$DRY_RUN" == "1" ]]; then
@@ -92,13 +94,50 @@ fi
 info "Synchronisation des sources"
 rsync "${RSYNC_ARGS[@]}" "$ROOT_DIR/" "${TARGET_HOST}:${TARGET_PATH}/"
 
+# Invalider les caches Laravel avant la finalisation (évite le cache stale pendant le déploiement)
+ssh "$TARGET_HOST" "php ${TARGET_PATH}/artisan config:clear --quiet 2>/dev/null; php ${TARGET_PATH}/artisan route:clear --quiet 2>/dev/null; php ${TARGET_PATH}/artisan view:clear --quiet 2>/dev/null" || true
+
 # ── Finalisation sur le serveur ──────────────────────────────────────────────
 REMOTE_CMD=$(cat <<EOF
 set -euo pipefail
 cd "$TARGET_PATH"
 mkdir -p storage/logs bootstrap/cache
-composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction
+composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction \
+  || composer update --no-dev --prefer-dist --optimize-autoloader --no-interaction 2>&1
 PHP_BIN="$PHP_BIN" WEB_USER="$WEB_USER" bash "$TARGET_PATH/scripts/repair_auth_runtime.sh" "$TARGET_PATH"
+
+# Soketi — générer soketi.json depuis le template + .env (jamais de secrets dans le dépôt)
+if [ -f "$TARGET_PATH/soketi.json.template" ] && [ -f "$TARGET_PATH/.env" ]; then
+    PUSHER_APP_ID=\$(grep '^PUSHER_APP_ID=' "$TARGET_PATH/.env" | cut -d= -f2 | tr -d '"')
+    PUSHER_APP_KEY=\$(grep '^PUSHER_APP_KEY=' "$TARGET_PATH/.env" | cut -d= -f2 | tr -d '"')
+    PUSHER_APP_SECRET=\$(grep '^PUSHER_APP_SECRET=' "$TARGET_PATH/.env" | cut -d= -f2 | tr -d '"')
+    if [ -n "\$PUSHER_APP_ID" ] && [ -n "\$PUSHER_APP_KEY" ] && [ -n "\$PUSHER_APP_SECRET" ]; then
+        sed \
+            -e "s/\\\${PUSHER_APP_ID}/\$PUSHER_APP_ID/g" \
+            -e "s/\\\${PUSHER_APP_KEY}/\$PUSHER_APP_KEY/g" \
+            -e "s/\\\${PUSHER_APP_SECRET}/\$PUSHER_APP_SECRET/g" \
+            "$TARGET_PATH/soketi.json.template" > "$TARGET_PATH/soketi.json"
+        chmod 640 "$TARGET_PATH/soketi.json"
+    fi
+fi
+
+# Soketi — installer/mettre à jour si nécessaire et démarrer le service
+if command -v node >/dev/null 2>&1 && [ -f "$TARGET_PATH/soketi.json" ]; then
+    if ! command -v soketi >/dev/null 2>&1; then
+        npm install -g @soketi/soketi 2>/dev/null || true
+    fi
+    if [ ! -f /etc/systemd/system/soketi-bantudelice.service ]; then
+        cp "$TARGET_PATH/scripts/soketi.service" /etc/systemd/system/soketi-bantudelice.service
+        systemctl daemon-reload
+        systemctl enable soketi-bantudelice
+    fi
+    systemctl restart soketi-bantudelice 2>/dev/null || true
+fi
+
+# Cache Laravel — config + routes + vues
+php "$TARGET_PATH/artisan" view:clear --quiet 2>/dev/null || true
+php "$TARGET_PATH/artisan" config:cache --quiet 2>/dev/null || true
+php "$TARGET_PATH/artisan" route:cache  --quiet 2>/dev/null || true
 EOF
 )
 

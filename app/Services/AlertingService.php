@@ -103,12 +103,12 @@ class AlertingService
     protected function resolveAlertRecipient(): ?string
     {
         $candidates = array_filter([
-            env('ALERT_EMAIL'),
+            config('app.alert_email'),
             ConfigService::getAdminEmail(),
             ConfigService::getContactEmail(),
             Config::get('mail.from.address'),
-            env('MAIL_FROM_ADDRESS'),
-            env('MAIL_USERNAME'),
+            config('mail.from.address'),
+            config('mail.username'),
         ]);
 
         foreach ($candidates as $candidate) {

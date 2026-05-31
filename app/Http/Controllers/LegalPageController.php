@@ -69,9 +69,16 @@ class LegalPageController extends Controller
         $page = $this->cms->getPage($slug);
 
         if ($page) {
+            $rawBody = (string) ($this->cms->body($page) ?? '');
+            // Whitelist des balises HTML autorisées — exclut <script>, <iframe>, <form>, etc.
+            $allowedTags = '<p><br><h1><h2><h3><h4><h5><h6><ul><ol><li>'
+                . '<strong><b><em><i><u><a><img><table><thead><tbody><tfoot>'
+                . '<tr><td><th><blockquote><code><pre><span><div><hr><figure><figcaption>';
+            $safeBody = strip_tags($rawBody, $allowedTags);
+
             return view('frontend.cms_page', [
                 'page'         => $page,
-                'pageBody'     => $this->cms->body($page),
+                'pageBody'     => $safeBody,
                 'pageImage'    => $this->cms->featuredImage($page),
                 'pageCtaLabel' => $this->cms->primaryCtaLabel($page),
                 'pageCtaUrl'   => $this->cms->primaryCtaUrl($page),

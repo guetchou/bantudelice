@@ -117,6 +117,12 @@ class CartController extends Controller
 
     public function showCartDetail($user)
         {
+        // IDOR guard: if a Passport token is present, the token owner must match {user}
+        $tokenUser = auth('api')->user();
+        if ($tokenUser && (int)$tokenUser->id !== (int)$user) {
+            return response()->json(['status' => false, 'message' => 'Accès non autorisé'], 403);
+        }
+
         if (!User::whereKey($user)->exists()) {
             return response()->json([
                 'status' => false,
@@ -187,6 +193,12 @@ class CartController extends Controller
 
     public function deletePreviousCart($user)
     {
+        // IDOR guard: if a Passport token is present, the token owner must match {user}
+        $tokenUser = auth('api')->user();
+        if ($tokenUser && (int)$tokenUser->id !== (int)$user) {
+            return response()->json(['status' => false, 'message' => 'Accès non autorisé'], 403);
+        }
+
        if (!User::whereKey($user)->exists()) {
            return response()->json([
                'status' => false,
@@ -210,6 +222,12 @@ class CartController extends Controller
                'status' => false,
                'message' => 'Produit du panier introuvable'
             ], 404);
+        }
+
+        // IDOR guard: if a Passport token is present, the token owner must own this cart item
+        $tokenUser = auth('api')->user();
+        if ($tokenUser && (int)$tokenUser->id !== (int)$getProduct->user_id) {
+            return response()->json(['status' => false, 'message' => 'Accès non autorisé'], 403);
         }
 
         $getProduct->delete();
@@ -244,6 +262,12 @@ class CartController extends Controller
                 'status' => false,
                 'message' => 'Produit du panier introuvable',
             ], 404);
+        }
+
+        // IDOR guard: if a Passport token is present, the token owner must own this cart item
+        $tokenUser = auth('api')->user();
+        if ($tokenUser && (int)$tokenUser->id !== (int)$getCart->user_id) {
+            return response()->json(['status' => false, 'message' => 'Accès non autorisé'], 403);
         }
 
         ///multipel price*qty

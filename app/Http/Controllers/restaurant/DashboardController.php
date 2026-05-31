@@ -43,6 +43,7 @@ class DashboardController extends Controller
             'recentOrders'     => $stats['recent_orders'],
             'salesSeries'      => $stats['sales_series'],
             'salesLabels'      => $stats['sales_labels'],
+            'topDishes'        => $this->buildTopDishes($restaurant, $todayStart, $todayEnd),
         ]);
     }
 
@@ -460,6 +461,95 @@ class DashboardController extends Controller
             \Log::error('Erreur dans notifications: ' . $e->getMessage());
 
             return response()->json(['status' => false, 'message' => 'Une erreur est survenue', 'error' => $e->getMessage()], 500);
+        }
+    }
+
+    // ──────────────────────────────────────────────────────────────
+    // Top plats du jour
+    // ──────────────────────────────────────────────────────────────
+
+    private function buildTopDishes(mixed $restaurant, Carbon $todayStart, Carbon $todayEnd): array
+    {
+        if (! $restaurant) {
+            return [];
+        }
+
+        try {
+            $rows = \Illuminate\Support\Facades\DB::table('order_details as od')
+                ->join('orders as o', 'o.id', '=', 'od.order_id')
+                ->join('products as p', 'p.id', '=', 'od.product_id')
+                ->where('o.restaurant_id', $restaurant->id)
+                ->whereBetween('o.created_at', [$todayStart, $todayEnd])
+                ->whereNotIn('o.status', ['cancelled', 'rejected'])
+                ->select(
+                    'p.id',
+                    'p.name',
+                    'p.image',
+                    \Illuminate\Support\Facades\DB::raw('SUM(od.quantity) as total_qty'),
+                    \Illuminate\Support\Facades\DB::raw('SUM(od.price * od.quantity) as total_revenue')
+                )
+                ->groupBy('p.id', 'p.name', 'p.image')
+                ->orderByDesc('total_qty')
+                ->limit(3)
+                ->get();
+
+            return $rows->map(function ($row) {
+                $img = $row->image ?? null;
+                $imgSrc = $img
+                    ? (str_starts_with($img, 'http') ? $img : asset('images/product_images/' . $img))
+                    : null;
+                return [
+                    'name'    => $row->name,
+                    'qty'     => (int) $row->total_qty,
+                    'revenue' => (float) $row->total_revenue,
+                    'image'   => $imgSrc,
+                ];
+            })->all();
+        } catch (\Throwable) {
+            return [];
+        }
+    }
+
+    // ──────────────────────────────────────────────────────────────
+    // Mini-stats sidebar (polling toutes les 30 s)
+    // ──────────────────────────────────────────────────────────────
+
+    public function sidebarStats()
+    {
+        try {
+            $restaurant = auth()->user()?->restaurant;
+            if (!$restaurant) {
+                return response()->json([], 403);
+            }
+
+            $today = now()->toDateString();
+
+            $ordersToday = \App\Order::where('restaurant_id', $restaurant->id)
+                ->whereDate('created_at', $today)
+                ->distinct('order_no')
+                ->count('order_no');
+
+            $pendingToday = \App\Order::where('restaurant_id', $restaurant->id)
+                ->whereDate('created_at', $today)
+                ->where('status', 'pending')
+                ->distinct('order_no')
+                ->count('order_no');
+
+            $revenueToday = \App\Order::where('restaurant_id', $restaurant->id)
+                ->whereDate('created_at', $today)
+                ->whereIn('status', ['delivered', 'completed'])
+                ->sum('total_price');
+
+            $avgRating = \App\Rating::where('restaurant_id', $restaurant->id)->avg('rating');
+
+            return response()->json([
+                'orders_today'  => $ordersToday,
+                'pending_today' => $pendingToday,
+                'revenue_today' => (float) $revenueToday,
+                'avg_rating'    => $avgRating ? round($avgRating, 1) : null,
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json([]);
         }
     }
 }

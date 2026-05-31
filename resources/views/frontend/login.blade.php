@@ -94,21 +94,21 @@
                     @endif
                     
                     <div class="form-group">
-                        <label class="form-label">Adresse email</label>
+                        <label class="form-label">Email ou téléphone</label>
                         <div class="input-group">
-                            <input type="email" 
-                                   name="email" 
-                                   id="email"
-                                   value="{{ old('email') }}" 
-                                   placeholder="votre@email.com"
+                            <input type="text"
+                                   name="identifier"
+                                   id="identifier"
+                                   value="{{ old('identifier') }}"
+                                   placeholder="votre@email.com ou +242 06..."
                                    required
-                                   autocomplete="email">
-                            <i class="fas fa-envelope"></i>
+                                   autocomplete="username">
+                            <i class="fas fa-user"></i>
                         </div>
-                        @if($errors->has('email'))
+                        @if($errors->has('identifier'))
                             <div class="form-error">
                                 <i class="fas fa-exclamation-circle"></i>
-                                {{ $errors->first('email') }}
+                                {{ $errors->first('identifier') }}
                             </div>
                         @endif
                     </div>
@@ -166,12 +166,6 @@
                 
                 <div class="form-footer">
                     <p>Pas encore de compte ? <a href="{{ route('user.signup', array_filter(['redirect' => $socialRedirect])) }}">Créer un compte</a></p>
-                    <p class="form-footer__secondary">
-                        Restaurant ou Livreur ? 
-                        <a href="{{ url('/login') }}" class="form-footer__muted-link">
-                            Accès professionnel →
-                        </a>
-                    </p>
                 </div>
             </div>
         </div>
@@ -215,18 +209,8 @@
         });
     }, 5000);
     
-    // Email validation on input
-    document.getElementById('email').addEventListener('input', function() {
-        const email = this.value;
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        
-        if (email && !emailRegex.test(email)) {
-            this.style.borderColor = '#DC2626';
-        } else if (email) {
-            this.style.borderColor = '#009543';
-        } else {
-            this.style.borderColor = '';
-        }
+    document.getElementById('identifier').addEventListener('input', function() {
+        this.style.borderColor = this.value.trim() ? '#009543' : '';
     });
 </script>
 @endsection

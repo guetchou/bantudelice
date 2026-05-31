@@ -1,111 +1,164 @@
 @extends('layouts.admin-modern')
-@section('title', 'Toutes les actualités | Admin')
+@section('title', 'Actualités | Admin')
 @section('page_title', 'Actualités')
 @section('nav_active', 'news')
 
 @section('style')
-<link rel="stylesheet" href="{{asset('plugins/datatables-bs4/css/dataTables.bootstrap4.css')}}">
-<link rel="stylesheet" href="{{asset('plugins/sweetalert2/sweetalert2.css')}}">
+<style>
+.nws { display: flex; flex-direction: column; gap: 20px; }
+
+.nws-alert {
+    padding: 12px 16px; border-radius: 8px; font-size: 13px; font-weight: 500;
+    border: 1px solid transparent;
+}
+.nws-alert--success { background: #f0fdf4; color: #166534; border-color: #bbf7d0; }
+.nws-alert--danger  { background: #fef2f2; color: #991b1b; border-color: #fecaca; }
+
+.nws-hero { display:none; }
+
+.nws-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 9px 18px; border-radius: 8px; font-size: 13px;
+    font-weight: 600; text-decoration: none; transition: .12s; white-space: nowrap;
+}
+.nws-btn--primary { background: #22c55e; color: #fff; }
+.nws-btn--primary:hover { background: #16a34a; color: #fff; }
+.nws-btn--outline { background: rgba(255,255,255,.12); color: #fff; border: 1px solid rgba(255,255,255,.3); }
+.nws-btn--outline:hover { background: rgba(255,255,255,.2); color: #fff; }
+.nws-btn--ghost { background: transparent; color: #374151; border: 1px solid #e5e7eb; }
+.nws-btn--ghost:hover { border-color: #22c55e; color: #22c55e; }
+.nws-btn--danger { background: #ef4444; color: #fff; border: none; cursor: pointer; }
+.nws-btn--danger:hover { background: #dc2626; color: #fff; }
+.nws-btn--sm { padding: 6px 12px; font-size: 12px; }
+
+.nws-card {
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden;
+}
+.nws-card__head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 20px; border-bottom: 1px solid #f3f4f6; flex-wrap: wrap; gap: 10px;
+}
+.nws-card__head-title { font-size: 14px; font-weight: 700; color: #111827; margin: 0; }
+.nws-card__head-sub   { font-size: 12px; color: #6b7280; margin: 3px 0 0; }
+
+.nws-pill {
+    display: inline-flex; align-items: center;
+    padding: 4px 12px; border-radius: 999px;
+    background: #eff6ff; color: #1d4ed8; font-size: 12px; font-weight: 700;
+}
+
+.nws-table-wrap { overflow-x: auto; }
+.nws-table {
+    width: 100%; border-collapse: collapse; font-size: 13px;
+    font-family: 'Manrope', sans-serif;
+}
+.nws-table thead th {
+    padding: 9px 16px; font-size: 10px; font-weight: 700; letter-spacing: .06em;
+    text-transform: uppercase; color: #9ca3af;
+    border-bottom: 1px solid #f3f4f6; background: #f9fafb;
+    text-align: left; white-space: nowrap;
+}
+.nws-table tbody tr { border-bottom: 1px solid #f3f4f6; transition: background .1s; }
+.nws-table tbody tr:last-child { border-bottom: none; }
+.nws-table tbody tr:hover { background: #f9fafb; }
+.nws-table td { padding: 12px 16px; color: #374151; vertical-align: middle; }
+
+.nws-title-cell strong { display: block; color: #111827; font-weight: 600; }
+.nws-title-cell span   { font-size: 11px; color: #9ca3af; }
+
+.nws-actions { display: flex; align-items: center; gap: 6px; justify-content: flex-end; }
+</style>
 @endsection
 
 @section('content')
-<div class="content-header">
-    <div class="container-fluid">
-        <div class="bd-admin-editor-shell">
-            @if(session()->has('alert'))
-                <div class="alert alert-{{ session()->get('alert.type') }}">
-                    {{ session()->get('alert.message') }}
-                </div>
-            @endif
+<div class="nws">
 
-            <section class="bd-admin-editor-hero">
-                <div>
-                    <p class="bd-admin-editor-hero__eyebrow">Newsroom</p>
-                    <h1>Actualités</h1>
-                    <p>Gérez les annonces, informations importantes et notifications publiques depuis une vue unique.</p>
-                </div>
-                <a href="{{ route('news.create') }}" class="btn btn-primary">Ajouter une actualité</a>
-            </section>
+    @if(session()->has('alert'))
+        <div class="nws-alert nws-alert--{{ session('alert.type') === 'success' ? 'success' : 'danger' }}">
+            {{ session('alert.message') }}
+        </div>
+    @endif
+
+    <div class="adm-page-bar">
+        <div class="adm-page-bar__left">
+            <nav class="adm-page-bar__breadcrumb">
+                <span>Contenu</span><span class="sep">/</span><span>Actualites</span>
+            </nav>
+            <h1 class="adm-page-bar__title">Actualites</h1>
+        </div>
+        <div class="adm-page-bar__right">
+            <a href="{{ route('news.create') }}" class="nws-btn nws-btn--primary">
+                <i class="fas fa-plus"></i> Ajouter
+            </a>
         </div>
     </div>
-</div>
 
-<section class="content">
-    <div class="container-fluid">
-        <div class="card bd-admin-editor-card">
-            <div class="card-header border-0">
-                <div class="bd-admin-editor-card__header">
-                    <div>
-                        <h3>Liste des actualités</h3>
-                        <p>Diffusez une nouvelle publication, modifiez les annonces existantes ou envoyez une notification directement.</p>
-                    </div>
-                    <span class="bd-admin-table-pill">{{ count($news) }} publication(s)</span>
-                </div>
+    <div class="nws-card">
+        <div class="nws-card__head">
+            <div>
+                <div class="nws-card__head-title">Liste des actualités</div>
+                <div class="nws-card__head-sub">Publications et annonces diffusées sur le site.</div>
             </div>
-            <div class="card-body table-responsive pt-0">
-                <table class="table table-hover" id="example1">
-                    <thead>
+            <span class="nws-pill">{{ count($news) }} publication(s)</span>
+        </div>
+        <div class="nws-table-wrap">
+            <table class="nws-table" id="nws-table">
+                <thead>
                     <tr>
                         <th>#</th>
                         <th>Titre</th>
                         <th>Description</th>
                         <th>Créé le</th>
-                        <th></th>
+                        <th style="text-align:right;">Actions</th>
                     </tr>
-                    </thead>
-                    <tbody>
+                </thead>
+                <tbody>
                     @foreach($news as $index => $item)
-                        <tr>
-                            <td>{{ $index + 1 }}</td>
-                            <td>
-                                <div class="bd-admin-table-primary">
-                                    <strong>{{ $item->title }}</strong>
-                                    <span>Actualité publique</span>
-                                </div>
-                            </td>
-                            <td>{{ $item->description }}</td>
-                            <td>{{ $item->created_at }}</td>
-                            <td class="text-right">
-                                <a href="{{ route('news.edit', $item->id) }}" class="btn btn-sm btn-outline-primary">Modifier</a>
-                                <button type="button" class="btn btn-sm btn-outline-secondary" disabled title="Fonction non disponible">Notification indisponible</button>
-                                <form action="{{ route('news.destroy', $item->id) }}" method="post" style="display:inline;" onsubmit="return confirm('Voulez-vous vraiment supprimer cette actualité ?');">
+                    <tr>
+                        <td style="color:#9ca3af;">{{ $index + 1 }}</td>
+                        <td>
+                            <div class="nws-title-cell">
+                                <strong>{{ $item->title }}</strong>
+                                <span>Actualité publique</span>
+                            </div>
+                        </td>
+                        <td style="max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+                            {{ $item->description }}
+                        </td>
+                        <td style="font-size:12px;white-space:nowrap;">
+                            {{ \Carbon\Carbon::parse($item->created_at)->format('d/m/Y') }}
+                        </td>
+                        <td>
+                            <div class="nws-actions">
+                                <a href="{{ route('news.edit', $item->id) }}" class="nws-btn nws-btn--ghost nws-btn--sm">
+                                    <i class="fas fa-pen"></i> Modifier
+                                </a>
+                                <form action="{{ route('news.destroy', $item->id) }}" method="post"
+                                      style="display:inline;"
+                                      onsubmit="return confirm('Supprimer cette actualité ?');">
                                     @csrf
                                     @method('delete')
-                                    <button type="submit" class="btn btn-sm btn-danger">Supprimer</button>
+                                    <button type="submit" class="nws-btn nws-btn--danger nws-btn--sm">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
                                 </form>
-                            </td>
-                        </tr>
+                            </div>
+                        </td>
+                    </tr>
                     @endforeach
-                    </tbody>
-                </table>
-            </div>
+                </tbody>
+            </table>
         </div>
     </div>
-</section>
 
-<style>
-    .bd-admin-editor-shell { display:grid; gap:14px; }
-    .bd-admin-editor-hero { display:flex; justify-content:space-between; align-items:flex-end; gap:16px; padding:18px 20px; border-radius:18px; background:linear-gradient(135deg,#020617 0%,#0f172a 60%,#155e75 100%); color:#fff; box-shadow:0 12px 30px rgba(15,23,42,.16); }
-    .bd-admin-editor-hero__eyebrow { margin:0 0 8px; font-size:.78rem; letter-spacing:.18em; text-transform:uppercase; font-weight:800; color:#bae6fd; }
-    .bd-admin-editor-hero h1 { margin:0; color:#fff !important; font-size:clamp(1.45rem,3vw,2rem); font-weight:900; line-height:1.08; }
-    .bd-admin-editor-hero p { margin:8px 0 0; max-width:980px; color:rgba(255,255,255,.82); line-height:1.55; }
-    .bd-admin-editor-card__header { display:flex; justify-content:space-between; align-items:flex-end; gap:14px; }
-    .bd-admin-editor-card__header h3 { margin:0; color:#020617; font-size:1.2rem; font-weight:900; }
-    .bd-admin-editor-card__header p { margin:6px 0 0; color:#64748b; line-height:1.5; }
-    .bd-admin-table-pill { display:inline-flex; min-height:38px; align-items:center; padding:0 14px; border-radius:999px; background:#eff6ff; color:#1d4ed8; font-weight:800; }
-    .bd-admin-table-primary { display:flex; flex-direction:column; gap:4px; }
-    .bd-admin-table-primary strong { color:#020617; }
-    .bd-admin-table-primary span { color:#94a3b8; font-size:.84rem; }
-    @media (max-width: 991.98px) { .bd-admin-editor-hero, .bd-admin-editor-card__header { flex-direction:column; align-items:flex-start; } }
-</style>
+</div>
 @endsection
 
 @section('script')
-<script src="{{asset('plugins/datatables/jquery.dataTables.js')}}"></script>
-<script src="{{asset('plugins/datatables-bs4/js/dataTables.bootstrap4.js')}}"></script>
+<script src="{{ asset('plugins/datatables/jquery.dataTables.js') }}"></script>
 <script>
-    $(function () {
-      $("#example1").DataTable();
-    });
+$(function () {
+    $('#nws-table').DataTable({ pageLength: 25, order: [[3, 'desc']] });
+});
 </script>
 @endsection

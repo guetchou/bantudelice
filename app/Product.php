@@ -11,7 +11,7 @@ class Product extends Model
 {
     use SoftDeletes;
     protected $fillable=['restaurant_id','category_id','name','image',
-        'price','discount_price','description','size','is_available','sort_order'
+        'price','discount_price','description','size','is_available','sort_order','featured'
     ];
 
     public function extras()

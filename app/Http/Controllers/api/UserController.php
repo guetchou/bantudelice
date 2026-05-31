@@ -14,6 +14,7 @@ use App\CompletedOrder;
 use App\UserToken;
 use Illuminate\Support\Facades\Mail;
 use App\Mail\RegisterEmail;
+use App\Http\Requests\User\UpdateProfileRequest;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\URL;
@@ -187,11 +188,15 @@ class UserController extends Controller
             'BASE_URL_PROFILE'=>BASE_URL_PROFILE,
         ]);
     }
-    public function updateProfile(Request $request)
+    public function updateProfile(UpdateProfileRequest $request)
     {
-        
+        // IDOR guard: if a Passport token is present, the token owner must match user_id
+        $tokenUser = auth('api')->user();
+        if ($tokenUser && (int)$tokenUser->id !== (int)$request->user_id) {
+            return response()->json(['status' => false, 'message' => 'Accès non autorisé'], 403);
+        }
 
-$validator = Validator::make(
+        $validator = Validator::make(
             $request->all(),
             array(
                 'user_id'=>'required',
@@ -200,7 +205,7 @@ $validator = Validator::make(
                 'phone'=>'required',
                 'image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:8192',
             ));
-            $user=User::find($request->user_id); 
+            $user=User::find($request->user_id);
         if ($validator->fails()) {
             $error_messages = implode(',', $validator->messages()->all());
             return response()->json([
@@ -250,7 +255,13 @@ $validator = Validator::make(
     
      public function addUserAddress(Request $request)
     {
-       $validator = Validator::make(
+        // IDOR guard
+        $tokenUser = auth('api')->user();
+        if ($tokenUser && (int)$tokenUser->id !== (int)$request->user_id) {
+            return response()->json(['status' => false, 'message' => 'Accès non autorisé'], 403);
+        }
+
+        $validator = Validator::make(
             $request->all(),
             array(
                 'title'=>'required',
@@ -430,6 +441,12 @@ $validator = Validator::make(
 
         $userId       = (int) $request->user_id;
         $restaurantId = (int) $request->restaurant_id;
+
+        // IDOR guard: if a Passport token is present, the token owner must match user_id
+        $tokenUser = auth('api')->user();
+        if ($tokenUser && (int)$tokenUser->id !== $userId) {
+            return response()->json(['status' => false, 'message' => 'Accès non autorisé'], 403);
+        }
 
         // S6.6 — Avis vérifiés : l'utilisateur doit avoir une commande livrée dans ce restaurant
         $hasDeliveredOrder = \App\CompletedOrder::where('user_id', $userId)

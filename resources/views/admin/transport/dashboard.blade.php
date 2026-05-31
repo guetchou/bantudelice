@@ -4,108 +4,99 @@
 @section('nav_active', 'transport')
 
 @section('content')
-    <div class="content-header">
-        <div class="container-fluid">
-            <div class="bd-ops-shell">
-                <section class="bd-ops-hero">
-                    <div>
-                        <p class="bd-ops-hero__eyebrow">Kende</p>
-                        <h1>Réservations, attribution et flotte transport</h1>
-                        <p>Le premier niveau doit remonter les demandes à dispatcher, les trajets actifs, les véhicules mobilisables et les points de blocage terrain.</p>
-                    </div>
-                    <div class="bd-ops-hero__actions">
-                        <a href="{{ route('admin.transport.bookings.index') }}" class="btn btn-light">Voir les reservations</a>
-                    </div>
-                </section>
+<div class="bd-ops-shell" style="padding:24px;">
+    <div class="adm-page-bar">
+        <div class="adm-page-bar__left">
+            <nav class="adm-page-bar__breadcrumb">
+                <span>Kende</span><span class="sep">/</span><span>Transport</span>
+            </nav>
+            <h1 class="adm-page-bar__title">Dashboard Transport</h1>
+        </div>
+        <div class="adm-page-bar__right">
+            <a href="{{ route('admin.transport.bookings.index') }}" class="ops-primary-btn">Reservations</a>
+        </div>
+    </div>
 
-                <section class="bd-ops-stat-grid">
-                    <article class="bd-ops-stat-card is-orange">
-                        <span>Reservations</span>
-                        <strong>{{ $stats['total_bookings'] }}</strong>
-                        <small>Flux total</small>
+    <section class="bd-ops-stat-grid">
+        <article class="bd-ops-stat-card is-orange">
+            <span>Reservations</span>
+            <strong>{{ $stats['total_bookings'] }}</strong>
+            <small>Flux total</small>
+        </article>
+        <article class="bd-ops-stat-card is-lemon">
+            <span>En attente</span>
+            <strong>{{ $stats['pending_bookings'] }}</strong>
+            <small>Dispatch a traiter</small>
+        </article>
+        <article class="bd-ops-stat-card is-soft">
+            <span>Revenus</span>
+            <strong>{{ number_format($stats['total_revenue'], 0, ',', ' ') }} FCFA</strong>
+            <small>Transport cumule</small>
+        </article>
+        <article class="bd-ops-stat-card is-dark">
+            <span>Vehicules</span>
+            <strong>{{ \App\Domain\Transport\Models\TransportVehicle::count() }}</strong>
+            <small>Parc disponible</small>
+        </article>
+    </section>
+
+    <div class="trk-dash-grid">
+        <div class="bd-ops-table-card">
+            <div style="padding:18px 20px;border-bottom:1px solid #f3f4f6;">
+                <div class="bd-ops-table-card__header">
+                    <div>
+                        <h3>Verticales transport</h3>
+                        <p>Lecture directe par service pour suivre le volume, la disponibilité et l'accès au paramétrage.</p>
+                    </div>
+                </div>
+            </div>
+            <div style="padding:18px;">
+                <div class="bd-transport-service-grid">
+                    <article class="bd-transport-service-card">
+                        <span class="bd-transport-service-card__icon"><i class="fas fa-taxi"></i></span>
+                        <strong>Taxi</strong>
+                        <p>{{ \App\Domain\Transport\Models\TransportBooking::where('type', 'taxi')->count() }} reservations</p>
+                        <span class="bd-ops-status is-success">Actif</span>
+                        <a href="{{ route('admin.transport.pricing.index') }}">Parametrer</a>
                     </article>
-                    <article class="bd-ops-stat-card is-lemon">
-                        <span>En attente</span>
-                        <strong>{{ $stats['pending_bookings'] }}</strong>
-                        <small>Dispatch a traiter</small>
+                    <article class="bd-transport-service-card">
+                        <span class="bd-transport-service-card__icon"><i class="fas fa-users"></i></span>
+                        <strong>Covoiturage</strong>
+                        <p>{{ \App\Domain\Transport\Models\TransportBooking::where('type', 'carpool')->count() }} reservations</p>
+                        <span class="bd-ops-status is-success">Actif</span>
+                        <a href="{{ route('admin.transport.pricing.index') }}">Parametrer</a>
                     </article>
-                    <article class="bd-ops-stat-card is-soft">
-                        <span>Revenus</span>
-                        <strong>{{ number_format($stats['total_revenue'], 0, ',', ' ') }} FCFA</strong>
-                        <small>Transport cumule</small>
+                    <article class="bd-transport-service-card">
+                        <span class="bd-transport-service-card__icon"><i class="fas fa-shuttle-van"></i></span>
+                        <strong>Location</strong>
+                        <p>{{ \App\Domain\Transport\Models\TransportBooking::where('type', 'rental')->count() }} reservations</p>
+                        <span class="bd-ops-status is-success">Actif</span>
+                        <a href="{{ route('admin.transport.pricing.index') }}">Parametrer</a>
                     </article>
-                    <article class="bd-ops-stat-card is-dark">
-                        <span>Vehicules</span>
-                        <strong>{{ \App\Domain\Transport\Models\TransportVehicle::count() }}</strong>
-                        <small>Parc disponible</small>
-                    </article>
-                </section>
+                </div>
+            </div>
+        </div>
+
+        <div class="bd-ops-table-card">
+            <div style="padding:18px 20px;border-bottom:1px solid #f3f4f6;">
+                <div class="bd-ops-table-card__header">
+                    <div>
+                        <h3>Actions rapides</h3>
+                        <p>Entrées utiles pour le dispatch, la flotte et la tarification.</p>
+                    </div>
+                </div>
+            </div>
+            <div style="padding:18px;">
+                <div class="bd-transport-links">
+                    <a href="{{ route('admin.transport.bookings.index') }}">Reservations</a>
+                    <a href="{{ route('admin.transport.vehicles.index') }}">Vehicules</a>
+                    <a href="{{ route('admin.transport.pricing.index') }}">Tarification</a>
+                    <a href="{{ route('admin.transport.bookings.index', ['status' => 'requested']) }}">Demandes en attente</a>
+                </div>
             </div>
         </div>
     </div>
-    <section class="content">
-        <div class="container-fluid">
-            <div class="row">
-                <div class="col-lg-8">
-                    <div class="card bd-ops-table-card h-100">
-                        <div class="card-header border-0">
-                            <div class="bd-ops-table-card__header">
-                                <div>
-                                    <h3>Verticales transport</h3>
-                                    <p>Lecture directe par service pour suivre le volume, la disponibilité et l'accès au paramétrage.</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="card-body">
-                            <div class="bd-transport-service-grid">
-                                <article class="bd-transport-service-card">
-                                    <span class="bd-transport-service-card__icon"><i class="fas fa-taxi"></i></span>
-                                    <strong>Taxi</strong>
-                                    <p>{{ \App\Domain\Transport\Models\TransportBooking::where('type', 'taxi')->count() }} reservations</p>
-                                    <span class="bd-ops-status is-success">Actif</span>
-                                    <a href="{{ route('admin.transport.pricing.index') }}">Parametrer</a>
-                                </article>
-                                <article class="bd-transport-service-card">
-                                    <span class="bd-transport-service-card__icon"><i class="fas fa-users"></i></span>
-                                    <strong>Covoiturage</strong>
-                                    <p>{{ \App\Domain\Transport\Models\TransportBooking::where('type', 'carpool')->count() }} reservations</p>
-                                    <span class="bd-ops-status is-success">Actif</span>
-                                    <a href="{{ route('admin.transport.pricing.index') }}">Parametrer</a>
-                                </article>
-                                <article class="bd-transport-service-card">
-                                    <span class="bd-transport-service-card__icon"><i class="fas fa-shuttle-van"></i></span>
-                                    <strong>Location</strong>
-                                    <p>{{ \App\Domain\Transport\Models\TransportBooking::where('type', 'rental')->count() }} reservations</p>
-                                    <span class="bd-ops-status is-success">Actif</span>
-                                    <a href="{{ route('admin.transport.pricing.index') }}">Parametrer</a>
-                                </article>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-lg-4">
-                    <div class="card bd-ops-table-card h-100">
-                        <div class="card-header border-0">
-                            <div class="bd-ops-table-card__header">
-                                <div>
-                                    <h3>Actions rapides</h3>
-                                    <p>Entrées utiles pour le dispatch, la flotte et la tarification.</p>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="card-body">
-                            <div class="bd-transport-links">
-                                <a href="{{ route('admin.transport.bookings.index') }}">Reservations</a>
-                                <a href="{{ route('admin.transport.vehicles.index') }}">Vehicules</a>
-                                <a href="{{ route('admin.transport.pricing.index') }}">Tarification</a>
-                                <a href="{{ route('admin.transport.bookings.index', ['status' => 'requested']) }}">Demandes en attente</a>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
+</div>
 
 <style>
     .bd-ops-shell { display:grid; gap:14px; }
@@ -123,7 +114,7 @@
     .bd-ops-stat-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; }
     .bd-ops-stat-card { padding:15px; border-radius:18px; background:rgba(255,255,255,.92); border:1px solid rgba(15,23,42,.08); box-shadow:0 12px 24px rgba(15,23,42,.05); }
     .bd-ops-stat-card span { display:block; color:#64748b; font-size:.74rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
-        .bd-ops-stat-card strong { display:block; margin-top:6px; font-size:1.45rem; line-height:1; font-weight:900; color:#111827; }
+    .bd-ops-stat-card strong { display:block; margin-top:6px; font-size:1.45rem; line-height:1; font-weight:900; color:#111827; }
     .bd-ops-stat-card small { display:block; margin-top:5px; color:#94a3b8; line-height:1.45; }
     .bd-ops-stat-card.is-orange strong { color:#1d4ed8; }
     .bd-ops-stat-card.is-lemon strong { color:#0f766e; }
@@ -135,6 +126,7 @@
     .bd-ops-table-card__header p { margin:6px 0 0; color:#64748b; line-height:1.5; }
     .bd-ops-status { display:inline-flex; align-items:center; min-height:28px; padding:0 10px; border-radius:999px; font-size:.68rem; font-weight:800; text-transform:uppercase; letter-spacing:.06em; }
     .bd-ops-status.is-success { background:#dcfce7; color:#007836; }
+    .trk-dash-grid { display:grid; grid-template-columns:minmax(0,1fr) 320px; gap:20px; }
     .bd-transport-service-grid { display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:12px; }
     .bd-transport-service-card {
         padding:14px; border-radius:18px; background:linear-gradient(180deg, #ffffff 0%, #f8fbff 100%); border:1px solid rgba(15,23,42,.08);
@@ -156,6 +148,7 @@
         .bd-ops-hero, .bd-ops-table-card__header { flex-direction:column; align-items:flex-start; }
         .bd-ops-stat-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
         .bd-transport-service-grid { grid-template-columns:1fr; }
+        .trk-dash-grid { grid-template-columns:1fr; }
     }
     @media (max-width: 576px) {
         .bd-ops-stat-grid { grid-template-columns:1fr; }

@@ -230,4 +230,6 @@ return [
 
     ],
 
+    'alert_email' => env('ALERT_EMAIL'),
+
 ];

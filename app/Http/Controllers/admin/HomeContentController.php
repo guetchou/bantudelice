@@ -101,6 +101,12 @@ class HomeContentController extends Controller
             'home_opportunity_2_image_media_path' => 'nullable|string|max:2048',
             'home_opportunity_3_image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:4096',
             'home_opportunity_3_image_media_path' => 'nullable|string|max:2048',
+            'home_mosaic_cuisine_image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:4096',
+            'home_mosaic_cuisine_image_media_path' => 'nullable|string|max:2048',
+            'home_mosaic_driver_image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:4096',
+            'home_mosaic_driver_image_media_path' => 'nullable|string|max:2048',
+            'home_mosaic_restaurant_image' => 'nullable|image|mimes:jpg,jpeg,png,webp|max:4096',
+            'home_mosaic_restaurant_image_media_path' => 'nullable|string|max:2048',
         ]);
 
         $workspace = $this->workspace();

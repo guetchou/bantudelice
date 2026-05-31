@@ -211,7 +211,7 @@
         </div>
         <div class="bd-admin-architecture__hero-actions">
             @if($maquetteAvailable)
-                <a href="{{ route('admin.architecture.preview') }}" target="_blank" rel="noopener" class="btn btn-primary btn-sm">Ouvrir seule</a>
+                <a href="{{ route('admin.architecture.preview') }}" target="_blank" rel="noopener" style="display:inline-flex;align-items:center;padding:7px 16px;background:#1e3a5f;color:#fff;border-radius:6px;font-size:13px;font-weight:600;text-decoration:none;">Ouvrir seule</a>
             @endif
         </div>
     </section>

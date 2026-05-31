@@ -232,16 +232,24 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // +/- stepper buttons
+    function autoSaveQty(input) {
+        updateCartTotals();
+        var form = input.closest('form');
+        if (form) {
+            clearTimeout(form._saveTimer);
+            form._saveTimer = setTimeout(function(){ form.dispatchEvent(new Event('submit', {cancelable:true})); }, 400);
+        }
+    }
     document.querySelectorAll('.qty-dec').forEach(function(btn) {
         btn.addEventListener('click', function() {
             const input = btn.closest('.cart-qty-stepper').querySelector('.cart-qty-input');
-            if (parseInt(input.value) > 1) { input.value = parseInt(input.value) - 1; updateCartTotals(); }
+            if (parseInt(input.value) > 1) { input.value = parseInt(input.value) - 1; autoSaveQty(input); }
         });
     });
     document.querySelectorAll('.qty-inc').forEach(function(btn) {
         btn.addEventListener('click', function() {
             const input = btn.closest('.cart-qty-stepper').querySelector('.cart-qty-input');
-            if (parseInt(input.value) < 10) { input.value = parseInt(input.value) + 1; updateCartTotals(); }
+            if (parseInt(input.value) < 10) { input.value = parseInt(input.value) + 1; autoSaveQty(input); }
         });
     });
 

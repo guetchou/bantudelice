@@ -56,9 +56,10 @@
             
             <!-- Image Container -->
             <div class="restaurant-card-image restaurants-feed-card__media">
-                <img src="{{ $restaurantImage }}" 
+                <img src="{{ $restaurantImage }}"
                      alt="{{ $restaurant->name }}"
                      class="restaurants-feed-card__image"
+                     loading="lazy"
                      onerror="this.src='{{ asset('images/home/service-restaurant.jpg') }}'">
                 
                 <!-- Overlay gradient -->

@@ -454,8 +454,6 @@
     ];
 @endphp
 
-<section class="content">
-<div class="container-fluid">
 <div class="bd-kl-page">
 
     {{-- ── Impersonation banner ──────────────────────── --}}
@@ -466,7 +464,10 @@
                 <div style="font-size:.85rem;margin-top:2px">{{ $dashboardContext['banner_message'] ?? 'Consultation du dashboard restaurant.' }}</div>
             </div>
             @if(!empty($dashboardContext['back_url']))
-                <a href="{{ $dashboardContext['back_url'] }}" class="btn btn-sm">{{ $dashboardContext['back_label'] ?? 'Retour' }}</a>
+                <a href="{{ $dashboardContext['back_url'] }}"
+                   style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:var(--bd-radius);border:1px solid var(--bd-border);background:var(--bd-surface);color:var(--bd-text-2);font-size:12px;font-weight:600;text-decoration:none;">
+                    {{ $dashboardContext['back_label'] ?? 'Retour' }}
+                </a>
             @endif
         </div>
     @endif
@@ -670,8 +671,7 @@
     </div>
 
 </div>{{-- /.bd-kl-page --}}
-</div>{{-- /.container-fluid --}}
-</section>
+</div>
 @endsection
 
 @section('script')

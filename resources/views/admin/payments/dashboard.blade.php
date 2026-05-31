@@ -10,98 +10,8 @@
     display: grid;
     gap: .9rem;
 }
-.payment-context-band {
-    display:grid;
-    grid-template-columns:minmax(0, 1.2fr) minmax(320px, .8fr);
-    gap:.9rem;
-}
-.payment-hero {
-    position: relative;
-    overflow: hidden;
-    padding: 1rem 1.1rem;
-    border-radius: 18px;
-    background:
-        radial-gradient(circle at top right, rgba(29, 184, 96, 0.18), transparent 30%),
-        radial-gradient(circle at bottom left, rgba(17, 24, 39, 0.9), transparent 40%),
-        linear-gradient(135deg, #0e1726, #111827 55%, #1a2332);
-    border: 1px solid rgba(255,255,255,.08);
-}
-.payment-hero h1 {
-    font-family: var(--f-d);
-    font-size: 1.65rem;
-    margin: 0 0 .2rem;
-    color: #f8fafc;
-}
-.payment-hero-eyebrow {
-    display: inline-flex;
-    align-items: center;
-    gap: .45rem;
-    margin-bottom: .6rem;
-    padding: .34rem .68rem;
-    border-radius: 999px;
-    background: rgba(255,255,255,.08);
-    border: 1px solid rgba(255,255,255,.08);
-    color: #86efac;
-    font-size: .72rem;
-    font-weight: 900;
-    text-transform: uppercase;
-    letter-spacing: .12em;
-}
-.payment-hero p {
-    margin: 0;
-    color: rgba(226,232,240,.72);
-    max-width: 920px;
-    line-height: 1.5;
-}
-.payment-scope-card {
-    border-radius: 18px;
-    padding: 1rem 1.05rem;
-    background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.025));
-    border: 1px solid rgba(255,255,255,.06);
-}
-.payment-scope-card h2 {
-    margin: 0 0 .35rem;
-    font-size: .95rem;
-    font-weight: 800;
-    color: var(--text);
-}
-.payment-scope-card p {
-    margin: 0;
-    color: var(--text-2);
-    font-size: .76rem;
-    line-height: 1.5;
-}
-.payment-scope-list {
-    display:grid;
-    gap:.55rem;
-    margin-top:.8rem;
-}
-.payment-scope-item {
-    padding:.7rem .8rem;
-    border-radius:14px;
-    background: rgba(255,255,255,.035);
-    border:1px solid rgba(255,255,255,.06);
-}
-.payment-scope-item strong {
-    display:block;
-    color:var(--text);
-    font-size:.78rem;
-    margin-bottom:.15rem;
-}
-.payment-scope-item span {
-    display:block;
-    color:var(--text-3);
-    font-size:.72rem;
-    line-height:1.45;
-}
-.payment-hero-toolbar {
-    display: flex;
-    flex-wrap: wrap;
-    gap: .55rem;
-    align-items: center;
-    justify-content: space-between;
-    margin-top: .85rem;
-}
+.payment-context-band { display: none; }
+.payment-hero { display: none; }
 .payment-filter-group {
     display: inline-flex;
     gap: .45rem;
@@ -111,21 +21,22 @@
     text-decoration: none !important;
     display: inline-flex;
     align-items: center;
-    gap: .45rem;
+    gap: .4rem;
     border-radius: 999px;
-    padding: .42rem .72rem;
-    font-size: .73rem;
-    font-weight: 800;
-    letter-spacing: .03em;
-    text-transform: uppercase;
-    border: 1px solid rgba(255,255,255,.08);
-    background: rgba(255,255,255,.05);
-    color: #dbe4f0;
+    padding: .38rem .7rem;
+    font-size: .72rem;
+    font-weight: 700;
+    letter-spacing: .02em;
+    border: 1px solid #d1d5db;
+    background: #f3f4f6;
+    color: #374151;
+    cursor: pointer;
 }
+.payment-pill:hover { background: #e5e7eb; color: #111827; }
 .payment-pill.active {
-    background: rgba(29,184,96,.14);
-    color: #8ff0b8;
-    border-color: rgba(29,184,96,.3);
+    background: rgba(0,149,67,.1);
+    color: #009543;
+    border-color: rgba(0,149,67,.3);
 }
 .payment-pill--ghost {
     text-transform: none;
@@ -416,7 +327,6 @@
     text-align: center;
 }
 @media (max-width: 1100px) {
-    .payment-context-band,
     .payment-kpi-grid,
     .payment-main-grid,
     .payment-status-grid {
@@ -427,7 +337,7 @@
 @endsection
 
 @section('content')
-<div class="container-fluid payment-dashboard">
+<div class="payment-dashboard" style="padding:24px;">
     @include('admin.partials.control_hub_nav')
     @php
         $financeMenus = ['Dashboard', 'Transactions', 'Retraits', 'Rapprochements', 'Remboursements', 'Rapports'];
@@ -436,75 +346,59 @@
         $financeTables = collect($tables['recent_transactions']['rows'] ?? []);
     @endphp
 
-    <section class="ops-context">
-        <div class="ops-panel">
-            <div class="ops-row">
-                <div>
-                    <div class="ops-title">Finance</div>
-                    <div class="ops-sub">Vue active</div>
-                </div>
-                <div class="ops-meta">
-                    <span class="ops-tag ops-tag--warn">{{ number_format($kpis['failed'] ?? 0, 0, ',', ' ') }} anomalies paiement</span>
-                    <span class="ops-tag ops-tag--warn">{{ number_format($kpis['pending'] ?? 0, 0, ',', ' ') }} paiements en attente</span>
-                </div>
-            </div>
-            <div class="ops-strip">
-                <div class="ops-group">
-                    <strong>Menu</strong>
-                    @foreach($financeMenus as $menuLabel)
-                        <span class="ops-chip">{{ $menuLabel }}</span>
-                    @endforeach
-                </div>
-                <div class="ops-group">
-                    <strong>Files</strong>
-                    @foreach($financeQueues as $queueLabel)
-                        <span class="ops-chip ops-chip--soft">{{ $queueLabel }}</span>
-                    @endforeach
-                </div>
-            </div>
-            <div class="ops-kpi-grid">
-                <div class="ops-kpi">
-                    <div class="ops-kpi__label">Montants traites</div>
-                    <div class="ops-kpi__value">{{ number_format($kpis['turnover'] ?? 0, 0, ',', ' ') }} FCFA</div>
-                    <div class="ops-kpi__sub">Jour courant</div>
-                </div>
-                <div class="ops-kpi">
-                    <div class="ops-kpi__label">Paiements anomalie</div>
-                    <div class="ops-kpi__value">{{ number_format($kpis['failed'] ?? 0, 0, ',', ' ') }}</div>
-                    <div class="ops-kpi__sub">A rapprocher</div>
-                </div>
-                <div class="ops-kpi">
-                    <div class="ops-kpi__label">Retraits en attente</div>
-                    <div class="ops-kpi__value">{{ number_format($cards['pending_statuses']['pending'] ?? 0, 0, ',', ' ') }}</div>
-                    <div class="ops-kpi__sub">Flux sous controle</div>
-                </div>
-                <div class="ops-kpi">
-                    <div class="ops-kpi__label">Marge nette</div>
-                    <div class="ops-kpi__value">{{ number_format($kpis['turnover'] ?? 0, 0, ',', ' ') }} FCFA</div>
-                    <div class="ops-kpi__sub">Base encaissement du jour</div>
-                </div>
-            </div>
+    <div class="adm-page-bar">
+        <div class="adm-page-bar__left">
+            <nav class="adm-page-bar__breadcrumb">
+                <span>Finance</span><span class="sep">/</span><span>Paiements</span>
+            </nav>
+            <h1 class="adm-page-bar__title">Cockpit Paiements</h1>
         </div>
-        <div class="ops-panel ops-alerts">
-            @forelse($financeAlerts->take(3) as $alert)
-                <div class="ops-alert">
-                    <div class="ops-alert__top">
-                        <h3>{{ $alert['title'] ?? 'Alerte finance' }}</h3>
-                        <span class="ops-pill {{ ($alert['severity'] ?? '') === 'critical' ? 'ops-pill--danger' : 'ops-pill--warn' }}">{{ $alert['value'] ?? 'A surveiller' }}</span>
-                    </div>
-                    <p>{{ $alert['description'] ?? 'Contrôle requis sur le flux financier.' }}</p>
-                </div>
-            @empty
-                <div class="ops-alert">
-                    <div class="ops-alert__top">
-                        <h3>Aucune alerte critique</h3>
-                        <span class="ops-pill ops-pill--ok">Stable</span>
-                    </div>
-                    <p>Le cockpit finance ne remonte pas de dérive majeure pour la période sélectionnée.</p>
-                </div>
-            @endforelse
+        <div class="adm-page-bar__right">
+            <span class="adm-page-bar__badge adm-page-bar__badge--warn">{{ number_format($kpis['failed'] ?? 0, 0, ',', ' ') }} anomalies</span>
+            <span class="adm-page-bar__badge adm-page-bar__badge--warn">{{ number_format($kpis['pending'] ?? 0, 0, ',', ' ') }} en attente</span>
         </div>
-    </section>
+    </div>
+    <div class="ops-kpi-grid" style="margin-bottom:1rem;">
+        <div class="ops-kpi">
+            <div class="ops-kpi__label">Montants traites</div>
+            <div class="ops-kpi__value">{{ number_format($kpis['turnover'] ?? 0, 0, ',', ' ') }} FCFA</div>
+            <div class="ops-kpi__sub">Jour courant</div>
+        </div>
+        <div class="ops-kpi">
+            <div class="ops-kpi__label">Anomalies paiement</div>
+            <div class="ops-kpi__value">{{ number_format($kpis['failed'] ?? 0, 0, ',', ' ') }}</div>
+            <div class="ops-kpi__sub">A rapprocher</div>
+        </div>
+        <div class="ops-kpi">
+            <div class="ops-kpi__label">Retraits en attente</div>
+            <div class="ops-kpi__value">{{ number_format($cards['pending_statuses']['pending'] ?? 0, 0, ',', ' ') }}</div>
+            <div class="ops-kpi__sub">Flux sous controle</div>
+        </div>
+        <div class="ops-kpi">
+            <div class="ops-kpi__label">Encaissement du jour</div>
+            <div class="ops-kpi__value">{{ number_format($kpis['turnover'] ?? 0, 0, ',', ' ') }} FCFA</div>
+            <div class="ops-kpi__sub">Base de calcul marge</div>
+        </div>
+    </div>
+    <div class="ops-panel ops-alerts" style="margin-bottom:1rem;">
+        @forelse($financeAlerts->take(3) as $alert)
+            <div class="ops-alert">
+                <div class="ops-alert__top">
+                    <h3>{{ $alert['title'] ?? 'Alerte finance' }}</h3>
+                    <span class="ops-pill {{ ($alert['severity'] ?? '') === 'critical' ? 'ops-pill--danger' : 'ops-pill--warn' }}">{{ $alert['value'] ?? 'A surveiller' }}</span>
+                </div>
+                <p>{{ $alert['description'] ?? 'Controle requis sur le flux financier.' }}</p>
+            </div>
+        @empty
+            <div class="ops-alert">
+                <div class="ops-alert__top">
+                    <h3>Aucune alerte critique</h3>
+                    <span class="ops-pill ops-pill--ok">Stable</span>
+                </div>
+                <p>Le cockpit finance ne remonte pas de derive majeure pour la periode selectionnee.</p>
+            </div>
+        @endforelse
+    </div>
 
     <section class="ops-grid ops-grid--2">
         <div class="ops-card">
@@ -585,59 +479,36 @@
         </div>
     </section>
 
-    <section class="payment-context-band">
-        <section class="payment-hero">
-            <span class="payment-hero-eyebrow">Finance</span>
-            <h1>Encaissements, anomalies et réconciliation</h1>
-            <p>Vue de contrôle sur les paiements entrants. Le premier niveau doit montrer les statuts bloqués, les échecs récents, les volumes confirmés et les opérateurs à surveiller.</p>
-            <div class="payment-hero-toolbar">
-                <div class="payment-filter-group" id="hoursFilterGroup">
-                    @foreach([6, 12, 24] as $period)
-                        <a href="{{ route('admin.payments.dashboard', ['hours' => $period, 'provider' => $filters['provider'], 'status' => $filters['status']]) }}" data-hours="{{ $period }}" class="payment-pill {{ (int) $hours === $period ? 'active' : '' }}">
-                            {{ $period }}h
-                        </a>
-                    @endforeach
-                </div>
-                <div class="payment-filter-group">
-                    <select id="providerFilter" class="form-control payment-filter-select">
-                        @foreach($filterOptions['providers'] as $providerOption)
-                            <option value="{{ $providerOption['value'] }}" {{ $filters['provider'] === $providerOption['value'] ? 'selected' : '' }}>
-                                {{ $providerOption['label'] }}
-                            </option>
-                        @endforeach
-                    </select>
-                    <select id="statusFilter" class="form-control payment-filter-select">
-                        @foreach($filterOptions['statuses'] as $statusOption)
-                            <option value="{{ $statusOption['value'] }}" {{ $filters['status'] === $statusOption['value'] ? 'selected' : '' }}>
-                                {{ $statusOption['label'] }}
-                            </option>
-                        @endforeach
-                    </select>
-                    <span class="payment-pill payment-pill--ghost" id="generatedAtLabel">
-                        Dernière génération: {{ $generatedAt->format('d/m/Y H:i:s') }}
-                    </span>
-                    <button type="button" class="payment-pill active" id="refreshDashboardBtn">
-                        Rafraîchir
-                    </button>
-                </div>
+    <div class="ops-filter-card" style="margin-bottom:1rem;">
+        <div class="ops-filter-row">
+            <span class="ops-label">Periode</span>
+            <div class="payment-filter-group" id="hoursFilterGroup">
+                @foreach([6, 12, 24] as $period)
+                    <a href="{{ route('admin.payments.dashboard', ['hours' => $period, 'provider' => $filters['provider'], 'status' => $filters['status']]) }}" data-hours="{{ $period }}" class="payment-pill {{ (int) $hours === $period ? 'active' : '' }}">
+                        {{ $period }}h
+                    </a>
+                @endforeach
             </div>
-        </section>
-
-        <aside class="payment-scope-card">
-            <h2>Périmètre de lecture</h2>
-            <p>Éviter tout mélange entre encaissement client, reversement partenaire et payouts externes. Cette vue reste strictement orientée contrôle finance.</p>
-            <div class="payment-scope-list">
-                <div class="payment-scope-item">
-                    <strong>Inclus ici</strong>
-                    <span>Paiements entrants, succès, échecs, traitements en attente, contrôle opérateur et vérification transactionnelle.</span>
-                </div>
-                <div class="payment-scope-item">
-                    <strong>Hors de cette vue</strong>
-                    <span>Reversements restaurants, payouts livreurs, bulk payout MTN et flux de compensation partenaires.</span>
-                </div>
-            </div>
-        </aside>
-    </section>
+            <select id="providerFilter" class="ops-filter-input">
+                @foreach($filterOptions['providers'] as $providerOption)
+                    <option value="{{ $providerOption['value'] }}" {{ $filters['provider'] === $providerOption['value'] ? 'selected' : '' }}>
+                        {{ $providerOption['label'] }}
+                    </option>
+                @endforeach
+            </select>
+            <select id="statusFilter" class="ops-filter-input">
+                @foreach($filterOptions['statuses'] as $statusOption)
+                    <option value="{{ $statusOption['value'] }}" {{ $filters['status'] === $statusOption['value'] ? 'selected' : '' }}>
+                        {{ $statusOption['label'] }}
+                    </option>
+                @endforeach
+            </select>
+            <span class="ops-label" id="generatedAtLabel">
+                {{ $generatedAt->format('d/m/Y H:i:s') }}
+            </span>
+            <button type="button" class="ops-primary-btn" id="refreshDashboardBtn">Rafraichir</button>
+        </div>
+    </div>
 
     <section class="payment-kpi-grid">
         <article class="payment-kpi-card">
@@ -736,7 +607,7 @@
                         </div>
                     </div>
                 @empty
-                    <div class="text-muted">Aucune transaction récente.</div>
+                    <div style="color:#94a3b8;font-size:.83rem;padding:12px 0;">Aucune transaction récente.</div>
                 @endforelse
             </div>
         </article>
@@ -761,7 +632,7 @@
                         <div class="payment-progress"><span style="width: {{ max(6, $provider['share_percent']) }}%"></span></div>
                     </div>
                 @empty
-                    <div class="text-muted">Aucune donnée opérateur.</div>
+                    <div style="color:#94a3b8;font-size:.83rem;padding:12px 0;">Aucune donnée opérateur.</div>
                 @endforelse
             </div>
         </article>
@@ -775,14 +646,14 @@
             </div>
             <div style="display:flex;gap:8px;align-items:center;">
                 <a href="{{ route('admin.payments.export-csv', array_filter(['provider' => request('provider'), 'status' => request('status')])) }}"
-                   class="btn btn-sm btn-outline-success"
+                   style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border:1px solid #16a34a;border-radius:7px;color:#16a34a;font-size:.78rem;font-weight:700;text-decoration:none;"
                    title="Export CSV pour comptabilité">
-                    <i class="fas fa-file-csv mr-1"></i> Export CSV
+                    <i class="fas fa-file-csv"></i> Export CSV
                 </a>
                 <a href="{{ route('admin.payments.export-csv', ['provider' => 'momo', 'status' => 'paid']) }}"
-                   class="btn btn-sm btn-success"
+                   style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border:1px solid #16a34a;border-radius:7px;background:#16a34a;color:#fff;font-size:.78rem;font-weight:700;text-decoration:none;"
                    title="Export paiements MoMo confirmés">
-                    <i class="fas fa-download mr-1"></i> MoMo payés
+                    <i class="fas fa-download"></i> MoMo payés
                 </a>
             </div>
         </div>
@@ -949,7 +820,7 @@ function renderStatusBreakdown(statusBreakdown) {
 function renderLivePayments(payments) {
     const host = document.getElementById('paymentLiveStream');
     if (!payments.length) {
-        host.innerHTML = '<div class="text-muted">Aucune transaction récente.</div>';
+        host.innerHTML = '<div style="color:#94a3b8;font-size:.83rem;padding:12px 0;">Aucune transaction récente.</div>';
         return;
     }
 
@@ -971,7 +842,7 @@ function renderLivePayments(payments) {
 function renderProviderBreakdown(providers) {
     const host = document.getElementById('paymentProviderList');
     if (!providers.length) {
-        host.innerHTML = '<div class="text-muted">Aucune donnée opérateur.</div>';
+        host.innerHTML = '<div style="color:#94a3b8;font-size:.83rem;padding:12px 0;">Aucune donnée opérateur.</div>';
         return;
     }
 

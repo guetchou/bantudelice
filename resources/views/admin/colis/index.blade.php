@@ -4,161 +4,117 @@
 @section('nav_active', 'colis')
 
 @section('content')
-<div class="content-header">
-    <div class="container-fluid">
-        <div class="bd-ops-shell">
-            <section class="bd-ops-hero">
-                <div>
-                    <p class="bd-ops-hero__eyebrow">Mema</p>
-                    <h1>Expéditions, affectations et remises confirmées</h1>
-                    <p>La vue d’entrée doit remonter les colis à lancer, les flux en transit, les coursiers non assignés et les points de friction logistiques.</p>
-                </div>
-                <div class="bd-ops-hero__actions">
-                    <a href="{{ route('admin.colis.finance') }}" class="btn btn-light">Ouvrir la finance</a>
-                </div>
-            </section>
+<div style="padding:24px;">
+    <div class="bd-ops-shell">
+        <div class="adm-page-bar">
+            <div class="adm-page-bar__left">
+                <nav class="adm-page-bar__breadcrumb">
+                    <span>Mema</span><span class="sep">/</span><span>Expeditions</span>
+                </nav>
+                <h1 class="adm-page-bar__title">Colis &amp; Expeditions</h1>
+            </div>
+            <div class="adm-page-bar__right">
+                <a href="{{ route('admin.colis.finance') }}" class="ops-primary-btn">Finance</a>
+            </div>
+        </div>
 
-            <section class="bd-ops-stat-grid">
-                <article class="bd-ops-stat-card is-orange">
-                    <span>Total envois</span>
-                    <strong>{{ $stats['total'] }}</strong>
-                    <small>Volume cumule</small>
-                </article>
-                <article class="bd-ops-stat-card is-lemon">
-                    <span>En attente</span>
-                    <strong>{{ $stats['pending'] }}</strong>
-                    <small>A lancer ou assigner</small>
-                </article>
-                <article class="bd-ops-stat-card is-dark">
-                    <span>En transit</span>
-                    <strong>{{ $stats['in_transit'] }}</strong>
-                    <small>Flux actif</small>
-                </article>
-                <article class="bd-ops-stat-card is-soft">
-                    <span>Livres aujourd'hui</span>
-                    <strong>{{ $stats['delivered_today'] }}</strong>
-                    <small>Clotures du jour</small>
-                </article>
-            </section>
+        <section class="bd-ops-stat-grid">
+            <article class="bd-ops-stat-card is-orange"><span>Total envois</span><strong>{{ $stats['total'] }}</strong><small>Volume cumule</small></article>
+            <article class="bd-ops-stat-card is-lemon"><span>En attente</span><strong>{{ $stats['pending'] }}</strong><small>A lancer ou assigner</small></article>
+            <article class="bd-ops-stat-card is-dark"><span>En transit</span><strong>{{ $stats['in_transit'] }}</strong><small>Flux actif</small></article>
+            <article class="bd-ops-stat-card is-soft"><span>Livres aujourd'hui</span><strong>{{ $stats['delivered_today'] }}</strong><small>Clotures du jour</small></article>
+        </section>
+    </div>
+
+    {{-- Filters --}}
+    <div class="bd-ops-filter-card" style="margin-top:20px;padding:16px 20px;">
+        <form action="{{ route('admin.colis.index') }}" method="GET">
+            <div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center;">
+                <input type="text" name="search" style="padding:8px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;min-width:200px;" placeholder="N° de suivi ou nom du client" value="{{ request('search') }}">
+                <select name="status" style="padding:8px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;">
+                    <option value="">Tous les statuts</option>
+                    @foreach(\App\Domain\Colis\Enums\ShipmentStatus::cases() as $status)
+                        <option value="{{ $status->value }}" {{ request('status') == $status->value ? 'selected' : '' }}>{{ $status->label() }}</option>
+                    @endforeach
+                </select>
+                <select name="courier_id" style="padding:8px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;">
+                    <option value="">Tous les coursiers</option>
+                    @foreach($couriers as $courier)
+                        <option value="{{ $courier->id }}" {{ request('courier_id') == $courier->id ? 'selected' : '' }}>{{ $courier->name }}</option>
+                    @endforeach
+                </select>
+                <input type="date" name="date_from" style="padding:8px 12px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;" value="{{ request('date_from') }}" title="Date de début">
+                <button type="submit" class="btn bd-ops-primary-btn"><i class="fas fa-search mr-1"></i>Filtrer</button>
+                <a href="{{ route('admin.colis.export-csv', request()->query()) }}" style="display:inline-flex;align-items:center;gap:5px;padding:8px 14px;background:#16a34a;color:#fff;border-radius:6px;font-size:13px;font-weight:600;text-decoration:none;"><i class="fas fa-file-csv"></i> Export CSV</a>
+                <a href="{{ route('admin.colis.index') }}" style="display:inline-flex;align-items:center;padding:8px 14px;border:1px solid #d1d5db;border-radius:6px;font-size:13px;color:#374151;background:#fff;text-decoration:none;">Réinitialiser</a>
+            </div>
+        </form>
+    </div>
+
+    <div class="bd-ops-table-card" style="margin-top:16px;">
+        <div style="padding:16px 20px;border-bottom:1px solid #f3f4f6;">
+            <div class="bd-ops-table-card__header">
+                <div>
+                    <h3>Liste des expéditions</h3>
+                    <p>Tracking, client, coursier, poids, montant et statut réunis dans une table orientée action.</p>
+                </div>
+            </div>
+        </div>
+        <div style="overflow-x:auto;">
+            <table style="width:100%;border-collapse:collapse;font-size:13px;white-space:nowrap;">
+                <thead>
+                    <tr>
+                        <th style="padding:9px 14px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9ca3af;border-bottom:1px solid #f3f4f6;background:#f9fafb;text-align:left;">N° de suivi</th>
+                        <th style="padding:9px 14px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9ca3af;border-bottom:1px solid #f3f4f6;background:#f9fafb;text-align:left;">Client</th>
+                        <th style="padding:9px 14px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9ca3af;border-bottom:1px solid #f3f4f6;background:#f9fafb;text-align:left;">Coursier</th>
+                        <th style="padding:9px 14px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9ca3af;border-bottom:1px solid #f3f4f6;background:#f9fafb;text-align:left;">Poids</th>
+                        <th style="padding:9px 14px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9ca3af;border-bottom:1px solid #f3f4f6;background:#f9fafb;text-align:left;">Prix total</th>
+                        <th style="padding:9px 14px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9ca3af;border-bottom:1px solid #f3f4f6;background:#f9fafb;text-align:left;">Statut</th>
+                        <th style="padding:9px 14px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9ca3af;border-bottom:1px solid #f3f4f6;background:#f9fafb;text-align:left;">Date</th>
+                        <th style="padding:9px 14px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#9ca3af;border-bottom:1px solid #f3f4f6;background:#f9fafb;text-align:right;">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse($shipments as $shipment)
+                    <tr>
+                        <td style="padding:10px 14px;color:#374151;vertical-align:middle;border-bottom:1px solid #f3f4f6;"><code>{{ $shipment->tracking_number }}</code></td>
+                        <td style="padding:10px 14px;color:#374151;vertical-align:middle;border-bottom:1px solid #f3f4f6;">{{ $shipment->customer->name ?? 'N/A' }}</td>
+                        <td style="padding:10px 14px;color:#374151;vertical-align:middle;border-bottom:1px solid #f3f4f6;">
+                            @if($shipment->courier)
+                                <span class="bd-ops-status is-soft">{{ $shipment->courier->name }}</span>
+                            @else
+                                <span class="bd-ops-status is-danger">Non assigne</span>
+                            @endif
+                        </td>
+                        <td style="padding:10px 14px;color:#374151;vertical-align:middle;border-bottom:1px solid #f3f4f6;">{{ $shipment->weight_kg }} kg</td>
+                        <td style="padding:10px 14px;color:#374151;vertical-align:middle;border-bottom:1px solid #f3f4f6;">{{ number_format($shipment->total_price, 0, ',', ' ') }} FCFA</td>
+                        <td style="padding:10px 14px;color:#374151;vertical-align:middle;border-bottom:1px solid #f3f4f6;">
+                            <span class="bd-ops-status {{ $shipment->status->value == 'delivered' ? 'is-success' : ($shipment->status->value == 'canceled' ? 'is-danger' : ($shipment->status->value == 'pending' ? 'is-lemon' : 'is-orange')) }}">
+                                {{ $shipment->status->label() }}
+                            </span>
+                        </td>
+                        <td style="padding:10px 14px;color:#374151;vertical-align:middle;border-bottom:1px solid #f3f4f6;">{{ $shipment->created_at->format('d/m/Y H:i') }}</td>
+                        <td style="padding:10px 14px;color:#374151;vertical-align:middle;border-bottom:1px solid #f3f4f6;text-align:right;">
+                            <a href="{{ route('admin.colis.show', $shipment->id) }}" style="display:inline-flex;align-items:center;padding:4px 10px;border:1px solid #1e3a5f;color:#1e3a5f;border-radius:5px;font-size:12px;font-weight:600;text-decoration:none;">Voir</a>
+                        </td>
+                    </tr>
+                    @empty
+                    <tr>
+                        <td colspan="8" style="text-align:center;color:#9ca3af;padding:32px;">Aucun envoi ne correspond aux filtres actuels.</td>
+                    </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+        <div style="padding:14px 20px;border-top:1px solid #f3f4f6;">
+            {{ $shipments->appends(request()->query())->links() }}
         </div>
     </div>
 </div>
 
-<section class="content">
-    <div class="container-fluid">
-        <div class="card bd-ops-filter-card">
-            <div class="card-body">
-                <form action="{{ route('admin.colis.index') }}" method="GET">
-                    <div class="row">
-                        <div class="col-md-3 mb-2">
-                            <input type="text" name="search" class="form-control" placeholder="N° de suivi ou nom du client" value="{{ request('search') }}">
-                        </div>
-                        <div class="col-md-2 mb-2">
-                            <select name="status" class="form-control">
-                                <option value="">Tous les statuts</option>
-                                @foreach(\App\Domain\Colis\Enums\ShipmentStatus::cases() as $status)
-                                    <option value="{{ $status->value }}" {{ request('status') == $status->value ? 'selected' : '' }}>{{ $status->label() }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-md-2 mb-2">
-                            <select name="courier_id" class="form-control">
-                                <option value="">Tous les coursiers</option>
-                                @foreach($couriers as $courier)
-                                    <option value="{{ $courier->id }}" {{ request('courier_id') == $courier->id ? 'selected' : '' }}>{{ $courier->name }}</option>
-                                @endforeach
-                            </select>
-                        </div>
-                        <div class="col-md-2 mb-2">
-                            <input type="date" name="date_from" class="form-control" value="{{ request('date_from') }}" title="Date de début">
-                        </div>
-                        <div class="col-md-3 mb-2">
-                            <button type="submit" class="btn bd-ops-primary-btn"><i class="fas fa-search mr-1"></i>Filtrer</button>
-                            <a href="{{ route('admin.colis.export-csv', request()->query()) }}" class="btn btn-success"><i class="fas fa-file-csv"></i> Export CSV</a>
-                            <a href="{{ route('admin.colis.index') }}" class="btn btn-default">Réinitialiser</a>
-                        </div>
-                    </div>
-                </form>
-            </div>
-        </div>
-
-        <div class="card bd-ops-table-card">
-            <div class="card-header border-0">
-                <div class="bd-ops-table-card__header">
-                    <div>
-                        <h3>Liste des expéditions</h3>
-                        <p>Tracking, client, coursier, poids, montant et statut réunis dans une table orientée action.</p>
-                    </div>
-                </div>
-            </div>
-            <div class="card-body table-responsive p-0">
-                <table class="table table-hover text-nowrap">
-                    <thead>
-                        <tr>
-                            <th>N° de suivi</th>
-                            <th>Client</th>
-                            <th>Coursier</th>
-                            <th>Poids</th>
-                            <th>Prix total</th>
-                            <th>Statut</th>
-                            <th>Date</th>
-                            <th class="text-right">Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @forelse($shipments as $shipment)
-                        <tr>
-                            <td><code>{{ $shipment->tracking_number }}</code></td>
-                            <td>{{ $shipment->customer->name ?? 'N/A' }}</td>
-                            <td>
-                                @if($shipment->courier)
-                                    <span class="bd-ops-status is-soft">{{ $shipment->courier->name }}</span>
-                                @else
-                                    <span class="bd-ops-status is-danger">Non assigne</span>
-                                @endif
-                            </td>
-                            <td>{{ $shipment->weight_kg }} kg</td>
-                            <td>{{ number_format($shipment->total_price, 0, ',', ' ') }} FCFA</td>
-                            <td>
-                                <span class="bd-ops-status {{ $shipment->status->value == 'delivered' ? 'is-success' : ($shipment->status->value == 'canceled' ? 'is-danger' : ($shipment->status->value == 'pending' ? 'is-lemon' : 'is-orange')) }}">
-                                    {{ $shipment->status->label() }}
-                                </span>
-                            </td>
-                            <td>{{ $shipment->created_at->format('d/m/Y H:i') }}</td>
-                            <td class="text-right">
-                                <a href="{{ route('admin.colis.show', $shipment->id) }}" class="btn btn-sm btn-outline-primary">
-                                    Voir
-                                </a>
-                            </td>
-                        </tr>
-                        @empty
-                        <tr>
-                            <td colspan="8" class="text-center text-muted py-4">Aucun envoi ne correspond aux filtres actuels.</td>
-                        </tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
-            <div class="card-footer clearfix">
-                {{ $shipments->appends(request()->query())->links() }}
-            </div>
-        </div>
-    </div>
-</section>
-
 <style>
     .bd-ops-shell { display:grid; gap:20px; }
-    .bd-ops-hero {
-        display:grid; grid-template-columns:minmax(0,1.55fr) minmax(220px,.45fr); align-items:end; gap:20px;
-        padding:24px 26px; border-radius:24px;
-        background:
-            radial-gradient(circle at top right, rgba(245,158,11,.16), transparent 28%),
-            linear-gradient(135deg, #26160a 0%, #5b3417 54%, #7c4a1b 100%);
-        color:#fff; box-shadow:0 22px 42px rgba(91,52,23,.18);
-    }
-    .bd-ops-hero__eyebrow { margin:0 0 8px; font-size:.72rem; text-transform:uppercase; letter-spacing:.18em; font-weight:800; color:rgba(253,224,71,.95); }
-    .bd-ops-hero h1 { margin:0; color:#fff; font-size:clamp(1.8rem,3vw,2.55rem); font-weight:900; line-height:1.04; max-width:760px; }
-    .bd-ops-hero p { margin:12px 0 0; max-width:720px; color:rgba(255,248,235,.84); line-height:1.7; }
+    .bd-ops-hero { display:none; }
     .bd-ops-stat-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:14px; }
     .bd-ops-stat-card { padding:18px; border-radius:20px; background:rgba(255,255,255,.92); border:1px solid rgba(15,23,42,.08); box-shadow:0 14px 28px rgba(15,23,42,.05); }
     .bd-ops-stat-card span { display:block; color:#64748b; font-size:.72rem; font-weight:800; text-transform:uppercase; letter-spacing:.08em; }

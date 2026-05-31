@@ -11,7 +11,7 @@
 		<!-- banner-text -->
 		<div class="banner-text">
 			<div class="container">
-				<h2>{{ $foodEnabled ? 'Repas, Mema et Kende' : 'Mema et Kende' }} <br> <span>des services locaux simples et fiables.</span></h2>
+				<h1>{{ $foodEnabled ? 'Repas, Mema et Kende' : 'Mema et Kende' }} <br> <span>des services locaux simples et fiables.</span></h1>
 				<div class="agileits_search">
 					@if($foodEnabled)
 					<form action="{{route('search')}}" method="get">
@@ -44,14 +44,11 @@
   <div class="m9resturants col-md-3 col-sm-3 col-xs-6">
   	<a href="{{route('restaurant.detail',$restaurant->id)}}">
     <div class="thumbnail">
-      <img src="{{ $restaurantImage }}" alt="..." style="height:200px;" onerror="this.src='{{ asset('images/placeholder.png') }}'">
+      <img src="{{ $restaurantImage }}" alt="{{ $restaurant->name }}" style="height:200px;" loading="lazy" onerror="this.src='{{ asset('images/placeholder.png') }}'">
       <div class="caption">
         <h5>{{$restaurant->name}}</h5>
         <p>
             <b>{{ $restaurant->cuisines->pluck('name')->implode(', ') }}</b>
-         <!--   @foreach($restaurant->cuisines as $cuisine)-->
-        	<!--{{  $cuisine->name }},-->
-        	<!--@endforeach-->
         </p>
         <p><span>{{ number_format($restaurant->ratings, 1) }}/5</span></p>
       </div>

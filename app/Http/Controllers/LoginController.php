@@ -54,26 +54,58 @@ class LoginController extends Controller
     private function findUser(string $identifier): ?User
     {
         if (filter_var($identifier, FILTER_VALIDATE_EMAIL)) {
-            return User::where('email', $identifier)->first();
+            $user = User::where('email', $identifier)->first();
+            if (!$user) {
+                $user = $this->syncDriverAsUser($identifier, 'email');
+            }
+            return $user;
         }
 
         // Téléphone : +242…, 06…, 05…, 04…, ou 8+ chiffres consécutifs
         if (preg_match('/^(\+?242|0[456])\s?\d[\d\s]{5,}$|^\d{8,}$/', $identifier)) {
-            return User::where('phone', $identifier)->first();
+            $user = User::where('phone', $identifier)->first();
+            if (!$user) {
+                $user = $this->syncDriverAsUser($identifier, 'phone');
+            }
+            return $user;
         }
 
         return User::where('username', $identifier)->first();
     }
 
+    /**
+     * Si un livreur existe dans `drivers` mais pas dans `users`, le synchronise
+     * pour permettre la connexion web. C'est un filet de sécurité pour les
+     * livreurs créés avant la correction de driverRegistration().
+     */
+    private function syncDriverAsUser(string $identifier, string $field): ?User
+    {
+        $driver = \App\Driver::where($field, $identifier)->first();
+        if (!$driver) {
+            return null;
+        }
+
+        return User::firstOrCreate(
+            ['email' => $driver->email],
+            [
+                'name'     => $driver->name,
+                'email'    => $driver->email,
+                'phone'    => $driver->phone,
+                'password' => $driver->password,
+                'type'     => 'driver',
+            ]
+        );
+    }
+
     private function redirectByType(?string $type): \Illuminate\Http\RedirectResponse
     {
-        return redirect()->route($this->defaultRedirect($type));
+        return redirect()->to($this->defaultRedirect($type));
     }
 
     private function defaultRedirect(?string $type): string
     {
         return match($type) {
-            'admin'              => route('admin.dashboard'),
+            'admin'              => route('admin.portal'),
             'restaurant'         => route('restaurant.dashboard'),
             'driver', 'delivery' => route('driver.deliveries'),
             default              => route('home'),

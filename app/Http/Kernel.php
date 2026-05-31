@@ -73,6 +73,7 @@ class Kernel extends HttpKernel
         'delivery'=>DeliveryMiddleware::class,
         'user'=>UserMiddleware::class,
         'user.role' => EnsureUserRole::class,
+        'admin.workspace' => \App\Http\Middleware\RequireAdminWorkspace::class,
         'module' => \App\Http\Middleware\EnsureModuleEnabled::class,
         'bridge.signature' => \App\Http\Middleware\VerifyBridgeSignature::class,
     ];

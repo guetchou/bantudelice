@@ -7,10 +7,10 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="icon" type="image/x-icon" href="{{asset('favicon.ico')}}">
     
-    <!-- Google Fonts -->
+    <!-- Poppins font -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -20,13 +20,7 @@
             --primary: #009543;
             --primary-dark: #007836;
             --primary-light: #22c55e;
-            --secondary: #1A1A2E;
-            --accent: #16213E;
-            --success: #009543;
-            --warning: #F59E0B;
-            --danger: #EF4444;
-            --light: #F8FAFC;
-            --dark: #0F172A;
+            --sidebar: #0a1a0f;
             --gray-50: #F9FAFB;
             --gray-100: #F3F4F6;
             --gray-200: #E5E7EB;
@@ -46,10 +40,10 @@
         }
         
         body {
-            font-family: 'Plus Jakarta Sans', sans-serif;
+            font-family: 'Poppins', sans-serif;
             min-height: 100vh;
             display: flex;
-            background: linear-gradient(135deg, var(--secondary) 0%, var(--accent) 50%, var(--dark) 100%);
+            background: var(--sidebar);
             overflow: hidden;
         }
         
@@ -68,17 +62,13 @@
         .login-branding::before {
             content: '';
             position: absolute;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background: radial-gradient(circle, rgba(232, 90, 36, 0.15) 0%, transparent 60%);
-            animation: pulse-bg 8s ease-in-out infinite;
-        }
-        
-        @keyframes pulse-bg {
-            0%, 100% { transform: scale(1) rotate(0deg); opacity: 0.5; }
-            50% { transform: scale(1.1) rotate(180deg); opacity: 0.8; }
+            bottom: -80px;
+            right: -80px;
+            width: 320px;
+            height: 320px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(0,149,67,.14) 0%, transparent 70%);
+            pointer-events: none;
         }
         
         .branding-content {
@@ -89,16 +79,10 @@
         }
         
         .brand-logo {
-            width: 180px;
+            width: 160px;
             height: auto;
             margin-bottom: 2rem;
-            filter: drop-shadow(0 10px 30px rgba(232, 90, 36, 0.3));
-            animation: float 6s ease-in-out infinite;
-        }
-        
-        @keyframes float {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-10px); }
+            filter: drop-shadow(0 4px 16px rgba(0,149,67,.25));
         }
         
         .branding-content h1 {
@@ -137,13 +121,14 @@
         .feature-item i {
             width: 40px;
             height: 40px;
-            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+            background: #009543;
             border-radius: 10px;
             display: flex;
             align-items: center;
             justify-content: center;
             color: white;
             font-size: 1rem;
+            flex-shrink: 0;
         }
         
         /* Right Side - Login Form */
@@ -165,7 +150,7 @@
             left: 0;
             width: 4px;
             height: 100%;
-            background: linear-gradient(to bottom, var(--primary), var(--primary-light), var(--warning));
+            background: #009543;
         }
         
         .form-header {
@@ -232,7 +217,7 @@
             outline: none;
             border-color: var(--primary);
             background: white;
-            box-shadow: 0 0 0 4px rgba(232, 90, 36, 0.1);
+            box-shadow: 0 0 0 4px rgba(0,149,67,.15);
         }
         
         .input-wrapper input:focus + i,
@@ -302,7 +287,7 @@
         .btn-login {
             width: 100%;
             padding: 1rem;
-            background: linear-gradient(135deg, var(--primary), var(--primary-light));
+            background: #009543;
             border: none;
             border-radius: 12px;
             color: white;
@@ -332,7 +317,7 @@
         
         .btn-login:hover {
             transform: translateY(-2px);
-            box-shadow: 0 10px 30px rgba(232, 90, 36, 0.3);
+            box-shadow: 0 10px 30px rgba(0,149,67,.3);
         }
         
         .btn-login:hover::before {

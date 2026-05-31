@@ -4,9 +4,12 @@ namespace App\Http\Controllers\restaurant;
 
 use App\Http\Controllers\Controller;
 use App\Restaurant;
+use App\RestaurantSpecialClosure;
 use App\Services\DataSyncService;
 use App\Services\UnifiedMediaLibraryService;
 use App\User;
+use App\Voucher;
+use App\WorkingHour;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
@@ -24,11 +27,20 @@ class UserController extends Controller
         $restaurantProfile = $user->restaurant; // Model Restaurant lié
         $mediaLibraryOptions = $this->unifiedMediaLibraryService->groupedOptions();
 
+        $restaurantId = $restaurantProfile instanceof Restaurant ? $restaurantProfile->id : null;
+
+        $workingHours    = $restaurantId ? WorkingHour::where('restaurant_id', $restaurantId)->orderBy('id')->get() : collect();
+        $specialClosures = $restaurantId ? RestaurantSpecialClosure::where('restaurant_id', $restaurantId)->orderBy('starts_on')->get() : collect();
+        $vouchers        = $restaurantId ? Voucher::where('restaurant_id', $restaurantId)->latest()->get() : collect();
+
         return view('restaurant.profile', [
             // compat: la vue utilise $restaurant pour le USER (compte restaurant)
             'restaurant' => $user,
             'restaurantProfile' => $restaurantProfile,
             'mediaLibraryOptions' => $mediaLibraryOptions,
+            'workingHours' => $workingHours,
+            'specialClosures' => $specialClosures,
+            'vouchers' => $vouchers,
         ]);
     }
     public function profile_update(Request $request)

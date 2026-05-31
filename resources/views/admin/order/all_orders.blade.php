@@ -3,9 +3,6 @@
 @section('page_title', 'Toutes les commandes')
 @section('nav_active', 'orders')
 @section('style')
-<link rel="stylesheet" href="{{asset('plugins/datatables-bs4/css/dataTables.bootstrap4.css')}}">
-<link rel="stylesheet" href="{{asset('plugins/sweetalert2/sweetalert2.css')}}">
-<link rel="stylesheet" href="https://cdn.datatables.net/buttons/1.6.5/css/buttons.dataTables.min.css">
 @endsection
 
 @php
@@ -62,81 +59,60 @@
 
 @section('content')
     <section class="content">
-        <div class="container-fluid">
+        <div>
             @if(session()->has('alert'))
-                <div class="alert alert-{{ session()->get('alert.type') }}">
+                <div class="bd-ops-alert bd-ops-alert--{{ session()->get('alert.type') }}" style="padding:12px 16px;border-radius:8px;font-size:13px;font-weight:500;margin-bottom:14px;">
                     {{ session()->get('alert.message') }}
                 </div>
             @endif
 
             <div class="bd-orders-shell">
-                <section class="ops-context">
-                    <div class="ops-panel">
-                        <div class="ops-row">
-                            <div>
-                                <div class="ops-title">Ops commandes</div>
-                                <div class="ops-sub">Execution terrain, arbitrage restaurant et suivi des exceptions sur le flux food.</div>
-                            </div>
-                            <div class="ops-meta">
-                                <span class="ops-chip ops-chip--soft">Food ops</span>
-                                <span class="ops-pill {{ $acceptanceQueue > 0 ? 'ops-pill--danger' : 'ops-pill--ok' }}">{{ $acceptanceQueue > 0 ? $acceptanceQueue . ' en attente' : 'Flux stable' }}</span>
-                            </div>
-                        </div>
-                        <div class="ops-strip">
-                            <div class="ops-group">
-                                <strong>Menus</strong>
-                                <span class="ops-chip">Dashboard</span>
-                                <span class="ops-chip">Commandes</span>
-                                <span class="ops-chip">Restaurants</span>
-                                <span class="ops-chip">Livreurs</span>
-                                <span class="ops-chip">Incidents</span>
-                                <span class="ops-chip">Support</span>
-                            </div>
-                            <div class="ops-group">
-                                <strong>Files</strong>
-                                <span class="ops-chip">{{ $pendingOrders }} en attente</span>
-                                <span class="ops-chip">{{ $assignedOrders }} en cours</span>
-                                <span class="ops-chip">{{ $cancelledOrders }} echecs</span>
-                                <span class="ops-chip">{{ $ordersWithUnreadChat }} chats</span>
-                            </div>
-                        </div>
-                        <div class="ops-kpi-grid">
-                            <div class="ops-kpi">
-                                <div class="ops-kpi__label">Commandes visibles</div>
-                                <div class="ops-kpi__value">{{ number_format($uniqueOrders->count(), 0, ',', ' ') }}</div>
-                                <div class="ops-kpi__sub">Perimetre charge sur l ecran</div>
-                            </div>
-                            <div class="ops-kpi">
-                                <div class="ops-kpi__label">Montant traite</div>
-                                <div class="ops-kpi__value">{{ number_format($ordersRevenue, 0, ',', ' ') }} FCFA</div>
-                                <div class="ops-kpi__sub">Panier moyen {{ number_format($averageBasket, 0, ',', ' ') }} FCFA</div>
-                            </div>
-                            <div class="ops-kpi">
-                                <div class="ops-kpi__label">En execution</div>
-                                <div class="ops-kpi__value">{{ number_format($assignedOrders, 0, ',', ' ') }}</div>
-                                <div class="ops-kpi__sub">{{ number_format($completedOrders, 0, ',', ' ') }} deja terminees</div>
-                            </div>
-                            <div class="ops-kpi">
-                                <div class="ops-kpi__label">Exceptions</div>
-                                <div class="ops-kpi__value">{{ number_format($ordersWithoutDriver + $ordersWithoutRestaurant + $cancelledOrders, 0, ',', ' ') }}</div>
-                                <div class="ops-kpi__sub">Restaurant, livreur ou statut a arbitrer</div>
-                            </div>
-                        </div>
+                <div class="adm-page-bar">
+                    <div class="adm-page-bar__left">
+                        <nav class="adm-page-bar__breadcrumb">
+                            <span>Operations</span><span class="sep">/</span><span>Commandes</span>
+                        </nav>
+                        <h1 class="adm-page-bar__title">Commandes</h1>
                     </div>
-                    <div class="ops-panel ops-alerts">
-                        @foreach($queueItems as $item)
-                            <article class="ops-alert">
-                                <div class="ops-alert__top">
-                                    <h3>{{ $item['title'] }}</h3>
-                                    <span class="ops-tag {{ str_contains($item['class'], 'danger') ? 'ops-tag--danger' : (str_contains($item['class'], 'warn') ? 'ops-tag--warn' : 'ops-pill--ok') }}">
-                                        {{ str_contains($item['class'], 'danger') ? 'Critique' : (str_contains($item['class'], 'warn') ? 'Attention' : 'Stable') }}
-                                    </span>
-                                </div>
-                                <p>{{ $item['body'] }}</p>
-                            </article>
-                        @endforeach
+                    <div class="adm-page-bar__right">
+                        <span class="adm-page-bar__badge {{ $acceptanceQueue > 0 ? 'adm-page-bar__badge--danger' : 'adm-page-bar__badge--ok' }}">{{ $acceptanceQueue > 0 ? $acceptanceQueue . ' en attente' : 'Flux stable' }}</span>
                     </div>
-                </section>
+                </div>
+                <div class="ops-kpi-grid" style="margin-bottom:1rem;">
+                    <div class="ops-kpi">
+                        <div class="ops-kpi__label">Commandes visibles</div>
+                        <div class="ops-kpi__value">{{ number_format($uniqueOrders->count(), 0, ',', ' ') }}</div>
+                        <div class="ops-kpi__sub">Perimetre charge sur l ecran</div>
+                    </div>
+                    <div class="ops-kpi">
+                        <div class="ops-kpi__label">Montant traite</div>
+                        <div class="ops-kpi__value">{{ number_format($ordersRevenue, 0, ',', ' ') }} FCFA</div>
+                        <div class="ops-kpi__sub">Panier moyen {{ number_format($averageBasket, 0, ',', ' ') }} FCFA</div>
+                    </div>
+                    <div class="ops-kpi">
+                        <div class="ops-kpi__label">En execution</div>
+                        <div class="ops-kpi__value">{{ number_format($assignedOrders, 0, ',', ' ') }}</div>
+                        <div class="ops-kpi__sub">{{ number_format($completedOrders, 0, ',', ' ') }} deja terminees</div>
+                    </div>
+                    <div class="ops-kpi">
+                        <div class="ops-kpi__label">Exceptions</div>
+                        <div class="ops-kpi__value">{{ number_format($ordersWithoutDriver + $ordersWithoutRestaurant + $cancelledOrders, 0, ',', ' ') }}</div>
+                        <div class="ops-kpi__sub">Restaurant, livreur ou statut a arbitrer</div>
+                    </div>
+                </div>
+                <div class="ops-panel ops-alerts" style="margin-bottom:1rem;">
+                    @foreach($queueItems as $item)
+                        <article class="ops-alert">
+                            <div class="ops-alert__top">
+                                <h3>{{ $item['title'] }}</h3>
+                                <span class="ops-tag {{ str_contains($item['class'], 'danger') ? 'ops-tag--danger' : (str_contains($item['class'], 'warn') ? 'ops-tag--warn' : 'ops-pill--ok') }}">
+                                    {{ str_contains($item['class'], 'danger') ? 'Critique' : (str_contains($item['class'], 'warn') ? 'Attention' : 'Stable') }}
+                                </span>
+                            </div>
+                            <p>{{ $item['body'] }}</p>
+                        </article>
+                    @endforeach
+                </div>
 
                 <section class="ops-grid ops-grid--2">
                     <div class="ops-card">
@@ -268,7 +244,7 @@
                                     <tr>
                                         <td>
                                             <strong>{{ $order->order_no }}</strong>
-                                            <div class="text-muted">{{ optional($order->created_at)->format('d/m/Y H:i') }}</div>
+                                            <div style="font-size:11px;color:#9ca3af;">{{ optional($order->created_at)->format('d/m/Y H:i') }}</div>
                                         </td>
                                         <td>{{ optional($order->user)->name ?? 'N/A' }}</td>
                                         <td>{{ optional($order->restaurant)->name ?? 'N/A' }}</td>
@@ -285,37 +261,27 @@
                 </section>
             </div>
 
-            <div class="card bd-ops-filter-card">
-                <div class="card-body">
-                    <form action="{{ route('admin.all_orders') }}" method="get" class="row align-items-end">
-                        <div class="col-lg-8 mb-3 mb-lg-0">
-                            <label class="bd-ops-label" for="reservationtime">Periode</label>
-                            <div class="input-group">
-                                <div class="input-group-prepend">
-                                    <span class="input-group-text"><i class="far fa-clock"></i></span>
-                                </div>
-                                <input type="text" class="form-control float-right" name="date" id="reservationtime" placeholder="Selectionner une periode">
-                            </div>
-                        </div>
-                        <div class="col-lg-4">
-                            <button class="btn bd-ops-primary-btn" type="submit"><i class="fas fa-search mr-1"></i>Filtrer</button>
-                        </div>
-                    </form>
-                </div>
+            <div class="bd-ops-filter-card">
+                <label class="bd-ops-label" for="reservationtime">Filtrer par période</label>
+                <form action="{{ route('admin.all_orders') }}" method="get" class="bd-ops-filter-row">
+                    <div class="bd-ops-filter-input">
+                        <i class="far fa-clock"></i>
+                        <input type="text" name="date" id="reservationtime" placeholder="Sélectionner une période…">
+                    </div>
+                    <button class="bd-ops-primary-btn" type="submit"><i class="fas fa-search"></i> Filtrer</button>
+                </form>
             </div>
 
-            <div class="card bd-ops-table-card">
-                <div class="card-header border-0">
-                    <div class="bd-ops-table-card__header">
-                        <div>
-                            <h3>Flux commandes</h3>
-                            <p>Commandes, restaurant, client et statut reunis dans une meme vue de pilotage.</p>
-                        </div>
-                        <span class="bd-ops-table-card__badge">Total {{ number_format($ordersRevenue, 0, ',', ' ') }} FCFA</span>
+            <div class="bd-ops-table-card">
+                <div class="bd-ops-table-card__header">
+                    <div>
+                        <h3>Flux commandes</h3>
+                        <p>Commandes, restaurant, client et statut reunis dans une meme vue de pilotage.</p>
                     </div>
+                    <span class="bd-ops-table-card__badge">Total {{ number_format($ordersRevenue, 0, ',', ' ') }} FCFA</span>
                 </div>
-                <div class="card-body table-responsive p-0">
-                    <table class="table table-hover" id="example1">
+                <div style="overflow-x:auto;">
+                    <table id="example1">
                         <thead>
                         <tr>
                             <th>#</th>
@@ -325,7 +291,7 @@
                             <th>Montant</th>
                             <th>Recu le</th>
                             <th>Statut</th>
-                            <th class="text-right">Action</th>
+                            <th style="text-align:right;">Action</th>
                         </tr>
                         </thead>
                         <tbody>
@@ -358,8 +324,17 @@
                                 <td>{{ number_format($order->total, 0, ',', ' ') }} FCFA</td>
                                 <td>{{ optional($order->created_at)->format('d/m/Y H:i') }}</td>
                                 <td><span class="bd-ops-status {{ $statusClass }}">{{ $statusLabels[strtolower((string) $statusValue)] ?? ucfirst(str_replace('_', ' ', strtolower((string) $statusValue))) }}</span></td>
-                                <td class="text-right">
-                                    <a href="{{route('admin.show_order',$order->order_no)}}" class="btn btn-sm btn-outline-primary">Ouvrir</a>
+                                <td style="text-align:right;white-space:nowrap;">
+                                    <a href="{{route('admin.show_order',$order->order_no)}}" class="bd-ops-action-btn" title="Voir détail"><i class="fas fa-eye"></i></a>
+                                    @if(!in_array(strtolower((string) ($order->business_status ?? $order->status ?? '')), ['cancelled','canceled','delivered','picked_up_by_customer','closed']))
+                                        <button type="button"
+                                            class="bd-ops-action-btn bd-ops-action-btn--danger"
+                                            title="Annuler la commande"
+                                            onclick="bdOpenCancelModal('{{ $order->id }}','{{ $order->order_no }}')"
+                                            style="margin-left:4px;background:#fef2f2;color:#ef4444;border-color:#fecaca;">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    @endif
                                 </td>
                             </tr>
                         @endforeach
@@ -377,15 +352,35 @@
         </div>
     </section>
 
+
 <style>
     .bd-orders-shell { display:grid; gap:14px; margin-bottom:14px; }
-    .bd-ops-filter-card,
-    .bd-ops-table-card { border:1px solid rgba(249,115,22,.12) !important; border-radius:16px !important; box-shadow:0 8px 20px rgba(245,158,11,.06) !important; overflow:hidden; }
+    .bd-ops-filter-card {
+        background:#fff; border:1px solid rgba(249,115,22,.12); border-radius:16px;
+        box-shadow:0 8px 20px rgba(245,158,11,.06); padding:16px 20px; margin-bottom:14px;
+    }
+    .bd-ops-filter-row { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-top:8px; }
+    .bd-ops-filter-input {
+        display:flex; align-items:center; gap:8px; flex:1; min-width:220px;
+        border:1px solid #d1d5db; border-radius:8px; padding:9px 12px; background:#fff;
+    }
+    .bd-ops-filter-input i { color:#9ca3af; }
+    .bd-ops-filter-input input { border:none; outline:none; font-size:13px; color:#111827; background:transparent; width:100%; font-family:'Manrope',sans-serif; }
+    .bd-ops-table-card { border:1px solid rgba(249,115,22,.12); border-radius:16px; box-shadow:0 8px 20px rgba(245,158,11,.06); overflow:hidden; margin-bottom:14px; }
+    .bd-ops-table-card .bd-ops-table-card__header { padding:14px 20px; border-bottom:1px solid #f3f4f6; }
     .bd-ops-label { display:block; margin-bottom:8px; color:#78716c; font-weight:800; font-size:.76rem; text-transform:uppercase; letter-spacing:.08em; }
+    #example1 { width:100%; border-collapse:collapse; font-size:13px; }
+    #example1 thead th { padding:9px 14px; font-size:10px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:#9ca3af; border-bottom:1px solid #f3f4f6; background:#f9fafb; text-align:left; white-space:nowrap; }
+    #example1 tbody tr { border-bottom:1px solid #f3f4f6; transition:background .1s; }
+    #example1 tbody tr:last-child { border-bottom:none; }
+    #example1 tbody tr:hover { background:#fafaf9; }
+    #example1 td { padding:11px 14px; color:#374151; vertical-align:middle; }
+    #example1 tfoot th { padding:9px 14px; font-size:12px; font-weight:700; color:#374151; border-top:2px solid #e5e7eb; }
     .bd-ops-primary-btn {
-        min-height: 40px; border:0; border-radius:12px; font-weight:800; color:#fff;
+        display:inline-flex; align-items:center; gap:6px;
+        padding:9px 18px; border:0; border-radius:12px; font-weight:800; font-size:13px; color:#fff;
         background: linear-gradient(135deg, #ff5a1f 0%, #f59e0b 58%, #a3e635 100%);
-        box-shadow: 0 8px 18px rgba(249,115,22,.18);
+        box-shadow: 0 8px 18px rgba(249,115,22,.18); cursor:pointer; white-space:nowrap;
     }
     .bd-ops-table-card__header { display:flex; align-items:flex-end; justify-content:space-between; gap:14px; }
     .bd-ops-table-card__header h3 { margin:0; font-size:1.05rem; font-weight:900; color:#111827; }
@@ -414,15 +409,7 @@
 @endsection
 @section('script')
 <script src="{{asset('plugins/datatables/jquery.dataTables.js')}}"></script>
-<script src="{{asset('plugins/datatables-bs4/js/dataTables.bootstrap4.js')}}"></script>
 <script src="{{asset('plugins/daterangepicker/daterangepicker.js')}}"></script>
-<script src="{{asset('plugins/bootstrap-colorpicker/js/bootstrap-colorpicker.min.js')}}"></script>
-<script src="https://cdn.datatables.net/buttons/1.6.5/js/dataTables.buttons.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.3/jszip.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/pdfmake.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/vfs_fonts.js"></script>
-<script src="https://cdn.datatables.net/buttons/1.6.5/js/buttons.html5.min.js"></script>
-<script src="https://cdn.datatables.net/buttons/1.6.5/js/buttons.colVis.min.js"></script>
 <script>
     $(function () {
         $("#example1").DataTable({
@@ -452,5 +439,55 @@
             }
         });
     });
+</script>
+
+{{-- Modal d'annulation partagé (all_orders) --}}
+<div id="bd-cancel-modal-bg" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9999;align-items:center;justify-content:center;"
+     onclick="if(event.target===this) bdCloseCancelModal()">
+    <div style="background:#fff;border-radius:14px;padding:28px 28px 24px;max-width:480px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,.2);">
+        <h3 style="font-size:16px;font-weight:700;color:#111827;margin:0 0 6px;"><i class="fas fa-exclamation-triangle" style="color:#ef4444;"></i> Annuler la commande</h3>
+        <p id="bd-cancel-modal-sub" style="font-size:13px;color:#6b7280;margin:0 0 16px;"></p>
+        <form id="bd-cancel-modal-form" method="POST" action="">
+            @csrf
+            <label style="font-size:13px;font-weight:600;color:#374151;display:block;margin-bottom:6px;">Motif d'annulation <span style="color:#ef4444;">*</span></label>
+            <textarea name="reason" id="bd-cancel-reason" required minlength="5" maxlength="500"
+                style="width:100%;padding:10px 14px;border:1px solid #d1d5db;border-radius:7px;font-size:13px;resize:vertical;min-height:80px;font-family:inherit;box-sizing:border-box;"
+                placeholder="Ex: Commande en doublon, problème de paiement, demande du client…"></textarea>
+            <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px;">
+                <button type="button" onclick="bdCloseCancelModal()"
+                    style="padding:9px 18px;background:#f3f4f6;color:#374151;border:1px solid #e5e7eb;border-radius:7px;font-size:13px;font-weight:600;cursor:pointer;">
+                    Fermer
+                </button>
+                <button type="submit"
+                    style="padding:9px 22px;background:#ef4444;color:#fff;border:none;border-radius:7px;font-size:13px;font-weight:700;cursor:pointer;">
+                    Confirmer l'annulation
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+<script>
+function bdOpenCancelModal(orderId, orderNo) {
+    // Construction DOM sans innerHTML pour éviter XSS
+    var sub = document.getElementById('bd-cancel-modal-sub');
+    sub.textContent = '';
+    var t1 = document.createTextNode('Commande #');
+    var strong = document.createElement('strong');
+    strong.textContent = orderNo;          // textContent échappe automatiquement
+    var t2 = document.createTextNode(' — Cette action est irréversible. Le client sera notifié.');
+    sub.appendChild(t1);
+    sub.appendChild(strong);
+    sub.appendChild(t2);
+
+    // L'action du formulaire utilise l'ID numérique (non affiché à l'utilisateur)
+    var safeId = parseInt(orderId, 10);
+    if (!safeId) return;
+    document.getElementById('bd-cancel-modal-form').action = '/admin/cancel_order/' + safeId;
+    document.getElementById('bd-cancel-reason').value = '';
+    document.getElementById('bd-cancel-modal-bg').style.display = 'flex';
+}
+function bdCloseCancelModal() {
+    document.getElementById('bd-cancel-modal-bg').style.display = 'none';
+}
 </script>
 @endsection

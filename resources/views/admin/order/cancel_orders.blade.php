@@ -2,148 +2,155 @@
 @section('title','Commandes annulées')
 @section('page_title', 'Commandes annulées')
 @section('nav_active', 'orders')
-
 @section('style')
-<link rel="stylesheet" href="{{asset('plugins/datatables-bs4/css/dataTables.bootstrap4.css')}}">
-<link rel="stylesheet" href="{{asset('plugins/sweetalert2/sweetalert2.css')}}">
-<link rel="stylesheet" href="https://cdn.datatables.net/buttons/1.6.5/css/buttons.dataTables.min.css">
+<style>
+.ord-wrap { display:flex; flex-direction:column; gap:16px; }
+
+/* Alert */
+.ord-alert { padding:12px 16px; border-radius:8px; font-size:13px; font-weight:500; border:1px solid transparent; }
+.ord-alert--success { background:#f0fdf4; color:#166534; border-color:#bbf7d0; }
+.ord-alert--danger  { background:#fef2f2; color:#991b1b; border-color:#fecaca; }
+.ord-alert--warning { background:#fefce8; color:#854d0e; border-color:#fde68a; }
+
+/* Filter card */
+.ord-filter { background:#fff; border:1px solid #e5e7eb; border-radius:10px; padding:16px 20px; }
+.ord-filter__label { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:#6b7280; display:block; margin-bottom:6px; }
+.ord-filter__row { display:flex; align-items:flex-end; gap:10px; flex-wrap:wrap; }
+.ord-filter__date { display:flex; align-items:center; gap:8px; flex:1; min-width:200px; border:1px solid #d1d5db; border-radius:7px; padding:8px 12px; background:#fff; }
+.ord-filter__date i { color:#9ca3af; }
+.ord-filter__input { border:none; outline:none; font-size:13px; color:#111827; background:transparent; width:100%; font-family:'Manrope',sans-serif; }
+.ord-filter__btn { display:inline-flex; align-items:center; gap:6px; padding:9px 18px; background:#1e3a5f; color:#fff; border:none; border-radius:7px; font-size:13px; font-weight:600; cursor:pointer; white-space:nowrap; }
+.ord-filter__btn:hover { background:#152d4a; }
+
+/* Table card */
+.ord-card { background:#fff; border:1px solid #e5e7eb; border-radius:10px; overflow:hidden; }
+.ord-card__head { display:flex; align-items:center; justify-content:space-between; padding:14px 20px; border-bottom:1px solid #f3f4f6; flex-wrap:wrap; gap:8px; }
+.ord-card__title { font-size:14px; font-weight:700; color:#111827; margin:0; }
+.ord-card__count { font-size:11px; color:#6b7280; margin-top:2px; }
+
+.ord-table-wrap { overflow-x:auto; }
+.ord-table { width:100%; border-collapse:collapse; font-size:13px; }
+.ord-table thead th { padding:9px 14px; font-size:10px; font-weight:700; letter-spacing:.06em; text-transform:uppercase; color:#9ca3af; border-bottom:1px solid #f3f4f6; background:#f9fafb; text-align:left; white-space:nowrap; }
+.ord-table tbody tr { border-bottom:1px solid #f3f4f6; transition:background .1s; }
+.ord-table tbody tr:last-child { border-bottom:none; }
+.ord-table tbody tr:hover { background:#f9fafb; }
+.ord-table td { padding:11px 14px; color:#374151; vertical-align:middle; }
+.ord-table tfoot th { padding:9px 14px; font-size:12px; font-weight:700; color:#374151; border-top:2px solid #e5e7eb; }
+
+/* Status pill */
+.ord-pill { display:inline-flex; align-items:center; padding:2px 8px; border-radius:999px; font-size:11px; font-weight:600; white-space:nowrap; }
+.ord-pill--ok      { background:#f0fdf4; color:#166534; }
+.ord-pill--warn    { background:#fefce8; color:#854d0e; }
+.ord-pill--danger  { background:#fef2f2; color:#991b1b; }
+.ord-pill--soft    { background:#f3f4f6; color:#374151; }
+
+/* Action btn */
+.ord-btn-see { display:inline-flex; align-items:center; gap:4px; padding:5px 12px; border:1px solid #1e3a5f; border-radius:6px; color:#1e3a5f; font-size:12px; font-weight:600; text-decoration:none; transition:.12s; }
+.ord-btn-see:hover { background:#1e3a5f; color:#fff; }
+</style>
 @endsection
 
 @section('content')
-    <div class="content-header">
-        @if(session()->has('alert'))
-            <div class="alert alert-{{ session()->get('alert.type') }}">
-                {{ session()->get('alert.message') }}
-            </div>
-        @endif
-        <div class="container-fluid">
-            <div class="row mb-2">
-                <div class="col-sm-6">
-                    <h1 class="m-0 text-dark">Commandes annulées</h1>
-                </div><!-- /.col -->
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-right">
-                        <li class="breadcrumb-item"><a href="{{ url('/admin') }}">Accueil</a></li>
-                        <li class="breadcrumb-item active">Commandes annulées</li>
-                    </ol>
-                </div><!-- /.col -->
-            </div><!-- /.row -->
-        </div><!-- /.container-fluid -->
-    </div>
-    <section class="content">
-        <div class="container-fluid">
-            <!-- Small boxes (Stat box) -->
-            <div class="row justify-content-center">
-                <div class="col-md-8">
-                    <div class="card card-danger">
-                        <div class="card-header">
-                            <h3 class="card-title">Filtre</h3>
-                        </div>
-                        <div class="card-body">
-                            <form action="{{ route('admin.cancel_orders') }}" method="get">
-                                <div class="row">
-                                    <div class="col-7">
-                                        <div class="input-group">
-                                            <div class="input-group-prepend">
-                                                <span class="input-group-text"><i class="far fa-clock"></i></span>
-                                            </div>
-                                            <input type="text" class="form-control float-right" name="date" id="reservationtime">
-                                        </div>
-                                    </div>
-                                    <div class="col-5">
-                                        <button class="btn btn-danger" type="submit">Filtrer</button>
-                                    </div>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                    <!-- /.card-body -->
-                </div>
-            </div>
-            <div class="row">
-                <div class="col-12">
-                    <div class="card">
-                        
-                        <!-- /.card-header -->
-                        <div class="card-body table-responsive p-2">
-                            <table class="table table-head-fixed text-nowrap" id="example1">
-                                <thead>
-                                <tr>
-                                    <th>ID</th>
-                                    <th>N° de commande.</th>
-                                    <th>Client</th>
-                                    <th>Restaurant</th>
-                                    <th>Montant</th>
-                                    <th>Recu le</th>
-                                    <th>Annulee par</th>
-                                    <th>Statut</th>
-                                    <th>Action</th>
-                                </tr>
-                                </thead>
-                                <tbody>
-                                @foreach($orders as $index => $order)
-                                    <tr>
-                                        <td>{{++$index}}</td>
-                                        <td>{{$order->order_no}}</td>
-                                        <td>{{$order->user->name}}</td>
-                                        <td>{{$order->restaurant->name}}</td>
-                                        <td>{{$order->total}}</td>
-                                         <td>{{$order->created_at}}</td>
-                                        <td>{{$order->cancel_by}}</td>
-                                        <td>{{$order->status}}</td>
-                                        <td>
-                                            <a href="{{route('admin.show_order',$order->order_no)}}" class="btn btn-outline-success btn-sm" title="Voir">Voir</a>
-                                        </td>
-                                    </tr>
-                                @endforeach
-                                </tbody>
-                                <tfoot>
-                                <tr>
-                                    <th></th>
-                                    <th></th>
-                                    <th></th>
-                                    <th></th>
-                                    <th></th>
-                                    <th></th>
-                                    <th>Total:</th>
-                                    <th colspan="2"></th>
-                                </tr>
-                                </tfoot>
-                            </table>
-                        </div>
-                        <!-- /.card-body -->
-                    </div>
-                    <!-- /.card -->
-                </div>
+<div class="ord-wrap" style="padding:20px;">
 
+    @if(session()->has('alert'))
+        <div class="ord-alert ord-alert--{{ session()->get('alert.type') }}">
+            {{ session()->get('alert.message') }}
+        </div>
+    @endif
+
+    {{-- Filtre --}}
+    <div class="ord-filter">
+        <span class="ord-filter__label">Filtrer par période</span>
+        <form action="{{ route('admin.cancel_orders') }}" method="get">
+            <div class="ord-filter__row">
+                <div class="ord-filter__date">
+                    <i class="far fa-clock"></i>
+                    <input type="text" class="ord-filter__input" name="date" id="reservationtime" placeholder="Sélectionner une période…">
+                </div>
+                <button class="ord-filter__btn" type="submit">
+                    <i class="fas fa-filter"></i> Filtrer
+                </button>
+            </div>
+        </form>
+    </div>
+
+    {{-- Table --}}
+    <div class="ord-card">
+        <div class="ord-card__head">
+            <div>
+                <p class="ord-card__title">Commandes annulées</p>
+                <p class="ord-card__count">{{ $orders->count() }} commande(s)</p>
             </div>
         </div>
-    </section>
+        <div class="ord-table-wrap">
+            <table class="ord-table" id="ord-table-cancel">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>N° commande</th>
+                        <th>Client</th>
+                        <th>Restaurant</th>
+                        <th>Montant</th>
+                        <th>Reçu le</th>
+                        <th>Annulée par</th>
+                        <th>Statut</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($orders as $index => $order)
+                    <tr>
+                        <td>{{ ++$index }}</td>
+                        <td>{{ $order->order_no }}</td>
+                        <td>{{ $order->user->name ?? '—' }}</td>
+                        <td>{{ $order->restaurant->name ?? '—' }}</td>
+                        <td>{{ number_format((float)($order->total ?? 0), 0, ',', ' ') }} FCFA</td>
+                        <td>{{ $order->created_at ? \Carbon\Carbon::parse($order->created_at)->format('d/m/Y H:i') : '—' }}</td>
+                        <td>{{ $order->cancel_by }}</td>
+                        <td><span class="ord-pill ord-pill--danger">{{ $order->status }}</span></td>
+                        <td>
+                            <a href="{{ route('admin.show_order', $order->order_no) }}" class="ord-btn-see" title="Voir">
+                                <i class="fas fa-eye"></i> Voir
+                            </a>
+                        </td>
+                    </tr>
+                    @endforeach
+                </tbody>
+                <tfoot>
+                    <tr>
+                        <th></th>
+                        <th></th>
+                        <th></th>
+                        <th></th>
+                        <th></th>
+                        <th></th>
+                        <th>Total :</th>
+                        <th colspan="2"></th>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+
+</div>
 @endsection
+
 @section('script')
-<script src="{{asset('plugins/datatables/jquery.dataTables.js')}}"></script>
-<script src="{{asset('plugins/datatables-bs4/js/dataTables.bootstrap4.js')}}"></script>
-<script src="https://cdn.datatables.net/buttons/1.6.5/js/dataTables.buttons.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.1.3/jszip.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/pdfmake.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdfmake/0.1.53/vfs_fonts.js"></script>
-<script src="https://cdn.datatables.net/buttons/1.6.5/js/buttons.html5.min.js"></script>
-<script src="https://cdn.datatables.net/buttons/1.6.5/js/buttons.colVis.min.js"></script>
+<script src="{{ asset('plugins/datatables/jquery.dataTables.js') }}"></script>
 <script>
     $(function () {
-        $("#example1").DataTable({
+        $("#ord-table-cancel").DataTable({
             dom: 'Bfrtip',
             language: window.bdAdminDataTableLanguage,
             buttons: window.bdAdminExportButtons(true),
             "footerCallback": function ( row, data, start, end, display ) {
                 var api = this.api(), data;
 
-                // Remove the formatting to get integer data for summation
                 var intVal = function ( i ) {
                     return window.bdAdminParseMoney(i);
                 };
 
-                // Total over all pages
                 total = api
                     .column( 4 )
                     .data()
@@ -151,7 +158,6 @@
                         return intVal(a) + intVal(b);
                     }, 0 );
 
-                // Total over this page
                 pageTotal = api
                     .column( 4, { page: 'current'} )
                     .data()
@@ -159,15 +165,12 @@
                         return intVal(a) + intVal(b);
                     }, 0 );
 
-                // Update footer
-                $( api.column( 7 ).footer() ).html(
+                $( api.column( 6 ).footer() ).html(
                     window.bdAdminMoneyFooterText(pageTotal, total)
                 );
             }
-        } );
-        //Date range picker
-        $('#reservation').daterangepicker()
-        //Date range picker with time picker
+        });
+
         $('#reservationtime').daterangepicker({
             timePicker: true,
             timePickerIncrement: 30,
@@ -179,8 +182,7 @@
                 toLabel: 'Au',
                 customRangeLabel: 'Personnalisee'
             }
-        })
-
+        });
     });
 </script>
 @endsection

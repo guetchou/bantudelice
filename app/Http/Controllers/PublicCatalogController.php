@@ -81,6 +81,8 @@ class PublicCatalogController extends Controller
                 'search' => $request->get('search'),
                 'sort' => $request->get('sort', 'popular'),
                 'per_page' => $request->get('per_page', 12),
+                'lat' => $request->get('lat'),
+                'lng' => $request->get('lng'),
             ];
             $filters = array_filter($filters, function ($value) {
                 return $value !== null && $value !== '';
@@ -141,12 +143,20 @@ class PublicCatalogController extends Controller
 
         $restaurantService = new \App\Services\RestaurantService();
         $searchQuery = trim((string) ($request->get('search', '')));
+        $gpsLat = trim((string) $request->get('lat', ''));
+        $gpsLng = trim((string) $request->get('lng', ''));
         $filters = [
             'cuisine' => $request->get('cuisine'),
             'sort' => $request->get('sort', 'popular'),
             'per_page' => 12,
         ];
-        if ($searchQuery !== '') { $filters['search'] = $searchQuery; }
+        // Priorité : GPS proximity > text search
+        if ($gpsLat !== '' && $gpsLng !== '') {
+            $filters['lat'] = $gpsLat;
+            $filters['lng'] = $gpsLng;
+        } elseif ($searchQuery !== '') {
+            $filters['search'] = $searchQuery;
+        }
         if (isset($filters['cuisine']) && is_string($filters['cuisine'])) {
             $filters['cuisine'] = [(int) $filters['cuisine']];
         }

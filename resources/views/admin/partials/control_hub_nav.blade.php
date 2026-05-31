@@ -31,28 +31,28 @@
 @elseif(empty($renderAdminHubInTopbar) && !$isDashboardRoute)
     <div class="bd-control-hub-nav {{ $embeddedInTopbar ? 'bd-control-hub-nav--topbar' : '' }}">
         <span class="bd-control-hub-nav__badge">{{ $controlWorkspaceLabel }}</span>
-        <a href="{{ route('admin.dashboard', $cmsWorkspaceQuery) }}" class="btn btn-sm {{ request()->routeIs('admin.dashboard') ? 'btn-primary' : 'btn-outline-primary' }}">
+        <a href="{{ route('admin.dashboard', $cmsWorkspaceQuery) }}" class="bd-control-hub-nav__link {{ request()->routeIs('admin.dashboard') ? 'is-active' : '' }}">
             Pilotage
         </a>
-        <a href="{{ route('admin.cms.contents.index', $cmsWorkspaceQuery) }}" class="btn btn-sm {{ request()->routeIs('admin.cms.contents.*') ? 'btn-primary' : 'btn-outline-primary' }}">
+        <a href="{{ route('admin.cms.contents.index', $cmsWorkspaceQuery) }}" class="bd-control-hub-nav__link {{ request()->routeIs('admin.cms.contents.*') ? 'is-active' : '' }}">
             Contenus
         </a>
-        <a href="{{ route('admin.cms.content-types.index', $cmsWorkspaceQuery) }}" class="btn btn-sm {{ request()->routeIs('admin.cms.content-types.*') ? 'btn-primary' : 'btn-outline-primary' }}">
+        <a href="{{ route('admin.cms.content-types.index', $cmsWorkspaceQuery) }}" class="bd-control-hub-nav__link {{ request()->routeIs('admin.cms.content-types.*') ? 'is-active' : '' }}">
             Types
         </a>
-        <a href="{{ route('admin.cms.media.index', $cmsWorkspaceQuery) }}" class="btn btn-sm {{ request()->routeIs('admin.cms.media.*') ? 'btn-primary' : 'btn-outline-primary' }}">
+        <a href="{{ route('admin.cms.media.index', $cmsWorkspaceQuery) }}" class="bd-control-hub-nav__link {{ request()->routeIs('admin.cms.media.*') ? 'is-active' : '' }}">
             Mediatheque
         </a>
-        <a href="{{ route('admin.modules.index', $cmsWorkspaceQuery) }}" class="btn btn-sm {{ request()->routeIs('admin.modules.*') ? 'btn-primary' : 'btn-outline-primary' }}">
+        <a href="{{ route('admin.modules.index', $cmsWorkspaceQuery) }}" class="bd-control-hub-nav__link {{ request()->routeIs('admin.modules.*') ? 'is-active' : '' }}">
             Modules
         </a>
-        <a href="{{ route('admin.home-content.edit', $cmsWorkspaceQuery) }}" class="btn btn-sm {{ request()->routeIs('admin.home-content.*') ? 'btn-primary' : 'btn-outline-primary' }}">
+        <a href="{{ route('admin.home-content.edit', $cmsWorkspaceQuery) }}" class="bd-control-hub-nav__link {{ request()->routeIs('admin.home-content.*') ? 'is-active' : '' }}">
             Accueil
         </a>
-        <a href="{{ route('admin.metrics', $cmsWorkspaceQuery) }}" class="btn btn-sm {{ request()->routeIs('admin.metrics*') ? 'btn-primary' : 'btn-outline-primary' }}">
+        <a href="{{ route('admin.metrics', $cmsWorkspaceQuery) }}" class="bd-control-hub-nav__link {{ request()->routeIs('admin.metrics*') ? 'is-active' : '' }}">
             Observabilite
         </a>
-        <a href="{{ route('admin.payments.dashboard', $cmsWorkspaceQuery) }}" class="btn btn-sm {{ request()->routeIs('admin.payments.dashboard') ? 'btn-primary' : 'btn-outline-primary' }}">
+        <a href="{{ route('admin.payments.dashboard', $cmsWorkspaceQuery) }}" class="bd-control-hub-nav__link {{ request()->routeIs('admin.payments.dashboard') ? 'is-active' : '' }}">
             Paiements
         </a>
     </div>
@@ -86,23 +86,24 @@
         letter-spacing: .08em;
         text-transform: uppercase;
     }
-    .bd-control-hub-nav .btn {
+    .bd-control-hub-nav__link {
+        display: inline-flex;
+        align-items: center;
         min-height: 34px;
         padding: 0 12px;
         border-radius: 999px;
         font-size: .74rem;
         font-weight: 800;
-        box-shadow: none !important;
+        text-decoration: none;
+        border: 1px solid rgba(15,23,42,.1);
+        color: #334155;
+        background: #f8fafc;
     }
-    .bd-control-hub-nav .btn-primary {
-        background: #0d2d19 !important;
-        border-color: #0d2d19 !important;
-        color: #f8fafc !important;
-    }
-    .bd-control-hub-nav .btn-outline-primary {
-        border-color: rgba(15,23,42,.1) !important;
-        color: #334155 !important;
-        background: #f8fafc !important;
+    .bd-control-hub-nav__link.is-active,
+    .bd-control-hub-nav__link:hover {
+        background: #0d2d19;
+        border-color: #0d2d19;
+        color: #f8fafc;
     }
     .bd-control-hub-nav--topbar {
         flex-wrap: nowrap;
@@ -125,7 +126,7 @@
         letter-spacing: .06em;
         flex: 0 0 auto;
     }
-    .bd-control-hub-nav--topbar .btn,
+    .bd-control-hub-nav--topbar .bd-control-hub-nav__link,
     .bd-control-hub-nav--topbar .bd-control-hub-nav__current {
         min-height: 32px;
         padding: 0;

@@ -128,6 +128,10 @@ class FoodOrderNotificationService
     private function pickupMessages(Order $order): array
     {
         return [
+            'pending_restaurant_acceptance' => [
+                'user'       => ['Commande reçue', "Votre commande retrait #{$order->order_no} a bien été reçue. En attente d'acceptation du restaurant."],
+                'restaurant' => ['Nouvelle commande retrait', "Nouvelle commande retrait #{$order->order_no}. Acceptez ou refusez."],
+            ],
             'accepted' => [
                 'user'       => ['Commande acceptée', "Le restaurant a accepté votre commande à retirer #{$order->order_no}."],
                 'restaurant' => ['Commande acceptée', "La commande retrait #{$order->order_no} est validée."],
@@ -165,6 +169,10 @@ class FoodOrderNotificationService
     private function deliveryMessages(Order $order): array
     {
         return [
+            'pending_restaurant_acceptance' => [
+                'user'       => ['Commande reçue', "Votre commande #{$order->order_no} a bien été reçue. En attente d'acceptation du restaurant."],
+                'restaurant' => ['Nouvelle commande', "Nouvelle commande #{$order->order_no} reçue. Acceptez-la pour démarrer la préparation."],
+            ],
             'accepted' => [
                 'user'       => ['Commande acceptée', "Le restaurant a accepté votre commande #{$order->order_no}."],
                 'restaurant' => ['Commande acceptée', "La commande #{$order->order_no} est validée pour la cuisine."],

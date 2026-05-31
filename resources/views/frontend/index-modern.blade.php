@@ -184,12 +184,12 @@
     <a href="{{ route('partner') }}" class="nav2__link">Partenaires</a>
   </div>
   <div class="nav2__actions">
-    <span class="nav2__search">
-      <span>Rechercher…</span>
-    </span>
+    <a href="{{ route('search') }}" class="nav2__search" aria-label="{{ trans('ui.common.search') }}">
+      <span>{{ trans('ui.home.search_placeholder') }}</span>
+    </a>
     @if($foodEnabled)
     <a href="{{ route('cart') }}" class="nav2__cart" aria-label="Panier">
-      <i class="fas fa-shopping-basket"></i>
+      <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg>
     </a>
     @endif
     <a href="{{ $accountLink }}" class="btn-green">{{ $accountLabel }}</a>
@@ -208,7 +208,7 @@
     <a href="{{ route('offers') }}" class="nav2__drawer-link">Offres</a>
     <a href="{{ route('partner') }}" class="nav2__drawer-link">Partenaires</a>
     @if($foodEnabled)
-      <a href="{{ route('cart') }}" class="nav2__drawer-link"><i class="fas fa-shopping-basket"></i> Panier</a>
+      <a href="{{ route('cart') }}" class="nav2__drawer-link"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-2px;margin-right:4px"><circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/></svg> Panier</a>
     @endif
     <a href="{{ $accountLink }}" class="nav2__drawer-link nav2__drawer-link--cta">{{ $accountLabel }}</a>
   </div>
@@ -339,6 +339,7 @@
         <article class="rc rev">
           <div class="rc__img">
             <img src="{{ $logo }}" alt="{{ $restaurant->name }}"
+                 loading="lazy"
                  onerror="this.src='{{ asset('images/home/service-restaurant.jpg') }}'">
             <span class="rc__badge">Populaire</span>
             <span class="rc__time">20–40 min</span>
@@ -393,6 +394,7 @@
         <article class="pc rev">
           <div class="pc__img">
             <img src="{{ $image }}" alt="{{ $product->name }}"
+                 loading="lazy"
                  onerror="this.src='{{ asset('images/product_images/default-food.jpg') }}'">
             <span class="pc__price">{{ $price }} FCFA</span>
           </div>
@@ -564,13 +566,13 @@
     {{-- Mosaïque photos --}}
     <div class="impact-mosaic rev">
       <div class="impact-mosaic__img">
-        <img src="{{ asset('images/home/service-cuisine.jpg') }}" alt="Cuisine congolaise" loading="lazy">
+        <img src="{{ $resolveHomeMedia($homeContent['mosaic_cuisine_image'] ?? null, asset('images/home/service-cuisine.jpg')) }}" alt="Cuisine congolaise" loading="lazy">
       </div>
       <div class="impact-mosaic__img">
-        <img src="{{ asset('images/home/service-driver.jpg') }}" alt="Livraison à domicile" loading="lazy">
+        <img src="{{ $resolveHomeMedia($homeContent['mosaic_driver_image'] ?? null, asset('images/home/service-driver.jpg')) }}" alt="Livraison à domicile" loading="lazy">
       </div>
       <div class="impact-mosaic__img">
-        <img src="{{ asset('images/home/service-restaurant.jpg') }}" alt="Restaurant partenaire" loading="lazy">
+        <img src="{{ $resolveHomeMedia($homeContent['mosaic_restaurant_image'] ?? null, asset('images/home/service-restaurant.jpg')) }}" alt="Restaurant partenaire" loading="lazy">
       </div>
     </div>
   </div>
@@ -659,6 +661,7 @@
           <div class="oc__img">
             <img src="{{ $card['image'] }}"
                  alt="{{ $card['title'] }}"
+                 loading="lazy"
                  onerror="this.onerror=null;this.src='{{ $oppFallbackImages[$idx] ?? asset('images/home/service-restaurant.jpg') }}'">
           </div>
           <div class="oc__body">
@@ -1148,25 +1151,61 @@
         if (lngFld) lngFld.value = '';
     }
 
-    // ── Autocomplétion Mapbox ─────────────────────────────────────
-    var _timer, _last = '', _proximity = '';
+    // ── Autocomplétion (Nominatim fallback si Mapbox 403) ─────────
+    var _timer, _last = '', _proximity = '', _mapboxOk = null;
+
+    function _nominatimShortName(displayName) {
+        var parts = displayName.split(',');
+        var short = parts[0].replace(/\([^)]*\)/g, '').trim();
+        if (parts.length > 1) {
+            var city = parts[1].replace(/\([^)]*\)/g, '').trim();
+            if (city && city.toLowerCase() !== short.toLowerCase()) short += ', ' + city;
+        }
+        return short || displayName;
+    }
+
+    function fetchSuggestionsNominatim(q) {
+        fetch('https://nominatim.openstreetmap.org/search?format=json&q=' + encodeURIComponent(q) + '&countrycodes=cg&limit=6&accept-language=fr')
+        .then(function(r){ return r.json(); })
+        .then(function(results){
+            box.innerHTML = '';
+            if (!results || !results.length) { closeSuggestions(); return; }
+            results.forEach(function(r){
+                var shortName = _nominatimShortName(r.display_name);
+                addSuggestion(shortName, function(){
+                    input.value = shortName;
+                    setCoords(parseFloat(r.lat), parseFloat(r.lon));
+                    closeSuggestions();
+                    form.submit();
+                });
+            });
+            box.style.display = 'block';
+        })
+        .catch(function(){ closeSuggestions(); });
+    }
 
     function fetchSuggestions(q) {
         if (q.length < 2) { closeSuggestions(); return; }
+        if (_mapboxOk === false) { fetchSuggestionsNominatim(q); return; }
         fetch('https://api.mapbox.com/geocoding/v5/mapbox.places/'
             + encodeURIComponent(q)
             + '.json?access_token=' + TOKEN
             + '&autocomplete=true&limit=6&language=fr&country=cg'
             + '&types=address,poi,neighborhood,locality,place'
             + (_proximity ? '&proximity=' + _proximity : ''))
-        .then(function(r){ return r.json(); })
+        .then(function(r){
+            if (!r.ok) { _mapboxOk = false; fetchSuggestionsNominatim(q); throw new Error('mapbox-' + r.status); }
+            _mapboxOk = true; return r.json();
+        })
         .then(function(data){
             var features = data.features || [];
             box.innerHTML = '';
             features.forEach(function(f) {
                 var c = f.center;
+                // f.text = nom court (ex: "Bacongo") ; f.place_name = nom complet (label dropdown)
+                var shortName = f.text || f.place_name.split(',')[0].trim();
                 addSuggestion(f.place_name, function(){
-                    input.value = f.place_name;
+                    input.value = shortName;
                     setCoords(c[1], c[0]);
                     closeSuggestions();
                     form.submit();
@@ -1174,20 +1213,59 @@
             });
             box.style.display = features.length ? 'block' : 'none';
         })
-        .catch(function(){ closeSuggestions(); });
+        .catch(function(e){
+            // Si Mapbox 403 → on a déjà lancé Nominatim, ne pas fermer le dropdown
+            if (e && e.message && e.message.indexOf('mapbox-') === 0) return;
+            closeSuggestions();
+        });
     }
 
-    // ── Reverse geocode ───────────────────────────────────────────
+    // ── Reverse geocode (Mapbox → Nominatim fallback) ──────────
+    // cb(label, search) : label = adresse lisible affichée, search = terme court pour backend
+    function reverseGeocodeNominatim(lat, lng, cb) {
+        fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat=' + lat + '&lon=' + lng + '&accept-language=fr&zoom=16')
+        .then(function(r){ return r.json(); })
+        .then(function(d){
+            var addr = d.address || {};
+            var road   = addr.road || '';
+            var suburb = addr.suburb || addr.neighbourhood
+                      || (addr.city_district || '').split('(')[0].trim();
+            var city   = (addr.city || addr.town || addr.village || '').split('(')[0].trim();
+            // Label lisible : rue + quartier (ex: "Rue Moll, Bacongo")
+            var label  = [road, suburb].filter(Boolean).join(', ')
+                      || suburb || city || d.display_name
+                      || (lat.toFixed(4)+', '+lng.toFixed(4));
+            // Terme de recherche : quartier + ville (ex: "Bacongo, Brazzaville" — matche les adresses DB)
+            var search = [suburb, city].filter(Boolean).join(', ') || suburb || label;
+            cb(label, search);
+        })
+        .catch(function(){ cb(lat.toFixed(4)+', '+lng.toFixed(4), ''); });
+    }
     function reverseGeocode(lat, lng, cb) {
+        if (_mapboxOk === false) { reverseGeocodeNominatim(lat, lng, cb); return; }
         fetch('https://api.mapbox.com/geocoding/v5/mapbox.places/'
             + lng + ',' + lat
             + '.json?access_token=' + TOKEN
-            + '&limit=1&language=fr&types=neighborhood,locality,place')
-        .then(function(r){ return r.json(); })
-        .then(function(d){
-            cb((d.features && d.features[0]) ? d.features[0].place_name : lat.toFixed(4)+', '+lng.toFixed(4));
+            + '&limit=1&language=fr&types=address,neighborhood,locality,place')
+        .then(function(r){
+            if (!r.ok) { _mapboxOk = false; reverseGeocodeNominatim(lat, lng, cb); throw new Error('mapbox-' + r.status); }
+            _mapboxOk = true; return r.json();
         })
-        .catch(function(){ cb(lat.toFixed(4)+', '+lng.toFixed(4)); });
+        .then(function(d){
+            var f = d.features && d.features[0];
+            // Mapbox n'a pas de coverage pour Brazzaville → 0 features → Nominatim
+            if (!f) { reverseGeocodeNominatim(lat, lng, cb); return; }
+            var shortName = f.text || f.place_name.split(',')[0].trim();
+            var city = '';
+            (f.context || []).forEach(function(c){
+                if (c.id && c.id.indexOf('place.') === 0) city = c.text;
+            });
+            cb(f.place_name, [shortName, city].filter(Boolean).join(', ') || shortName);
+        })
+        .catch(function(e){
+            if (e && e.message && e.message.indexOf('mapbox-') === 0) return;
+            reverseGeocodeNominatim(lat, lng, cb);
+        });
     }
 
     // ── GPS ───────────────────────────────────────────────────────
@@ -1215,9 +1293,11 @@
                     var lat = pos.coords.latitude, lng = pos.coords.longitude;
                     _proximity = lng + ',' + lat;
                     setCoords(lat, lng);
-                    reverseGeocode(lat, lng, function(name) {
-                        input.value = name;
-                        setGpsState('active', 'Ma position');
+                    reverseGeocode(lat, lng, function(label, search) {
+                        // label = adresse lisible (ex: "Rue Moll, Bacongo"), search = terme DB
+                        // Avec lat/lng dans le form, le backend fait Haversine → label sert juste à l'affichage
+                        input.value = label || search;
+                        setGpsState('active', (label || search).split(',')[0] || 'Ma position');
                         form.submit();
                     });
                 },
@@ -1261,9 +1341,9 @@
                 _proximity = pos.coords.longitude + ',' + pos.coords.latitude;
                 setCoords(pos.coords.latitude, pos.coords.longitude);
                 if (!input.value.trim()) {
-                    reverseGeocode(pos.coords.latitude, pos.coords.longitude, function(name) {
-                        input.value = name;
-                        setGpsState('active', 'Ma position');
+                    reverseGeocode(pos.coords.latitude, pos.coords.longitude, function(label, search) {
+                        input.value = label || search;
+                        setGpsState('active', (label || search).split(',')[0] || 'Ma position');
                     });
                 }
             }, function(){}, { maximumAge: 60000, timeout: 5000 });

@@ -24,6 +24,8 @@ use App\Services\PaymentExperienceService;
 use App\Services\PromotionService;
 use App\Services\RiskService;
 use App\Services\SubstitutionService;
+use App\Http\Requests\Auth\RegisterRequest;
+use App\Http\Requests\Cart\AddToCartRequest;
 use App\Mail\RegisterEmail;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
@@ -35,7 +37,7 @@ class CartCheckoutController extends Controller
 {
     use RemembersFrontendBrand;
 
-    public function cartDeatil()
+    public function cartDetail()
     {
         // Si l'utilisateur est connecte
         if(auth()->check()){
@@ -343,7 +345,7 @@ class CartCheckoutController extends Controller
         return view('frontend.checkout', compact('checkoutData', 'cartGroups', 'hasMultipleRestaurants', 'total', 'charges', 'address', 'savedAddresses', 'name', 'qty', 'resturant', 'restaurantModel', 'tax', 'service_fee', 'loyaltyPoints', 'loyaltyDiscount', 'grandTotal', 'stockIssues', 'weatherSurcharge', 'weatherSurchargeActive', 'weatherSurchargeLabel'));
    }
 
-    public function addToCart(Request $request){
+    public function addToCart(AddToCartRequest $request){
         // Whitelist stricte — aucun champ libre de l'extérieur
         $validated = $request->validate([
             'product_id'    => 'required|integer|min:1',
@@ -569,6 +571,12 @@ class CartCheckoutController extends Controller
         // Évite qu'une URL thanks?orderID=X supprime le panier d'un autre utilisateur.
         if (auth()->check() && auth()->id() === (int) $order->user_id) {
             Cart::where('user_id', auth()->id())->delete();
+        }
+
+        // Stocker order_no en session pour permettre le polling API de statut aux invités
+        // sans exposer l'endpoint à une énumération ouverte.
+        if (! $request->session()->has('order_no') || $request->session()->get('order_no') !== $order->order_no) {
+            $request->session()->put('order_no', $order->order_no);
         }
 
         return view('frontend.thanks', compact('order'));

@@ -25,6 +25,12 @@ class DriverOrderController extends Controller
 
     public function orderRequests($driver)
     {
+        // IDOR guard: if driver_api token present, it must belong to this driver
+        $tokenDriver = auth('driver_api')->user();
+        if ($tokenDriver && (int)$tokenDriver->id !== (int)$driver) {
+            return response()->json(['status' => false, 'message' => 'Accès non autorisé'], 403);
+        }
+
         $driverModel = Driver::find($driver);
 
         if (!$driverModel) {
@@ -106,6 +112,12 @@ class DriverOrderController extends Controller
 
     public function deliverySummary($driver)
     {
+        // IDOR guard: if driver_api token present, it must belong to this driver
+        $tokenDriver = auth('driver_api')->user();
+        if ($tokenDriver && (int)$tokenDriver->id !== (int)$driver) {
+            return response()->json(['status' => false, 'message' => 'Accès non autorisé'], 403);
+        }
+
         $driverModel = Driver::find($driver);
 
         if (!$driverModel) {
@@ -142,6 +154,12 @@ class DriverOrderController extends Controller
 
     public function driverEarningHistory(Request $request, $driver)
     {
+        // IDOR guard: if driver_api token present, it must belong to this driver
+        $tokenDriver = auth('driver_api')->user();
+        if ($tokenDriver && (int)$tokenDriver->id !== (int)$driver) {
+            return response()->json(['status' => false, 'message' => 'Accès non autorisé'], 403);
+        }
+
         if (!Driver::whereKey($driver)->exists()) {
             return response()->json(['status' => false, 'message' => 'Livreur introuvable', 'totalEarning' => 0, 'weeks' => []], 404);
         }

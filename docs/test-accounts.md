@@ -51,7 +51,7 @@ Login API : `POST https://bantudelice.cg/api/driver_login` avec champ `phone`
 |---|---|---|
 | Jean-Paul Mboumba | `jean-paul.mboumba@bantudelice.cg` | `+242 06 700 00 01` |
 | Patrick Ndoudi | `patrick.ndoudi@bantudelice.cg` | `+242 06 700 00 02` |
-| Serge Makaya | `serge.makaya@bantudelice.cg` | `+242 06 700 00 03` |
+| Serge Makaya | `sc` | `+242 06 700 00 03` |
 | Alain Mouanda | `alain.mouanda@bantudelice.cg` | `+242 06 700 00 04` |
 | David Malonga | `david.malonga@bantudelice.cg` | `+242 06 700 00 05` |
 | Christian Nkoua | `christian.nkoua@bantudelice.cg` | `+242 06 700 00 06` |

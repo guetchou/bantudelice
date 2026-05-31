@@ -420,7 +420,15 @@ class DispatchService
      */
     public function processPendingDeliveries(int $limit = 10): array
     {
+        // Only dispatch when the linked order is ready for driver assignment.
+        // Attempting to dispatch before restaurant acceptance triggers an invalid
+        // state machine transition (pending_restaurant_acceptance → driver_assigned).
+        $dispatchableStatuses = ['in_kitchen', 'accepted', 'ready_for_pickup'];
+
         $pendingDeliveries = Delivery::where('status', 'PENDING')
+            ->whereHas('order', function ($q) use ($dispatchableStatuses) {
+                $q->whereIn('business_status', $dispatchableStatuses);
+            })
             ->orderBy('created_at', 'asc')
             ->limit($limit)
             ->get();
