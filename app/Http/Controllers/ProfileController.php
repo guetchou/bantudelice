@@ -20,44 +20,46 @@ class ProfileController extends Controller
            return redirect()->route('user.login')->with('message', 'Veuillez vous connecter pour acceder a votre profil.');
        }
 
-       $addresses = collect();
-       if (\Illuminate\Support\Facades\Schema::hasTable('user_address')) {
-           $addresses = Address::where('user_id', auth()->id())
-               ->orderByDesc('is_default')
-               ->orderByDesc('id')
-               ->get();
-       }
+       $userId = auth()->id();
 
-       $orders = Order::where('user_id', auth()->id())
-           ->with(['restaurant', 'rating', 'delivery.driver', 'driver'])
-           ->orderBy('created_at', 'desc')
+       // user_address existe (confirmé par les migrations) — pas de SHOW TABLES à chaque requête
+       $addresses = Address::where('user_id', $userId)
+           ->orderByDesc('is_default')
+           ->orderByDesc('id')
            ->get();
 
-       $completedOrders = \App\CompletedOrder::where('user_id', auth()->id())
+       // Limiter à 15 commandes récentes pour l'aperçu profil — le reste via /profile/orders
+       $orders = Order::where('user_id', $userId)
+           ->with(['restaurant', 'rating', 'delivery.driver', 'driver'])
+           ->orderByDesc('created_at')
+           ->limit(15)
+           ->get();
+
+       $completedOrders = \App\CompletedOrder::where('user_id', $userId)
            ->where('status', 'completed')
            ->with(['restaurant', 'driver'])
-           ->orderBy('created_at', 'desc')
+           ->orderByDesc('created_at')
+           ->limit(5)
            ->get();
 
-       $allOrders = $orders->concat($completedOrders)->sortByDesc('created_at');
+       $allOrders = $orders->concat($completedOrders)->sortByDesc('created_at')->take(15);
+
        $chatService = app(OrderChatService::class);
        $allOrders = $allOrders->map(function ($order) use ($chatService) {
            $order->chatBadge = $chatService->badgeDataForOrderNo((string) ($order->order_no ?? ''), 'customer');
            return $order;
        });
-       $totalOrders = Order::where('user_id', auth()->id())->count();
-       $completedOrdersCount = Order::where('user_id', auth()->id())
-           ->with('delivery')
-           ->get()
-           ->filter(function ($order) {
-               return method_exists($order, 'resolveEffectiveBusinessStatus')
-                   ? $order->resolveEffectiveBusinessStatus() === 'delivered'
-                   : ($order->status ?? null) === 'completed';
-           })
+
+       // KPIs : requêtes SQL directes (pas de chargement en mémoire)
+       $totalOrders = Order::where('user_id', $userId)->count();
+       $completedOrdersCount = Order::where('user_id', $userId)
+           ->whereIn('business_status', ['delivered', 'closed', 'picked_up_by_customer'])
            ->count();
-       $loyaltyPoints = \App\Services\LoyaltyService::getBalance(auth()->id());
-       $loyaltyHistory = \App\Services\LoyaltyService::getHistory(auth()->id(), 10);
-       $loyaltyDiscount = \App\Services\LoyaltyService::calculateDiscount($loyaltyPoints);
+
+       $loyaltyPoints   = LoyaltyService::getBalance($userId);
+       $loyaltyHistory  = LoyaltyService::getHistory($userId, 10);
+       $loyaltyDiscount = LoyaltyService::calculateDiscount($loyaltyPoints);
+
        [$dashboardLink, $dashboardLabel] = $this->resolveProfileDashboardAccess(auth()->user());
        $mediaLibraryOptions = app(UnifiedMediaLibraryService::class)->groupedOptions();
 
@@ -106,14 +108,17 @@ class ProfileController extends Controller
             return redirect()->route('user.login')->with('message', 'Veuillez vous connecter pour acceder a votre profil.');
         }
 
+        $user = auth()->user();
+
         $request->validate([
-            'name' => 'required|string|max:255',
-            'phone' => 'nullable|string|max:20',
+            'name'  => 'required|string|max:255',
+            'phone' => 'nullable|string|max:20|unique:users,phone,' . $user->id,
+            'email' => 'nullable|email|max:255|unique:users,email,' . $user->id,
         ]);
 
-        $user = auth()->user();
         $user->name = $request->name;
-        $user->phone = $request->phone;
+        if ($request->filled('phone')) $user->phone = $request->phone;
+        if ($request->filled('email')) $user->email = $request->email;
         $user->save();
 
         return back()->with('success', 'Profil mis à jour avec succès !');
