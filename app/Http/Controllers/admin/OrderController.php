@@ -44,41 +44,46 @@ class OrderController extends Controller
     {
         $nearby_drivers = null;
 
-        if($request->filled('date')) {
-            $arr = explode(' - ', $request->date, 2);
+        $query = Order::with(['user', 'restaurant'])->latest();
+
+        if ($request->filled('date')) {
+            $arr   = explode(' - ', $request->date, 2);
             $start = Carbon::createFromFormat('d/m/Y', trim($arr[0]))->startOfDay();
-            $end = Carbon::createFromFormat('d/m/Y', trim($arr[1] ?? $arr[0]))->endOfDay();
-            $orders=Order::whereBetween('created_at', [$start, $end])->latest()->get()->unique('order_no');
-        }else{
-            $orders=Order::latest()->get()->unique('order_no');
+            $end   = Carbon::createFromFormat('d/m/Y', trim($arr[1] ?? $arr[0]))->endOfDay();
+            $query->whereBetween('created_at', [$start, $end]);
         }
+
+        // Paginer au lieu de charger toute la table
+        $orders = $query->paginate(50);
+
         $chatService = app(OrderChatService::class);
-        $orders = $orders->map(function ($order) use ($chatService) {
+        $orders->getCollection()->transform(function ($order) use ($chatService) {
             $order->chatBadge = $chatService->badgeDataForOrder($order, auth()->user());
             return $order;
         });
-        return view('admin.order.all_orders',compact('nearby_drivers','orders'));
+
+        return view('admin.order.all_orders', compact('nearby_drivers', 'orders'));
     }
     public function complete_orders(Request $request)
     {
         $query = $this->completedOrdersQuery();
 
-        if($request->filled('date')) {
-            $arr = explode(' - ', $request->date, 2);
+        if ($request->filled('date')) {
+            $arr   = explode(' - ', $request->date, 2);
             $start = Carbon::createFromFormat('d/m/Y', trim($arr[0]))->startOfDay();
-            $end = Carbon::createFromFormat('d/m/Y', trim($arr[1] ?? $arr[0]))->endOfDay();
-            $orders=$query->whereBetween('created_at', [$start, $end])->latest()->get()->unique('order_no');
-        }else{
-            $orders=$query->latest()->get()->unique('order_no');
+            $end   = Carbon::createFromFormat('d/m/Y', trim($arr[1] ?? $arr[0]))->endOfDay();
+            $query->whereBetween('created_at', [$start, $end]);
         }
+        $orders = $query->latest()->paginate(50);
+
         $chatService = app(OrderChatService::class);
-        $orders = $orders->map(function ($order) use ($chatService) {
+        $orders->getCollection()->transform(function ($order) use ($chatService) {
             if ($order instanceof \App\Order) {
                 $order->chatBadge = $chatService->badgeDataForOrder($order, auth()->user());
             }
             return $order;
         });
-        return view('admin.order.complete_orders')->with('orders',$orders);
+        return view('admin.order.complete_orders')->with('orders', $orders);
     }
     public function pending_orders(Request $request)
     {
