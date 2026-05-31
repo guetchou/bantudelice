@@ -81,22 +81,12 @@ class DashboardController extends Controller
     private function buildQuickActions(): array
     {
         return [
-            [
-                'label' => 'Ajouter un produit',
-                'route' => $this->safeRoute('restaurant.products.create', [], $this->safeRoute('product.index')),
-            ],
-            [
-                'label' => 'Voir les commandes',
-                'route' => $this->safeRoute('restaurant.orders.index', [], $this->safeRoute('restaurant.all_orders')),
-            ],
-            [
-                'label' => 'Historique paiements',
-                'route' => $this->safeRoute('restaurant.payments.index', [], $this->safeRoute('restaurant.payment_history')),
-            ],
-            [
-                'label' => 'Gérer le catalogue',
-                'route' => $this->safeRoute('restaurant.products.index', [], $this->safeRoute('product.index')),
-            ],
+            ['label' => 'Ajouter un produit',      'route' => $this->safeRoute('product.create')],
+            ['label' => 'Voir les commandes',       'route' => $this->safeRoute('restaurant.all_orders')],
+            ['label' => 'Historique paiements',     'route' => $this->safeRoute('r_earnings.index')],
+            ['label' => 'Gérer le catalogue',       'route' => $this->safeRoute('product.index')],
+            ['label' => 'Horaires d\'ouverture',    'route' => $this->safeRoute('working-hour.index')],
+            ['label' => 'Créer une promotion',      'route' => $this->safeRoute('voucher.create')],
         ];
     }
 
@@ -141,12 +131,14 @@ class DashboardController extends Controller
 
         $availableWithdrawal = max(0, $netPartnerMonth - $alreadyPaid - $pendingSettlement);
 
-        $newCount        = $todayOrders->whereIn('status', ['new', 'pending', 'received'])->count();
-        $preparingCount  = $todayOrders->whereIn('status', ['preparing', 'accepted', 'confirmed', 'cooking'])->count();
-        $deliveringCount = $todayOrders->whereIn('status', ['assigned', 'picked_up', 'delivering', 'on_the_way'])->count();
-        $completedCount  = $todayOrders->whereIn('status', ['completed', 'delivered'])->count();
+        // Utiliser business_status (colonne réelle) avec fallback sur status (legacy)
+        $bs = fn($o) => data_get($o, 'business_status') ?: data_get($o, 'status', '');
+        $newCount        = $todayOrders->filter(fn($o) => in_array($bs($o), ['pending_restaurant_acceptance', 'new', 'pending', 'received']))->count();
+        $preparingCount  = $todayOrders->filter(fn($o) => in_array($bs($o), ['accepted', 'in_kitchen', 'preparing', 'confirmed', 'cooking']))->count();
+        $deliveringCount = $todayOrders->filter(fn($o) => in_array($bs($o), ['driver_assigned', 'picked_up', 'out_for_delivery', 'assigned', 'delivering', 'on_the_way']))->count();
+        $completedCount  = $todayOrders->filter(fn($o) => in_array($bs($o), ['delivered', 'closed', 'picked_up_by_customer', 'completed']))->count();
 
-        $acceptedOrders = $monthOrders->whereNotIn('status', ['new', 'pending', 'cancelled', 'rejected'])->count();
+        $acceptedOrders = $monthOrders->filter(fn($o) => !in_array($bs($o), ['pending_restaurant_acceptance', 'new', 'pending', 'cancelled', 'rejected']))->count();
         $receivedOrders = max(1, $monthOrders->count());
         $acceptanceRate = round(($acceptedOrders / $receivedOrders) * 100);
 
@@ -260,11 +252,16 @@ class DashboardController extends Controller
     private function mapOrderStatusLabel(string $status): string
     {
         return match ($status) {
-            'new', 'pending', 'received'                         => 'Nouvelle',
-            'accepted', 'confirmed', 'preparing', 'cooking'      => 'Préparation',
-            'assigned', 'picked_up', 'delivering', 'on_the_way' => 'Livraison',
-            'completed', 'delivered'                             => 'Terminée',
-            'cancelled', 'rejected'                              => 'Annulée',
+            'pending_restaurant_acceptance', 'new', 'pending', 'received'
+                => 'Nouvelle',
+            'accepted', 'in_kitchen', 'ready_for_pickup', 'confirmed', 'preparing', 'cooking'
+                => 'Préparation',
+            'driver_assigned', 'picked_up', 'out_for_delivery', 'assigned', 'delivering', 'on_the_way'
+                => 'Livraison',
+            'delivered', 'closed', 'picked_up_by_customer', 'completed'
+                => 'Terminée',
+            'cancelled', 'rejected', 'no_show'
+                => 'Annulée',
             default => ucfirst(str_replace('_', ' ', $status)),
         };
     }
@@ -314,11 +311,12 @@ class DashboardController extends Controller
                     ->latest()
                     ->get()
                     ->map(fn ($order) => [
-                        'reference'         => $order->reference ?? $order->code ?? ('#CMD-' . $order->id),
+                        'reference'         => $order->order_no ?? $order->reference ?? $order->code ?? ('#CMD-' . $order->id),
                         'customer_name'     => $order->customer_name ?? $order->customer?->name ?? $order->user?->name ?? 'Client',
-                        'gross_amount'      => (float) ($order->gross_amount ?? $order->total_amount ?? $order->total ?? 0),
+                        'gross_amount'      => (float) ($order->total ?? $order->gross_amount ?? $order->total_amount ?? 0),
                         'commission_amount' => (float) ($order->commission_amount ?? $order->platform_fee ?? 0),
-                        'status'            => (string) ($order->status ?? 'new'),
+                        'status'            => (string) ($order->business_status ?? $order->status ?? 'new'),
+                        'business_status'   => (string) ($order->business_status ?? $order->status ?? 'new'),
                         'is_scheduled'      => (bool) ($order->is_scheduled ?? isset($order->scheduled_date)),
                         'created_at'        => $order->created_at,
                     ]);
@@ -332,11 +330,12 @@ class DashboardController extends Controller
                 ->latest()
                 ->get()
                 ->map(fn ($order) => [
-                    'reference'         => $order->reference ?? $order->order_no ?? ('#CMD-' . $order->id),
+                    'reference'         => $order->order_no ?? $order->reference ?? ('#CMD-' . $order->id),
                     'customer_name'     => $order->customer_name ?? 'Client',
                     'gross_amount'      => (float) ($order->total ?? 0),
                     'commission_amount' => 0.0,
-                    'status'            => (string) ($order->status ?? 'new'),
+                    'status'            => (string) ($order->business_status ?? $order->status ?? 'new'),
+                    'business_status'   => (string) ($order->business_status ?? $order->status ?? 'new'),
                     'is_scheduled'      => isset($order->scheduled_date),
                     'created_at'        => $order->created_at,
                 ]);

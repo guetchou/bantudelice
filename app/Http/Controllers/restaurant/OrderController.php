@@ -23,6 +23,9 @@ use Illuminate\Support\Facades\Schema;
 
 class OrderController extends Controller
 {
+    // business_status existe (confirmé par les migrations) — évite N requêtes SHOW COLUMNS
+    private const HAS_BUSINESS_STATUS = true;
+
     public function __construct(
         protected FoodOrderStateMachineService $foodOrderStateMachine,
         protected FoodOrderFinanceService $foodOrderFinanceService,
@@ -72,7 +75,7 @@ class OrderController extends Controller
     public function notifications($id){
         $orders = Order::where('restaurant_id',$id);
 
-        if (Schema::hasColumn('orders', 'business_status')) {
+        if (self::HAS_BUSINESS_STATUS) {
             $orders->where('business_status', 'pending_restaurant_acceptance');
         } else {
             $orders->where('status', 'pending');
@@ -105,7 +108,7 @@ class OrderController extends Controller
         $restaurant=Restaurant::where('user_id',$restuarantId)->first();
         $query = Order::where('restaurant_id', $restaurant->id);
 
-        if (Schema::hasColumn('orders', 'business_status')) {
+        if (self::HAS_BUSINESS_STATUS) {
             $query->where('business_status', 'pending_restaurant_acceptance');
         } else {
             $query->where('status', 'pending');
@@ -132,7 +135,7 @@ class OrderController extends Controller
         $restaurant=Restaurant::where('user_id',$name)->first();
         $query = Order::where('restaurant_id', $restaurant->id);
 
-        if (Schema::hasColumn('orders', 'business_status')) {
+        if (self::HAS_BUSINESS_STATUS) {
             $query->whereIn('business_status', ['delivered', 'picked_up_by_customer', 'closed']);
         } else {
             $query->where('status', 'completed');
@@ -160,7 +163,7 @@ class OrderController extends Controller
         $restaurant=Restaurant::where('user_id',$name)->first();
         $query = Order::where('restaurant_id', $restaurant->id);
 
-        if (Schema::hasColumn('orders', 'business_status')) {
+        if (self::HAS_BUSINESS_STATUS) {
             $query->whereIn('business_status', [
                 'ready_for_pickup',
                 'dispatching',
@@ -196,7 +199,7 @@ class OrderController extends Controller
         $restaurant=Restaurant::where('user_id',$name)->first();
         $query = Order::where('restaurant_id', $restaurant->id);
 
-        if (Schema::hasColumn('orders', 'business_status')) {
+        if (self::HAS_BUSINESS_STATUS) {
             $query->where('business_status', 'cancelled');
         } else {
             $query->where('status', 'cancelled');
@@ -223,7 +226,7 @@ class OrderController extends Controller
         $restaurant=Restaurant::where('user_id',$name)->first();
         $query = Order::where('restaurant_id', $restaurant->id);
 
-        if (Schema::hasColumn('orders', 'business_status')) {
+        if (self::HAS_BUSINESS_STATUS) {
             $query->where('business_status', 'in_kitchen');
         } else {
             $query->where('status', 'prepairing');
