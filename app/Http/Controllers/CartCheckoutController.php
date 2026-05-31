@@ -186,7 +186,7 @@ class CartCheckoutController extends Controller
             ]);
         }
 
-        return back()->with('message','Quantite mise a jour');
+        return back()->with('message','Quantité mise à jour');
     }
 
      public function register(Request $request)

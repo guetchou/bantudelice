@@ -13,7 +13,7 @@
             </div>
             <div style="text-align:right;">
                 <div style="font-size:.9rem; opacity:.75;">Statut actuel</div>
-                <div style="font-weight:800;">{{ ucfirst(str_replace('_', ' ', $order->resolveEffectiveBusinessStatus())) }}</div>
+                <div style="font-weight:800;">{{ business_status_label($order->resolveEffectiveBusinessStatus()) }}</div>
                 <div style="margin-top:.5rem;">
                     <a href="{{ route('track.order', ['orderNo' => $order->order_no]) }}" style="display:inline-flex;align-items:center;justify-content:center;background:#fff;color:#0f172a;font-weight:600;padding:.7rem 1.35rem;border-radius:999px;border:1.5px solid #e2e8f0;cursor:pointer;text-decoration:none;" style="border-radius:999px; padding:.7rem 1rem;">Retour au suivi</a>
                 </div>
@@ -177,7 +177,7 @@
                             </div>
                             <div style="display:flex; justify-content:space-between; gap:1rem;">
                                 <span>Statut</span>
-                                <strong>{{ ucfirst(str_replace('_', ' ', $order->resolveEffectiveBusinessStatus())) }}</strong>
+                                <strong>{{ business_status_label($order->resolveEffectiveBusinessStatus()) }}</strong>
                             </div>
                             <div style="display:flex; justify-content:space-between; gap:1rem;">
                                 <span>Total</span>

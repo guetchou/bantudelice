@@ -648,7 +648,7 @@
                         <span class="drv-detail-val">{{ $restName }}</span>
                         @if($restPhone)
                         <div class="drv-contact-phone">{{ $restPhone }}</div>
-                        <a class="drv-call-link" href="tel:{{ $restPhone }}"><i class="fas fa-phone" style="font-size:10px;"></i> Appeler</a>
+                        <a class="drv-call-link" href="tel:{{ tel_clean($restPhone) }}"><i class="fas fa-phone" style="font-size:10px;"></i> Appeler</a>
                         @endif
                     </div>
                 </div>
@@ -665,7 +665,7 @@
                         <span class="drv-detail-val">{{ $clientName }}</span>
                         @if($clientPhone)
                         <div class="drv-contact-phone">{{ $clientPhone }}</div>
-                        <a class="drv-call-link" href="tel:{{ $clientPhone }}"><i class="fas fa-phone" style="font-size:10px;"></i> Appeler</a>
+                        <a class="drv-call-link" href="tel:{{ tel_clean($clientPhone) }}"><i class="fas fa-phone" style="font-size:10px;"></i> Appeler</a>
                         @endif
                     </div>
                 </div>

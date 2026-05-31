@@ -187,7 +187,7 @@ class CmsContentController extends Controller
 
         return redirect()->to($this->workspaceRoute('admin.cms.contents.edit', ['content' => $content]))->with('alert', [
             'type' => 'success',
-            'message' => 'Statut editorial mis a jour.',
+            'message' => 'Statut éditorial mis à jour.',
         ]);
     }
 

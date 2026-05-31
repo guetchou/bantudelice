@@ -12,12 +12,13 @@
 @php
     $driverEntity = optional($delivery)->driver ?: ($order->driver ?? null);
     $paymentExperience = $paymentExperience ?? null;
-    $paymentStatus = $paymentExperience['status'] ?? strtoupper($order->payment_status ?? 'PENDING');
+    $paymentStatus = payment_status_label($paymentExperience['status'] ?? $order->payment_status ?? 'pending');
     $paymentMethod = ucfirst($order->payment_method ?? 'Non précisé');
     $isPickup = method_exists($order, 'isPickup') ? $order->isPickup() : (($order->fulfillment_mode ?? 'delivery') === 'pickup');
-    $statusLabel = method_exists($order, 'resolveEffectiveBusinessStatus')
+    $rawStatus = method_exists($order, 'resolveEffectiveBusinessStatus')
         ? $order->resolveEffectiveBusinessStatus()
         : ($order->status ?? 'completed');
+    $statusLabel = business_status_label($rawStatus);
     $receiptQrTarget = route('track.order', ['orderNo' => $order->order_no ?? $receiptReference]);
 @endphp
 
@@ -97,7 +98,7 @@
                                     <div><strong>Code provider:</strong> {{ $paymentExperience['failure_reason'] }}</div>
                                 @endif
                             @endif
-                            <div><strong>Statut:</strong> {{ str_replace('_', ' ', $statusLabel) }}</div>
+                            <div><strong>Statut:</strong> {{ $statusLabel }}</div>
                             @if(!$isPickup && $driverEntity)
                                 <div><strong>Livreur:</strong> {{ $driverEntity->name }}{{ !empty($driverEntity->phone) ? ' (' . $driverEntity->phone . ')' : '' }}</div>
                             @endif

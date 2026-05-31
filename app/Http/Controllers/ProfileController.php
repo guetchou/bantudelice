@@ -216,12 +216,12 @@ class ProfileController extends Controller
 
         if ($request->expectsJson() || $request->ajax()) {
             return response()->json([
-                'message' => 'Photo de profil mise a jour !',
+                'message' => 'Photo de profil mise à jour !',
                 'avatar_url' => $user->avatarUrl(),
             ]);
         }
 
-        return back()->with('success', 'Photo de profil mise a jour !');
+        return back()->with('success', 'Photo de profil mise à jour !');
     }
 
     /**

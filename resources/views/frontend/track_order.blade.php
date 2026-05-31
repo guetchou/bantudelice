@@ -429,7 +429,7 @@
                 </div>
                 <div class="trk-meta-item">
                     <div class="trk-meta-label">Paiement</div>
-                    <div class="trk-meta-val trk-meta-val--sm">{{ strtoupper(substr($order->payment_status ?? 'attente', 0, 6)) }}</div>
+                    <div class="trk-meta-val trk-meta-val--sm">{{ payment_status_label($order->payment_status ?? 'pending') }}</div>
                 </div>
             </div>
         </div>

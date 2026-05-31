@@ -248,7 +248,7 @@
                         </div>
                         <div class="row">
                             <div class="col-md-6 form-group">
-                                <label>Valeur déclarée (XAF)</label>
+                                <label>Valeur déclarée (FCFA)</label>
                                 <input type="number" name="declared_value" id="declared_value" class="form-control" min="0" placeholder="Ex: 5000">
                                 <small class="text-muted">Pour l'assurance (optionnel)</small>
                             </div>

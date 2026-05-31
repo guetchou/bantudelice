@@ -233,7 +233,7 @@
                 'failed'                        => ['label' => 'Échouée',             'color' => '#ef4444', 'bg' => '#fef2f2'],
             ];
             $rawStatus = $order->business_status ?? $order->status ?? 'pending';
-            $statusLabel = $statusMap[$rawStatus] ?? ['label' => ucwords(str_replace('_', ' ', $rawStatus)), 'color' => '#64748b', 'bg' => '#f8fafc'];
+            $statusLabel = $statusMap[$rawStatus] ?? ['label' => business_status_label($rawStatus), 'color' => '#64748b', 'bg' => '#f8fafc'];
         @endphp
         <div class="ord-card">
 

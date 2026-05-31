@@ -72,7 +72,7 @@ class ModuleOperationsController extends Controller
         Artisan::call('config:clear');
         Artisan::call('route:clear');
 
-        return redirect()->route('admin.modules.index')->with('success', 'Configuration des modules mise a jour.');
+        return redirect()->route('admin.modules.index')->with('success', 'Configuration des modules mise à jour.');
     }
 
     public function retryFailedJob(int $jobId)

@@ -24,7 +24,7 @@
     $queueItems = [
         [
             'title' => $acceptanceQueue . ' commandes attendent une validation',
-            'body' => 'Priorite sur la prise en charge restaurant et la verification des refus.',
+            'body' => 'Priorité sur la prise en charge restaurant et la vérification des refus.',
             'class' => $acceptanceQueue > 0 ? 'ops-queue-dot--danger' : 'ops-queue-dot--ok',
         ],
         [
@@ -42,8 +42,8 @@
         'pending' => 'En attente',
         'pending_restaurant_acceptance' => 'En attente de validation restaurant',
         'accepted' => 'Acceptee',
-        'assign' => 'Livreur assigne',
-        'driver_assigned' => 'Livreur assigne',
+        'assign' => 'Livreur assigné',
+        'driver_assigned' => 'Livreur assigné',
         'in_kitchen' => 'En preparation',
         'ready_for_pickup' => 'Pret pour retrait',
         'picked_up' => 'Recuperee',
@@ -92,7 +92,7 @@
                     <div class="ops-kpi">
                         <div class="ops-kpi__label">En execution</div>
                         <div class="ops-kpi__value">{{ number_format($assignedOrders, 0, ',', ' ') }}</div>
-                        <div class="ops-kpi__sub">{{ number_format($completedOrders, 0, ',', ' ') }} deja terminees</div>
+                        <div class="ops-kpi__sub">{{ number_format($completedOrders, 0, ',', ' ') }} déjà terminées</div>
                     </div>
                     <div class="ops-kpi">
                         <div class="ops-kpi__label">Exceptions</div>

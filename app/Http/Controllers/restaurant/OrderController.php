@@ -384,7 +384,7 @@ class OrderController extends Controller
 
         $alert = [];
         $alert['type'] = 'success';
-        $alert['message'] = 'Statut de la commande mis a jour avec succes';
+        $alert['message'] = 'Statut de la commande mis à jour avec succès';
         return redirect()->back()->with('alert', $alert);
     }
 

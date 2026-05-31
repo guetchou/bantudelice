@@ -550,7 +550,7 @@
                         <div class="co-rcount">{{ $itemsCount }} article{{ $itemsCount > 1 ? 's' : '' }}</div>
                       </div>
                       <div class="co-rsubtotal">
-                        <div class="co-rsubtotal__val">{{ number_format($group->sub_total ?? 0, 0, ',', ' ') }} F</div>
+                        <div class="co-rsubtotal__val">{{ number_format($group->sub_total ?? 0, 0, ',', ' ') }} FCFA</div>
                       </div>
                     </div>
                     @foreach($group->items as $checkout)
@@ -565,7 +565,7 @@
                         @endif
                         <div class="co-item__qty">Qté : {{ $checkout->qty }}</div>
                       </div>
-                      <p class="co-item__price">{{ number_format((float)($checkout->cart_price ?? $checkout->price ?? 0), 0, ',', ' ') }} F</p>
+                      <p class="co-item__price">{{ number_format((float)($checkout->cart_price ?? $checkout->price ?? 0), 0, ',', ' ') }} FCFA</p>
                     </div>
                     @endforeach
                   </div>
@@ -579,7 +579,7 @@
                       <p class="co-item__name">{{ $checkout->name }}</p>
                       <div class="co-item__qty">Qté : {{ $checkout->qty }}</div>
                     </div>
-                    <p class="co-item__price">{{ number_format($checkout->price, 0, ',', ' ') }} F</p>
+                    <p class="co-item__price">{{ number_format($checkout->price, 0, ',', ' ') }} FCFA</p>
                   </div>
                   @endforeach
                 @endif
