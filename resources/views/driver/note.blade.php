@@ -82,23 +82,11 @@
 @php
     use App\Delivery;
 
-    $avgRating    = $driver->rating ?? null;
-    $totalRatings = $driver->total_ratings ?? 0;
-    $starDist = [5=>0, 4=>0, 3=>0, 2=>0, 1=>0];
+    // $reviews, $avgRating, $totalRatings, $starDist injectés par DriverPageController::note()
+    $avgDisplay = $avgRating ? number_format($avgRating, 1) : '—';
 
-    if (class_exists('\App\Review')) {
-        $reviews = \App\Review::where('driver_id', $driver->id)->latest()->take(50)->get();
-        foreach ($reviews as $r) $starDist[min(5,max(1,(int)$r->rating))]++;
-        $totalRatings = array_sum($starDist);
-        $avgRating = $totalRatings > 0 ? round(array_sum(array_map(fn($s,$n)=>$s*$n, array_keys($starDist), array_values($starDist))) / $totalRatings, 1) : null;
-    } else {
-        $reviews = collect();
-    }
-
-    $avgDisplay = $avgRating ? number_format($avgRating,1) : '—';
-
-    $totalDelivered = Delivery::where('driver_id',$driver->id)->where('status','DELIVERED')->count();
-    $totalCancelled = Delivery::where('driver_id',$driver->id)->where('status','CANCELLED')->count();
+    $totalDelivered = Delivery::where('driver_id', $driver->id)->where('status', 'DELIVERED')->count();
+    $totalCancelled = Delivery::where('driver_id', $driver->id)->where('status', 'CANCELLED')->count();
     $successRate = ($totalDelivered + $totalCancelled) > 0
         ? round($totalDelivered / max(1, $totalDelivered + $totalCancelled) * 100)
         : 100;

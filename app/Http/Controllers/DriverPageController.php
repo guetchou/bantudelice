@@ -19,7 +19,7 @@ class DriverPageController extends Controller
         $user = auth()->user();
         if (!$user) return null;
 
-        if (Schema::hasColumn('drivers', 'user_id')) {
+        if (true) {
             $d = Driver::where('user_id', $user->id)->first();
             if ($d) return $d;
         }
@@ -63,7 +63,28 @@ class DriverPageController extends Controller
         $driver = $this->driverOrRedirect();
         if (!($driver instanceof Driver)) return $driver;
 
-        return view('driver.historique', compact('driver'));
+        $status  = $request->get('status', 'all');
+        $period  = $request->get('period', '30');
+        $perPage = 30;
+
+        $historique = Delivery::with(['order.user', 'restaurant'])
+            ->where('driver_id', $driver->id)
+            ->whereIn('status', ['DELIVERED', 'CANCELLED'])
+            ->when($status !== 'all', fn($q) => $q->where('status', strtoupper($status)))
+            ->when($period, fn($q) => $q->where('created_at', '>=', now()->subDays((int) $period)))
+            ->orderByDesc('created_at')
+            ->paginate($perPage);
+
+        $totalDelivered = Delivery::where('driver_id', $driver->id)->where('status', 'DELIVERED')->count();
+        $totalCancelled = Delivery::where('driver_id', $driver->id)->where('status', 'CANCELLED')->count();
+        $totalFees      = Delivery::where('driver_id', $driver->id)->where('status', 'DELIVERED')->sum('delivery_fee');
+        $avgFee         = $totalDelivered > 0 ? round($totalFees / $totalDelivered) : 0;
+        $grouped        = $historique->getCollection()->groupBy(fn($d) => $d->created_at->format('Y-m-d'));
+
+        return view('driver.historique', compact(
+            'driver', 'historique', 'grouped', 'status', 'period',
+            'totalDelivered', 'totalCancelled', 'totalFees', 'avgFee'
+        ));
     }
 
     /**
@@ -74,9 +95,22 @@ class DriverPageController extends Controller
         $driver = $this->driverOrRedirect();
         if (!($driver instanceof Driver)) return $driver;
 
-        $financialDashboard = [];
+        // Charger les vrais avis depuis la table ratings (filtrés par driver_id)
+        $reviews = \App\Rating::with('user')
+            ->where('driver_id', $driver->id)
+            ->orderByDesc('created_at')
+            ->get();
 
-        return view('driver.note', compact('driver', 'financialDashboard'));
+        $avgRating    = $reviews->isNotEmpty() ? round($reviews->avg('rating'), 1) : null;
+        $totalRatings = $reviews->count();
+
+        // Distribution étoiles 1-5
+        $starDist = array_fill(1, 5, 0);
+        foreach ($reviews as $r) {
+            $starDist[min(5, max(1, (int) $r->rating))]++;
+        }
+
+        return view('driver.note', compact('driver', 'reviews', 'avgRating', 'totalRatings', 'starDist'));
     }
 
     /**

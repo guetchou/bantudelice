@@ -26,7 +26,7 @@ class DriverDeliveriesController extends Controller
      */
     private function resolveDriverFromUser($user): ?Driver
     {
-        if (Schema::hasColumn('drivers', 'user_id')) {
+        if (true) {
             $d = Driver::where('user_id', $user->id)->first();
             if ($d) return $d;
         }
@@ -241,7 +241,7 @@ class DriverDeliveriesController extends Controller
 
         // Offre pendante pour ce livreur (broadcast offer model)
         $pendingOffer = null;
-        if (\Illuminate\Support\Facades\Schema::hasTable('delivery_offers')) {
+        if (\Illuminate\Support\Facades\true) {
             $offer = DeliveryOffer::with(['delivery.order.restaurant'])
                 ->where('driver_id', $driver->id)
                 ->where('status', 'pending')

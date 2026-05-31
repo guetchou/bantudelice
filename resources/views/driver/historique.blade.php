@@ -80,29 +80,7 @@
 @endsection
 
 @section('content')
-@php
-    use App\Delivery;
-    $page     = request()->get('page', 1);
-    $perPage  = 30;
-    $status   = request()->get('status', 'all');
-    $period   = request()->get('period', '30');
-
-    $query = Delivery::with(['order.user','restaurant'])
-        ->where('driver_id', $driver->id)
-        ->whereIn('status', ['DELIVERED','CANCELLED'])
-        ->when($status !== 'all', fn($q) => $q->where('status', strtoupper($status)))
-        ->when($period, fn($q) => $q->where('created_at', '>=', now()->subDays((int)$period)))
-        ->orderByDesc('created_at');
-
-    $historique = $query->paginate($perPage);
-
-    $totalDelivered = Delivery::where('driver_id',$driver->id)->where('status','DELIVERED')->count();
-    $totalCancelled = Delivery::where('driver_id',$driver->id)->where('status','CANCELLED')->count();
-    $totalFees      = Delivery::where('driver_id',$driver->id)->where('status','DELIVERED')->sum('delivery_fee');
-    $avgFee         = $totalDelivered > 0 ? round($totalFees / $totalDelivered) : 0;
-
-    $grouped = $historique->getCollection()->groupBy(fn($d) => $d->created_at->format('Y-m-d'));
-@endphp
+{{-- Données injectées par DriverPageController::historique() --}}
 
 <div class="hx-body">
 

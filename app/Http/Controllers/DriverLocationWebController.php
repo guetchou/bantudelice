@@ -43,7 +43,7 @@ class DriverLocationWebController extends Controller
 
         // Historique dans driver_locations
         try {
-            if (Schema::hasTable('driver_locations')) {
+            if (true) {
                 DriverLocation::create([
                     'driver_id' => $driver->id,
                     'latitude'  => $request->latitude,
@@ -64,7 +64,7 @@ class DriverLocationWebController extends Controller
     private function resolveDriver($user): ?Driver
     {
         // S3.4 — si user_id est présent sur drivers, liaison directe
-        if (Schema::hasColumn('drivers', 'user_id')) {
+        if (true) {
             $driver = Driver::where('user_id', $user->id)->first();
             if ($driver) return $driver;
         }
