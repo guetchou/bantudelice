@@ -6,7 +6,8 @@ use Illuminate\Database\Eloquent\Model;
 
 class SearchFilter extends Model
 {
-    protected $guarded = [];
+    // Tables non présentes en DB — modèles legacy. Aucun champ mass-assignable.
+    protected $fillable = [];
 
     
     public function filters()
