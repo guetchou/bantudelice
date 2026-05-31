@@ -358,12 +358,25 @@
                                                class="ord-action-btn" title="Voir le détail">
                                                 <i class="fas fa-eye"></i>
                                             </a>
+                                            {{-- Accepter (préparer) --}}
+                                            <form method="POST"
+                                                  action="{{ route('restaurant.prepaire_orders') }}"
+                                                  style="display:inline">
+                                                @csrf
+                                                <input type="hidden" name="id[]" value="{{ $order->order_no }}">
+                                                <button type="submit" class="ord-action-btn ord-action-btn--accept" title="Accepter et préparer"
+                                                        style="background:#dcfce7;color:#16a34a;border:1px solid #bbf7d0">
+                                                    <i class="fas fa-check"></i>
+                                                </button>
+                                            </form>
+                                            {{-- Refuser --}}
                                             <form method="POST"
                                                   action="{{ route('restaurant.cancel_order', $order->order_no) }}"
-                                                  onsubmit="return confirm('Annuler cette commande ?')">
+                                                  onsubmit="return confirm('Refuser cette commande ? Un motif sera requis.')">
                                                 @csrf
-                                                <button type="submit" class="ord-action-btn ord-action-btn--cancel" title="Annuler">
-                                                    <i class="fas fa-ban"></i>
+                                                <input type="hidden" name="reason" value="restaurant_refused">
+                                                <button type="submit" class="ord-action-btn ord-action-btn--cancel" title="Refuser la commande">
+                                                    <i class="fas fa-times"></i>
                                                 </button>
                                             </form>
                                         </div>

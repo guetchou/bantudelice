@@ -400,6 +400,18 @@ class DashboardController extends Controller
             return collect();
         }
 
+        // Table réelle dans ce projet : restaurant_payments (payout_amount, status)
+        try {
+            return \Illuminate\Support\Facades\DB::table('restaurant_payments')
+                ->where('restaurant_id', $restaurant->id)
+                ->get()
+                ->map(fn ($s) => [
+                    'amount' => (float) ($s->payout_amount ?? 0),
+                    'status' => (string) ($s->status ?? 'pending'),
+                ]);
+        } catch (\Throwable) {}
+
+        // Fallback : relations Eloquent historiques
         foreach (['settlements', 'payouts', 'withdrawals'] as $relation) {
             if (method_exists($restaurant, $relation)) {
                 try {
@@ -407,7 +419,7 @@ class DashboardController extends Controller
                         ->latest()
                         ->get()
                         ->map(fn ($s) => [
-                            'amount' => (float) ($s->amount ?? 0),
+                            'amount' => (float) ($s->amount ?? $s->payout_amount ?? 0),
                             'status' => (string) ($s->status ?? 'pending'),
                         ]);
                 } catch (\Throwable) {
@@ -474,18 +486,22 @@ class DashboardController extends Controller
         }
 
         try {
-            $rows = \Illuminate\Support\Facades\DB::table('order_details as od')
-                ->join('orders as o', 'o.id', '=', 'od.order_id')
-                ->join('products as p', 'p.id', '=', 'od.product_id')
-                ->where('o.restaurant_id', $restaurant->id)
+            // La table items de commande est `carts` dans ce projet (pas order_details)
+            $rows = \Illuminate\Support\Facades\DB::table('carts as c')
+                ->join('orders as o', function ($j) {
+                    $j->on('o.restaurant_id', '=', 'c.restaurant_id')
+                      ->on('o.user_id', '=', 'c.user_id');
+                })
+                ->join('products as p', 'p.id', '=', 'c.product_id')
+                ->where('c.restaurant_id', $restaurant->id)
                 ->whereBetween('o.created_at', [$todayStart, $todayEnd])
-                ->whereNotIn('o.status', ['cancelled', 'rejected'])
+                ->whereNotIn('o.business_status', ['cancelled', 'rejected', 'no_show'])
                 ->select(
                     'p.id',
                     'p.name',
                     'p.image',
-                    \Illuminate\Support\Facades\DB::raw('SUM(od.quantity) as total_qty'),
-                    \Illuminate\Support\Facades\DB::raw('SUM(od.price * od.quantity) as total_revenue')
+                    \Illuminate\Support\Facades\DB::raw('SUM(c.qty) as total_qty'),
+                    \Illuminate\Support\Facades\DB::raw('SUM(c.price * c.qty) as total_revenue')
                 )
                 ->groupBy('p.id', 'p.name', 'p.image')
                 ->orderByDesc('total_qty')

@@ -402,15 +402,15 @@
     <div class="db-pipeline">
         @php
             $pipeConfig = [
-                ['num' => $pipeline[0]['value']??0, 'label' => 'Nouvelles',     'cls' => 'amber',  'route' => route('restaurant.all_orders')],
-                ['num' => $pipeline[1]['value']??0, 'label' => 'Préparation',   'cls' => 'blue',   'route' => route('restaurant.all_orders')],
-                ['num' => $pipeline[2]['value']??0, 'label' => 'Livraison',     'cls' => 'indigo', 'route' => route('restaurant.pending_orders')],
-                ['num' => $pipeline[3]['value']??0, 'label' => 'Terminées auj.','cls' => 'green',  'route' => route('restaurant.complete_orders')],
+                ['num' => $pipeline[0]['value']??0, 'label' => 'Nouvelles',     'cls' => 'amber',  'route' => route('restaurant.all_orders'),      'data' => 'pending'],
+                ['num' => $pipeline[1]['value']??0, 'label' => 'Préparation',   'cls' => 'blue',   'route' => route('restaurant.all_orders'),      'data' => 'preparing'],
+                ['num' => $pipeline[2]['value']??0, 'label' => 'Livraison',     'cls' => 'indigo', 'route' => route('restaurant.pending_orders'),  'data' => 'delivering'],
+                ['num' => $pipeline[3]['value']??0, 'label' => 'Terminées auj.','cls' => 'green',  'route' => route('restaurant.complete_orders'), 'data' => 'done'],
             ];
         @endphp
         @foreach($pipeConfig as $p)
             <a href="{{ $p['route'] }}" class="db-pipe">
-                <span class="db-pipe__num db-pipe__num--{{ $p['cls'] }}">{{ $p['num'] }}</span>
+                <span class="db-pipe__num db-pipe__num--{{ $p['cls'] }}" data-pipeline="{{ $p['data'] }}">{{ $p['num'] }}</span>
                 <span class="db-pipe__label">{{ $p['label'] }}</span>
                 @if(!$loop->last)<span class="db-pipe__arrow"></span>@endif
             </a>
@@ -581,6 +581,35 @@ function dbAvail(action) {
         body: JSON.stringify(payload),
     }).then(r => r.json()).then(d => { if (d.status) location.reload(); });
 }
+
+// ── Rafraîchissement pipeline toutes les 20s (sans rechargement de page) ──────
+(function() {
+    var SIDEBAR_URL = '{{ route("restaurant.sidebar.stats") }}';
+
+    function refreshPipeline() {
+        fetch(SIDEBAR_URL, {
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            credentials: 'same-origin', cache: 'no-store'
+        })
+        .then(function(r) { return r.ok ? r.json() : null; })
+        .then(function(data) {
+            if (!data) return;
+            // Mettre à jour le badge de nouvelles commandes
+            var pendingEl = document.querySelector('[data-pipeline="pending"]');
+            if (pendingEl && data.pending_today !== undefined) {
+                pendingEl.textContent = data.pending_today;
+            }
+            // Mettre à jour le CA journalier
+            var revenueEl = document.querySelector('[data-kpi="revenue"]');
+            if (revenueEl && data.revenue_today !== undefined) {
+                revenueEl.textContent = new Intl.NumberFormat('fr-FR').format(data.revenue_today) + ' FCFA';
+            }
+        })
+        .catch(function() {});
+    }
+
+    setInterval(refreshPipeline, 20000);
+})();
 </script>
 @endsection
 
