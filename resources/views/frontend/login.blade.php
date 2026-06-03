@@ -287,6 +287,7 @@
 .bdl-btn-social .fab { font-size: 16px; }
 .bdl-btn-social.google .fab { color: #DB4437; }
 .bdl-btn-social.facebook .fab { color: #1877F2; }
+.bdl-social-disabled { opacity: 0.55; cursor: not-allowed; pointer-events: none; }
 
 /* Alerts */
 .bdl-alert {
@@ -504,22 +505,20 @@
                 </button>
             </form>
 
-            {{-- Social Auth --}}
-            @if($hasSocialAuth)
-                <div class="bdl-divider"><span>Ou</span></div>
-                <div class="bdl-social-row">
-                    @if($googleAuthEnabled)
-                        <a class="bdl-btn-social google" href="{{ route('auth.social.redirect', ['provider' => 'google', 'redirect' => $socialRedirect]) }}">
-                            <i class="fab fa-google"></i> Google
-                        </a>
-                    @endif
-                    @if($facebookAuthEnabled)
-                        <a class="bdl-btn-social facebook" href="{{ route('auth.social.redirect', ['provider' => 'facebook', 'redirect' => $socialRedirect]) }}">
-                            <i class="fab fa-facebook-f"></i> Facebook
-                        </a>
-                    @endif
-                </div>
-            @endif
+            {{-- Social Auth — toujours affiché, fonctionnel quand credentials configurés --}}
+            <div class="bdl-divider"><span>Ou</span></div>
+            <div class="bdl-social-row">
+                <a class="bdl-btn-social google{{ $googleAuthEnabled ? '' : ' bdl-social-disabled' }}"
+                   href="{{ $googleAuthEnabled ? route('auth.social.redirect', ['provider' => 'google', 'redirect' => $socialRedirect]) : '#' }}"
+                   @if(!$googleAuthEnabled) title="Connexion Google bientôt disponible" @endif>
+                    <i class="fab fa-google"></i> Google
+                </a>
+                <a class="bdl-btn-social facebook{{ $facebookAuthEnabled ? '' : ' bdl-social-disabled' }}"
+                   href="{{ $facebookAuthEnabled ? route('auth.social.redirect', ['provider' => 'facebook', 'redirect' => $socialRedirect]) : '#' }}"
+                   @if(!$facebookAuthEnabled) title="Connexion Facebook bientôt disponible" @endif>
+                    <i class="fab fa-facebook-f"></i> Facebook
+                </a>
+            </div>
 
             <div class="bdl-trust">
                 <div class="bdl-trust-item"><i class="fas fa-lock"></i> SSL sécurisé</div>
