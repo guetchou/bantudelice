@@ -30,42 +30,16 @@
         .bl-left {
             width: 42%;
             flex-shrink: 0;
-            display: flex;
-            position: relative;
-            overflow: hidden;
-        }
-
-        /* — Bande sombre + photos rectangulaires — */
-        .bl-strip {
-            width: 38%;
-            flex-shrink: 0;
-            background: #111;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            position: relative;
-            z-index: 2;
-        }
-        .bl-strip img {
-            width: 100%;
-            flex: 1;
-            object-fit: cover;
-            display: block;
-        }
-
-        /* — Zone orange + line art — */
-        .bl-orange {
-            flex: 1;
             background: #F5A41B;
             position: relative;
             overflow: hidden;
             display: flex;
             flex-direction: column;
-            padding: 28px 20px 28px 18px;
+            padding: 28px 24px;
         }
 
         /* Wavy edge droite */
-        .bl-orange::after {
+        .bl-left::after {
             content: '';
             position: absolute;
             top: 0; right: -44px; bottom: 0;
@@ -76,15 +50,25 @@
             pointer-events: none;
         }
 
-        /* Art linéaire food */
-        .bl-lineart {
+        /* Food orbs — cercles superposés comme la home */
+        .bl-orbs {
             position: absolute;
             inset: 0;
-            z-index: 1;
-            width: 100%;
-            height: 100%;
-            opacity: 0.18;
+            z-index: 2;
+            pointer-events: none;
         }
+        .bl-orb {
+            position: absolute;
+            border-radius: 50%;
+            overflow: hidden;
+            border: 4px solid rgba(255,255,255,0.85);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+        }
+        .bl-orb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .bl-o1 { width: 230px; height: 230px; top: 15%;  left: 10%; }
+        .bl-o2 { width: 170px; height: 170px; top:  9%;  right: 10%; }
+        .bl-o3 { width: 195px; height: 195px; bottom: 14%; left: 4%; }
+        .bl-o4 { width: 150px; height: 150px; bottom: 20%; right:  8%; }
 
         /* Brand */
         .bl-brand {
@@ -109,9 +93,9 @@
         /* Tagline bas */
         .bl-tagline {
             position: absolute;
-            bottom: 32px; left: 20px; right: 56px;
+            bottom: 32px; left: 24px; right: 56px;
             z-index: 6;
-            color: rgba(255,255,255,0.9);
+            color: rgba(255,255,255,0.92);
             font-size: 12.5px;
             font-weight: 600;
             line-height: 1.55;
@@ -335,80 +319,48 @@
 {{-- ══════════════ LEFT PANEL ══════════════ --}}
 <div class="bl-left">
 
-    {{-- Bande sombre : 3 photos rectangulaires empilées (écart #1) --}}
-    <div class="bl-strip">
-        <img src="{{ asset('frontend/images/g4.jpg') }}" alt=""
-             onerror="this.src='{{ asset('images/home/service-restaurant.jpg') }}'">
-        <img src="{{ asset('frontend/images/g1.jpg') }}" alt=""
-             onerror="this.src='{{ asset('images/home/service-driver.jpg') }}'">
-        <img src="{{ asset('frontend/images/g3.jpg') }}" alt=""
-             onerror="this.src='{{ asset('images/home/service-cuisine.jpg') }}'">
+    {{-- Food orbs — 4 cercles superposés, pattern identique à la section home --}}
+    <div class="bl-orbs">
+        <div class="bl-orb bl-o1">
+            <img src="{{ asset('frontend/images/g4.jpg') }}" alt=""
+                 onerror="this.src='{{ asset('images/home/service-restaurant.jpg') }}'">
+        </div>
+        <div class="bl-orb bl-o2">
+            <img src="{{ asset('frontend/images/g5.jpg') }}" alt=""
+                 onerror="this.src='{{ asset('images/home/service-driver.jpg') }}'">
+        </div>
+        <div class="bl-orb bl-o3">
+            <img src="{{ asset('frontend/images/g1.jpg') }}" alt=""
+                 onerror="this.src='{{ asset('images/home/service-cuisine.jpg') }}'">
+        </div>
+        <div class="bl-orb bl-o4">
+            <img src="{{ asset('frontend/images/g3.jpg') }}" alt=""
+                 onerror="this.src='{{ asset('images/home/service-restaurant.jpg') }}'">
+        </div>
     </div>
 
-    {{-- Zone orange --}}
-    <div class="bl-orange">
+    <div class="bl-brand">
+        <img src="{{ asset('frontend/images/BuntuDelice.png') }}" alt="BantuDelice">
+        <span class="bl-brand-name">BantuDelice</span>
+    </div>
 
-        {{-- Art linéaire food SVG (écart #2) --}}
-        <svg class="bl-lineart" viewBox="0 0 340 600" fill="none"
-             xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-            {{-- Bol principal --}}
-            <ellipse cx="170" cy="310" rx="145" ry="52" stroke="white" stroke-width="1.4"/>
-            <path d="M25 310 Q25 460 170 470 Q315 460 315 310" stroke="white" stroke-width="1.4" fill="none"/>
-            {{-- Rim détail --}}
-            <ellipse cx="170" cy="310" rx="130" ry="44" stroke="white" stroke-width="0.8"/>
-            {{-- Feuilles dans le bol --}}
-            <path d="M100 295 Q130 250 170 270 Q150 310 100 295Z" stroke="white" stroke-width="1.2" fill="none"/>
-            <path d="M240 295 Q210 250 170 270 Q190 310 240 295Z" stroke="white" stroke-width="1.2" fill="none"/>
-            <path d="M155 320 Q140 280 170 265 Q200 280 185 320Z" stroke="white" stroke-width="1" fill="none"/>
-            {{-- Tomates/légumes ronds --}}
-            <circle cx="130" cy="300" r="14" stroke="white" stroke-width="1"/>
-            <circle cx="210" cy="300" r="11" stroke="white" stroke-width="1"/>
-            <circle cx="170" cy="330" r="9"  stroke="white" stroke-width="1"/>
-            {{-- Tige courbe --}}
-            <path d="M170 265 Q165 200 185 160 Q195 130 175 100" stroke="white" stroke-width="1.2" fill="none"/>
-            {{-- Feuilles haut --}}
-            <path d="M185 160 Q220 140 230 110 Q200 115 185 160Z" stroke="white" stroke-width="1" fill="none"/>
-            <path d="M182 190 Q155 170 145 140 Q170 150 182 190Z" stroke="white" stroke-width="1" fill="none"/>
-            <path d="M186 135 Q210 100 205 70 Q185 90 186 135Z"  stroke="white" stroke-width="0.9" fill="none"/>
-            {{-- Cercle décoratif supérieur --}}
-            <circle cx="170" cy="140" r="55" stroke="white" stroke-width="0.8" stroke-dasharray="4 7"/>
-            {{-- Petits éléments --}}
-            <circle cx="80"  cy="200" r="22" stroke="white" stroke-width="0.9"/>
-            <circle cx="265" cy="230" r="18" stroke="white" stroke-width="0.9"/>
-            <circle cx="60"  cy="380" r="30" stroke="white" stroke-width="0.8" stroke-dasharray="3 6"/>
-            <circle cx="290" cy="390" r="24" stroke="white" stroke-width="0.8" stroke-dasharray="3 6"/>
-            {{-- Lignes radiales --}}
-            <line x1="170" y1="80"  x2="170" y2="540" stroke="white" stroke-width="0.6" stroke-dasharray="3 9"/>
-            <line x1="30"  y1="310" x2="310" y2="310" stroke="white" stroke-width="0.6" stroke-dasharray="3 9"/>
-            {{-- Herbes --}}
-            <path d="M95 275 Q88 255 96 238" stroke="white" stroke-width="1" fill="none"/>
-            <path d="M100 275 Q108 252 102 234" stroke="white" stroke-width="1" fill="none"/>
-            <path d="M240 278 Q248 258 242 240" stroke="white" stroke-width="1" fill="none"/>
+    <div class="bl-tagline">La cuisine congolaise<br>livrée chez vous</div>
+
+    {{-- Zigzag top-right --}}
+    <div class="bl-zap" style="top:14px; right:58px;">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+            <polyline points="3,2 10,10 3,18" stroke="rgba(0,0,0,0.28)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+            <polyline points="10,2 17,10 10,18" stroke="rgba(0,0,0,0.28)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
         </svg>
-
-        <div class="bl-brand">
-            <img src="{{ asset('frontend/images/BuntuDelice.png') }}" alt="BantuDelice">
-            <span class="bl-brand-name">BantuDelice</span>
-        </div>
-
-        <div class="bl-tagline">La cuisine congolaise<br>livrée chez vous</div>
-
-        {{-- Zigzag top-right orange --}}
-        <div class="bl-zap" style="top:14px; right:58px;">
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-                <polyline points="3,2 10,10 3,18" stroke="rgba(0,0,0,0.28)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-                <polyline points="10,2 17,10 10,18" stroke="rgba(0,0,0,0.28)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-        </div>
-        {{-- Zigzag bas-gauche orange --}}
-        <div class="bl-zap" style="bottom:70px; left:14px;">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-                <polyline points="4,3 12,12 4,21" stroke="rgba(0,0,0,0.22)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-                <polyline points="12,3 20,12 12,21" stroke="rgba(0,0,0,0.22)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-            </svg>
-        </div>
-
     </div>
+    {{-- Zigzag bas-gauche --}}
+    <div class="bl-zap" style="bottom:70px; left:14px;">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <polyline points="4,3 12,12 4,21" stroke="rgba(0,0,0,0.22)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+            <polyline points="12,3 20,12 12,21" stroke="rgba(0,0,0,0.22)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+    </div>
+
 </div>
 
 {{-- ══════════════ RIGHT PANEL ══════════════ --}}
