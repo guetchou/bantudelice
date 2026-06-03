@@ -3,671 +3,473 @@
 <head>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <title>Plateforme | Connexion Administration</title>
+    <title>BantuDelice — Connexion</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="icon" type="image/x-icon" href="{{asset('favicon.ico')}}">
-    
-    <!-- Poppins font -->
+    <link rel="icon" type="image/x-icon" href="{{ asset('favicon.ico') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-    
-    <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
-        :root {
-            --primary: #009543;
-            --primary-dark: #007836;
-            --primary-light: #22c55e;
-            --sidebar: #0a1a0f;
-            --gray-50: #F9FAFB;
-            --gray-100: #F3F4F6;
-            --gray-200: #E5E7EB;
-            --gray-300: #D1D5DB;
-            --gray-400: #9CA3AF;
-            --gray-500: #6B7280;
-            --gray-600: #4B5563;
-            --gray-700: #374151;
-            --gray-800: #1F2937;
-            --gray-900: #111827;
-        }
-        
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
         body {
-            font-family: 'Poppins', sans-serif;
+            font-family: 'Plus Jakarta Sans', Arial, sans-serif;
             min-height: 100vh;
             display: flex;
-            background: var(--sidebar);
             overflow: hidden;
         }
-        
-        /* Left Side - Branding */
-        .login-branding {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            padding: 3rem;
+
+        /* ══════════════ LEFT PANEL ══════════════ */
+        .bl-left {
+            width: 44%;
+            flex-shrink: 0;
+            background: #F5A41B;
             position: relative;
             overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            padding: 32px 28px 28px;
         }
-        
-        .login-branding::before {
+
+        /* Wavy edge */
+        .bl-left::after {
             content: '';
             position: absolute;
-            bottom: -80px;
-            right: -80px;
-            width: 320px;
-            height: 320px;
-            border-radius: 50%;
-            background: radial-gradient(circle, rgba(0,149,67,.14) 0%, transparent 70%);
+            top: 0; right: -44px; bottom: 0;
+            width: 88px;
+            background: #FAF8F4;
+            border-radius: 60% 0 0 60%;
+            z-index: 5;
             pointer-events: none;
         }
-        
-        .branding-content {
+
+        /* Brand */
+        .bl-brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
             position: relative;
-            z-index: 1;
-            text-align: center;
-            max-width: 500px;
+            z-index: 6;
         }
-        
-        .brand-logo {
-            width: 160px;
-            height: auto;
-            margin-bottom: 2rem;
-            filter: drop-shadow(0 4px 16px rgba(0,149,67,.25));
+        .bl-brand img {
+            height: 38px;
+            width: auto;
+            filter: brightness(0) invert(1);
         }
-        
-        .branding-content h1 {
-            font-size: 2.5rem;
+        .bl-brand-name {
+            font-size: 15px;
             font-weight: 800;
-            color: white;
-            margin-bottom: 1rem;
-            line-height: 1.2;
+            color: #fff;
+            letter-spacing: 0.4px;
         }
-        
-        .branding-content h1 span {
-            color: var(--primary);
+
+        /* Food orbs */
+        .bl-orbs {
+            position: absolute;
+            inset: 0;
+            z-index: 2;
         }
-        
-        .branding-content p {
-            font-size: 1.1rem;
-            color: var(--gray-400);
-            line-height: 1.7;
-            margin-bottom: 2rem;
+        .bl-orb {
+            position: absolute;
+            border-radius: 50%;
+            overflow: hidden;
+            border: 4px solid rgba(255,255,255,0.85);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.18);
         }
-        
-        .features-list {
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
+        .bl-orb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .bl-o1 { width: 230px; height: 230px; top: 15%;  left: 14%; }
+        .bl-o2 { width: 165px; height: 165px; top: 12%;  right: 8%; }
+        .bl-o3 { width: 190px; height: 190px; bottom: 14%; left: 4%; }
+        .bl-o4 { width: 148px; height: 148px; bottom: 18%; right: 10%; }
+
+        /* Tagline */
+        .bl-tagline {
+            position: absolute;
+            bottom: 36px; left: 32px; right: 60px;
+            z-index: 6;
+            color: rgba(255,255,255,0.92);
+            font-size: 13px; font-weight: 600;
+            line-height: 1.5;
         }
-        
-        .feature-item {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            color: var(--gray-300);
-            font-size: 0.95rem;
-        }
-        
-        .feature-item i {
-            width: 40px;
-            height: 40px;
-            background: #009543;
-            border-radius: 10px;
+
+        /* Zigzags */
+        .bl-zap { position: absolute; z-index: 6; }
+
+        /* ══════════════ RIGHT PANEL ══════════════ */
+        .bl-right {
+            flex: 1;
+            background: #FAF8F4;
             display: flex;
             align-items: center;
             justify-content: center;
-            color: white;
-            font-size: 1rem;
-            flex-shrink: 0;
-        }
-        
-        /* Right Side - Login Form */
-        .login-form-container {
-            width: 500px;
-            min-height: 100vh;
-            background: white;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            padding: 3rem;
+            padding: 40px 48px;
             position: relative;
+            overflow-y: auto;
         }
-        
-        .login-form-container::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 4px;
-            height: 100%;
-            background: #009543;
-        }
-        
-        .form-header {
-            margin-bottom: 2rem;
-        }
-        
-        .form-header h2 {
-            font-size: 1.75rem;
-            font-weight: 700;
-            color: var(--gray-900);
-            margin-bottom: 0.5rem;
-        }
-        
-        .form-header p {
-            color: var(--gray-500);
-            font-size: 0.95rem;
-        }
-        
-        .login-form {
-            display: flex;
-            flex-direction: column;
-            gap: 1.5rem;
-        }
-        
-        .form-group {
-            position: relative;
-        }
-        
-        .form-group label {
-            display: block;
-            font-size: 0.875rem;
-            font-weight: 600;
-            color: var(--gray-700);
-            margin-bottom: 0.5rem;
-        }
-        
-        .input-wrapper {
-            position: relative;
-        }
-        
-        .input-wrapper i {
-            position: absolute;
-            left: 1rem;
-            top: 50%;
-            transform: translateY(-50%);
-            color: var(--gray-400);
-            font-size: 1rem;
-            transition: color 0.3s ease;
-        }
-        
-        .input-wrapper input {
+        .bl-zap-r { position: absolute; }
+
+        .bl-card {
             width: 100%;
-            padding: 0.875rem 1rem 0.875rem 3rem;
-            border: 2px solid var(--gray-200);
-            border-radius: 12px;
-            font-family: inherit;
-            font-size: 1rem;
-            color: var(--gray-900);
-            transition: all 0.3s ease;
-            background: var(--gray-50);
+            max-width: 400px;
+            position: relative;
+            z-index: 2;
         }
-        
-        .input-wrapper input:focus {
-            outline: none;
-            border-color: var(--primary);
-            background: white;
-            box-shadow: 0 0 0 4px rgba(0,149,67,.15);
+
+        .bl-card h2 {
+            font-size: 28px;
+            font-weight: 800;
+            color: #1a1a1a;
+            text-transform: uppercase;
+            letter-spacing: -0.5px;
+            margin-bottom: 24px;
         }
-        
-        .input-wrapper input:focus + i,
-        .input-wrapper input:focus ~ i {
-            color: var(--primary);
+
+        /* Alerts */
+        .bl-alert {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 16px;
+            border-radius: 10px;
+            font-size: 13px;
+            margin-bottom: 16px;
         }
-        
-        .input-wrapper input::placeholder {
-            color: var(--gray-400);
-        }
-        
-        .password-toggle {
-            position: absolute;
-            right: 1rem;
-            top: 50%;
-            transform: translateY(-50%);
-            background: none;
+        .bl-alert.error   { background: #fdecea; color: #c0392b; }
+        .bl-alert.success { background: #e8f7ee; color: #1a7a40; }
+
+        /* Fields */
+        .bl-field { margin-bottom: 14px; }
+        .bl-field input {
+            width: 100%;
+            background: #EDECEB;
             border: none;
-            color: var(--gray-400);
-            cursor: pointer;
-            padding: 0.25rem;
-            transition: color 0.3s ease;
+            border-radius: 12px;
+            padding: 15px 18px;
+            font-size: 14px;
+            color: #1a1a1a;
+            outline: none;
+            font-family: inherit;
+            transition: background 0.2s, box-shadow 0.2s;
         }
-        
-        .password-toggle:hover {
-            color: var(--gray-600);
+        .bl-field input::placeholder { color: #999; }
+        .bl-field input:focus {
+            background: #e5e4e2;
+            box-shadow: 0 0 0 3px rgba(0,149,67,0.2);
         }
-        
-        .form-options {
+        .bl-field-error { font-size: 12px; color: #c0392b; margin-top: 5px; padding-left: 4px; }
+
+        /* Password wrapper */
+        .bl-pw { position: relative; }
+        .bl-pw input { padding-right: 48px; }
+        .bl-pw-toggle {
+            position: absolute; right: 14px; top: 50%;
+            transform: translateY(-50%);
+            background: none; border: none;
+            cursor: pointer; color: #999;
+            font-size: 15px; line-height: 1;
+            transition: color 0.2s;
+        }
+        .bl-pw-toggle:hover { color: #555; }
+
+        /* Options row */
+        .bl-options {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            margin-bottom: 18px;
         }
-        
-        .remember-me {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            cursor: pointer;
-        }
-        
-        .remember-me input[type="checkbox"] {
-            width: 18px;
-            height: 18px;
-            accent-color: var(--primary);
-            cursor: pointer;
-        }
-        
-        .remember-me span {
-            font-size: 0.9rem;
-            color: var(--gray-600);
-        }
-        
-        .forgot-password {
-            font-size: 0.9rem;
-            color: var(--primary);
-            text-decoration: none;
-            font-weight: 500;
-            transition: color 0.3s ease;
-        }
-        
-        .forgot-password:hover {
-            color: var(--primary-dark);
-            text-decoration: underline;
-        }
-        
-        .btn-login {
+        .bl-remember { display: flex; align-items: center; gap: 7px; }
+        .bl-remember input { width: 15px; height: 15px; accent-color: #009543; cursor: pointer; }
+        .bl-remember label { font-size: 13px; color: #555; cursor: pointer; }
+        .bl-forgot { font-size: 13px; color: #009543; text-decoration: none; font-weight: 500; }
+        .bl-forgot:hover { text-decoration: underline; }
+
+        /* Submit */
+        .bl-btn-submit {
             width: 100%;
-            padding: 1rem;
             background: #009543;
+            color: #fff;
             border: none;
             border-radius: 12px;
-            color: white;
-            font-family: inherit;
-            font-size: 1rem;
-            font-weight: 600;
+            padding: 15px;
+            font-size: 15px;
+            font-weight: 700;
             cursor: pointer;
-            transition: all 0.3s ease;
+            font-family: inherit;
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 0.5rem;
+            gap: 8px;
+            transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
             position: relative;
             overflow: hidden;
         }
-        
-        .btn-login::before {
+        .bl-btn-submit:hover {
+            background: #007836;
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(0,149,67,0.3);
+        }
+        .bl-btn-submit:active { transform: translateY(0); }
+        .bl-btn-submit.loading { opacity: 0.75; pointer-events: none; }
+        .bl-btn-submit.loading .btn-text { visibility: hidden; }
+        .bl-btn-submit.loading::after {
             content: '';
             position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-            transition: left 0.5s ease;
-        }
-        
-        .btn-login:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 30px rgba(0,149,67,.3);
-        }
-        
-        .btn-login:hover::before {
-            left: 100%;
-        }
-        
-        .btn-login:active {
-            transform: translateY(0);
-        }
-        
-        .divider {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            color: var(--gray-400);
-            font-size: 0.875rem;
-        }
-        
-        .divider::before,
-        .divider::after {
-            content: '';
-            flex: 1;
-            height: 1px;
-            background: var(--gray-200);
-        }
-        
-        .social-login {
-            display: flex;
-            gap: 1rem;
-        }
-        
-        .btn-social {
-            flex: 1;
-            padding: 0.875rem;
-            border: 2px solid var(--gray-200);
-            border-radius: 12px;
-            background: white;
-            font-family: inherit;
-            font-size: 0.9rem;
-            font-weight: 500;
-            color: var(--gray-700);
-            cursor: pointer;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
-        }
-        
-        .btn-social:hover {
-            border-color: var(--gray-300);
-            background: var(--gray-50);
-        }
-        
-        .btn-social.google i { color: #DB4437; }
-        .btn-social.facebook i { color: #4267B2; }
-        
-        .form-footer {
-            text-align: center;
-            margin-top: 1.5rem;
-            padding-top: 1.5rem;
-            border-top: 1px solid var(--gray-200);
-        }
-        
-        .form-footer p {
-            color: var(--gray-500);
-            font-size: 0.9rem;
-        }
-        
-        .form-footer a {
-            color: var(--primary);
-            text-decoration: none;
-            font-weight: 600;
-            transition: color 0.3s ease;
-        }
-        
-        .form-footer a:hover {
-            color: var(--primary-dark);
-            text-decoration: underline;
-        }
-        
-        /* Alert Messages */
-        .alert {
-            padding: 1rem;
-            border-radius: 10px;
-            margin-bottom: 1rem;
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            font-size: 0.9rem;
-        }
-        
-        .alert-danger {
-            background: #FEE2E2;
-            color: #991B1B;
-            border: 1px solid #FECACA;
-        }
-        
-        .alert-success {
-            background: #D1FAE5;
-            color: #065F46;
-            border: 1px solid #A7F3D0;
-        }
-        
-        .alert i {
-            font-size: 1.25rem;
-        }
-        
-        /* Responsive */
-        @media (max-width: 1024px) {
-            .login-branding {
-                display: none;
-            }
-            
-            .login-form-container {
-                width: 100%;
-                max-width: 480px;
-                margin: 0 auto;
-                min-height: auto;
-                padding: 2rem;
-                border-radius: 20px;
-                margin-top: 2rem;
-                margin-bottom: 2rem;
-            }
-            
-            .login-form-container::before {
-                display: none;
-            }
-            
-            body {
-                padding: 1rem;
-                align-items: center;
-                justify-content: center;
-            }
-        }
-        
-        @media (max-width: 480px) {
-            .login-form-container {
-                padding: 1.5rem;
-            }
-            
-            .social-login {
-                flex-direction: column;
-            }
-        }
-        
-        /* Loading State */
-        .btn-login.loading {
-            pointer-events: none;
-            opacity: 0.8;
-        }
-        
-        .btn-login.loading .btn-text {
-            visibility: hidden;
-        }
-        
-        .btn-login.loading::after {
-            content: '';
-            position: absolute;
-            width: 20px;
-            height: 20px;
-            border: 2px solid white;
+            width: 18px; height: 18px;
+            border: 2px solid #fff;
             border-top-color: transparent;
             border-radius: 50%;
-            animation: spin 0.8s linear infinite;
+            animation: bl-spin 0.7s linear infinite;
         }
-        
-        @keyframes spin {
-            to { transform: rotate(360deg); }
+        @keyframes bl-spin { to { transform: rotate(360deg); } }
+
+        /* Divider */
+        .bl-divider {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin: 20px 0;
+            color: #aaa;
+            font-size: 13px;
+        }
+        .bl-divider::before, .bl-divider::after {
+            content: ''; flex: 1; height: 1px; background: #d9d8d6;
+        }
+
+        /* Social */
+        .bl-social { display: flex; gap: 12px; margin-bottom: 20px; }
+        .bl-btn-soc {
+            flex: 1;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            padding: 12px; border-radius: 12px;
+            border: 1.5px solid #d9d8d6; background: #fff;
+            color: #1a1a1a; font-size: 13px; font-weight: 600;
+            text-decoration: none; font-family: inherit; cursor: pointer;
+            transition: border-color 0.2s, box-shadow 0.2s;
+        }
+        .bl-btn-soc:hover { border-color: #bbb; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+        .bl-btn-soc .fab { font-size: 16px; }
+        .bl-btn-soc.google   .fab { color: #DB4437; }
+        .bl-btn-soc.facebook .fab { color: #1877F2; }
+        .bl-soc-disabled { opacity: 0.5; cursor: not-allowed; pointer-events: none; }
+
+        /* Footer */
+        .bl-footer {
+            text-align: center;
+            font-size: 12.5px;
+            color: #888;
+            padding-top: 16px;
+            border-top: 1px solid #e8e6e3;
+            line-height: 1.9;
+        }
+        .bl-footer a { color: #009543; font-weight: 600; text-decoration: none; }
+        .bl-footer a:hover { text-decoration: underline; }
+
+        /* ══════════════ RESPONSIVE ══════════════ */
+        @media (max-width: 900px) {
+            .bl-left { display: none; }
+            .bl-right { padding: 32px 20px; }
+        }
+        @media (max-width: 480px) {
+            .bl-social { flex-direction: column; }
+            .bl-card h2 { font-size: 22px; }
         }
     </style>
 </head>
 <body>
-    <!-- Left Side - Branding -->
-    <div class="login-branding">
-        <div class="branding-content">
-            <img src="{{asset('frontend/images/BuntuDelice.png')}}" alt="BantuDelice" class="brand-logo">
-            <h1>Bienvenue sur <span>BantuDelice</span></h1>
-            <p>Connectez-vous pour piloter les commandes, les livraisons et les opérations de votre restaurant au Congo.</p>
-            
-            <div class="features-list">
-                <div class="feature-item">
-                    <i class="fas fa-utensils"></i>
-                    <span>Gestion des commandes en temps réel</span>
-                </div>
-                <div class="feature-item">
-                    <i class="fas fa-bell"></i>
-                    <span>Alertes sonores à chaque nouvelle commande</span>
-                </div>
-                <div class="feature-item">
-                    <i class="fas fa-map-marker-alt"></i>
-                    <span>Suivi GPS des livreurs en direct</span>
-                </div>
-                <div class="feature-item">
-                    <i class="fas fa-mobile-alt"></i>
-                    <span>Accessible depuis ordinateur et mobile</span>
-                </div>
+
+    {{-- ══════════════ LEFT PANEL ══════════════ --}}
+    <div class="bl-left">
+
+        <div class="bl-brand">
+            <img src="{{ asset('frontend/images/BuntuDelice.png') }}" alt="BantuDelice">
+            <span class="bl-brand-name">BantuDelice</span>
+        </div>
+
+        <div class="bl-orbs" aria-hidden="true">
+            <div class="bl-orb bl-o1">
+                <img src="{{ asset('frontend/images/g4.jpg') }}" alt=""
+                     onerror="this.src='{{ asset('images/home/service-restaurant.jpg') }}'">
+            </div>
+            <div class="bl-orb bl-o2">
+                <img src="{{ asset('frontend/images/g5.jpg') }}" alt=""
+                     onerror="this.src='{{ asset('images/home/service-driver.jpg') }}'">
+            </div>
+            <div class="bl-orb bl-o3">
+                <img src="{{ asset('frontend/images/g1.jpg') }}" alt=""
+                     onerror="this.src='{{ asset('images/home/service-restaurant.jpg') }}'">
+            </div>
+            <div class="bl-orb bl-o4">
+                <img src="{{ asset('frontend/images/g3.jpg') }}" alt=""
+                     onerror="this.src='{{ asset('images/home/service-cuisine.jpg') }}'">
             </div>
         </div>
+
+        <div class="bl-tagline">La cuisine congolaise<br>livrée chez vous</div>
+
+        <div class="bl-zap" style="top:16px; right:60px;">
+            <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+                <polyline points="4,2 12,11 4,20" stroke="rgba(0,0,0,0.3)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <polyline points="11,2 19,11 11,20" stroke="rgba(0,0,0,0.3)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </div>
+        <div class="bl-zap" style="bottom:80px; left:20px;">
+            <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+                <polyline points="5,3 14,14 5,25" stroke="rgba(0,0,0,0.25)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <polyline points="14,3 23,14 14,25" stroke="rgba(0,0,0,0.25)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </div>
+
     </div>
-    
-    <!-- Right Side - Login Form -->
-    <div class="login-form-container">
-        <div class="form-header">
-            <h2>Connexion</h2>
-            <p>Connectez-vous pour accéder à votre espace professionnel</p>
-        </div>
-        
-        @if(isset($errors) && $errors->any())
-            <div class="alert alert-danger">
-                <i class="fas fa-exclamation-circle"></i>
-                <span>{{ $errors->first() }}</span>
-            </div>
-        @endif
-        
-        @if(session('alert'))
-            @php
-                $alert = session('alert');
-                $alertType = is_array($alert) && isset($alert['type']) ? $alert['type'] : 'danger';
-                $alertMessage = is_array($alert) && isset($alert['message']) ? $alert['message'] : (is_array($alert) && isset($alert['heading']) ? $alert['heading'] : 'Une erreur est survenue');
-            @endphp
-            <div class="alert {{ $alertType == 'danger' ? 'alert-danger' : 'alert-success' }}">
-                <i class="fas {{ $alertType == 'danger' ? 'fa-exclamation-circle' : 'fa-check-circle' }}"></i>
-                <span>{{ $alertMessage }}</span>
-            </div>
-        @endif
-        
-        @if(session('success'))
-            <div class="alert alert-success">
-                <i class="fas fa-check-circle"></i>
-                <span>{{ session('success') }}</span>
-            </div>
-        @endif
 
-        <div class="divider">
-            <span>Connexion</span>
+    {{-- ══════════════ RIGHT PANEL ══════════════ --}}
+    <div class="bl-right">
+
+        <div class="bl-zap-r" style="top:20px; right:60px;">
+            <svg width="20" height="20" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+                <polyline points="4,2 12,11 4,20" stroke="#1a1a1a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <polyline points="11,2 19,11 11,20" stroke="#1a1a1a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </div>
+        <div class="bl-zap-r" style="bottom:28px; right:48px;">
+            <svg width="34" height="22" viewBox="0 0 34 22" fill="none" aria-hidden="true">
+                <polyline points="2,2 10,11 2,20" stroke="#F5A41B" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <polyline points="13,2 21,11 13,20" stroke="#F5A41B" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </div>
+        <div class="bl-zap-r" style="bottom:60px; left:32px;">
+            <svg width="18" height="18" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+                <polyline points="4,2 12,11 4,20" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
         </div>
 
-        <form method="post" action="{{ url('login') }}" class="login-form" id="loginForm">
-            @csrf
+        <div class="bl-card">
+            <h2>Bienvenue !</h2>
 
-            <div class="form-group">
-                <label for="identifier">Email, téléphone ou nom d'utilisateur</label>
-                <div class="input-wrapper">
+            {{-- Alertes --}}
+            @if(isset($errors) && $errors->any())
+                <div class="bl-alert error">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <span>{{ $errors->first() }}</span>
+                </div>
+            @endif
+
+            @if(session('alert'))
+                @php
+                    $alert = session('alert');
+                    $alertType = is_array($alert) && isset($alert['type']) ? $alert['type'] : 'danger';
+                    $alertMessage = is_array($alert) && isset($alert['message']) ? $alert['message'] : (is_array($alert) && isset($alert['heading']) ? $alert['heading'] : 'Une erreur est survenue');
+                @endphp
+                <div class="bl-alert {{ $alertType === 'danger' ? 'error' : 'success' }}">
+                    <i class="fas {{ $alertType === 'danger' ? 'fa-exclamation-circle' : 'fa-check-circle' }}"></i>
+                    <span>{{ $alertMessage }}</span>
+                </div>
+            @endif
+
+            @if(session('success'))
+                <div class="bl-alert success">
+                    <i class="fas fa-check-circle"></i>
+                    <span>{{ session('success') }}</span>
+                </div>
+            @endif
+
+            {{-- Formulaire --}}
+            <form method="post" action="{{ url('login') }}" id="loginForm">
+                @csrf
+
+                <div class="bl-field">
                     <input type="text"
                            id="identifier"
                            name="identifier"
                            value="{{ old('identifier') }}"
-                           placeholder="email, +242 06…, ou nom"
+                           placeholder="Email, +242 06… ou nom d'utilisateur"
                            required
                            autocomplete="username"
                            autofocus>
-                    <i class="fas fa-user" id="identifierIcon"></i>
+                    @error('identifier')
+                        <div class="bl-field-error"><i class="fas fa-exclamation-circle"></i> {{ $message }}</div>
+                    @enderror
                 </div>
-                @error('identifier')
-                    <span style="color:#dc2626;font-size:.8rem;">{{ $message }}</span>
-                @enderror
-            </div>
-            
-            <div class="form-group">
-                <label for="password">Mot de passe</label>
-                <div class="input-wrapper">
-                    <input type="password" 
-                           id="password" 
-                           name="password" 
-                           placeholder="Votre mot de passe"
-                           required
-                           autocomplete="current-password">
-                    <i class="fas fa-lock"></i>
-                    <button type="button" class="password-toggle" onclick="togglePassword()">
-                        <i class="fas fa-eye" id="toggleIcon"></i>
-                    </button>
+
+                <div class="bl-field">
+                    <div class="bl-pw">
+                        <input type="password"
+                               id="password"
+                               name="password"
+                               placeholder="Mot de passe"
+                               required
+                               autocomplete="current-password">
+                        <button type="button" class="bl-pw-toggle" onclick="togglePassword()" aria-label="Afficher le mot de passe">
+                            <i class="fas fa-eye" id="toggleIcon"></i>
+                        </button>
+                    </div>
                 </div>
-            </div>
-            
-            <div class="form-options">
-                <label class="remember-me">
-                    <input type="checkbox" name="remember" id="remember">
-                    <span>Se souvenir de moi</span>
-                </label>
-                <a href="{{ url('password/reset') }}" class="forgot-password">Mot de passe oublié ?</a>
-            </div>
-            
-            <button type="submit" class="btn-login" id="btnLogin">
-                <span class="btn-text">Se connecter</span>
-                <i class="fas fa-arrow-right"></i>
-            </button>
-        </form>
-        
-        <div class="form-footer">
-            <p>Vous n'avez pas de compte ? 
-                <a href="{{ url('/partner/registration') }}">Devenir partenaire restaurant</a> ou 
-                <a href="{{ route('user.signup') }}">Créer un compte client</a>
-            </p>
-            <p style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--gray-200);">
-                <strong>Vous êtes un client ?</strong> 
-                <a href="{{ url('/user/login') }}" style="display: inline-flex; align-items: center; gap: 0.25rem;">
-                    Connectez-vous ici <i class="fas fa-arrow-right" style="font-size: 0.75rem;"></i>
+
+                <div class="bl-options">
+                    <div class="bl-remember">
+                        <input type="checkbox" name="remember" id="remember">
+                        <label for="remember">Se souvenir de moi</label>
+                    </div>
+                    <a href="{{ url('password/reset') }}" class="bl-forgot">Mot de passe oublié ?</a>
+                </div>
+
+                <button type="submit" class="bl-btn-submit" id="btnLogin">
+                    <span class="btn-text">Se connecter</span>
+                    <i class="fas fa-arrow-right"></i>
+                </button>
+            </form>
+
+            {{-- Social --}}
+            <div class="bl-divider"><span>Ou</span></div>
+            <div class="bl-social">
+                <a class="bl-btn-soc google bl-soc-disabled" href="#" title="Bientôt disponible">
+                    <i class="fab fa-google"></i> Google
                 </a>
-            </p>
-            <p style="margin-top: 0.5rem;"><a href="{{ url('/') }}">← Retour au site</a></p>
+                <a class="bl-btn-soc facebook bl-soc-disabled" href="#" title="Bientôt disponible">
+                    <i class="fab fa-facebook-f"></i> Facebook
+                </a>
+            </div>
+
+            {{-- Footer --}}
+            <div class="bl-footer">
+                <p>Pas encore de compte ?
+                    <a href="{{ url('/partner/registration') }}">Devenir partenaire</a> —
+                    <a href="{{ route('user.signup') }}">Créer un compte client</a>
+                </p>
+                <p><a href="{{ url('/') }}">← Retour au site</a></p>
+            </div>
         </div>
+
     </div>
-    
+
     <script>
-        // Icône dynamique selon le type de saisie
+        function togglePassword() {
+            const input = document.getElementById('password');
+            const icon  = document.getElementById('toggleIcon');
+            const show  = input.type === 'password';
+            input.type  = show ? 'text' : 'password';
+            icon.classList.toggle('fa-eye',       !show);
+            icon.classList.toggle('fa-eye-slash',  show);
+        }
+
+        // Icône dynamique : email / téléphone / user
         document.getElementById('identifier')?.addEventListener('input', function() {
-            var val  = this.value.trim();
-            var icon = document.getElementById('identifierIcon');
-            if (!icon) return;
-            if (val.includes('@')) {
-                icon.className = 'fas fa-envelope';
-            } else if (/^(\+|0[456]|\d{3})/.test(val)) {
-                icon.className = 'fas fa-phone';
-            } else {
-                icon.className = 'fas fa-user';
-            }
+            var val = this.value.trim();
+            // Aucune icône dans le nouveau design — log supprimé
         });
 
-        // Toggle password visibility
-        function togglePassword() {
-            const passwordInput = document.getElementById('password');
-            const toggleIcon = document.getElementById('toggleIcon');
-            
-            if (passwordInput.type === 'password') {
-                passwordInput.type = 'text';
-                toggleIcon.classList.remove('fa-eye');
-                toggleIcon.classList.add('fa-eye-slash');
-            } else {
-                passwordInput.type = 'password';
-                toggleIcon.classList.remove('fa-eye-slash');
-                toggleIcon.classList.add('fa-eye');
-            }
-        }
-        
-        // Form submission with loading state
-        document.getElementById('loginForm').addEventListener('submit', function(e) {
-            const btn = document.getElementById('btnLogin');
-            btn.classList.add('loading');
+        document.getElementById('loginForm').addEventListener('submit', function() {
+            document.getElementById('btnLogin').classList.add('loading');
         });
-        
-        // Connexion sociale: disponible côté clients (page /user/login)
-        
-        // Auto-hide alerts
+
+        // Auto-dismiss alerts
         setTimeout(() => {
-            document.querySelectorAll('.alert').forEach(alert => {
-                alert.style.opacity = '0';
-                alert.style.transform = 'translateY(-10px)';
-                alert.style.transition = 'all 0.3s ease';
-                setTimeout(() => alert.remove(), 300);
+            document.querySelectorAll('.bl-alert').forEach(el => {
+                el.style.transition = 'opacity 0.3s, transform 0.3s';
+                el.style.opacity    = '0';
+                el.style.transform  = 'translateY(-8px)';
+                setTimeout(() => el.remove(), 300);
             });
         }, 5000);
     </script>
