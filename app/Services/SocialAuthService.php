@@ -186,28 +186,32 @@ class SocialAuthService
         $tokens = $tokenResponse->json();
         $accessToken = $tokens['access_token'];
         
-        // Récupérer les infos utilisateur
+        // Récupérer les infos utilisateur avec appsecret_proof (HMAC-SHA256 du token)
+        $appSecret = config('external-services.social_auth.facebook.client_secret', '');
+        $appsecretProof = hash_hmac('sha256', $accessToken, $appSecret);
+
         $userResponse = Http::get('https://graph.facebook.com/me', [
-            'access_token' => $accessToken,
-            'fields' => 'id,name,email,picture.type(large)',
+            'access_token'    => $accessToken,
+            'appsecret_proof' => $appsecretProof,
+            'fields'          => 'id,name,email,picture.type(large)',
         ]);
-        
+
         if (!$userResponse->successful()) {
             throw new \RuntimeException('Impossible de récupérer les informations utilisateur');
         }
-        
+
         $fbUser = $userResponse->json();
-        
+
         return self::findOrCreateUser([
-            'provider' => 'facebook',
-            'provider_id' => $fbUser['id'],
-            'email' => $fbUser['email'] ?? null,
-            'name' => $fbUser['name'],
-            'avatar' => $fbUser['picture']['data']['url'] ?? null,
+            'provider'       => 'facebook',
+            'provider_id'    => $fbUser['id'],
+            'email'          => $fbUser['email'] ?? null,
+            'name'           => $fbUser['name'],
+            'avatar'         => $fbUser['picture']['data']['url'] ?? null,
             'email_verified' => !empty($fbUser['email']),
         ]);
     }
-    
+
     /**
      * Authentifier via token (pour app mobile)
      * 
@@ -259,15 +263,20 @@ class SocialAuthService
      */
     protected static function authenticateFacebookToken(string $accessToken): array
     {
+        // appsecret_proof : HMAC-SHA256(access_token, app_secret) — exigé par Meta
+        $appSecret = config('external-services.social_auth.facebook.client_secret', '');
+        $appsecretProof = hash_hmac('sha256', $accessToken, $appSecret);
+
         $response = Http::get('https://graph.facebook.com/me', [
-            'access_token' => $accessToken,
-            'fields' => 'id,name,email,picture.type(large)',
+            'access_token'    => $accessToken,
+            'appsecret_proof' => $appsecretProof,
+            'fields'          => 'id,name,email,picture.type(large)',
         ]);
-        
+
         if (!$response->successful()) {
             throw new \RuntimeException('Token Facebook invalide');
         }
-        
+
         $fbUser = $response->json();
         
         return self::findOrCreateUser([
