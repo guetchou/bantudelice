@@ -130,12 +130,17 @@ return [
             'whatsapp_from'  => env('TWILIO_WHATSAPP_FROM', 'whatsapp:+14155238886'),
         ],
 
-        // SMS via MTN Congo (SMS v3 API directe)
+        // SMS via MTN Congo (SMS v3 API)
         'mtn_sms' => [
             'enabled'         => env('MTN_SMS_ENABLED', false),
             'consumer_key'    => env('MTN_SMS_CONSUMER_KEY'),
             'consumer_secret' => env('MTN_SMS_CONSUMER_SECRET'),
+            'subscription_key'=> env('MTN_SMS_SUBSCRIPTION_KEY'),
             'sender_id'       => env('MTN_SMS_SENDER_ID', 'BantuDelice'),
+            'environment'     => env('MTN_SMS_ENVIRONMENT', 'production'),
+            'base_url'        => env('MTN_SMS_BASE_URL', 'https://api.mtn.com'),
+            'token_url'       => env('MTN_SMS_TOKEN_URL', 'https://api.mtn.com/v1/oauth/access_token'),
+            'send_url'        => env('MTN_SMS_SEND_URL', 'https://api.mtn.com/v3/sms/messages/sms/outbound'),
         ],
 
         // SMS via Africa's Talking

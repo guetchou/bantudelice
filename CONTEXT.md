@@ -6,6 +6,21 @@
 
 ---
 
+## Bases de données — LIRE EN PREMIER
+
+Le VPS a **deux bases MySQL** dans le container `bantudelice-db-new` (port 3336) :
+
+| Base | État | Usage |
+|---|---|---|
+| `bantudelice` | **VIDE** — tables créées le 17/05, jamais peuplées | Future base prod réelle |
+| `bantudelice_repro` | 10 users, 8 restaurants, 10 livreurs | **Base démo active** |
+
+**Le `.env` doit pointer vers `DB_DATABASE=bantudelice_repro`** tant qu'il n'y a pas de clients réels.
+
+Le site est en pré-lancement — aucun client réel. Voir [docs/demo-accounts.md](docs/demo-accounts.md) pour tous les comptes et mots de passe.
+
+---
+
 ## État stable connu
 
 - **470/470 tests PHPUnit verts** (suite complète)

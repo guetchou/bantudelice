@@ -7,10 +7,13 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Mail;
 use App\Services\ConfigService;
+use Illuminate\Support\Str;
 
 /**
  * Service SMS unifié pour l'envoi de messages et OTP
- * Supporte: Twilio, Africa's Talking, BulkGate, SMS Local Congo
+ * Supporte: MTN SMS v3 (Congo), Africa's Talking, Twilio, BulkGate, SMS Local Congo
+ *
+ * Routing : numéros +242 → MTN en priorité, fallback Africa's Talking.
  */
 class SmsService
 {
@@ -33,36 +36,41 @@ class SmsService
      */
     public static function send(string $phone, string $message): array
     {
-        // Normaliser le numéro de téléphone
-        $phone = self::normalizePhone($phone);
-        
-        // Déterminer le provider actif
+        $phone  = self::normalizePhone($phone);
         $config = config('external-services.notifications');
-        
-        // Essayer dans l'ordre de priorité
+
+        // Numéros Congo (+242) → MTN v3 en priorité, fallback Africa's Talking
+        if (str_starts_with($phone, '+242')) {
+            if ($config['mtn_sms']['enabled'] ?? false) {
+                $result = self::sendViaMtnSms($phone, $message);
+                if ($result['success']) return $result;
+                Log::warning('MTN SMS échoué, fallback Africa\'s Talking', ['phone' => substr($phone, 0, -4).'****', 'error' => $result['error'] ?? '']);
+            }
+            if ($config['africastalking']['enabled'] ?? false) {
+                return self::sendViaAfricasTalking($phone, $message);
+            }
+        }
+
+        // Autres numéros — ordre classique
         if ($config['twilio']['enabled'] ?? false) {
             return self::sendViaTwilio($phone, $message);
         }
-        
         if ($config['africastalking']['enabled'] ?? false) {
             return self::sendViaAfricasTalking($phone, $message);
         }
-        
         if ($config['bulkgate']['enabled'] ?? false) {
             return self::sendViaBulkGate($phone, $message);
         }
-        
         if ($config['sms_local']['enabled'] ?? false) {
             return self::sendViaLocalProvider($phone, $message);
         }
-        
-        // Mode démo si aucun provider configuré
+
         Log::info('SMS (mode démo)', ['phone' => $phone, 'message' => $message]);
         return [
-            'success' => true,
+            'success'    => true,
             'message_id' => 'DEMO-' . time(),
-            'demo' => true,
-            'note' => 'Aucun provider SMS configuré. Activez Twilio, Africa\'s Talking ou un provider local dans .env'
+            'demo'       => true,
+            'note'       => 'Aucun provider SMS configuré.',
         ];
     }
     
@@ -238,6 +246,94 @@ class SmsService
         return self::send($phone, $message);
     }
     
+    /**
+     * Envoyer via MTN SMS v3 API (Congo +242)
+     * Auth : OAuth2 Client Credentials → Bearer token mis en cache 55 min
+     */
+    protected static function sendViaMtnSms(string $phone, string $message): array
+    {
+        $cfg = config('external-services.notifications.mtn_sms');
+
+        try {
+            $token = self::mtnOAuthToken($cfg);
+            if (!$token) {
+                return ['success' => false, 'error' => 'mtn_token_failed', 'provider' => 'mtn_sms'];
+            }
+
+            $correlator = 'BD-' . Str::upper(Str::random(10)) . '-' . time();
+            $headers    = [
+                'Authorization'            => 'Bearer ' . $token,
+                'Content-Type'             => 'application/json',
+                'Accept'                   => 'application/json',
+            ];
+            if (!empty($cfg['subscription_key'])) {
+                $headers['Ocp-Apim-Subscription-Key'] = $cfg['subscription_key'];
+            }
+
+            $response = Http::withHeaders($headers)
+                ->timeout(15)
+                ->post($cfg['send_url'], [
+                    'outboundSMSMessageRequest' => [
+                        'address'              => [$phone],
+                        'senderAddress'        => $cfg['sender_id'] ?? 'BantuDelice',
+                        'outboundSMSTextMessage' => ['message' => $message],
+                        'clientCorrelator'     => $correlator,
+                        'requestDeliveryReceipt' => false,
+                    ],
+                ]);
+
+            if ($response->successful()) {
+                $data = $response->json();
+                $resourceUrl = data_get($data, 'outboundSMSMessageRequest.resourceURL')
+                    ?? data_get($data, 'resourceReference.resourceURL')
+                    ?? $correlator;
+                Log::info('[MTN SMS] envoyé', ['to' => substr($phone, 0, -4).'****', 'correlator' => $correlator]);
+                return ['success' => true, 'message_id' => $resourceUrl, 'provider' => 'mtn_sms'];
+            }
+
+            $err = $response->json()['message'] ?? $response->json()['error'] ?? $response->body();
+            Log::warning('[MTN SMS] échec HTTP', ['status' => $response->status(), 'error' => $err]);
+            return ['success' => false, 'error' => $err, 'provider' => 'mtn_sms'];
+
+        } catch (\Throwable $e) {
+            Log::error('[MTN SMS] exception', ['error' => $e->getMessage()]);
+            return ['success' => false, 'error' => $e->getMessage(), 'provider' => 'mtn_sms'];
+        }
+    }
+
+    /**
+     * Obtenir (ou renouveler) le token OAuth2 MTN — mis en cache 55 min
+     */
+    protected static function mtnOAuthToken(array $cfg): ?string
+    {
+        $cacheKey = 'mtn_sms_oauth_token';
+        $cached   = Cache::get($cacheKey);
+        if ($cached) return $cached;
+
+        try {
+            $response = Http::withBasicAuth($cfg['consumer_key'], $cfg['consumer_secret'])
+                ->timeout(10)
+                ->asForm()
+                ->post($cfg['token_url'], ['grant_type' => 'client_credentials']);
+
+            if (!$response->successful()) {
+                Log::warning('[MTN SMS] token request échoué', ['status' => $response->status()]);
+                return null;
+            }
+
+            $token = $response->json()['access_token'] ?? null;
+            if (!$token) return null;
+
+            $ttl = max(60, ($response->json()['expires_in'] ?? 3600) - 300);
+            Cache::put($cacheKey, $token, $ttl);
+            return $token;
+
+        } catch (\Throwable $e) {
+            Log::error('[MTN SMS] token exception', ['error' => $e->getMessage()]);
+            return null;
+        }
+    }
+
     /**
      * Envoyer via Twilio
      */
