@@ -25,53 +25,26 @@
 
 /* ── LEFT PANEL ─────────────────────────────────────────────── */
 .bdl-left {
-    width: 42%;
-    display: flex;
-    position: relative;
-    overflow: hidden;
+    width: 44%;
     flex-shrink: 0;
-}
-
-/* Dark photo strip */
-.bdl-photo-strip {
-    width: 38%;
-    flex-shrink: 0;
-    background: #111;
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    position: relative;
-    z-index: 2;
-}
-.bdl-photo-strip img {
-    width: 100%;
-    height: 33.333%;
-    object-fit: cover;
-    display: block;
-    transition: transform 8s ease;
-}
-.bdl-photo-strip img:hover { transform: scale(1.04); }
-
-/* Orange area */
-.bdl-orange {
-    flex: 1;
     background: #F5A41B;
     position: relative;
     overflow: hidden;
     display: flex;
     flex-direction: column;
-    padding: 28px 24px 24px;
+    padding: 32px 28px 28px;
 }
 
-/* Wavy edge between orange and right panel */
-.bdl-orange::after {
+/* Wavy edge right side */
+.bdl-left::after {
     content: '';
     position: absolute;
-    top: 0; right: -40px; bottom: 0;
-    width: 80px;
+    top: 0; right: -44px; bottom: 0;
+    width: 88px;
     background: #FAF8F4;
     border-radius: 60% 0 0 60%;
-    z-index: 3;
+    z-index: 5;
+    pointer-events: none;
 }
 
 /* Brand logo */
@@ -80,7 +53,7 @@
     align-items: center;
     gap: 10px;
     position: relative;
-    z-index: 4;
+    z-index: 6;
 }
 .bdl-brand img {
     height: 36px;
@@ -94,21 +67,47 @@
     letter-spacing: 0.5px;
 }
 
-/* Food line art circles */
-.bdl-art {
+/* Food orbs — same as home page */
+.bdl-orbs {
     position: absolute;
-    bottom: -40px;
-    left: -30px;
-    right: 30px;
-    height: 75%;
-    z-index: 1;
-    opacity: 0.22;
+    inset: 0;
+    z-index: 2;
+}
+.bdl-orb {
+    position: absolute;
+    border-radius: 50%;
+    overflow: hidden;
+    border: 4px solid rgba(255,255,255,0.85);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+    transition: transform 0.4s ease;
+}
+.bdl-orb:hover { transform: scale(1.04); }
+.bdl-orb img  { width: 100%; height: 100%; object-fit: cover; display: block; }
+
+/* Positions identiques à .fo-* de modern.css, adaptées à la hauteur 100vh */
+.bdl-o1 { width: 230px; height: 230px; top: 15%;  left: 14%; }
+.bdl-o2 { width: 165px; height: 165px; top: 12%;  right: 8%; }
+.bdl-o3 { width: 190px; height: 190px; bottom: 14%; left: 4%; }
+.bdl-o4 { width: 148px; height: 148px; bottom: 18%; right: 10%; }
+
+/* Tagline bas */
+.bdl-tagline {
+    position: absolute;
+    bottom: 36px;
+    left: 32px;
+    right: 60px;
+    z-index: 6;
+    color: rgba(255,255,255,0.92);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    line-height: 1.5;
 }
 
 /* Zigzag decorative marks */
 .bdl-zap {
     position: absolute;
-    z-index: 4;
+    z-index: 6;
 }
 .bdl-zap svg { display: block; }
 
@@ -359,61 +358,53 @@
     {{-- ══════════════ LEFT PANEL ══════════════ --}}
     <div class="bdl-left">
 
-        {{-- Dark photo strip --}}
-        <div class="bdl-photo-strip">
-            <img src="{{ asset('frontend/images/g4.jpg') }}" alt="Plat cuisiné">
-            <img src="{{ asset('frontend/images/g1.jpg') }}" alt="Petit-déjeuner">
-            <img src="{{ asset('frontend/images/g3.jpg') }}" alt="Pain traditionnel">
+        {{-- Logo --}}
+        <div class="bdl-brand" style="position:relative;z-index:6;">
+            <img src="{{ asset('frontend/images/BuntuDelice.png') }}" alt="{{ $authBrand['name'] }}">
+            <span class="bdl-brand-name">{{ $authBrand['name'] }}</span>
         </div>
 
-        {{-- Orange area --}}
-        <div class="bdl-orange">
-
-            {{-- Logo --}}
-            <div class="bdl-brand">
-                <img src="{{ asset('frontend/images/BuntuDelice.png') }}" alt="{{ $authBrand['name'] }}">
-                <span class="bdl-brand-name">{{ $authBrand['name'] }}</span>
+        {{-- Food orbs — mêmes images que la section "Notre Cuisine" de la home --}}
+        <div class="bdl-orbs" aria-hidden="true">
+            <div class="bdl-orb bdl-o1">
+                <img src="{{ asset('frontend/images/g4.jpg') }}" alt="Plat cuisiné"
+                     onerror="this.src='{{ asset('images/home/service-restaurant.jpg') }}'">
             </div>
+            <div class="bdl-orb bdl-o2">
+                <img src="{{ asset('frontend/images/g5.jpg') }}" alt="Sélection du jour"
+                     onerror="this.src='{{ asset('images/home/service-driver.jpg') }}'">
+            </div>
+            <div class="bdl-orb bdl-o3">
+                <img src="{{ asset('frontend/images/g1.jpg') }}" alt="Table garnie"
+                     onerror="this.src='{{ asset('images/home/service-restaurant.jpg') }}'">
+            </div>
+            <div class="bdl-orb bdl-o4">
+                <img src="{{ asset('frontend/images/g3.jpg') }}" alt="Pain traditionnel"
+                     onerror="this.src='{{ asset('images/home/service-cuisine.jpg') }}'">
+            </div>
+        </div>
 
-            {{-- Food circle line art --}}
-            <svg class="bdl-art" viewBox="0 0 320 480" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
-                {{-- Large bowl --}}
-                <circle cx="160" cy="240" r="140" stroke="white" stroke-width="1.5"/>
-                <circle cx="160" cy="240" r="110" stroke="white" stroke-width="1"/>
-                <ellipse cx="160" cy="240" rx="140" ry="60" stroke="white" stroke-width="1.2"/>
-                {{-- Leaf 1 --}}
-                <path d="M80 160 Q120 100 180 140 Q140 200 80 160Z" stroke="white" stroke-width="1.2" fill="none"/>
-                {{-- Leaf 2 --}}
-                <path d="M200 280 Q250 250 260 310 Q220 330 200 280Z" stroke="white" stroke-width="1" fill="none"/>
-                {{-- Radial lines --}}
-                <line x1="160" y1="100" x2="160" y2="380" stroke="white" stroke-width="0.8" stroke-dasharray="4 8"/>
-                <line x1="40" y1="240" x2="280" y2="240" stroke="white" stroke-width="0.8" stroke-dasharray="4 8"/>
-                {{-- Small circles --}}
-                <circle cx="90" cy="170" r="18" stroke="white" stroke-width="1"/>
-                <circle cx="230" cy="310" r="24" stroke="white" stroke-width="1"/>
-                <circle cx="250" cy="160" r="12" stroke="white" stroke-width="1"/>
-                {{-- Top small bowl --}}
-                <circle cx="160" cy="80" r="50" stroke="white" stroke-width="1.2"/>
-                <ellipse cx="160" cy="80" rx="50" ry="22" stroke="white" stroke-width="1"/>
+        {{-- Tagline --}}
+        <div class="bdl-tagline">
+            La cuisine congolaise<br>livrée chez vous
+        </div>
+
+        {{-- Zigzag top-right --}}
+        <div class="bdl-zap" style="top:16px; right:60px;">
+            <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+                <polyline points="4,2 12,11 4,20" stroke="rgba(0,0,0,0.35)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <polyline points="11,2 19,11 11,20" stroke="rgba(0,0,0,0.35)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
             </svg>
-
-            {{-- Zigzag top-right --}}
-            <div class="bdl-zap" style="top:16px; right:60px;">
-                <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
-                    <polyline points="4,2 12,11 4,20" stroke="#1a1a1a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-                    <polyline points="11,2 19,11 11,20" stroke="#1a1a1a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-            </div>
-
-            {{-- Zigzag bottom-left --}}
-            <div class="bdl-zap" style="bottom:40px; left:20px;">
-                <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
-                    <polyline points="5,3 14,14 5,25" stroke="#1a1a1a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-                    <polyline points="14,3 23,14 14,25" stroke="#1a1a1a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-            </div>
-
         </div>
+
+        {{-- Zigzag bottom-left --}}
+        <div class="bdl-zap" style="bottom:80px; left:20px;">
+            <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+                <polyline points="5,3 14,14 5,25" stroke="rgba(0,0,0,0.3)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <polyline points="14,3 23,14 14,25" stroke="rgba(0,0,0,0.3)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </div>
+
     </div>
 
     {{-- ══════════════ RIGHT PANEL ══════════════ --}}
