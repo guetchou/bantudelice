@@ -35,24 +35,26 @@ fi
 
 echo ""
 echo "=== 2/4 Configuration remote OVH S3 ==="
+# Permissions restrictives avant toute écriture de secrets (600/700)
 mkdir -p ~/.config/rclone
+chmod 700 ~/.config/rclone
+touch ~/.config/rclone/rclone.conf
+chmod 600 ~/.config/rclone/rclone.conf
 
 # Supprimer section existante si elle existe
 if grep -q "^\[${RCLONE_REMOTE}\]" ~/.config/rclone/rclone.conf 2>/dev/null; then
     echo "Remote '${RCLONE_REMOTE}' déjà présent — mise à jour."
-    # Supprimer l'ancien bloc
     python3 - <<PYEOF
 import re, pathlib
 conf = pathlib.Path('/root/.config/rclone/rclone.conf')
 content = conf.read_text()
-# Supprimer la section [remote] jusqu'à la prochaine section [
-pattern = r'\[${RCLONE_REMOTE}\][^\[]*'
-content = re.sub(pattern.replace('\${RCLONE_REMOTE}', '${RCLONE_REMOTE}'), '', content)
+content = re.sub(r'\[${RCLONE_REMOTE}\][^\[]*', '', content)
 conf.write_text(content)
 PYEOF
 fi
 
-cat >> ~/.config/rclone/rclone.conf <<EOF
+# Écrire le bloc avec umask 077 pour forcer 600 même si touch n'a pas été exécuté
+(umask 077; cat >> ~/.config/rclone/rclone.conf <<EOF
 
 [${RCLONE_REMOTE}]
 type = s3
@@ -63,8 +65,10 @@ endpoint = ${OVH_ENDPOINT}
 region = ${OVH_REGION}
 acl = private
 EOF
+)
+chmod 600 ~/.config/rclone/rclone.conf
 
-echo "Remote '${RCLONE_REMOTE}' configuré."
+echo "Remote '${RCLONE_REMOTE}' configuré (rclone.conf mode 600)."
 
 echo ""
 echo "=== 3/4 Création du bucket OVH ==="
