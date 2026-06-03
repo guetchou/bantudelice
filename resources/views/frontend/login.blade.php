@@ -12,205 +12,568 @@
 @section('body_class', 'bd-auth-page bd-auth-login')
 @section('body_style', '--auth-brand-primary: ' . $authBrand['primary'] . '; --auth-brand-primary-dark: ' . $authBrand['primary_dark'] . '; --auth-brand-primary-soft: ' . $authBrand['primary_soft'] . '; --auth-brand-secondary: ' . $authBrand['secondary'] . '; --auth-brand-surface: ' . $authBrand['surface'] . ';')
 
+@section('style')
+<style>
+/* ── BantuDelice Auth Shell ─────────────────────────────────── */
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+.bdl-auth {
+    display: flex;
+    min-height: 100vh;
+    font-family: 'Plus Jakarta Sans', 'Outfit', sans-serif;
+}
+
+/* ── LEFT PANEL ─────────────────────────────────────────────── */
+.bdl-left {
+    width: 42%;
+    display: flex;
+    position: relative;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+/* Dark photo strip */
+.bdl-photo-strip {
+    width: 38%;
+    flex-shrink: 0;
+    background: #111;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+    z-index: 2;
+}
+.bdl-photo-strip img {
+    width: 100%;
+    height: 33.333%;
+    object-fit: cover;
+    display: block;
+    transition: transform 8s ease;
+}
+.bdl-photo-strip img:hover { transform: scale(1.04); }
+
+/* Orange area */
+.bdl-orange {
+    flex: 1;
+    background: #F5A41B;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    padding: 28px 24px 24px;
+}
+
+/* Wavy edge between orange and right panel */
+.bdl-orange::after {
+    content: '';
+    position: absolute;
+    top: 0; right: -40px; bottom: 0;
+    width: 80px;
+    background: #FAF8F4;
+    border-radius: 60% 0 0 60%;
+    z-index: 3;
+}
+
+/* Brand logo */
+.bdl-brand {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: relative;
+    z-index: 4;
+}
+.bdl-brand img {
+    height: 36px;
+    width: auto;
+    filter: brightness(0) invert(1);
+}
+.bdl-brand-name {
+    font-size: 14px;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 0.5px;
+}
+
+/* Food line art circles */
+.bdl-art {
+    position: absolute;
+    bottom: -40px;
+    left: -30px;
+    right: 30px;
+    height: 75%;
+    z-index: 1;
+    opacity: 0.22;
+}
+
+/* Zigzag decorative marks */
+.bdl-zap {
+    position: absolute;
+    z-index: 4;
+}
+.bdl-zap svg { display: block; }
+
+/* ── RIGHT PANEL ────────────────────────────────────────────── */
+.bdl-right {
+    flex: 1;
+    background: #FAF8F4;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 40px 32px;
+    position: relative;
+    overflow: hidden;
+}
+
+/* Zigzags on right */
+.bdl-zap-r { position: absolute; }
+
+.bdl-card {
+    width: 100%;
+    max-width: 420px;
+    position: relative;
+    z-index: 2;
+}
+
+.bdl-card h2 {
+    font-size: 28px;
+    font-weight: 800;
+    color: #1a1a1a;
+    letter-spacing: -0.5px;
+    margin-bottom: 28px;
+    text-transform: uppercase;
+}
+
+/* Inputs */
+.bdl-field {
+    margin-bottom: 14px;
+}
+.bdl-field input {
+    width: 100%;
+    background: #EDECEB;
+    border: none;
+    border-radius: 12px;
+    padding: 15px 18px;
+    font-size: 14px;
+    color: #1a1a1a;
+    outline: none;
+    font-family: inherit;
+    transition: background 0.2s, box-shadow 0.2s;
+}
+.bdl-field input::placeholder { color: #999; }
+.bdl-field input:focus {
+    background: #e5e4e2;
+    box-shadow: 0 0 0 3px rgba(125, 196, 67, 0.2);
+}
+.bdl-field-pw {
+    position: relative;
+}
+.bdl-field-pw input { padding-right: 48px; }
+.bdl-pw-toggle {
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #999;
+    padding: 4px;
+    font-size: 15px;
+    line-height: 1;
+    transition: color 0.2s;
+}
+.bdl-pw-toggle:hover { color: #555; }
+
+/* Forgot link */
+.bdl-forgot-row {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 20px;
+}
+.bdl-forgot {
+    font-size: 13px;
+    color: #7DC443;
+    text-decoration: none;
+    font-weight: 500;
+    transition: color 0.2s;
+}
+.bdl-forgot:hover { color: #5a9e2e; text-decoration: underline; }
+
+/* Remember row */
+.bdl-remember {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 18px;
+}
+.bdl-remember input[type="checkbox"] {
+    width: 16px; height: 16px;
+    accent-color: #7DC443;
+    cursor: pointer;
+}
+.bdl-remember label {
+    font-size: 13px;
+    color: #555;
+    cursor: pointer;
+}
+
+/* Submit button */
+.bdl-btn-submit {
+    width: 100%;
+    background: #7DC443;
+    color: #fff;
+    border: none;
+    border-radius: 12px;
+    padding: 15px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    letter-spacing: 0.3px;
+}
+.bdl-btn-submit:hover {
+    background: #5a9e2e;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(125,196,67,0.35);
+}
+.bdl-btn-submit:active { transform: translateY(0); }
+.bdl-btn-submit.loading { opacity: 0.7; pointer-events: none; }
+
+/* Divider */
+.bdl-divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin: 20px 0;
+    color: #aaa;
+    font-size: 13px;
+}
+.bdl-divider::before, .bdl-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: #d9d8d6;
+}
+
+/* Social buttons */
+.bdl-social-row {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 24px;
+}
+.bdl-btn-social {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 12px;
+    border-radius: 12px;
+    border: 1.5px solid #d9d8d6;
+    background: #fff;
+    color: #1a1a1a;
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    font-family: inherit;
+    cursor: pointer;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+.bdl-btn-social:hover { border-color: #bbb; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+.bdl-btn-social .fab { font-size: 16px; }
+.bdl-btn-social.google .fab { color: #DB4437; }
+.bdl-btn-social.facebook .fab { color: #1877F2; }
+
+/* Alerts */
+.bdl-alert {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border-radius: 10px;
+    font-size: 13px;
+    margin-bottom: 16px;
+}
+.bdl-alert.success { background: #e8f7ee; color: #1a7a40; }
+.bdl-alert.error   { background: #fdecea; color: #c0392b; }
+.bdl-field-error {
+    font-size: 12px;
+    color: #c0392b;
+    margin-top: 5px;
+    padding-left: 4px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/* Footer */
+.bdl-footer {
+    text-align: center;
+    font-size: 13px;
+    color: #888;
+}
+.bdl-footer a {
+    color: #7DC443;
+    font-weight: 600;
+    text-decoration: none;
+}
+.bdl-footer a:hover { text-decoration: underline; }
+
+/* Trust badges */
+.bdl-trust {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    margin-bottom: 16px;
+}
+.bdl-trust-item {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 11px;
+    color: #aaa;
+}
+.bdl-trust-item i { font-size: 12px; color: #7DC443; }
+
+/* ── RESPONSIVE ─────────────────────────────────────────────── */
+@media (max-width: 900px) {
+    .bdl-left { display: none; }
+    .bdl-right { padding: 32px 20px; }
+    .bdl-card { max-width: 100%; }
+}
+@media (max-width: 480px) {
+    .bdl-card h2 { font-size: 22px; }
+    .bdl-social-row { flex-direction: column; }
+}
+</style>
+@endsection
+
 @section('content')
-<section class="login-page">
-    <div class="login-container">
-        <!-- Left Side - Benefits -->
-        <div class="login-benefits">
-            <div class="benefits-header">
-                <div class="auth-brand-pill">
-                    <span>{{ $authBrand['name'] }}</span>
-                    <span class="auth-brand-pill__dot"></span>
-                    <span>{{ $authBrand['label'] }}</span>
-                </div>
-                <h1>{{ trim(str_replace($authBrand['hero_title_emphasis'], '', $authBrand['hero_title'])) }} <span>{{ $authBrand['hero_title_emphasis'] }}</span></h1>
-                <p>{{ $authBrand['hero_description'] }}</p>
-            </div>
-            
-            <div class="benefits-list">
-                @foreach($authBrand['features'] as $feature)
-                    <div class="benefit-item">
-                        <div class="benefit-icon">
-                            <i class="fas {{ $feature['icon'] }}"></i>
-                        </div>
-                        <div class="benefit-content">
-                            <h4>{{ $feature['title'] }}</h4>
-                            <p>{{ $feature['description'] }}</p>
-                        </div>
-                    </div>
-                @endforeach
-            </div>
+<div class="bdl-auth">
+
+    {{-- ══════════════ LEFT PANEL ══════════════ --}}
+    <div class="bdl-left">
+
+        {{-- Dark photo strip --}}
+        <div class="bdl-photo-strip">
+            <img src="{{ asset('frontend/images/g4.jpg') }}" alt="Plat cuisiné">
+            <img src="{{ asset('frontend/images/g1.jpg') }}" alt="Petit-déjeuner">
+            <img src="{{ asset('frontend/images/g3.jpg') }}" alt="Pain traditionnel">
         </div>
-        
-        <!-- Right Side - Form -->
-        <div class="login-form-wrapper">
-            <div class="login-card">
-                <div class="form-header">
-                    <h2>Connexion</h2>
-                    <p>Bienvenue sur {{ $authBrand['name'] }}. Connectez-vous pour continuer.</p>
+
+        {{-- Orange area --}}
+        <div class="bdl-orange">
+
+            {{-- Logo --}}
+            <div class="bdl-brand">
+                <img src="{{ asset('frontend/images/BuntuDelice.png') }}" alt="{{ $authBrand['name'] }}">
+                <span class="bdl-brand-name">{{ $authBrand['name'] }}</span>
+            </div>
+
+            {{-- Food circle line art --}}
+            <svg class="bdl-art" viewBox="0 0 320 480" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                {{-- Large bowl --}}
+                <circle cx="160" cy="240" r="140" stroke="white" stroke-width="1.5"/>
+                <circle cx="160" cy="240" r="110" stroke="white" stroke-width="1"/>
+                <ellipse cx="160" cy="240" rx="140" ry="60" stroke="white" stroke-width="1.2"/>
+                {{-- Leaf 1 --}}
+                <path d="M80 160 Q120 100 180 140 Q140 200 80 160Z" stroke="white" stroke-width="1.2" fill="none"/>
+                {{-- Leaf 2 --}}
+                <path d="M200 280 Q250 250 260 310 Q220 330 200 280Z" stroke="white" stroke-width="1" fill="none"/>
+                {{-- Radial lines --}}
+                <line x1="160" y1="100" x2="160" y2="380" stroke="white" stroke-width="0.8" stroke-dasharray="4 8"/>
+                <line x1="40" y1="240" x2="280" y2="240" stroke="white" stroke-width="0.8" stroke-dasharray="4 8"/>
+                {{-- Small circles --}}
+                <circle cx="90" cy="170" r="18" stroke="white" stroke-width="1"/>
+                <circle cx="230" cy="310" r="24" stroke="white" stroke-width="1"/>
+                <circle cx="250" cy="160" r="12" stroke="white" stroke-width="1"/>
+                {{-- Top small bowl --}}
+                <circle cx="160" cy="80" r="50" stroke="white" stroke-width="1.2"/>
+                <ellipse cx="160" cy="80" rx="50" ry="22" stroke="white" stroke-width="1"/>
+            </svg>
+
+            {{-- Zigzag top-right --}}
+            <div class="bdl-zap" style="top:16px; right:60px;">
+                <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+                    <polyline points="4,2 12,11 4,20" stroke="#1a1a1a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    <polyline points="11,2 19,11 11,20" stroke="#1a1a1a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
+
+            {{-- Zigzag bottom-left --}}
+            <div class="bdl-zap" style="bottom:40px; left:20px;">
+                <svg width="28" height="28" viewBox="0 0 28 28" fill="none" aria-hidden="true">
+                    <polyline points="5,3 14,14 5,25" stroke="#1a1a1a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                    <polyline points="14,3 23,14 14,25" stroke="#1a1a1a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+            </div>
+
+        </div>
+    </div>
+
+    {{-- ══════════════ RIGHT PANEL ══════════════ --}}
+    <div class="bdl-right">
+
+        {{-- Zigzag decoration top --}}
+        <div class="bdl-zap-r" style="top:20px; right:60px;">
+            <svg width="20" height="20" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+                <polyline points="4,2 12,11 4,20" stroke="#1a1a1a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <polyline points="11,2 19,11 11,20" stroke="#1a1a1a" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </div>
+
+        {{-- Zigzag decoration bottom-right --}}
+        <div class="bdl-zap-r" style="bottom:28px; right:48px;">
+            <svg width="34" height="22" viewBox="0 0 34 22" fill="none" aria-hidden="true">
+                <polyline points="2,2 10,11 2,20" stroke="#F5A41B" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                <polyline points="13,2 21,11 13,20" stroke="#F5A41B" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </div>
+
+        {{-- Zigzag bottom-left --}}
+        <div class="bdl-zap-r" style="bottom:60px; left:32px;">
+            <svg width="22" height="22" viewBox="0 0 22 22" fill="none" aria-hidden="true">
+                <polyline points="4,2 12,11 4,20" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+        </div>
+
+        <div class="bdl-card">
+            <h2>Bienvenue !</h2>
+
+            {{-- Alert Messages --}}
+            @if(Session::has('message'))
+                <div class="bdl-alert success">
+                    <i class="fas fa-check-circle"></i>
+                    <span>{{ Session::get('message') }}</span>
                 </div>
-                
-                @if($hasSocialAuth)
-                    <div class="social-login auth-social-row">
-                        @if($googleAuthEnabled)
-                            <a class="btn-social auth-social-link google" href="{{ route('auth.social.redirect', ['provider' => 'google', 'redirect' => $socialRedirect]) }}">
-                                <i class="fab fa-google"></i>
-                                Google
-                            </a>
-                        @endif
-                        @if($facebookAuthEnabled)
-                            <a class="btn-social auth-social-link facebook" href="{{ route('auth.social.redirect', ['provider' => 'facebook', 'redirect' => $socialRedirect]) }}">
-                                <i class="fab fa-facebook-f"></i>
-                                Facebook
-                            </a>
-                        @endif
-                    </div>
-                    
-                    <div class="divider">
-                        <span>ou par email</span>
-                    </div>
+            @endif
+
+            @if($errors->any())
+                <div class="bdl-alert error">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <span>{{ $errors->first() }}</span>
+                </div>
+            @endif
+
+            {{-- Login Form --}}
+            <form method="post" action="{{ url('login') }}" id="loginForm">
+                @csrf
+                @if($socialRedirect)
+                    <input type="hidden" name="redirect" value="{{ $socialRedirect }}">
                 @endif
-                
-                <!-- Alert Messages -->
-                @if(Session::has('message'))
-                    <div class="alert alert-success">
-                        <i class="fas fa-check-circle"></i>
-                        <span>{{ Session::get('message') }}</span>
-                    </div>
-                @endif
-                
-                @if($errors->any())
-                    <div class="alert alert-error">
-                        <i class="fas fa-exclamation-circle"></i>
-                        <span>{{ $errors->first() }}</span>
-                    </div>
-                @endif
-                
-                <!-- Login Form -->
-                <form method="post" action="{{ url('login') }}" id="loginForm">
-                    @csrf
-                    @if($socialRedirect)
-                        <input type="hidden" name="redirect" value="{{ $socialRedirect }}">
+
+                <div class="bdl-field">
+                    <input type="text"
+                           name="identifier"
+                           id="identifier"
+                           value="{{ old('identifier') }}"
+                           placeholder="E-mail ou +242 06..."
+                           required
+                           autocomplete="username">
+                    @if($errors->has('identifier'))
+                        <div class="bdl-field-error"><i class="fas fa-exclamation-circle"></i>{{ $errors->first('identifier') }}</div>
                     @endif
-                    
-                    <div class="form-group">
-                        <label class="form-label">Email ou téléphone</label>
-                        <div class="input-group">
-                            <input type="text"
-                                   name="identifier"
-                                   id="identifier"
-                                   value="{{ old('identifier') }}"
-                                   placeholder="votre@email.com ou +242 06..."
-                                   required
-                                   autocomplete="username">
-                            <i class="fas fa-user"></i>
-                        </div>
-                        @if($errors->has('identifier'))
-                            <div class="form-error">
-                                <i class="fas fa-exclamation-circle"></i>
-                                {{ $errors->first('identifier') }}
-                            </div>
-                        @endif
+                </div>
+
+                <div class="bdl-field">
+                    <div class="bdl-field-pw">
+                        <input type="password"
+                               name="password"
+                               id="password"
+                               placeholder="Mot de passe"
+                               required
+                               autocomplete="current-password">
+                        <button type="button" class="bdl-pw-toggle" onclick="togglePassword()" aria-label="Afficher le mot de passe">
+                            <i class="fas fa-eye" id="toggleIcon"></i>
+                        </button>
                     </div>
-                    
-                    <div class="form-group">
-                        <label class="form-label">Mot de passe</label>
-                        <div class="input-group">
-                            <input type="password" 
-                                   name="password"
-                                   id="password"
-                                   placeholder="Votre mot de passe"
-                                   required
-                                   autocomplete="current-password">
-                            <i class="fas fa-lock"></i>
-                            <button type="button" class="password-toggle" onclick="togglePassword()">
-                                <i class="fas fa-eye" id="toggleIcon"></i>
-                            </button>
-                        </div>
-                        @if($errors->has('password'))
-                            <div class="form-error">
-                                <i class="fas fa-exclamation-circle"></i>
-                                {{ $errors->first('password') }}
-                            </div>
-                        @endif
-                    </div>
-                    
-                    <div class="form-options">
-                        <label class="checkbox-wrapper">
-                            <input type="checkbox" name="remember" id="remember">
-                            <span class="checkbox-custom"><i class="fas fa-check"></i></span>
-                            <span class="checkbox-label">Se souvenir de moi</span>
-                        </label>
-                        <a href="{{ route('user.forgot', array_filter(['redirect' => $socialRedirect])) }}" class="forgot-link">
-                            Mot de passe oublié ?
+                    @if($errors->has('password'))
+                        <div class="bdl-field-error"><i class="fas fa-exclamation-circle"></i>{{ $errors->first('password') }}</div>
+                    @endif
+                </div>
+
+                <div class="bdl-forgot-row">
+                    <a href="{{ route('user.forgot', array_filter(['redirect' => $socialRedirect])) }}" class="bdl-forgot">
+                        Mot de passe oublié ?
+                    </a>
+                </div>
+
+                <div class="bdl-remember">
+                    <input type="checkbox" name="remember" id="remember">
+                    <label for="remember">Se souvenir de moi</label>
+                </div>
+
+                <button type="submit" class="bdl-btn-submit" id="submitBtn">
+                    Se connecter
+                </button>
+            </form>
+
+            {{-- Social Auth --}}
+            @if($hasSocialAuth)
+                <div class="bdl-divider"><span>Ou</span></div>
+                <div class="bdl-social-row">
+                    @if($googleAuthEnabled)
+                        <a class="bdl-btn-social google" href="{{ route('auth.social.redirect', ['provider' => 'google', 'redirect' => $socialRedirect]) }}">
+                            <i class="fab fa-google"></i> Google
                         </a>
-                    </div>
-                    
-                    <button type="submit" class="btn-submit" id="submitBtn">
-                        <span class="btn-text">Se connecter</span>
-                        <i class="fas fa-arrow-right"></i>
-                    </button>
-                </form>
-                
-                <!-- Trust Badges -->
-                <div class="trust-badges">
-                    <div class="trust-badge">
-                        <i class="fas fa-lock"></i>
-                        SSL sécurisé
-                    </div>
-                    <div class="trust-badge">
-                        <i class="fas fa-shield-alt"></i>
-                        Données protégées
-                    </div>
+                    @endif
+                    @if($facebookAuthEnabled)
+                        <a class="bdl-btn-social facebook" href="{{ route('auth.social.redirect', ['provider' => 'facebook', 'redirect' => $socialRedirect]) }}">
+                            <i class="fab fa-facebook-f"></i> Facebook
+                        </a>
+                    @endif
                 </div>
-                
-                <div class="form-footer">
-                    <p>Pas encore de compte ? <a href="{{ route('user.signup', array_filter(['redirect' => $socialRedirect])) }}">Créer un compte</a></p>
-                </div>
+            @endif
+
+            <div class="bdl-trust">
+                <div class="bdl-trust-item"><i class="fas fa-lock"></i> SSL sécurisé</div>
+                <div class="bdl-trust-item"><i class="fas fa-shield-alt"></i> Données protégées</div>
+            </div>
+
+            <div class="bdl-footer">
+                <p>Pas encore de compte ? <a href="{{ route('user.signup', array_filter(['redirect' => $socialRedirect])) }}">Créer un compte</a></p>
             </div>
         </div>
     </div>
-</section>
+
+</div>
 @endsection
 
-@section('scripts')
+@section('script')
 <script>
-    // Toggle password visibility
-    function togglePassword() {
-        const passwordInput = document.getElementById('password');
-        const toggleIcon = document.getElementById('toggleIcon');
-        
-        if (passwordInput.type === 'password') {
-            passwordInput.type = 'text';
-            toggleIcon.classList.remove('fa-eye');
-            toggleIcon.classList.add('fa-eye-slash');
-        } else {
-            passwordInput.type = 'password';
-            toggleIcon.classList.remove('fa-eye-slash');
-            toggleIcon.classList.add('fa-eye');
-        }
-    }
-    
-    // Form submission with loading state
-    document.getElementById('loginForm').addEventListener('submit', function(e) {
-        const btn = document.getElementById('submitBtn');
-        btn.classList.add('loading');
+function togglePassword() {
+    const input = document.getElementById('password');
+    const icon  = document.getElementById('toggleIcon');
+    const show  = input.type === 'password';
+    input.type  = show ? 'text' : 'password';
+    icon.classList.toggle('fa-eye',      !show);
+    icon.classList.toggle('fa-eye-slash', show);
+}
+
+document.getElementById('loginForm').addEventListener('submit', function() {
+    document.getElementById('submitBtn').classList.add('loading');
+});
+
+// Auto-dismiss alerts
+setTimeout(() => {
+    document.querySelectorAll('.bdl-alert').forEach(el => {
+        el.style.transition = 'opacity 0.3s, transform 0.3s';
+        el.style.opacity    = '0';
+        el.style.transform  = 'translateY(-8px)';
+        setTimeout(() => el.remove(), 300);
     });
-    
-    // Social login: les boutons redirigent directement vers /auth/{provider}
-    
-    // Auto-hide alerts after 5 seconds
-    setTimeout(() => {
-        document.querySelectorAll('.alert').forEach(alert => {
-            alert.style.opacity = '0';
-            alert.style.transform = 'translateY(-10px)';
-            alert.style.transition = 'all 0.3s ease';
-            setTimeout(() => alert.remove(), 300);
-        });
-    }, 5000);
-    
-    document.getElementById('identifier').addEventListener('input', function() {
-        this.style.borderColor = this.value.trim() ? '#009543' : '';
-    });
+}, 5000);
+
+// Green border on identifier focus
+document.getElementById('identifier').addEventListener('input', function() {
+    this.style.boxShadow = this.value.trim()
+        ? '0 0 0 3px rgba(125,196,67,0.25)'
+        : '';
+});
 </script>
 @endsection
