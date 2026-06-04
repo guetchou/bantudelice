@@ -89,12 +89,31 @@ class SocialAuthController extends Controller
             auth()->login($user, true);
             $request->session()->regenerate();
 
-            // Redirection intelligente selon le type d'utilisateur
-            if ($user->type === 'admin') {
-                return redirect()->route('admin.dashboard')->with('message', 'Connexion Administration réussie !');
-            }
+            $isNew    = $result['is_new'] ?? false;
+            $provider = ucfirst($provider);
 
-            return redirect()->intended(route('home'))->with('message', 'Connexion réussie !');
+            // Redirection par type d'utilisateur
+            switch ($user->type) {
+                case 'admin':
+                    return redirect()->route('admin.dashboard')
+                        ->with('message', 'Connexion Administration réussie !');
+
+                case 'restaurant':
+                    return redirect()->intended(route('restaurant.dashboard'))
+                        ->with('message', "Connexion {$provider} réussie !");
+
+                case 'driver':
+                    return redirect()->intended(route('driver.deliveries'))
+                        ->with('message', "Connexion {$provider} réussie !");
+
+                default: // 'user' — client
+                    $message = $isNew
+                        ? 'Bienvenue sur BantuDelice ! Complétez votre profil pour commander plus rapidement.'
+                        : "Connexion {$provider} réussie !";
+
+                    return redirect()->intended(route('user.profile'))
+                        ->with('message', $message);
+            }
         } catch (\Throwable $e) {
             Log::error('Social auth callback failed', [
                 'provider' => $provider,

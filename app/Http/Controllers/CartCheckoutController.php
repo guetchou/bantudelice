@@ -255,6 +255,15 @@ class CartCheckoutController extends Controller
             return redirect()->route('user.login')->with('message', 'Veuillez vous connecter pour finaliser votre commande');
         }
 
+        // Téléphone et adresse requis pour commander (profil social incomplet)
+        $authUser = auth()->user();
+        if (empty($authUser->phone)) {
+            return redirect()->route('user.profile')->with('alert', [
+                'type'    => 'warning',
+                'message' => 'Veuillez renseigner votre numéro de téléphone avant de commander.',
+            ]);
+        }
+
         $id = auth()->user()->id;
 
         // Migrer le panier de session vers la base de donnees

@@ -487,15 +487,7 @@
         {{-- Diviseur lignes vertes (écart #5) --}}
         <div class="bl-divider"><span>Ou</span></div>
 
-        {{-- Social --}}
-        <div class="bl-social">
-            <a class="bl-btn-soc google bl-soc-off" href="#" title="Bientôt disponible">
-                <i class="fab fa-google"></i> Google
-            </a>
-            <a class="bl-btn-soc facebook bl-soc-off" href="#" title="Bientôt disponible">
-                <i class="fab fa-facebook-f"></i> Facebook
-            </a>
-        </div>
+        {{-- Connexion sociale non disponible sur cette interface (réservée aux clients via /user/login) --}}
 
         {{-- Footer --}}
         <div class="bl-footer">
