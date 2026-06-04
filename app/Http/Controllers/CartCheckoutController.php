@@ -415,11 +415,13 @@ class CartCheckoutController extends Controller
                     $existingCart->description = $cartData['description'];
                 }
                 $existingCart->save();
+                $cartItemId = $existingCart->id;
                 $message = 'Quantité mise à jour !';
                 $totalItems = Cart::where('user_id', auth()->id())->sum('qty');
             }
             else{
-                Cart::create($cartData);
+                $newCartItem = Cart::create($cartData);
+                $cartItemId = $newCartItem->id;
                 $message = 'Produit ajouté au panier';
                 $totalItems = Cart::where('user_id', auth()->id())->sum('qty');
             }
@@ -443,6 +445,7 @@ class CartCheckoutController extends Controller
             }
 
             session()->put('cart', $cart);
+            $cartItemId = null;
             $message = 'Produit ajouté au panier';
             $totalItems = array_sum(array_column($cart, 'qty'));
         }
@@ -450,9 +453,10 @@ class CartCheckoutController extends Controller
         // Retourner JSON si requête AJAX, sinon redirection classique
         if ($request->ajax() || $request->wantsJson()) {
             return response()->json([
-                'success' => true,
-                'message' => $message,
-                'total_items' => $totalItems
+                'success'      => true,
+                'message'      => $message,
+                'total_items'  => $totalItems,
+                'cart_item_id' => $cartItemId ?? null,
             ]);
         }
 

@@ -164,8 +164,18 @@
             </div>
             @endif
             
+            @if($abc->count() > 1)
+            <nav class="menu-catnav" id="menuCatNav">
+                <div class="menu-catnav__inner">
+                    @foreach($abc as $cat)
+                    <a href="#cat-{{ $loop->index }}" class="menu-catnav__pill">{{ $cat->name }}</a>
+                    @endforeach
+                </div>
+            </nav>
+            @endif
+
             @foreach($abc as $category)
-            <div class="category-section">
+            <div class="category-section" id="cat-{{ $loop->index }}">
                 <div class="category-header">
                     <h2 class="category-title">{{ $category->name }}</h2>
                     <span class="category-count">{{ $category->products->count() }} plat{{ $category->products->count() > 1 ? 's' : '' }}</span>
@@ -211,13 +221,14 @@
                                     @if(isset($pro->is_available) && !$pro->is_available)
                                     <button type="button" class="btn-quick-add" disabled>Indisponible</button>
                                     @else
-                                    <form action="{{ route('cart') }}" method="post" class="quick-add-form">
-                                        @csrf
-                                        <input type="hidden" name="restaurant_id" value="{{ $restaurant->id }}">
-                                        <input type="hidden" name="product_id" value="{{ $pro->id }}">
-                                        <input type="hidden" name="qty" value="1">
-                                        <button type="submit" class="btn-quick-add">Ajouter</button>
-                                    </form>
+                                    <div class="bd-add-wrap" data-product-id="{{ $pro->id }}">
+                                        <button type="button" class="btn-quick-add bd-add-btn">+ Ajouter</button>
+                                        <div class="bd-stepper" style="display:none">
+                                            <button type="button" class="bd-stepper__btn bd-step-dec">−</button>
+                                            <span class="bd-stepper__qty">1</span>
+                                            <button type="button" class="bd-stepper__btn bd-step-inc">+</button>
+                                        </div>
+                                    </div>
                                     @endif
                                 </div>
                             </div>
@@ -297,21 +308,182 @@
 
 <!-- Floating Cart Button -->
 @if(Auth::check())
-<a href="{{ route('cart.detail') }}" class="floating-cart"><span>Voir le panier</span></a>
+<a href="{{ route('cart.detail') }}" class="floating-cart" id="floatingCart">
+    <span>Voir le panier</span>
+    <span class="floating-cart__badge" id="floatingCartBadge" style="display:none">0</span>
+</a>
 @endif
+@endsection
+
+@section('style')
+<style>
+/* ── Category nav pills ────────────────────────── */
+.menu-catnav{position:sticky;top:56px;z-index:90;background:#fff;border-bottom:1px solid #f0f0f0;box-shadow:0 2px 8px rgba(0,0,0,.06);}
+.menu-catnav__inner{display:flex;gap:.5rem;overflow-x:auto;padding:.6rem 1rem;scrollbar-width:none;}
+.menu-catnav__inner::-webkit-scrollbar{display:none}
+.menu-catnav__pill{flex-shrink:0;padding:.35rem .85rem;border-radius:20px;font-size:.8rem;font-weight:600;color:#555;background:#f4f4f4;text-decoration:none;transition:background .18s,color .18s;white-space:nowrap;}
+.menu-catnav__pill:hover,.menu-catnav__pill.is-active{background:#007836;color:#fff;}
+
+/* ── Inline qty stepper on product card ─────────── */
+.bd-add-wrap{display:flex;align-items:center;}
+.bd-stepper{display:flex;align-items:center;gap:.25rem;background:#007836;border-radius:20px;padding:.2rem .25rem;}
+.bd-stepper__btn{width:28px;height:28px;border-radius:50%;border:none;background:rgba(255,255,255,.25);color:#fff;font-size:1rem;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s;}
+.bd-stepper__btn:hover{background:rgba(255,255,255,.4);}
+.bd-stepper__qty{color:#fff;font-weight:700;font-size:.9rem;min-width:18px;text-align:center;}
+.btn-quick-add.bd-add-btn:disabled{opacity:.5;cursor:not-allowed;}
+
+/* ── Floating cart badge ────────────────────────── */
+.floating-cart{position:relative;}
+.floating-cart__badge{position:absolute;top:-6px;right:-6px;background:#e53e3e;color:#fff;border-radius:50%;width:20px;height:20px;font-size:.68rem;font-weight:700;display:flex;align-items:center;justify-content:center;}
+</style>
 @endsection
 
 @section('scripts')
 <script>
-    // Smooth scroll for category navigation
-    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
-        anchor.addEventListener('click', function (e) {
-            e.preventDefault();
-            const target = document.querySelector(this.getAttribute('href'));
-            if (target) {
-                target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+(function() {
+    const CART_URL      = @json(route('cart'));
+    const CART_UPDATE   = @json(url('cart/update'));
+    const CART_DELETE   = @json(url('cart/deleteItem'));
+    const CSRF          = document.querySelector('meta[name="csrf-token"]')?.content || '';
+
+    // { productId: { cartItemId, qty } }
+    const state = {};
+
+    function badgeEl() { return document.getElementById('floatingCartBadge'); }
+
+    function setBadge(count) {
+        const el = badgeEl();
+        if (!el) return;
+        el.textContent = count;
+        el.style.display = count > 0 ? 'flex' : 'none';
+        if (typeof updateCartBadge === 'function') updateCartBadge(count);
+    }
+
+    function renderStepper(wrap, qty) {
+        wrap.querySelector('.bd-add-btn').style.display = 'none';
+        const s = wrap.querySelector('.bd-stepper');
+        s.style.display = 'flex';
+        s.querySelector('.bd-stepper__qty').textContent = qty;
+    }
+
+    function showAddBtn(wrap) {
+        wrap.querySelector('.bd-add-btn').style.display = '';
+        wrap.querySelector('.bd-stepper').style.display = 'none';
+    }
+
+    async function postCart(productId) {
+        const res = await fetch(CART_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CSRF, 'Accept': 'application/json' },
+            body: JSON.stringify({ product_id: productId, qty: 1 })
+        });
+        return res.json();
+    }
+
+    async function putCart(cartItemId, qty) {
+        const body = new FormData();
+        body.append('_method', 'PUT');
+        body.append('qty', qty);
+        body.append('_token', CSRF);
+        const res = await fetch(`${CART_UPDATE}/${cartItemId}`, { method: 'POST', headers: { 'Accept': 'application/json' }, body });
+        return res.ok;
+    }
+
+    async function deleteCartItem(cartItemId) {
+        const body = new FormData();
+        body.append('_token', CSRF);
+        const res = await fetch(`${CART_DELETE}/${cartItemId}`, { method: 'POST', headers: { 'Accept': 'application/json' }, body });
+        return res.ok;
+    }
+
+    document.querySelectorAll('.bd-add-wrap').forEach(function(wrap) {
+        const productId = parseInt(wrap.dataset.productId);
+        const addBtn    = wrap.querySelector('.bd-add-btn');
+        const decBtn    = wrap.querySelector('.bd-step-dec');
+        const incBtn    = wrap.querySelector('.bd-step-inc');
+
+        addBtn.addEventListener('click', async function() {
+            addBtn.disabled = true;
+            try {
+                const data = await postCart(productId);
+                if (data.success) {
+                    state[productId] = { cartItemId: data.cart_item_id, qty: 1 };
+                    renderStepper(wrap, 1);
+                    setBadge(data.total_items);
+                    if (typeof showToast === 'function') showToast('Ajouté au panier', 'success');
+                } else {
+                    if (typeof showToast === 'function') showToast(data.message || 'Erreur', 'error');
+                }
+            } catch(e) {
+                if (typeof showToast === 'function') showToast('Erreur réseau', 'error');
+            } finally {
+                addBtn.disabled = false;
             }
         });
+
+        incBtn.addEventListener('click', async function() {
+            incBtn.disabled = true;
+            try {
+                const data = await postCart(productId);
+                if (data.success) {
+                    state[productId].qty++;
+                    if (data.cart_item_id) state[productId].cartItemId = data.cart_item_id;
+                    wrap.querySelector('.bd-stepper__qty').textContent = state[productId].qty;
+                    setBadge(data.total_items);
+                }
+            } finally { incBtn.disabled = false; }
+        });
+
+        decBtn.addEventListener('click', async function() {
+            if (!state[productId]) return;
+            decBtn.disabled = true;
+            try {
+                const { cartItemId, qty } = state[productId];
+                if (qty > 1) {
+                    const ok = await putCart(cartItemId, qty - 1);
+                    if (ok) {
+                        state[productId].qty--;
+                        wrap.querySelector('.bd-stepper__qty').textContent = state[productId].qty;
+                        const badge = badgeEl();
+                        if (badge && parseInt(badge.textContent) > 0) setBadge(parseInt(badge.textContent) - 1);
+                    }
+                } else {
+                    const ok = await deleteCartItem(cartItemId);
+                    if (ok) {
+                        delete state[productId];
+                        showAddBtn(wrap);
+                        const badge = badgeEl();
+                        if (badge && parseInt(badge.textContent) > 0) setBadge(parseInt(badge.textContent) - 1);
+                    }
+                }
+            } finally { decBtn.disabled = false; }
+        });
     });
+
+    // Smooth scroll + active pill highlight
+    document.querySelectorAll('.menu-catnav__pill').forEach(function(link) {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            const target = document.querySelector(this.getAttribute('href'));
+            if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    });
+
+    const sections = document.querySelectorAll('.category-section[id^="cat-"]');
+    const pills    = document.querySelectorAll('.menu-catnav__pill');
+    if (sections.length && pills.length) {
+        const io = new IntersectionObserver(function(entries) {
+            entries.forEach(function(entry) {
+                if (entry.isIntersecting) {
+                    const id = entry.target.id;
+                    pills.forEach(function(p) {
+                        p.classList.toggle('is-active', p.getAttribute('href') === '#' + id);
+                    });
+                }
+            });
+        }, { rootMargin: '-40% 0px -55% 0px' });
+        sections.forEach(function(s) { io.observe(s); });
+    }
+})();
 </script>
 @endsection
