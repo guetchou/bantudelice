@@ -22,20 +22,23 @@ class DriverDeliveriesController extends Controller
 
     /**
      * S3.4 — Résolution Driver depuis l'User connecté.
-     * Priorité : user_id (si colonne existe) → email → phone → name.
+     * Priorité : user_id → (email ET phone, avec auto-liaison de user_id).
      */
     private function resolveDriverFromUser($user): ?Driver
     {
-        if (true) {
-            $d = Driver::where('user_id', $user->id)->first();
-            if ($d) return $d;
-        }
+        $d = Driver::where('user_id', $user->id)->first();
+        if ($d) return $d;
+
+        // email ET téléphone doivent correspondre tous les deux (l'orWhere et le
+        // fallback par nom permettaient un IDOR par correspondance partielle/faible).
         $d = Driver::where('email', $user->email)
-                   ->orWhere('phone', $user->phone)
+                   ->where('phone', $user->phone)
                    ->first();
-        if (!$d && $user->type === 'driver') {
-            $d = Driver::where('name', $user->name)->first();
+
+        if ($d && !$d->user_id) {
+            $d->update(['user_id' => $user->id]);
         }
+
         return $d;
     }
 
@@ -241,7 +244,7 @@ class DriverDeliveriesController extends Controller
 
         // Offre pendante pour ce livreur (broadcast offer model)
         $pendingOffer = null;
-        if (\Illuminate\Support\Facades\true) {
+        if (true) {
             $offer = DeliveryOffer::with(['delivery.order.restaurant'])
                 ->where('driver_id', $driver->id)
                 ->where('status', 'pending')
