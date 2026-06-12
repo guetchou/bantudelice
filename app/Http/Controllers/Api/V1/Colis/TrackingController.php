@@ -4,17 +4,33 @@ namespace App\Http\Controllers\Api\V1\Colis;
 
 use App\Http\Controllers\Controller;
 use App\Domain\Colis\Models\Shipment;
+use App\Services\PaymentExperienceService;
 use Illuminate\Http\JsonResponse;
 
 class TrackingController extends Controller
 {
+    public function __construct(protected PaymentExperienceService $paymentExperienceService)
+    {
+    }
+
     public function __invoke(string $trackingNumber): JsonResponse
     {
         $shipment = Shipment::where('tracking_number', $trackingNumber)
             ->with(['events' => function($query) {
                 $query->orderBy('created_at', 'desc');
-            }, 'addresses', 'courier'])
-            ->firstOrFail();
+            }, 'addresses', 'courier', 'payments' => function ($query) {
+                $query->latest('id');
+            }])
+            ->first();
+
+        if (!$shipment) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Colis introuvable',
+            ], 404)->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0, private')
+              ->header('Pragma', 'no-cache')
+              ->header('Expires', '0');
+        }
 
         $pickup = $shipment->addresses->where('type', 'pickup')->first();
         $dropoff = $shipment->addresses->where('type', 'dropoff')->first();
@@ -46,6 +62,10 @@ class TrackingController extends Controller
             'tracking_number' => $shipment->tracking_number,
             'status' => $shipment->status,
             'status_label' => $shipment->status->label(),
+            'payment_status' => $shipment->payment_status,
+            'payment_experience' => $this->paymentExperienceService->describe($shipment->payments->first()),
+            'total_price' => $shipment->total_price,
+            'currency' => $shipment->currency,
             'locations' => [
                 'pickup' => $pickup ? ['lat' => $pickup->lat, 'lng' => $pickup->lng, 'address' => $pickup->address_line] : null,
                 'dropoff' => $dropoff ? ['lat' => $dropoff->lat, 'lng' => $dropoff->lng, 'address' => $dropoff->address_line] : null,
@@ -61,7 +81,8 @@ class TrackingController extends Controller
                 'notes' => $event->notes,
                 'created_at' => $event->created_at,
             ]),
-        ]);
+        ])->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0, private')
+          ->header('Pragma', 'no-cache')
+          ->header('Expires', '0');
     }
 }
-

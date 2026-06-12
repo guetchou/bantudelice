@@ -2,26 +2,17 @@
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
 @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap');
 
-/* If you have Avenir Next locally, you might need something like this: */
-/*
-@font-face {
-    font-family: 'Avenir Next';
-    src: url('path-to-your-font/AvenirNext-Regular.woff2') format('woff2'),
-         url('path-to-your-font/AvenirNext-Regular.woff') format('woff');
-    font-weight: 400;
-    font-style: normal;
-}
-*/
+/* Font: Plus Jakarta Sans — https://fonts.google.com/specimen/Plus+Jakarta+Sans */
 
 body {
     margin: 0;
-    font-family: 'Avenir Next', 'Poppins', 'Montserrat', sans-serif; /* The order matters. The browser will try to use the first font available */
+    font-family: 'Plus Jakarta Sans', 'Poppins', sans-serif; /* The order matters. The browser will try to use the first font available */
     background: #fff;
 }
 
 h1, h2, h3, h4, h5, h6 {
     margin: 0;
-    font-family: 'Avenir Next', 'Poppins', 'Montserrat', sans-serif; /* Using the same stack for headings */
+    font-family: 'Plus Jakarta Sans', 'Poppins', sans-serif; /* Using the same stack for headings */
 }
 
 body a{
@@ -120,7 +111,7 @@ body a:focus {
 .navigation {
     padding: 0 0 0.6em;
     text-align: center;
-    background: #FD7802;
+    background: #ff5a1f;
 	position: relative;
 }
 .m9ls_products_pos h4 {
@@ -222,7 +213,7 @@ li.dropdown.open .dropdown-menu,li.m9views.open .dropdown-menu{
 }
 ul.multi-column-dropdown h6 {
     font-size: 1.4em;
-    color: #FD7802;
+    color: #ff5a1f;
     margin: 0 0 0.5em;
     padding-bottom: 0.5em;
     border-bottom: 1px solid #E4E4E4;
@@ -379,7 +370,7 @@ option {
 /*-- order --*/
 .order-m9text {
     text-align: center;
-    border: 5px dotted #FD7802;
+    border: 5px dotted #ff5a1f;
     padding: 2.5em 0;
     width: 160px;
     height: 160px;
@@ -398,7 +389,7 @@ option {
 }
 .order-m9text i.fa {
     font-size: 2.5em;
-    color: #FD7802;
+    color: #ff5a1f;
 }
 .order-m9text h5{
     font-size: 1.4em;
@@ -671,8 +662,8 @@ img.m9order-img {
     border-color: #f44336;
 }
 .subscribe form:hover input[type="submit"] {
-    background:#FD7802;
-	border: 1px solid #FD7802;
+    background:#ff5a1f;
+	border: 1px solid #ff5a1f;
 }
 .subscribe form {
     margin-top: 1.5em;
@@ -789,7 +780,7 @@ img.m9order-img {
 }
 .footer-grids h3 {
     font-size: 1.6em;
-    color: #FD7802;
+    color: #ff5a1f;
     margin-bottom: 1em;
     text-transform: capitalize;
 }
@@ -889,8 +880,8 @@ ol.breadcrumb.m9l-crumbs {
 .menu-m9lsgrids a {
     display: block;
     font-size: 1.2em;
-    color: #FD7802;
-    border: 1px solid #FD7802;
+    color: #ff5a1f;
+    border: 1px solid #ff5a1f;
     padding: 0.8em;
     margin: 0 2em;
 	position:relative;
@@ -898,7 +889,7 @@ ol.breadcrumb.m9l-crumbs {
 .menu-m9lsgrids a:before {
     position: absolute;
     content: '';
-    background: #FD7802;
+    background: #ff5a1f;
     width: 100%;
     height: 100%;
     left: 0;
@@ -946,7 +937,7 @@ h3.m9ls-title.m9ls-title1 {
     font-weight: 300;
 }
 .breadcrumb.breadcrumb1 li a {
-    color: #FD7802;
+    color: #ff5a1f;
 }
 .breadcrumb.breadcrumb1  > .active,.breadcrumb.breadcrumb1 li a:hover{
     color: #000;
@@ -958,7 +949,7 @@ h3.m9ls-title.m9ls-title1 {
     padding: 0 8px;
 }
 .product-top {
-    background: #FD7802;
+    background: #ff5a1f;
     padding: 1em 2em;
 }
 .product-top li.dropdown{
@@ -987,7 +978,7 @@ h3.m9ls-title.m9ls-title1 {
     margin-top: 3em;
 }
 .agile-product-text {
-    background: #FD7802;
+    background: #ff5a1f;
     padding: 1.5em 2em;
     text-align: center;
 }
@@ -1303,7 +1294,7 @@ input.item_quantity:hover{
 	position: relative;
 }
 .jspDrag{
-	background: #FD7802;
+	background: #ff5a1f;
 	position: relative;
 	top: 0;
 	left: 0;
@@ -1407,8 +1398,8 @@ input#amount {
 	font-size:1em;
 }
 .related-row ul li a:hover{
-    border-color:#FD7802;
-    color: #FD7802;
+    border-color:#ff5a1f;
+    color: #ff5a1f;
 }
 .recommend {
     margin-top: 4em;
@@ -1641,7 +1632,7 @@ p.sbmincart-empty-text {
 .single-top-right ul li {
     display: inline-block;
     margin-left: 3px;
-    color: #FD7802;
+    color: #ff5a1f;
 }
 .single-top-right ul li.m9act {
     color: #999;
@@ -1663,7 +1654,7 @@ p.sbmincart-empty-text {
     color: #999;
 }
 .single-top-right ul li a:hover{
-    color: #FD7802;
+    color: #ff5a1f;
 }
 .single-price ul li {
     margin-right: 1em;
@@ -1677,7 +1668,7 @@ p.sbmincart-empty-text {
 }
 .single-price ul li span.m9off {
     font-size: 1.5em;
-    color: #FD7802;
+    color: #ff5a1f;
 }
 .single-price.price ul li a {
     color: #f44336;
@@ -1695,9 +1686,9 @@ p.single-price-text {
     width: 28%;
     font-weight: 300;
     padding: 0.6em 0;
-    border: 1px solid #FD7802;
+    border: 1px solid #ff5a1f;
     display: inline-block;
-    background: #FD7802;
+    background: #ff5a1f;
 }
 .single-top-right .m9ls-cart:hover {
     background: #5C41D9;
@@ -1709,12 +1700,12 @@ p.single-price-text {
 .single-top-right .m9ls-cart.m9ls-cart-like {
     margin-left: 1em;
     background: none;
-    border: 1px solid #FD7802;
-    color: #FD7802;
+    border: 1px solid #ff5a1f;
+    color: #ff5a1f;
 	text-align: center;
 }
 .single-top-right .m9ls-cart.m9ls-cart-like:hover{
-    background: #FD7802;
+    background: #ff5a1f;
     color: #fff;
 }
 .single-page-icons.social-icons {
@@ -1783,7 +1774,7 @@ p.single-price-text {
 /*-- //about --*/
 /*-- contact --*/
 .contact-grid {
-    background-color: #FD7802;
+    background-color: #ff5a1f;
     padding: 3.5em;
 }
 .contact-row.agileits-m9layouts {
@@ -1999,7 +1990,7 @@ p.single-price-text {
 .login-agileinfo input[type="submit"] {
     font-size: 1em;
     color: #fff;
-    background: #FD7802;
+    background: #ff5a1f;
     outline: none;
     border: none;
     cursor: pointer;
@@ -2077,7 +2068,7 @@ p.single-price-text {
     text-align: center;
     background: rgba(255, 255, 255, 0.88);
     padding: 2em;
-    border: 16px double #FD7802;
+    border: 16px double #ff5a1f;
     margin: 2em 5em;
 }
 .offers-right h5 {
@@ -2133,10 +2124,10 @@ p.single-price-text {
     color: #fff;
 }
 .help .help-search:hover input[type="search"]{
-    border-color: #FD7802;
+    border-color: #ff5a1f;
 }
 .help .help-search:hover .btn-default{
-    background: #FD7802;
+    background: #ff5a1f;
 }
 .help h5, .privacy-m9row h5 {
     font-size: 1.3em;
@@ -2154,7 +2145,7 @@ ul.faq {
     padding-left: 0.5em;
 }
 .faq-m9agile .faq > li > a {
-    color: #FD7802;
+    color: #ff5a1f;
 }
 .faq-m9agile .faq li li.subitem1 {
     display: block;
@@ -3791,7 +3782,7 @@ p {
     font-size: 1.2em;
 }
 .offers-right {
-    border: 12px double #FD7802;
+    border: 12px double #ff5a1f;
 	margin: 1em;
 }
 .offers-wthreerow {
@@ -3921,7 +3912,7 @@ h3.m9ls-title {
     font-size: 1.6em;
 }
 .offers-right {
-    border: 8px double #FD7802;
+    border: 8px double #ff5a1f;
     margin: 1em;
     width: 75%;
 }

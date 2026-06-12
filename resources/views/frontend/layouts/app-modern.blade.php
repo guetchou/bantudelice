@@ -1,621 +1,121 @@
 <!DOCTYPE html>
+@php
+    $layoutBrand = app(\App\Services\AuthBrandingService::class)->resolve(request());
+    $layoutBrandKey = $layoutBrand['key'] ?? 'bantudelice';
+    $layoutBrandPrimary = $layoutBrand['primary'] ?? '#009543';
+    $layoutBrandSoft = $layoutBrand['primary_soft'] ?? 'rgba(0, 149, 67, 0.12)';
+    $layoutBrandName = $layoutBrand['name'] ?? \App\Services\ConfigService::getCompanyName();
+    $layoutBrandRouteParams = $layoutBrandKey !== 'bantudelice' ? ['brand' => $layoutBrandKey] : [];
+    $layoutHomeLink = match ($layoutBrandKey) {
+        'mema' => route('colis.landing'),
+        'kende' => route('transport.index'),
+        default => route('home'),
+    };
+    $layoutFooterTagline = match ($layoutBrandKey) {
+        'mema' => 'Votre service de confiance pour expedier, suivre et gerer vos colis au Congo.',
+        'kende' => 'Votre espace de confiance pour reserver, suivre et gerer vos trajets au Congo.',
+        default => 'Votre partenaire de confiance pour commander vos repas et decouvrir les meilleures tables locales.',
+    };
+    $layoutDefaultTitle = match ($layoutBrandKey) {
+        'mema' => 'Mema - Livraison de colis au Congo',
+        'kende' => 'Kende - Transport local au Congo',
+        default => \App\Services\ConfigService::getCompanyName() . ' - Livraison a domicile',
+    };
+    $layoutDefaultDescription = match ($layoutBrandKey) {
+        'mema' => 'Mema - Envoyez, suivez et gerez vos colis simplement a Brazzaville et au Congo.',
+        'kende' => 'Kende - Reservez un trajet local, suivez votre chauffeur et gerez vos deplacements au Congo.',
+        default => \App\Services\ConfigService::getCompanyName() . ' - Commande de repas et livraison food a Brazzaville.',
+    };
+    $layoutServiceLinks = match ($layoutBrandKey) {
+        'mema' => [
+            ['label' => 'Accueil Mema', 'url' => route('colis.landing')],
+            ['label' => 'Suivre un envoi', 'url' => route('colis.track_public')],
+            ['label' => 'Nouveau colis', 'url' => route('colis.create')],
+            ['label' => 'Mes envois', 'url' => route('colis.mes-envois')],
+            ['label' => 'Nous contacter', 'url' => route('contact.us', $layoutBrandRouteParams)],
+        ],
+        'kende' => [
+            ['label' => 'Accueil Kende', 'url' => route('transport.index')],
+            ['label' => 'Taxi', 'url' => route('transport.taxi')],
+            ['label' => 'Covoiturage', 'url' => route('transport.carpool')],
+            ['label' => 'Location', 'url' => route('transport.rental')],
+            ['label' => 'Mes reservations', 'url' => route('transport.my_bookings')],
+            ['label' => 'Nous contacter', 'url' => route('contact.us', $layoutBrandRouteParams)],
+        ],
+        default => [
+            ['label' => 'Restaurants', 'url' => route('restaurants.all')],
+            ['label' => 'Suivre une commande', 'url' => route('track.order')],
+            ['label' => 'Offres du moment', 'url' => route('offers')],
+            ['label' => 'À propos de nous', 'url' => route('about.us', $layoutBrandRouteParams)],
+            ['label' => 'Devenir livreur', 'url' => route('driver')],
+            ['label' => 'Devenir partenaire', 'url' => route('partenaires')],
+            ['label' => 'Nous contacter', 'url' => route('contact.us', $layoutBrandRouteParams)],
+        ],
+    };
+    $layoutBrandInitial = strtoupper(substr($layoutBrandName, 0, 1));
+@endphp
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>@yield('title', 'BantuDelice - Livraison à domicile')</title>
-    <meta name="description" content="@yield('description', 'BantuDelice - Commande de repas et livraison food a Brazzaville.')">
-    <meta name="keywords" content="livraison, restaurant, colis, taxi, Congo, Brazzaville">
+    <title>@yield('title', $layoutDefaultTitle)</title>
+    <meta name="description" content="@yield('description', $layoutDefaultDescription)">
+    <meta name="keywords" content="livraison de repas, restaurant, food delivery, Congo, Brazzaville, Pointe-Noire">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     
     <!-- Favicon -->
     <link rel="icon" type="image/x-icon" href="{{ asset('favicon.ico') }}">
+
+    <!-- T1.3 — PWA Manifest -->
+    <link rel="manifest" href="/manifest.webmanifest">
+    <meta name="theme-color" content="#009543">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="BantuDelice">
+    <link rel="apple-touch-icon" href="{{ asset('images/5-512.png') }}">
     
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    
+
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    
+
     <!-- Bootstrap 5 -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
-    
+
     <!-- Modern CSS -->
     <link href="{{ asset('frontend/css/modern.css') }}" rel="stylesheet">
-    
+
     @yield('styles')
     @yield('style')
-    
-    <!-- Styles pour le menu déroulant -->
-    <style>
-        :root {
-            --bd-orange: #ff5a1f;
-            --bd-blue: #2448ff;
-            --bd-lime: #166534;
-            --bd-ink: #081226;
-            --bd-paper: #eef3ff;
-            --bd-line: rgba(8, 18, 38, 0.12);
-        }
-
-        body.bd-future-shell {
-            background: var(--bd-paper);
-            color: var(--bd-ink);
-            width: 100%;
-            max-width: 100%;
-            overflow-x: hidden;
-        }
-
-        body.bd-future-shell main {
-            position: relative;
-            z-index: 1;
-            width: 100%;
-            max-width: 100%;
-            overflow-x: clip;
-        }
-
-        html {
-            width: 100%;
-            max-width: 100%;
-            overflow-x: hidden;
-        }
-
-        img,
-        video,
-        iframe,
-        canvas,
-        svg {
-            max-width: 100%;
-        }
-
-        .container,
-        .container-fluid {
-            width: 100%;
-            max-width: 100%;
-        }
-
-        .modern-header {
-            position: sticky;
-            top: 12px;
-            z-index: 80;
-            padding: 0 12px 12px;
-            background: transparent;
-            backdrop-filter: none;
-            border-bottom: 0;
-        }
-
-        .modern-header::before {
-            display: none;
-        }
-
-        .modern-header .header-container {
-            position: relative;
-            z-index: 1;
-            max-width: 1380px;
-            margin: 0 auto;
-            padding: 0 18px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 16px;
-            min-height: 82px;
-            background: rgba(255,255,255,0.96);
-            border: 1px solid var(--bd-line);
-            border-radius: 30px;
-            box-shadow: 0 20px 50px rgba(8,18,38,0.08);
-            backdrop-filter: blur(18px);
-            width: calc(100% - 24px);
-        }
-
-        .bd-brand-lockup {
-            display: inline-flex;
-            align-items: center;
-            gap: 0;
-            text-decoration: none;
-            flex-shrink: 0;
-        }
-
-        .bd-brand-logo-wrap {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            padding: 0;
-            background: transparent;
-            border: 0;
-            box-shadow: none;
-            line-height: 0;
-        }
-
-        .bd-brand-logo-wrap img {
-            display: block;
-            height: 48px;
-            width: auto;
-            max-width: 180px;
-            object-fit: contain;
-            image-rendering: -webkit-optimize-contrast;
-        }
-
-        .nav-menu {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            flex: 1 1 auto;
-            min-width: 0;
-            flex-wrap: nowrap;
-            gap: 6px;
-            padding: 7px;
-            border-radius: 22px;
-            background: #f7f9ff;
-            border: 1px solid rgba(36,72,255,0.12);
-            box-shadow: none;
-            overflow: hidden;
-        }
-
-        .nav-menu .nav-link,
-        .nav-menu .nav-dropdown-toggle {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 44px;
-            padding: 0 16px;
-            border-radius: 16px;
-            color: var(--bd-ink);
-            font-weight: 800;
-            font-size: 0.93rem;
-            text-decoration: none;
-            transition: .22s ease;
-        }
-
-        .nav-menu .nav-link:hover,
-        .nav-menu .nav-dropdown-toggle:hover {
-            background: #ffffff;
-            color: var(--bd-blue);
-        }
-
-        .nav-link--service {
-            font-weight: 800 !important;
-        }
-
-        .nav-link--primary {
-            background: #ffffff;
-            color: var(--bd-ink) !important;
-            border: 1px solid rgba(36,72,255,0.1);
-            box-shadow: none;
-        }
-
-        .nav-link--primary:hover {
-            background: #ffffff !important;
-            color: var(--bd-blue) !important;
-            opacity: 1;
-        }
-
-        .nav-link--utility {
-            color: #5d6880 !important;
-        }
-
-        .nav-actions {
-            display: inline-flex;
-            align-items: center;
-            gap: 12px;
-            flex-shrink: 0;
-            min-width: 0;
-        }
-
-        .bd-site-switcher {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 6px;
-            border-radius: 16px;
-            background: rgba(247,249,255,0.9);
-            border: 1px solid rgba(36,72,255,0.1);
-        }
-
-        .bd-site-switcher__dropdown {
-            position: relative;
-        }
-
-        .bd-site-switcher__trigger {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            min-height: 34px;
-            padding: 0 10px 0 6px;
-            border-radius: 999px;
-            background: #ffffff;
-            color: var(--bd-ink);
-            border: 1px solid rgba(36,72,255,0.08);
-            font-size: 0.72rem;
-            font-weight: 800;
-            letter-spacing: 0.08em;
-        }
-
-        .bd-site-switcher__icon {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 28px;
-            height: 28px;
-            border-radius: 999px;
-            background: #ffffff;
-            color: var(--bd-blue);
-            border: 1px solid rgba(36,72,255,0.08);
-            font-size: 0.82rem;
-        }
-
-        .bd-site-switcher__current {
-            line-height: 1;
-        }
-
-        .bd-site-switcher__chevron {
-            font-size: 0.62rem;
-            color: #7a8799;
-        }
-
-        .bd-site-switcher__menu {
-            position: absolute;
-            top: calc(100% + 8px);
-            right: 0;
-            min-width: 150px;
-            padding: 8px;
-            border-radius: 18px;
-            background: #ffffff;
-            border: 1px solid rgba(8,18,38,0.08);
-            box-shadow: 0 18px 40px rgba(8,18,38,0.12);
-            opacity: 0;
-            visibility: hidden;
-            transform: translateY(-8px);
-            pointer-events: none;
-            transition: .22s ease;
-            z-index: 1200;
-        }
-
-        .bd-site-switcher__dropdown.open .bd-site-switcher__menu {
-            opacity: 1;
-            visibility: visible;
-            transform: translateY(0);
-            pointer-events: auto;
-        }
-
-        .bd-site-switcher__option {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 12px;
-            padding: 10px 12px;
-            border-radius: 12px;
-            text-decoration: none;
-            color: var(--bd-ink);
-            font-size: 0.8rem;
-            font-weight: 800;
-        }
-
-        .bd-site-switcher__option small {
-            color: #7a8799;
-            font-size: 0.72rem;
-            font-weight: 700;
-            letter-spacing: 0;
-            text-transform: none;
-        }
-
-        .bd-site-switcher__option:hover,
-        .bd-site-switcher__option.is-active {
-            background: #eef3ff;
-            color: var(--bd-blue);
-        }
-
-        .bd-site-switcher__locales,
-        .bd-site-switcher__sites {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            flex-wrap: wrap;
-        }
-
-        .bd-site-switcher__pill {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 28px;
-            padding: 0 10px;
-            border-radius: 999px;
-            background: #ffffff;
-            color: var(--bd-ink);
-            border: 1px solid rgba(36,72,255,0.08);
-            text-decoration: none;
-            font-size: 0.72rem;
-            font-weight: 800;
-            letter-spacing: 0.08em;
-            transition: all .18s ease;
-        }
-
-        .bd-site-switcher__pill:hover,
-        .bd-site-switcher__pill.is-active {
-            background: var(--bd-blue);
-            color: #ffffff;
-            border-color: var(--bd-blue);
-        }
-
-        .cart-icon {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            width: 48px;
-            height: 48px;
-            border-radius: 18px;
-            background: var(--bd-blue);
-            color: #ffffff;
-            border: 0;
-            box-shadow: 0 14px 28px rgba(36,72,255,0.2);
-        }
-
-        .header-profile-chip {
-            display: inline-flex;
-            align-items: center;
-            gap: 10px;
-            min-height: 52px;
-            padding: 6px 10px 6px 8px;
-            border-radius: 22px;
-            background: #f7f9ff;
-            border: 1px solid rgba(36,72,255,0.12);
-            box-shadow: none;
-            text-decoration: none;
-        }
-
-        .header-profile-avatar {
-            width: 38px;
-            height: 38px;
-            border-radius: 999px;
-            object-fit: cover;
-            flex-shrink: 0;
-        }
-
-        .header-profile-copy {
-            display: flex;
-            flex-direction: column;
-            line-height: 1.05;
-        }
-
-        .header-profile-copy strong {
-            color: var(--bd-ink);
-            font-size: 0.9rem;
-            font-weight: 800;
-        }
-
-        .header-profile-copy small {
-            color: var(--bd-blue);
-            font-size: 0.72rem;
-            text-transform: uppercase;
-            letter-spacing: 0.12em;
-            font-weight: 700;
-        }
-
-        .modern-header .btn.btn-primary.btn-sm,
-        .modern-header .btn.btn-secondary.btn-sm {
-            min-height: 46px;
-            padding: 0 18px;
-            font-weight: 800;
-            border-radius: 18px !important;
-        }
-
-        .modern-header .btn.btn-commander.btn-sm {
-            min-height: 48px;
-            padding: 0 20px;
-            font-weight: 800;
-            border-radius: 18px !important;
-            background: var(--bd-orange) !important;
-            border: 0 !important;
-            color: #ffffff !important;
-            box-shadow: 0 14px 28px rgba(255,90,31,0.22) !important;
-        }
-
-        .modern-header .btn.btn-primary.btn-sm {
-            background: var(--bd-blue) !important;
-            border: 0 !important;
-            box-shadow: 0 14px 28px rgba(36,72,255,0.2) !important;
-        }
-
-        .modern-header .btn.btn-secondary.btn-sm {
-            background: #ffffff !important;
-            border: 1px solid rgba(36,72,255,0.14) !important;
-            color: var(--bd-blue) !important;
-        }
-
-        #toastContainer {
-            max-width: calc(100vw - 24px);
-            right: 12px !important;
-            left: auto !important;
-        }
-
-        #toastContainer > div {
-            min-width: 0 !important;
-            width: min(360px, calc(100vw - 24px));
-            max-width: calc(100vw - 24px) !important;
-        }
-
-        .flash-message {
-            max-width: calc(100vw - 24px) !important;
-            right: 12px !important;
-            left: auto !important;
-        }
-
-        @media (max-width: 1279px) {
-            .modern-header .header-container {
-                padding: 0 14px;
-                gap: 10px;
-                min-height: 76px;
-            }
-
-            .nav-menu .nav-link,
-            .nav-menu .nav-dropdown-toggle {
-                min-height: 40px;
-                padding: 0 12px;
-                font-size: 0.86rem;
-            }
-
-            .nav-actions {
-                gap: 8px;
-            }
-
-            .modern-header .btn.btn-commander.btn-sm,
-            .modern-header .btn.btn-primary.btn-sm,
-            .modern-header .btn.btn-secondary.btn-sm {
-                min-height: 42px;
-                padding: 0 14px;
-                font-size: 0.82rem;
-            }
-
-            .header-profile-copy strong {
-                max-width: 88px;
-            }
-        }
-
-        /* Dropdown Menu - Cacher par défaut (spécificité élevée) */
-        .modern-header .nav-dropdown {
-            position: relative;
-        }
-        
-        .modern-header .nav-dropdown-menu {
-            position: absolute !important;
-            top: 100% !important;
-            left: 0 !important;
-            min-width: 200px;
-            background: white;
-            border: 1px solid rgba(8,18,38,0.08);
-            border-radius: 18px;
-            box-shadow: 0 18px 40px rgba(8,18,38,0.12);
-            padding: 8px 0;
-            margin-top: 8px;
-            opacity: 0 !important;
-            visibility: hidden !important;
-            transform: translateY(-10px);
-            transition: all 0.3s ease;
-            z-index: 1000;
-            display: flex;
-            flex-direction: column;
-            pointer-events: none;
-        }
-        
-        .modern-header .nav-dropdown-menu a {
-            padding: 10px 16px;
-            color: var(--bd-ink);
-            text-decoration: none;
-            font-size: 0.9375rem;
-            transition: background 0.2s ease;
-            white-space: nowrap;
-            display: block;
-        }
-        
-        .modern-header .nav-dropdown-menu a:hover {
-            background: #eef3ff;
-            color: var(--bd-blue);
-        }
-        
-        /* Afficher le menu au hover */
-        .modern-header .nav-dropdown:hover .nav-dropdown-menu,
-        .modern-header .nav-dropdown.open .nav-dropdown-menu {
-            opacity: 1 !important;
-            visibility: visible !important;
-            transform: translateY(0);
-            pointer-events: auto;
-        }
-        
-        /* Mobile : menu toujours visible si actif */
-        @media (max-width: 1199px) {
-            .modern-header {
-                top: 0;
-                padding: 0 0 10px;
-            }
-
-            .modern-header .header-container {
-                min-height: 74px;
-                margin: 0 12px;
-                border-radius: 0 0 26px 26px;
-                padding: 0 16px;
-            }
-
-            .nav-menu {
-                top: 88px;
-                left: 12px;
-                right: 12px;
-                background: rgba(255,255,255,0.98);
-                border: 1px solid rgba(8,18,38,0.08);
-                border-radius: 28px;
-                padding: 18px 16px;
-                box-shadow: 0 25px 60px rgba(8,18,38,0.12);
-                overflow-y: auto;
-                overflow-x: hidden;
-            }
-
-            .nav-menu .nav-link,
-            .nav-menu .nav-dropdown-toggle {
-                width: 100%;
-                justify-content: space-between;
-                background: #f7f9ff;
-            }
-
-            .modern-header .nav-dropdown-menu {
-                position: static !important;
-                opacity: 0 !important;
-                visibility: hidden !important;
-                transform: none !important;
-                box-shadow: none;
-                background: transparent;
-                padding: 0;
-                margin: 0;
-                margin-left: 1rem;
-                pointer-events: none;
-                max-height: 0;
-                overflow: hidden;
-                transition: max-height 0.25s ease;
-            }
-
-            .modern-header .nav-dropdown.open .nav-dropdown-menu {
-                opacity: 1 !important;
-                visibility: visible !important;
-                pointer-events: auto;
-                max-height: 300px;
-            }
-            
-            .modern-header .nav-dropdown-menu a {
-                padding: 8px 0;
-                font-size: 0.875rem;
-            }
-
-            .header-profile-chip {
-                display: none !important;
-            }
-
-            .nav-actions .btn.btn-primary.btn-sm,
-            .nav-actions .btn.btn-secondary.btn-sm {
-                display: inline-flex;
-                align-items: center;
-                justify-content: center;
-                min-height: 36px;
-                padding: 0.45rem 0.9rem;
-                white-space: nowrap;
-            }
-
-            .bd-site-switcher {
-                display: none;
-            }
-
-            #toastContainer {
-                top: 12px !important;
-            }
-        }
-    </style>
 </head>
-<body class="bd-future-shell">
+@php
+    $hidePrimaryChrome = trim($__env->yieldContent('hide_primary_chrome')) !== '';
+    $pageBodyClass = trim($__env->yieldContent('body_class'));
+    $pageBodyStyle = trim($__env->yieldContent('body_style'));
+@endphp
+<body class="bd-future-shell{{ $pageBodyClass ? ' ' . $pageBodyClass : '' }}" style="--layout-brand-primary: {{ $layoutBrandPrimary }}; --layout-brand-soft: {{ $layoutBrandSoft }};{{ $pageBodyStyle ? ' ' . $pageBodyStyle : '' }}">
     <!-- Header Moderne -->
+    @unless($hidePrimaryChrome)
     <header class="modern-header float-nav-shell" id="header">
         <div class="header-container float-nav-inner">
             <!-- Logo -->
-            <a href="{{ route('home') }}" class="logo float-brand bd-brand-lockup">
+            <a href="{{ $layoutHomeLink }}" class="logo float-brand bd-brand-lockup">
                 <span class="bd-brand-logo-wrap">
-                    <img src="{{ asset('frontend/images/BuntuDelice.png') }}" alt="BantuDelice">
+                    @if($layoutBrandKey === 'bantudelice')
+                        <img src="{{ asset('frontend/images/BuntuDelice.png') }}" alt="{{ $layoutBrandName }}">
+                    @else
+                        <span class="bd-brand-chip">
+                            <span class="bd-brand-chip__badge" style="background: {{ $layoutBrandPrimary }};">{{ $layoutBrandInitial }}</span>
+                            <span class="bd-brand-chip__copy">
+                                <span class="bd-brand-chip__name">{{ $layoutBrandName }}</span>
+                                <span class="bd-brand-chip__label">{{ $layoutBrand['label'] ?? 'Service' }}</span>
+                            </span>
+                        </span>
+                    @endif
                 </span>
             </a>
             
@@ -623,6 +123,25 @@
                 $foodEnabled = (bool) config('bantudelice_modules.food.enabled', true);
                 $colisEnabled = (bool) config('bantudelice_modules.colis.enabled', true);
                 $transportEnabled = (bool) config('bantudelice_modules.transport.enabled', true);
+                $ecosystemPlatforms = collect(config('sites.ecosystem', []))
+                    ->filter(fn ($platform) => filled($platform['url'] ?? null))
+                    ->map(function ($platform) use ($transportEnabled, $colisEnabled) {
+                        $name = trim((string) ($platform['name'] ?? ''));
+
+                        if ($name === 'Transport' && $transportEnabled) {
+                            $platform['url'] = route('transport.index');
+                        }
+
+                        if (in_array($name, ['Colis', 'Mema'], true) && $colisEnabled) {
+                            $platform['url'] = route('colis.landing');
+                            $platform['name'] = 'Mema';
+                        }
+
+                        return $platform;
+                    })
+                    ->values();
+                $brandQuery = request()->query('brand');
+                $brandRouteParams = in_array($brandQuery, ['mema', 'kende', 'bantudelice'], true) ? ['brand' => $brandQuery] : [];
                 $accountLink = route('user.login');
                 $accountLabel = trans('ui.nav.account');
 
@@ -670,41 +189,26 @@
                 @if($foodEnabled)
                     <a href="{{ route('restaurants.all') }}" class="nav-link nav-link--service nav-link--primary">{{ trans('ui.nav.repas') }}</a>
                 @endif
-                @if($colisEnabled || $transportEnabled)
+                @if($ecosystemPlatforms->isNotEmpty())
                     <div class="nav-dropdown">
-                        <button type="button" class="nav-link nav-dropdown-toggle nav-link--utility" aria-expanded="false" style="background:none;border:0;padding:0;">
-                            Services <i class="fas fa-chevron-down" style="font-size: 0.7rem; margin-left: 4px;"></i>
+                        <button type="button" class="nav-link nav-dropdown-toggle nav-link--utility" aria-expanded="false">
+                            Nos autres plateformes <i class="fas fa-chevron-down" style="font-size: 0.7rem; margin-left: 4px;"></i>
                         </button>
                         <div class="nav-dropdown-menu">
-                            @if($colisEnabled)
-                                <a href="{{ route('colis.landing') }}">{{ trans('ui.nav.colis') }}</a>
-                                <a href="{{ route('colis.track_public') }}">Suivre un colis</a>
-                            @endif
-                            @if($transportEnabled)
-                                <a href="{{ route('transport.taxi') }}">Transport</a>
-                            @endif
+                            @foreach($ecosystemPlatforms as $platform)
+                                @php
+                                    $platformHost = parse_url((string) $platform['url'], PHP_URL_HOST);
+                                    $isExternalPlatform = filled($platformHost) && $platformHost !== request()->getHost();
+                                @endphp
+                                <a href="{{ $platform['url'] }}" @if($isExternalPlatform) target="_blank" rel="noopener" @endif>{{ $platform['name'] }}</a>
+                            @endforeach
                         </div>
                     </div>
                 @endif
-                @if($foodEnabled || $colisEnabled)
-                    <div class="nav-dropdown">
-                        <button type="button" class="nav-link nav-dropdown-toggle nav-link--utility" aria-expanded="false" style="background:none;border:0;padding:0;">
-                            {{ trans('ui.nav.suivi') }} <i class="fas fa-chevron-down" style="font-size: 0.7rem; margin-left: 4px;"></i>
-                        </button>
-                        <div class="nav-dropdown-menu">
-                            @if($foodEnabled)
-                                <a href="{{ route('track.order') }}">{{ trans('ui.nav.suivi') }} commande</a>
-                            @endif
-                            @if($colisEnabled)
-                                <a href="{{ route('colis.track_public') }}">{{ trans('ui.nav.suivi') }} colis</a>
-                                @if(Auth::check())
-                                    <a href="{{ route('colis.mes-envois') }}">Mes envois</a>
-                                @endif
-                            @endif
-                        </div>
-                    </div>
+                @if($foodEnabled)
+                    <a href="{{ route('track.order') }}" class="nav-link nav-link--utility">{{ trans('ui.nav.suivi') }}</a>
                 @endif
-                <a href="{{ route('help') }}" class="nav-link nav-link--utility">{{ trans('ui.nav.help') }}</a>
+                <a href="{{ route('help', $brandRouteParams) }}" class="nav-link nav-link--utility">{{ trans('ui.nav.help') }}</a>
             </nav>
             
             <!-- Actions -->
@@ -742,7 +246,14 @@
                         </span>
                     </a>
                 @endauth
-                
+
+                @auth
+                <a href="{{ route('user.notifications') }}" class="cart-icon ntf-bell-nav" id="notifBellNav" aria-label="Notifications" style="position:relative;">
+                    <i class="fas fa-bell" style="font-size:18px;"></i>
+                    <span id="notifBadge" class="cart-badge" style="display:none;min-width:16px;height:16px;font-size:.65rem;padding:0 4px;line-height:16px;text-align:center;border-radius:8px;">0</span>
+                </a>
+                @endauth
+
                 <a href="{{ route('cart.detail') }}" class="cart-icon" aria-label="Panier">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
                         <path d="M3 5H5L7.4 14.2C7.63 15.08 8.42 15.7 9.33 15.7H17.8C18.67 15.7 19.43 15.13 19.69 14.3L21 10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
@@ -758,7 +269,7 @@
                 </a>
                 
                 @if($foodEnabled)
-                    <a href="{{ route('restaurants.all') }}" style="display:inline-flex;align-items:center;background:#16a34a;color:#fff;font-weight:700;font-size:.82rem;padding:.5rem 1rem;border-radius:999px;border:none;cursor:pointer;" style="border-radius: 999px;">{{ trans('ui.home.service_cards.restaurants.cta') }}</a>
+                    <a href="{{ route('restaurants.all') }}" class="nav-cta-pill">{{ trans('ui.home.service_cards.restaurants.cta') }}</a>
                 @endif
                 
                 <!-- Mobile Menu Toggle -->
@@ -770,10 +281,11 @@
             </div>
         </div>
     </header>
+    @endunless
     
     <!-- Messages Flash (Notifications) -->
     @if(session('message'))
-        <div id="flash-message" class="flash-message flash-success" style="position: fixed; top: 20px; right: 20px; padding: 1rem 1.5rem; background: #05944F; color: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 10000; font-weight: 500; animation: slideIn 0.3s ease-out;">
+        <div id="flash-message" class="flash-message flash-success">
             {{ session('message') }}
         </div>
         <script>
@@ -786,32 +298,10 @@
                 }
             }, 3000);
         </script>
-        <style>
-            @keyframes slideIn {
-                from {
-                    transform: translateX(100%);
-                    opacity: 0;
-                }
-                to {
-                    transform: translateX(0);
-                    opacity: 1;
-                }
-            }
-            @keyframes slideOut {
-                from {
-                    transform: translateX(0);
-                    opacity: 1;
-                }
-                to {
-                    transform: translateX(100%);
-                    opacity: 0;
-                }
-            }
-        </style>
     @endif
     
     @if(session('error'))
-        <div id="flash-error" class="flash-message flash-error" style="position: fixed; top: 20px; right: 20px; padding: 1rem 1.5rem; background: #DC2626; color: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 10000; font-weight: 500; animation: slideIn 0.3s ease-out;">
+        <div id="flash-error" class="flash-message flash-error">
             {{ session('error') }}
         </div>
         <script>
@@ -831,30 +321,35 @@
     </main>
     
     <!-- Footer Moderne -->
+    @unless($hidePrimaryChrome || trim($__env->yieldContent('hide_layout_footer')) !== '')
     <footer class="modern-footer">
         <div class="container">
             <div class="footer-grid">
                 <!-- Brand -->
                 <div class="footer-brand">
                     <div class="footer-logo">
-                        <img src="{{ asset('frontend/images/BuntuDelice.png') }}" alt="BantuDelice" style="height: 45px; margin-bottom: 1rem;">
+                        @if($layoutBrandKey === 'bantudelice')
+                            <img src="{{ asset('frontend/images/BuntuDelice.png') }}" alt="{{ $layoutBrandName }}" class="footer-brand-image">
+                        @else
+                            <span class="bd-brand-chip bd-brand-chip--footer">
+                                <span class="bd-brand-chip__badge" style="background: {{ $layoutBrandPrimary }};">{{ $layoutBrandInitial }}</span>
+                                <span class="bd-brand-chip__copy">
+                                    <span class="bd-brand-chip__name">{{ $layoutBrandName }}</span>
+                                    <span class="bd-brand-chip__label">{{ $layoutBrand['label'] ?? 'Service' }}</span>
+                                </span>
+                            </span>
+                        @endif
                     </div>
-                    <p>Votre partenaire de confiance pour commander vos repas et decouvrir les meilleures tables locales.</p>
+                    <p>{{ $layoutFooterTagline }}</p>
                 </div>
                 
                 <!-- Liens Rapides -->
                 <div class="footer-column">
-                    <h4>Food</h4>
+                    <h4>Services</h4>
                     <div class="footer-links">
-                        @if($foodEnabled)
-                            <a href="{{ route('restaurants.all') }}">Restaurants</a>
-                            <a href="{{ route('track.order') }}">Suivre une commande</a>
-                        @endif
-                        <a href="{{ route('offers') }}">Offres du moment</a>
-                        <a href="{{ route('about.us') }}">À propos de nous</a>
-                        <a href="{{ route('driver') }}">Devenir livreur</a>
-                        <a href="{{ route('partner') }}">Devenir partenaire</a>
-                        <a href="{{ route('contact.us') }}">Nous contacter</a>
+                        @foreach($layoutServiceLinks as $serviceLink)
+                            <a href="{{ $serviceLink['url'] }}">{{ $serviceLink['label'] }}</a>
+                        @endforeach
                     </div>
                 </div>
                 
@@ -862,70 +357,53 @@
                 <div class="footer-column">
                     <h4>Informations</h4>
                     <div class="footer-links">
-                        <a href="{{ route('terms.conditions') }}">Conditions générales</a>
-                        <a href="{{ route('privacy.policy') }}">Politique de confidentialité</a>
+                        <a href="{{ route('terms.conditions', $brandRouteParams) }}">Conditions générales</a>
+                        <a href="{{ route('privacy.policy', $brandRouteParams) }}">Politique de confidentialité</a>
                         <a href="{{ route('refund.policy') }}">Politique de remboursement</a>
                         <a href="{{ route('faq') }}">FAQ</a>
-                        <a href="{{ route('help') }}">Centre d'aide</a>
+                        <a href="{{ route('help', $brandRouteParams) }}">Centre d'aide</a>
                         <a href="{{ route('offers') }}">Offres et promotions</a>
-                        <a href="{{ route('data.deletion') }}">Suppression des données</a>
-                        <a href="{{ route('guidance.execution') }}">Guidance execution</a>
+                        <a href="{{ route('data.deletion', $brandRouteParams) }}">Suppression des données</a>
                     </div>
                 </div>
                 
                 <!-- Ressources -->
-                <div class="footer-column">
-                    <h4>Autres services</h4>
-                    <p style="color: rgba(255,255,255,0.6); font-size: 0.875rem; margin-bottom: 1rem;">
-                        Gardez un acces simple aux autres parcours sans les melanger au tunnel food.
-                    </p>
-                    <div class="footer-links">
-                        @if($colisEnabled)
-                            <a href="{{ route('colis.landing') }}">Service colis</a>
-                            <a href="{{ route('colis.track_public') }}">Suivre un colis</a>
-                        @endif
-                        @if($transportEnabled)
-                            <a href="{{ route('transport.taxi') }}">Transport</a>
-                        @endif
-                        <a href="{{ route('help') }}">Centre d'aide</a>
-                        <a href="{{ route('site.map') }}">Plan du site</a>
+                @if($ecosystemPlatforms->isNotEmpty())
+                    <div class="footer-column">
+                        <h4>Nos autres plateformes</h4>
+                        <p class="footer-platform-copy">
+                            Decouvrez aussi les autres marques de l'ecosysteme sur leurs domaines dedies.
+                        </p>
+                        <div class="footer-links">
+                            @foreach($ecosystemPlatforms as $platform)
+                                @php
+                                    $platformHost = parse_url((string) $platform['url'], PHP_URL_HOST);
+                                    $isExternalPlatform = filled($platformHost) && $platformHost !== request()->getHost();
+                                @endphp
+                                <a href="{{ $platform['url'] }}" @if($isExternalPlatform) target="_blank" rel="noopener" @endif>{{ $platform['name'] }}</a>
+                            @endforeach
+                        </div>
                     </div>
-                </div>
+                @endif
             </div>
             
             <!-- Bottom -->
             <div class="footer-bottom">
                 <p class="footer-copyright">
-                    &copy; {{ date('Y') }} BantuDelice. Tous droits réservés.
+                    &copy; {{ date('Y') }} {{ $layoutBrandName }}. Tous droits réservés.
                 </p>
                 <div class="footer-bottom-links">
-                    <a href="{{ route('legal.notices') }}">Mentions légales</a>
-                    <a href="{{ route('cookies.policy') }}">Cookies</a>
+                    <a href="{{ route('legal.notices', $brandRouteParams) }}">Mentions légales</a>
+                    <a href="{{ route('cookies.policy', $brandRouteParams) }}">Cookies</a>
                     <a href="{{ route('site.map') }}">Plan du site</a>
                 </div>
             </div>
         </div>
     </footer>
+    @endunless
     
     <!-- Back to Top -->
-    <button type="button" id="backToTop" aria-label="Retour en haut" style="
-        position: fixed;
-        bottom: 30px;
-        right: 30px;
-        width: 50px;
-        height: 50px;
-        background: var(--primary);
-        color: white;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        opacity: 0;
-        visibility: hidden;
-        transition: all 0.3s ease;
-        z-index: 999;
-        box-shadow: 0 4px 15px rgba(255, 107, 53, 0.4);
-    ">
+    <button type="button" id="backToTop" class="back-to-top" aria-label="Retour en haut">
         <i class="fas fa-arrow-up"></i>
     </button>
     
@@ -936,6 +414,10 @@
         // Header scroll effect
         const header = document.getElementById('header');
         window.addEventListener('scroll', () => {
+            if (!header) {
+                return;
+            }
+
             if (window.scrollY > 50) {
                 header.classList.add('scrolled');
             } else {
@@ -951,6 +433,10 @@
         const localeTrigger = document.querySelector('.bd-site-switcher__trigger');
 
         menuToggle?.addEventListener('click', () => {
+            if (!navMenu) {
+                return;
+            }
+
             navMenu.classList.toggle('active');
             if (!navMenu.classList.contains('active')) {
                 document.querySelectorAll('.nav-dropdown.open').forEach(el => el.classList.remove('open'));
@@ -992,6 +478,10 @@
         // Back to top button
         const backToTop = document.getElementById('backToTop');
         window.addEventListener('scroll', () => {
+            if (!backToTop) {
+                return;
+            }
+
             if (window.scrollY > 300) {
                 backToTop.style.opacity = '1';
                 backToTop.style.visibility = 'visible';
@@ -1022,91 +512,122 @@
     </script>
     
     <!-- Toast Container -->
-    <div id="toastContainer" style="position: fixed; top: 20px; right: 20px; z-index: 10000; display: flex; flex-direction: column; gap: 0.75rem; pointer-events: none;"></div>
-    
+    <div id="toastContainer" style="position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:10000;display:flex;flex-direction:column;align-items:center;gap:0.5rem;pointer-events:none;"></div>
+
     <script>
-        // Fonction globale pour afficher un toast (utilisable partout)
         function showToast(message, type = 'success') {
-            const container = document.getElementById('toastContainer');
+            let container = document.getElementById('toastContainer');
             if (!container) {
-                // Créer le container s'il n'existe pas
-                const newContainer = document.createElement('div');
-                newContainer.id = 'toastContainer';
-                newContainer.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 10000; display: flex; flex-direction: column; gap: 0.75rem; pointer-events: none;';
-                document.body.appendChild(newContainer);
-                return showToast(message, type);
+                container = document.createElement('div');
+                container.id = 'toastContainer';
+                container.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:10000;display:flex;flex-direction:column;align-items:center;gap:0.5rem;pointer-events:none;';
+                document.body.appendChild(container);
             }
-            
+
             const toast = document.createElement('div');
             toast.style.cssText = `
-                background: ${type === 'success' ? '#05944F' : '#EF4444'};
-                color: white;
-                padding: 1rem 1.5rem;
-                border-radius: 12px;
-                box-shadow: 0 8px 24px rgba(0,0,0,0.15);
-                font-weight: 500;
-                display: flex;
-                align-items: center;
-                gap: 0.75rem;
-                min-width: 300px;
-                max-width: 400px;
-                animation: slideInRight 0.3s ease-out;
-                pointer-events: auto;
+                background:${type === 'success' ? '#05944F' : type === 'warning' ? '#D97706' : '#EF4444'};
+                color:#fff;padding:0.6rem 1.1rem;border-radius:20px;
+                box-shadow:0 4px 16px rgba(0,0,0,0.18);font-weight:500;font-size:0.875rem;
+                display:flex;align-items:center;gap:0.5rem;white-space:nowrap;
+                animation:bdToastIn 0.25s ease-out;pointer-events:auto;
             `;
-            
-            const icon = type === 'success' ? 'fa-check-circle' : 'fa-exclamation-circle';
-            const iconEl = document.createElement('i');
-            iconEl.className = `fas ${icon}`;
-            iconEl.style.fontSize = '1.25rem';
-
-            const textEl = document.createElement('span');
-            textEl.textContent = message;
-
-            toast.appendChild(iconEl);
-            toast.appendChild(textEl);
-            
+            const icon = type === 'success' ? 'fa-check-circle' : type === 'warning' ? 'fa-triangle-exclamation' : 'fa-exclamation-circle';
+            toast.innerHTML = `<i class="fas ${icon}" style="font-size:.9rem"></i><span>${message}</span>`;
             container.appendChild(toast);
-            
+
             setTimeout(() => {
-                toast.style.animation = 'slideOutRight 0.3s ease-out';
-                setTimeout(() => toast.remove(), 300);
-            }, 3000);
+                toast.style.animation = 'bdToastOut 0.25s ease-in forwards';
+                setTimeout(() => toast.remove(), 260);
+            }, 2400);
         }
-        
-        // Alias pour compatibilité avec l'ancien code
-        function showMessage(message, type = 'success') {
-            showToast(message, type);
-        }
-        
-        // Ajouter les styles d'animation si pas déjà présents
+
+        function showMessage(message, type = 'success') { showToast(message, type); }
+
         if (!document.getElementById('toast-animations-style')) {
             const style = document.createElement('style');
             style.id = 'toast-animations-style';
             style.textContent = `
-                @keyframes slideInRight {
-                    from {
-                        transform: translateX(100%);
-                        opacity: 0;
-                    }
-                    to {
-                        transform: translateX(0);
-                        opacity: 1;
-                    }
-                }
-                @keyframes slideOutRight {
-                    from {
-                        transform: translateX(0);
-                        opacity: 1;
-                    }
-                    to {
-                        transform: translateX(100%);
-                        opacity: 0;
-                    }
-                }
+                @keyframes bdToastIn  { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:translateY(0); } }
+                @keyframes bdToastOut { from { opacity:1; transform:translateY(0);    } to { opacity:0; transform:translateY(8px); } }
             `;
             document.head.appendChild(style);
         }
+
+        function updateCartBadge(count) {
+            document.querySelectorAll('[data-cart-count]').forEach(function(el) {
+                el.textContent = count;
+                el.style.display = count > 0 ? 'inline-block' : 'none';
+            });
+        }
         
+        // ── BdAudio : utilitaire audio partagé pour tout le frontend ──────
+        window.BdAudio = (function () {
+            var _ctx = null;
+            var _unlocked = false;
+            var _lastAt = 0;
+
+            function _getCtx() {
+                if (!_ctx || _ctx.state === 'closed') {
+                    var C = window.AudioContext || window.webkitAudioContext;
+                    if (!C) return null;
+                    _ctx = new C();
+                }
+                if (_ctx.state === 'suspended') _ctx.resume();
+                return _ctx;
+            }
+
+            function unlock() {
+                _unlocked = true;
+                _getCtx();
+            }
+
+            // tone(freq, duration, volume)  — synthèse Web Audio, pas de fichier
+            function tone(freq, dur, vol) {
+                if (!_unlocked) return;
+                var ctx = _getCtx();
+                if (!ctx) return;
+                try {
+                    var osc = ctx.createOscillator();
+                    var gain = ctx.createGain();
+                    osc.type = 'sine';
+                    osc.frequency.value = freq || 880;
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    var t = ctx.currentTime;
+                    var d = dur || 0.22;
+                    var v = vol || 0.18;
+                    gain.gain.setValueAtTime(0.001, t);
+                    gain.gain.exponentialRampToValueAtTime(v, t + 0.01);
+                    gain.gain.exponentialRampToValueAtTime(0.001, t + d);
+                    osc.start(t);
+                    osc.stop(t + d + 0.01);
+                } catch (e) {}
+            }
+
+            // Sonneries nommées — throttle 3 s pour éviter le spam
+            function play(name) {
+                var now = Date.now();
+                if (now - _lastAt < 3000) return;
+                _lastAt = now;
+                switch (name) {
+                    case 'confirm':   tone(660, 0.15, 0.20); setTimeout(function(){ tone(880, 0.20, 0.22); }, 160); break;
+                    case 'status':    tone(520, 0.12, 0.14); setTimeout(function(){ tone(660, 0.18, 0.16); }, 130); break;
+                    case 'delivered': tone(660, 0.12, 0.18); setTimeout(function(){ tone(880, 0.12, 0.20); }, 120); setTimeout(function(){ tone(1100, 0.22, 0.22); }, 250); break;
+                    case 'alert':     tone(880, 0.30, 0.22); break;
+                    case 'new_order': tone(880, 0.22, 0.22); setTimeout(function(){ tone(660, 0.22, 0.18); }, 250); break;
+                    default:          tone(880, 0.22, 0.18);
+                }
+            }
+
+            document.addEventListener('click',   unlock, { once: true });
+            document.addEventListener('keydown',  unlock, { once: true });
+            document.addEventListener('touchstart', unlock, { once: true, passive: true });
+
+            return { play: play, unlock: unlock };
+        })();
+        // ────────────────────────────────────────────────────────────────
+
         // Fonction pour mettre à jour le compteur du panier
         function updateCartCount() {
             fetch('{{ route("cart.count") }}', {
@@ -1321,5 +842,110 @@
     </script>
     
     @yield('scripts')
+
+    @auth
+    <script>
+    (function() {
+        fetch('/notifications/unread-count', {
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            credentials: 'same-origin'
+        }).then(function(r) { return r.json(); }).then(function(d) {
+            if (d.count > 0) {
+                var b = document.getElementById('notifBadge');
+                if (b) { b.textContent = d.count > 99 ? '99+' : d.count; b.style.display = ''; }
+            }
+        }).catch(function() {});
+    })();
+    </script>
+    @endauth
+
+    {{-- T1.3 — PWA Service Worker + bannière offline --}}
+    <div id="bd-offline-banner" role="alert" style="
+        display:none;position:fixed;bottom:0;left:0;right:0;z-index:9999;
+        background:#92400e;color:#fff;text-align:center;padding:10px 16px;
+        font-size:14px;font-weight:600;font-family:inherit;
+        box-shadow:0 -2px 8px rgba(0,0,0,.2);
+    ">
+        ⚠️ Hors ligne — votre commande sera envoyée dès le retour du réseau
+    </div>
+    <div id="bd-checkout-queued-banner" role="status" style="
+        display:none;position:fixed;bottom:0;left:0;right:0;z-index:9999;
+        background:#15803d;color:#fff;text-align:center;padding:10px 16px;
+        font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;
+        box-shadow:0 -2px 8px rgba(0,0,0,.2);
+    " onclick="this.style.display='none'">
+        ✅ Réseau de retour — commande envoyée avec succès !
+    </div>
+
+    <script>
+    // ── Service Worker registration ───────────────────────────────────────────
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+            // Force update du SW — purge l'ancien cache
+            navigator.serviceWorker.getRegistrations().then(function(regs) {
+                regs.forEach(function(r) { r.update(); });
+            });
+            navigator.serviceWorker.register('/sw.js', { scope: '/' })
+                .then(function(reg) {
+                    reg.addEventListener('updatefound', function() {
+                        var nw = reg.installing;
+                        if (nw) nw.addEventListener('statechange', function() {
+                            if (nw.state === 'activated' && navigator.serviceWorker.controller) {
+                                window.location.reload();
+                            }
+                        });
+                    });
+                    navigator.serviceWorker.addEventListener('message', function(event) {
+                        if (event.data && event.data.type === 'bd:checkout-replayed') {
+                            var banner = document.getElementById('bd-checkout-queued-banner');
+                            if (banner) {
+                                banner.style.display = 'block';
+                                setTimeout(function() { banner.style.display = 'none'; }, 6000);
+                            }
+                        }
+                    });
+                })
+                .catch(function() {});
+        });
+        // Purger le cache manuellement via l'API Cache
+        if ('caches' in window) {
+            caches.keys().then(function(names) {
+                names.forEach(function(name) {
+                    if (name.indexOf('20260527-5') === -1) caches.delete(name);
+                });
+            });
+        }
+    }
+
+    // ── Bannière offline ─────────────────────────────────────────────────────
+    (function() {
+        var banner = document.getElementById('bd-offline-banner');
+        function update() {
+            if (banner) banner.style.display = navigator.onLine ? 'none' : 'block';
+        }
+        window.addEventListener('online',  update);
+        window.addEventListener('offline', update);
+        update();
+    })();
+
+    // ── Intercepter fetch checkout.api pour afficher le message "en attente" ─
+    (function() {
+        var _origFetch = window.fetch;
+        window.fetch = function(input, init) {
+            var url = (typeof input === 'string') ? input : (input && input.url) ? input.url : '';
+            return _origFetch.apply(this, arguments).then(function(response) {
+                if (url.indexOf('/checkout/api') !== -1 && response.status === 202) {
+                    response.clone().json().then(function(data) {
+                        if (data && data.queued) {
+                            var banner = document.getElementById('bd-offline-banner');
+                            if (banner) banner.textContent = '⏳ Commande sauvegardée — envoi automatique dès le retour du réseau';
+                        }
+                    }).catch(function() {});
+                }
+                return response;
+            });
+        };
+    })();
+    </script>
 </body>
 </html>

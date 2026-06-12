@@ -72,6 +72,10 @@ class LoyaltyService
      */
     public static function addPointsFromOrder($userId, $orderId, $orderTotal)
     {
+        if (self::hasEarnedTransactionForOrder($orderId)) {
+            return 0;
+        }
+
         $pointsEarned = self::calculatePoints($orderTotal);
         
         if ($pointsEarned <= 0) {
@@ -114,6 +118,20 @@ class LoyaltyService
             ]);
             return 0;
         }
+    }
+
+    /**
+     * Vérifier si des points ont déjà été crédités pour une commande.
+     */
+    public static function hasEarnedTransactionForOrder($orderId): bool
+    {
+        if (!$orderId) {
+            return false;
+        }
+
+        return LoyaltyTransaction::where('order_id', $orderId)
+            ->where('type', 'earned')
+            ->exists();
     }
     
     /**
@@ -230,5 +248,4 @@ class LoyaltyService
         return $totalExpired;
     }
 }
-
 

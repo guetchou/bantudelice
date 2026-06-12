@@ -14,7 +14,7 @@ class DashboardController extends Controller
      */
     public function index()
     {
-        return view('restaurant.home');
+        return redirect()->route('driver.deliveries');
         
     }
 

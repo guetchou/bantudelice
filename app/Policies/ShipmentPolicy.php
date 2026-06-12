@@ -2,35 +2,51 @@
 
 namespace App\Policies;
 
+use App\Driver;
 use App\User;
 use App\Domain\Colis\Models\Shipment;
+use App\Support\Auth\ActorType;
+use Illuminate\Contracts\Auth\Authenticatable as AuthenticatableContract;
 use Illuminate\Auth\Access\HandlesAuthorization;
 
 class ShipmentPolicy
 {
     use HandlesAuthorization;
 
-    public function view(User $user, Shipment $shipment): bool
+    public function view(AuthenticatableContract $actor, Shipment $shipment): bool
     {
-        return $user->id === $shipment->customer_id;
+        if ($this->isAdminUser($actor)) {
+            return true;
+        }
+
+        return $actor instanceof User && (int) $actor->id === (int) $shipment->customer_id;
     }
 
-    public function update(User $user, Shipment $shipment): bool
+    public function update(AuthenticatableContract $actor, Shipment $shipment): bool
     {
-        return $user->id === $shipment->customer_id;
+        if ($this->isAdminUser($actor)) {
+            return true;
+        }
+
+        return $actor instanceof User && (int) $actor->id === (int) $shipment->customer_id;
     }
 
-    public function updateAsCourier(User $user, Shipment $shipment): bool
+    public function updateAsCourier(AuthenticatableContract $actor, Shipment $shipment): bool
     {
-        // En supposant que le User peut aussi être un Driver (selon auth context)
-        // Dans ce projet Driver est un modèle séparé, mais Passport/Sanctum peut mapper à User.
-        // On vérifie l'ID du coursier assigné.
-        return $user->id === $shipment->assigned_courier_id;
+        if ($this->isAdminUser($actor)) {
+            return true;
+        }
+
+        return $actor instanceof Driver && (int) $actor->id === (int) $shipment->assigned_courier_id;
     }
 
-    public function admin(User $user): bool
+    public function admin(AuthenticatableContract $actor): bool
     {
-        // Logique admin existante à vérifier dans le projet
-        return $user->type === 'admin';
+        return $this->isAdminUser($actor);
+    }
+
+    protected function isAdminUser(AuthenticatableContract $actor): bool
+    {
+        return ActorType::isAdminUser($actor);
     }
 }

@@ -8,7 +8,7 @@ use Illuminate\Console\Command;
 /**
  * Commande Artisan pour réconcilier les paiements
  * 
- * Usage: php artisan payments:reconcile [--limit=50] [--payment-id=123]
+ * Usage: php artisan payments:reconcile [--limit=50] [--payment-id=123] [--backfill-failed] [--dry-run]
  */
 class ReconcilePayments extends Command
 {
@@ -17,7 +17,11 @@ class ReconcilePayments extends Command
      *
      * @var string
      */
-    protected $signature = 'payments:reconcile {--limit=50 : Nombre max de paiements à traiter} {--payment-id= : ID d\'un paiement spécifique}';
+    protected $signature = 'payments:reconcile
+                            {--limit=50 : Nombre max de paiements à traiter}
+                            {--payment-id= : ID d\'un paiement spécifique}
+                            {--backfill-failed : Recalcule les diagnostics des paiements FAILED}
+                            {--dry-run : Prévisualise les mises à jour sans écrire en base}';
 
     /**
      * The console command description.
@@ -34,6 +38,36 @@ class ReconcilePayments extends Command
     public function handle()
     {
         $reconciliationService = new PaymentReconciliationService();
+
+        if ($this->option('backfill-failed')) {
+            $limit = (int) $this->option('limit');
+            $paymentId = $this->option('payment-id') ? (int) $this->option('payment-id') : null;
+            $dryRun = (bool) $this->option('dry-run');
+
+            $this->info(
+                $paymentId
+                    ? "Backfill diagnostic du paiement #{$paymentId}..."
+                    : "Backfill diagnostic de {$limit} paiements FAILED..."
+            );
+
+            $result = $reconciliationService->backfillFailedPaymentDiagnostics($limit, $paymentId, $dryRun);
+
+            $this->info("Traités: {$result['processed']}");
+            $this->info("Mis à jour: {$result['updated']}");
+            $this->info("Ignorés: {$result['skipped']}");
+            $this->info("Erreurs: {$result['errors']}");
+
+            foreach ($result['items'] as $item) {
+                $this->line(sprintf(
+                    '#%d %s %s',
+                    $item['payment_id'],
+                    $item['failure_reason'] ?? 'N/A',
+                    $item['provider_reference'] ?? 'sans-reference'
+                ));
+            }
+
+            return $result['errors'] > 0 ? 1 : 0;
+        }
         
         // Si un ID spécifique est fourni
         if ($this->option('payment-id')) {
@@ -67,4 +101,3 @@ class ReconcilePayments extends Command
         return 0;
     }
 }
-

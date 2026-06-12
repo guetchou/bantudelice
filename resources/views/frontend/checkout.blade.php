@@ -1,320 +1,896 @@
 @extends('frontend.layouts.app-modern')
-@section('title', 'Paiement | BantuDelice')
-@section('description', 'Finalisez votre commande BantuDelice.')
+@section('title', trans('ui.checkout.title') . ' | ' . trans('ui.site.name'))
+@php
+    $foodBrandName = \App\Services\ConfigService::getCompanyName();
+@endphp
+@section('description', 'Finalisez votre commande ' . $foodBrandName . '.')
+@section('hide_primary_chrome', '1')
+@section('body_class', 'bd-checkout-page')
 
-@section('content')
-<!-- Hero Section -->
-<section style="background: linear-gradient(135deg, var(--secondary) 0%, var(--accent) 100%); padding: 120px 0 40px; text-align: center;">
-    <div class="container">
-        <h1 style="color: white; font-size: 2rem;">Finaliser la commande</h1>
-    </div>
-</section>
-
-<!-- Progress Steps -->
-<section style="background: white; padding: 1.5rem 0; border-bottom: 1px solid var(--gray-100);">
-    <div class="container">
-        <div style="display: flex; justify-content: center; align-items: center; gap: 0;">
-            <div style="display: flex; align-items: center;">
-                <div style="width: 36px; height: 36px; background: var(--success); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700;">
-                    <i class="fas fa-check"></i>
-                </div>
-                <span style="margin-left: 0.5rem; font-weight: 600; color: var(--success);">Panier</span>
-            </div>
-            <div style="width: 60px; height: 3px; background: var(--success); margin: 0 0.5rem;"></div>
-            <div style="display: flex; align-items: center;">
-                <div style="width: 36px; height: 36px; background: var(--primary); color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700;">2</div>
-                <span style="margin-left: 0.5rem; font-weight: 600; color: var(--primary);">Paiement</span>
-            </div>
-            <div style="width: 60px; height: 3px; background: var(--gray-200); margin: 0 0.5rem;"></div>
-            <div style="display: flex; align-items: center;">
-                <div style="width: 36px; height: 36px; background: var(--gray-200); color: var(--gray-500); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700;">3</div>
-                <span style="margin-left: 0.5rem; font-weight: 500; color: var(--gray-400);">Confirmeration</span>
-            </div>
-        </div>
-    </div>
-</section>
-
-<!-- Checkout Content -->
-<section class="section" style="background: var(--gray-50);">
-    <div class="container">
-        @if(session()->has('message'))
-            <div style="background: var(--warning); color: white; padding: 1rem; border-radius: var(--radius-lg); margin-bottom: 1.5rem; text-align: center;">
-                <strong>{{ session()->get('message') }}</strong>
-            </div>
-        @endif
-        
-        @if($errors->any())
-            <div style="background: var(--error); color: white; padding: 1rem; border-radius: var(--radius-lg); margin-bottom: 1.5rem;">
-                <ul style="margin: 0; padding-left: 1.5rem;">
-                    @foreach($errors->all() as $error)
-                        <li>{{ $error }}</li>
-                    @endforeach
-                </ul>
-            </div>
-        @endif
-        
-        <form class="form-horizontal" method="post" action="{{ route('place.order') }}" id="checkoutForm">
-            @csrf
-            <div style="display: grid; grid-template-columns: 1fr 400px; gap: 2rem; align-items: start;">
-                
-                <!-- Left Column - Address & Tips -->
-                <div>
-                    <!-- Delivery Address -->
-                    <div style="background: white; padding: 1.5rem; border-radius: var(--radius-xl); box-shadow: var(--shadow-sm); margin-bottom: 1.5rem;">
-                        <h3 style="font-size: 1.125rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
-                            <i class="fas fa-map-marker-alt" style="color: var(--primary);"></i>
-                            Adresse de livraison
-                        </h3>
-                        
-                        <div style="display: grid; gap: 1rem;">
-                            <div>
-                                <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: var(--gray-700); font-size: 0.875rem;">Nom</label>
-                                <input type="text" value="@if(Auth::check()) {{auth()->user()->name}} @endif" 
-                                       style="width: 100%; padding: 0.75rem 1rem; border: 2px solid var(--gray-200); border-radius: var(--radius-lg); background: var(--gray-50);" disabled>
-                            </div>
-                            
-                            <div>
-                                <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: var(--gray-700); font-size: 0.875rem;">Adresse de livraison *</label>
-                                <input type="text" id="searchMapInput" name="delivery_address" placeholder="Entrez votre adresse de livraison"
-                                       style="width: 100%; padding: 0.75rem 1rem; border: 2px solid var(--gray-200); border-radius: var(--radius-lg);" required>
-                                <input type="hidden" id="latitude" name="d_lat" value="-4.2767">
-                                <input type="hidden" id="longitude" name="d_lng" value="15.2832">
-                                @if($errors->has('delivery_address'))
-                                    <span style="color: var(--error); font-size: 0.875rem;">{{ $errors->first('delivery_address') }}</span>
-                                @endif
-                            </div>
-                            
-                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                                <div>
-                                    <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: var(--gray-700); font-size: 0.875rem;">Téléphone</label>
-                                    <input type="text" value="@if(Auth::check()) {{auth()->user()->phone}} @endif" 
-                                           style="width: 100%; padding: 0.75rem 1rem; border: 2px solid var(--gray-200); border-radius: var(--radius-lg); background: var(--gray-50);" disabled>
-                                </div>
-                                <div>
-                                    <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: var(--gray-700); font-size: 0.875rem;">Email</label>
-                                    <input type="text" value="@if(Auth::check()) {{auth()->user()->email}} @endif" 
-                                           style="width: 100%; padding: 0.75rem 1rem; border: 2px solid var(--gray-200); border-radius: var(--radius-lg); background: var(--gray-50);" disabled>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- Map -->
-                        <div id="map" style="height: 250px; border-radius: var(--radius-lg); margin-top: 1rem; overflow: hidden;"></div>
-                    </div>
-                    
-                    <!-- Tips & Voucher -->
-                    <div style="background: white; padding: 1.5rem; border-radius: var(--radius-xl); box-shadow: var(--shadow-sm); margin-bottom: 1.5rem;">
-                        <h3 style="font-size: 1.125rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
-                            <i class="fas fa-gift" style="color: var(--primary);"></i>
-                            Pourboire & Code promo
-                        </h3>
-                        
-                        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
-                            <div>
-                                <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: var(--gray-700); font-size: 0.875rem;">Pourboire livreur (FCFA)</label>
-                                <div style="display: flex; gap: 0.5rem;">
-                                    <input type="number" min="0" id="tip" name="driver_tip" placeholder="0" value="0"
-                                           style="flex: 1; padding: 0.75rem 1rem; border: 2px solid var(--gray-200); border-radius: var(--radius-lg);">
-                                    <button type="button" onclick="myFunction()" class="btn btn-secondary" style="padding: 0.75rem 1rem;">
-                                        <i class="fas fa-plus"></i>
-                                    </button>
-                                </div>
-                            </div>
-                            <div>
-                                <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: var(--gray-700); font-size: 0.875rem;">Code promo</label>
-                                <div style="display: flex; gap: 0.5rem;">
-                                    <input type="text" id="voucher" name="voucher_code" placeholder="Entrez votre code" 
-                                           style="flex: 1; padding: 0.75rem 1rem; border: 2px solid var(--gray-200); border-radius: var(--radius-lg);">
-                                    <button type="button" id="applyVoucher" class="btn btn-secondary" style="padding: 0.75rem 1rem;">
-                                        Appliquer
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- Méthode de Paiement -->
-                    <div style="background: white; padding: 1.5rem; border-radius: var(--radius-xl); box-shadow: var(--shadow-sm);">
-                        <h3 style="font-size: 1.125rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
-                            <i class="fas fa-credit-card" style="color: var(--primary);"></i>
-                            Mode de paiement
-                        </h3>
-                        
-                        <div style="display: flex; flex-direction: column; gap: 0.75rem;">
-                            <!-- Cash -->
-                            <label style="display: flex; align-items: center; padding: 1rem; border: 2px solid var(--gray-200); border-radius: var(--radius-lg); cursor: pointer; transition: all 0.2s;" class="payment-option" data-method="cash">
-                                <input type="radio" name="payment_method" value="cash" checked style="margin-right: 1rem; width: 20px; height: 20px;">
-                                <div style="flex: 1;">
-                                    <span style="font-weight: 600; display: block;">💵 Paiement à la livraison</span>
-                                    <span style="font-size: 0.8125rem; color: var(--gray-500);">Payez en espèces à la réception</span>
-                                </div>
-                            </label>
-                            
-                            <!-- Mobile Money -->
-                            <label style="display: flex; align-items: center; padding: 1rem; border: 2px solid var(--gray-200); border-radius: var(--radius-lg); cursor: pointer; transition: all 0.2s;" class="payment-option" data-method="mobile_money">
-                                <input type="radio" name="payment_method" value="mobile_money" style="margin-right: 1rem; width: 20px; height: 20px;">
-                                <div style="flex: 1;">
-                                    <span style="font-weight: 600; display: block;">📱 Mobile Money</span>
-                                    <span style="font-size: 0.8125rem; color: var(--gray-500);">MTN Mobile Money, Airtel Money</span>
-                                </div>
-                            </label>
-                            
-                            <!-- PayPal -->
-                            <label style="display: flex; align-items: center; padding: 1rem; border: 2px solid var(--gray-200); border-radius: var(--radius-lg); cursor: pointer; transition: all 0.2s;" class="payment-option" data-method="paypal">
-                                <input type="radio" name="payment_method" value="paypal" style="margin-right: 1rem; width: 20px; height: 20px;">
-                                <div style="flex: 1;">
-                                    <span style="font-weight: 600; display: block;">💳 PayPal / Carte bancaire</span>
-                                    <span style="font-size: 0.8125rem; color: var(--gray-500);">Visa, MasterCard, PayPal</span>
-                                </div>
-                            </label>
-                        </div>
-                    </div>
-                </div>
-                
-                <!-- Right Column - Order Summary -->
-                <div style="position: sticky; top: 100px;">
-                    <div style="background: white; padding: 1.5rem; border-radius: var(--radius-xl); box-shadow: var(--shadow-lg);">
-                        <h3 style="font-size: 1.125rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
-                            <i class="fas fa-receipt" style="color: var(--primary);"></i>
-                            Récapitulatif
-                            <a href="{{ route('cart.detail') }}" style="margin-left: auto; font-size: 0.8125rem; color: var(--primary);">Modifier</a>
-                        </h3>
-                        
-                        <!-- Items -->
-                        <div style="max-height: 300px; overflow-y: auto; margin-bottom: 1rem;">
-                            @foreach($checkoutData as $checkout)
-                            <div style="display: flex; gap: 1rem; padding: 0.75rem 0; border-bottom: 1px solid var(--gray-100);">
-                                <img src="{{ $checkout->image ? (strpos($checkout->image, 'http') === 0 ? $checkout->image : asset('images/product_images/' . $checkout->image)) : asset('images/product_images/default-food.jpg') }}" 
-                                     style="width: 50px; height: 50px; border-radius: var(--radius-md); object-fit: cover;">
-                                <div style="flex: 1;">
-                                    <p style="font-weight: 600; font-size: 0.9375rem; margin: 0;">{{$checkout->name}}</p>
-                                    <p style="color: var(--gray-500); font-size: 0.8125rem; margin: 0;">Qté: {{$checkout->qty}}</p>
-                                </div>
-                                <p style="font-weight: 700; color: var(--primary);">{{number_format($checkout->price, 0, ',', ' ')}} F</p>
-                            </div>
-                            @endforeach
-                        </div>
-                        
-                        <!-- Totals -->
-                        @php
-                            $tax = $charges->tax/100 * $total;
-                            $service_fee = ($charges->delivery_fee + $tax + $total)/100 * $charges->service_fee;
-                            $loyaltyDiscount = 0;
-                            $loyaltyPoints = 0;
-                            if(auth()->check()) {
-                                $loyaltyPoints = \App\Services\LoyaltyService::getBalance(auth()->user()->id);
-                                $maxDiscount = \App\Services\LoyaltyService::calculateDiscount($loyaltyPoints);
-                                // Limiter la réduction à 20% du total
-                                $loyaltyDiscount = min($maxDiscount, ($total + $charges->delivery_fee + $tax + $service_fee) * 0.2);
-                            }
-                            $grandTotal = $total + $charges->delivery_fee + $tax + $service_fee - $loyaltyDiscount;
-                        @endphp
-                        
-                        <div style="border-top: 2px solid var(--gray-100); padding-top: 1rem;">
-                            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                                <span style="color: var(--gray-600);">Sous-total</span>
-                                <span style="font-weight: 600;" id="checkoutSubtotal">{{number_format($total, 0, ',', ' ')}} FCFA</span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                                <span style="color: var(--gray-600);">Frais de livraison</span>
-                                <span id="deliveryFee">{{number_format($charges->delivery_fee, 0, ',', ' ')}} FCFA</span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                                <span style="color: var(--gray-600);">Frais de service</span>
-                                <span id="serviceFee">{{number_format($service_fee, 0, ',', ' ')}} FCFA</span>
-                            </div>
-                            <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
-                                <span style="color: var(--gray-600);">Taxes</span>
-                                <span id="taxAmount">{{number_format($tax, 0, ',', ' ')}} FCFA</span>
-                            </div>
-                            
-                            @if(auth()->check() && $loyaltyPoints > 0)
-                            <div style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.1) 100%); padding: 1rem; border-radius: 12px; margin: 1rem 0;">
-                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                                    <span style="color: #059669; font-weight: 600;">
-                                        <i class="fas fa-star"></i> Réduction points fidélité
-                                    </span>
-                                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
-                                        <input type="checkbox" id="useLoyaltyPoints" name="use_loyalty_points" value="1" 
-                                               style="width: 18px; height: 18px; accent-color: #10B981;"
-                                               onchange="updateLoyaltyDiscount()">
-                                        <span style="font-size: 0.875rem; color: #059669;">Utiliser mes points</span>
-                                    </label>
-                                </div>
-                                <div id="loyaltyDiscountRow" style="display: none; margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid rgba(5, 150, 105, 0.2);">
-                                    <div style="display: flex; justify-content: space-between;">
-                                        <span style="color: #059669;">Réduction appliquée</span>
-                                        <span style="font-weight: 700; color: #059669;" id="loyaltyDiscountAmount">-{{ number_format($loyaltyDiscount, 0, ',', ' ') }} FCFA</span>
-                                    </div>
-                                    <input type="hidden" name="loyalty_points_used" id="loyaltyPointsUsed" value="0">
-                                </div>
-                            </div>
-                            @endif
-                            
-                            <div style="display: flex; justify-content: space-between; padding-top: 1rem; border-top: 2px solid var(--gray-800);">
-                                <span style="font-size: 1.125rem; font-weight: 700;">Total</span>
-                                <span style="font-size: 1.25rem; font-weight: 800; color: var(--primary);" id="ttotal">{{number_format($grandTotal, 0, ',', ' ')}} FCFA</span>
-                            </div>
-                        </div>
-                        
-                        <!-- Hidden fields -->
-                        <input type="hidden" name="qty" value="1">
-                        <input type="hidden" id="restaurant" value="{{$resturant->restaurant_id}}">
-                        <input type="hidden" name="sub_total" value="{{$total}}">
-                        <input type="hidden" name="tax" value="{{$charges->tax}}">
-                        <input type="hidden" name="delivery_charges" value="{{$charges->delivery_fee}}">
-                        <input type="hidden" id="sub_total" value="{{$grandTotal}}">
-                        <input type="hidden" id="total" name="amount" value="{{$grandTotal}}">
-                        
-                        <!-- Payment Button -->
-                        <button type="submit" id="checkoutSubmitBtn" class="btn btn-primary btn-lg" style="width: 100%; margin-top: 1.5rem;">
-                            <i class="fas fa-lock"></i> <span id="btnText">Passer la commande</span>
-                        </button>
-                        
-                        <p style="text-align: center; color: var(--gray-500); font-size: 0.8125rem; margin-top: 1rem;">
-                            <i class="fas fa-shield-alt"></i> Paiement sécurisé
-                        </p>
-                    </div>
-                </div>
-            </div>
-        </form>
-        
-        <!-- Formulaire PayPal séparé (caché) -->
-        <form id="paypalForm" method="post" action="{!! URL::to('paypal') !!}" style="display: none;">
-            @csrf
-            <input type="hidden" name="delivery_address" id="paypal_delivery_address">
-            <input type="hidden" name="driver_tip" id="paypal_driver_tip">
-            <input type="hidden" name="d_lat" id="paypal_d_lat">
-            <input type="hidden" name="d_lng" id="paypal_d_lng">
-            <input type="hidden" name="sub_total" value="{{$total}}">
-            <input type="hidden" name="tax" value="{{$charges->tax}}">
-            <input type="hidden" name="delivery_charges" value="{{$charges->delivery_fee}}">
-            <input type="hidden" name="amount" id="paypal_amount" value="{{$grandTotal}}">
-        </form>
-    </div>
-</section>
-@endsection
-
-@section('styles')
+@section('style')
 <style>
-    @media (max-width: 991px) {
-        .section > .container > form > div {
-            grid-template-columns: 1fr !important;
-        }
-    }
+/* ── Checkout Wizard ── */
+.co-step-section { display: none; }
+.co-step-section.is-active { display: block; }
+
+.co-step-nav {
+  display: flex; align-items: center; justify-content: flex-end;
+  gap: 12px; margin-top: 20px; padding-top: 16px;
+  border-top: 1px solid #f1f5f9;
+}
+.co-step-nav--split { justify-content: space-between; }
+
+.co-step-btn-back {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 10px 18px;
+  background: transparent; border: 1.5px solid #e2e8f0; border-radius: 10px;
+  color: #64748b; font: 500 .85rem 'Poppins', sans-serif;
+  cursor: pointer; text-decoration: none; transition: background .15s;
+}
+.co-step-btn-back:hover { background: #f8fafc; color: #334155; }
+
+.co-step-btn-next {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 12px 24px;
+  background: #009543; border: none; border-radius: 10px;
+  color: #fff; font: 600 .9rem 'Poppins', sans-serif;
+  cursor: pointer; transition: background .15s, transform .1s;
+}
+.co-step-btn-next:hover { background: #007a38; }
+.co-step-btn-next:active { transform: scale(.97); }
+.co-step-btn-next svg, .co-step-btn-back svg { flex-shrink: 0; }
+
+/* Step 4 mobile summary */
+.co-step4-mobile { display: none; }
+
+@media (max-width: 768px) {
+  .co-sidebar { display: none; }
+  .co-sidebar.is-step4-visible { display: block; }
+  .co-step4-mobile { display: block; padding: 16px 0 4px; }
+}
 </style>
 @endsection
 
+@section('content')
+@php
+    $checkoutUi = trans('ui.checkout');
+    $commonUi = trans('ui.common');
+@endphp
+
+{{-- styles migrated to frontend/css/modern.css --}}
+{{-- ══════════════════════════════════════════════════
+     NAV
+══════════════════════════════════════════════════ --}}
+<nav class="co-nav">
+  <div class="co-nav__inner">
+    <a href="{{ route('home') }}" class="co-nav__logo">
+      <img src="{{ asset('frontend/images/BuntuDelice.png') }}" alt="{{ $foodBrandName }}" class="co-nav__logo-img"
+           onerror="this.style.display='none';this.nextElementSibling.classList.add('is-fallback')">
+      <span class="co-nav__logo-name">{{ $foodBrandName }}</span>
+    </a>
+    <div class="co-nav__right">
+      <a href="{{ route('cart.detail') }}" class="co-nav__back">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+        Panier
+      </a>
+      <span class="co-nav__secure">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        Paiement sécurisé
+      </span>
+    </div>
+  </div>
+</nav>
+
+{{-- ══════════════════════════════════════════════════
+     STEPPER
+══════════════════════════════════════════════════ --}}
+<div class="co-stepbar">
+  <div class="co-stepbar__inner">
+    <div class="co-step-item">
+      <div class="co-step-node co-step-node--done" id="stepNode1">
+        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+      </div>
+      <span class="co-step-text co-step-text--done" id="stepText1">{{ data_get($checkoutUi, 'step_cart', 'Panier') }}</span>
+    </div>
+    <div class="co-step-wire co-step-wire--done" id="stepWire1"></div>
+    <div class="co-step-item">
+      <div class="co-step-node co-step-node--active" id="stepNode2">
+        <span class="co-step-check" style="display:none"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+        <span class="co-step-num">2</span>
+      </div>
+      <span class="co-step-text co-step-text--active" id="stepText2">Livraison</span>
+    </div>
+    <div class="co-step-wire co-step-wire--idle" id="stepWire2"></div>
+    <div class="co-step-item">
+      <div class="co-step-node co-step-node--idle" id="stepNode3">
+        <span class="co-step-check" style="display:none"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+        <span class="co-step-num">3</span>
+      </div>
+      <span class="co-step-text co-step-text--idle" id="stepText3">{{ data_get($checkoutUi, 'step_payment', 'Paiement') }}</span>
+    </div>
+    <div class="co-step-wire co-step-wire--idle" id="stepWire3"></div>
+    <div class="co-step-item">
+      <div class="co-step-node co-step-node--idle" id="stepNode4">
+        <span class="co-step-check" style="display:none"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg></span>
+        <span class="co-step-num">4</span>
+      </div>
+      <span class="co-step-text co-step-text--idle" id="stepText4">{{ data_get($checkoutUi, 'step_confirm', 'Confirmation') }}</span>
+    </div>
+  </div>
+</div>
+
+{{-- ══════════════════════════════════════════════════
+     PAGE
+══════════════════════════════════════════════════ --}}
+<section class="co-page">
+  <div class="co-page__wrap">
+
+    {{-- Flash message --}}
+    @if(session()->has('message'))
+      <div class="co-alert co-alert--warn">
+        <strong>{{ session()->get('message') }}</strong>
+      </div>
+    @endif
+
+    {{-- Validation errors --}}
+    <?php $viewErrors = isset($errors) ? $errors : new \Illuminate\Support\ViewErrorBag; ?>
+    @if($viewErrors->any())
+      <div class="co-alert co-alert--error">
+        <ul>
+          @foreach($viewErrors->all() as $error)
+            <li>{{ $error }}</li>
+          @endforeach
+        </ul>
+      </div>
+    @endif
+
+    {{-- Stock issues --}}
+    <?php $stockIssues = collect($stockIssues ?? []); ?>
+    @if($stockIssues->isNotEmpty())
+      <div class="co-stock-wrap">
+        <div class="co-stock-hd">
+          <div class="co-stock-icon"><i class="fas fa-exclamation-triangle"></i></div>
+          <div>
+            <div class="co-stock-title">Rupture détectée avant paiement</div>
+            <div class="co-stock-sub">Certains produits ne sont plus disponibles. Choisissez un remplacement ou retirez l'article du panier.</div>
+          </div>
+        </div>
+        @foreach($stockIssues as $issue)
+            <div class="co-stock-card">
+              <div class="co-stock-row">
+              <div>
+                <div class="co-stock-product">{{ $issue['product_name'] ?? 'Produit indisponible' }}</div>
+                <div class="co-stock-meta">{{ $issue['restaurant_name'] ?? 'Restaurant' }} · Qté {{ $issue['qty'] ?? 1 }}</div>
+              </div>
+              <span class="co-rupture">Rupture</span>
+            </div>
+            @if(!empty($issue['suggestions']))
+              <div class="co-suggests">
+                @foreach($issue['suggestions'] as $suggestion)
+                  <a href="{{ $suggestion['url'] ?? '#' }}" class="co-suggest-link">
+                    Remplacer par <strong>{{ $suggestion['name'] ?? 'Suggestion' }}</strong>
+                  </a>
+                @endforeach
+              </div>
+            @endif
+          </div>
+        @endforeach
+      </div>
+    @endif
+
+    <?php $checkoutGroups = collect($cartGroups ?? []); ?>
+
+    <form class="form-horizontal" method="post" action="{{ route('place.order') }}" id="checkoutForm">
+      @csrf
+
+      <div class="co-layout">
+
+        {{-- ════════════════════════
+             LEFT COLUMN
+        ════════════════════════ --}}
+        <div class="co-main">
+
+          {{-- ══ STEP 2 : Livraison & Horaire ══ --}}
+          <div class="co-step-section is-active" id="coStep2">
+
+          {{-- ── Mode de réception ── --}}
+          <div class="co-card">
+            <div class="co-card__hd">
+              <div class="co-card__icon"><i class="fas fa-route"></i></div>
+              <span class="co-card__title">{{ data_get($checkoutUi, 'reception_mode', 'Mode de réception') }}</span>
+            </div>
+            <div class="co-fulfill-grid">
+              <label class="fulfillment-option is-active" data-mode="delivery">
+                <input type="radio" name="fulfillment_mode" value="delivery" checked>
+                <div class="co-ff-icon"><i class="fas fa-motorcycle"></i></div>
+                <div class="co-ff-radio"></div>
+                <div class="co-ff-title">{{ data_get($checkoutUi, 'delivery', 'Livraison') }}</div>
+                <div class="co-ff-desc">{{ data_get($checkoutUi, 'delivery_description', 'Un livreur apporte la commande à votre adresse.') }}</div>
+              </label>
+              <label class="fulfillment-option" data-mode="pickup">
+                <input type="radio" name="fulfillment_mode" value="pickup">
+                <div class="co-ff-icon"><i class="fas fa-store"></i></div>
+                <div class="co-ff-radio"></div>
+                <div class="co-ff-title">{{ data_get($checkoutUi, 'pickup', 'Retrait') }}</div>
+                <div class="co-ff-desc">{{ data_get($checkoutUi, 'pickup_description', 'Vous récupérez la commande au restaurant.') }}</div>
+              </label>
+            </div>
+          </div>
+
+          {{-- ── Planification ── --}}
+          <div class="co-card">
+            <div class="co-schedule-row">
+              <div>
+                <div class="co-schedule-label">{{ data_get($checkoutUi, 'schedule_title', 'Commander pour plus tard') }}</div>
+                <div class="co-schedule-hint">Planifiez un créneau de livraison</div>
+              </div>
+              <label class="co-toggle">
+                <input type="checkbox" id="scheduleOrderToggle">
+                <span class="co-toggle__track"><span class="co-toggle__thumb"></span></span>
+              </label>
+            </div>
+            <div id="scheduleOrderPanel">
+              <div class="co-field">
+                <label class="co-label" for="scheduledDate">{{ data_get($checkoutUi, 'scheduled_at', 'Date et heure souhaitées') }}</label>
+                <input type="datetime-local" id="scheduledDate" name="scheduled_date" class="co-input">
+                <p class="co-hint">{{ data_get($checkoutUi, 'scheduled_hint', 'La commande restera planifiée jusqu\'au créneau choisi.') }}</p>
+              </div>
+            </div>
+          </div>
+
+          {{-- ── Adresse de livraison ── --}}
+          <div id="deliveryAddressPanel" class="co-card">
+            <div class="co-card__hd">
+              <div class="co-card__icon"><i class="fas fa-map-marker-alt"></i></div>
+              <span class="co-card__title" id="addressPanelTitle">{{ data_get($checkoutUi, 'delivery_address', 'Adresse de livraison') }}</span>
+            </div>
+            <div class="co-card__body">
+
+              <div class="co-field">
+                <label class="co-label">{{ data_get($checkoutUi, 'name', 'Nom') }}</label>
+                <input type="text" value="{{ optional(auth()->user())->name }}" class="co-input co-input--disabled" disabled>
+              </div>
+
+              <div class="co-field">
+                <label class="co-label" for="searchMapInput">{{ data_get($checkoutUi, 'delivery_address', 'Adresse de livraison') }} *</label>
+                <input type="text" id="searchMapInput" name="delivery_address"
+                       placeholder="{{ data_get($checkoutUi, 'address_placeholder', 'Entrez votre adresse de livraison') }}"
+                       value="{{ old('delivery_address') }}"
+                       class="co-input" required>
+                <div id="deliverySuggestions" class="checkout-suggestions"></div>
+                <input type="hidden" id="latitude"  name="d_lat"       value="-4.2767">
+                <input type="hidden" id="longitude" name="d_lng"       value="15.2832">
+                <input type="hidden" id="savedAddressId" name="address_id" value="">
+                <input type="hidden" id="deliveryCity" value="">
+                <input type="hidden" id="deliveryDepartment" value="">
+                <input type="hidden" id="deliveryAddressConfirmed" value="0">
+                @if($viewErrors->has('delivery_address'))
+                  <span class="co-field-error">{{ $viewErrors->first('delivery_address') }}</span>
+                @endif
+              </div>
+
+              @if(isset($savedAddresses) && $savedAddresses->count() > 0)
+              <div class="co-field">
+                <label class="co-label" for="savedAddressSelect">{{ data_get($checkoutUi, 'saved_address', 'Adresse enregistrée') }}</label>
+                <select id="savedAddressSelect" class="co-input">
+                  <option value="">Choisir une adresse enregistrée</option>
+                  @foreach($savedAddresses as $savedAddress)
+                    <option
+                      value="{{ $savedAddress->id }}"
+                      data-title="{{ $savedAddress->title }}"
+                      data-address="{{ $savedAddress->complete_address }}"
+                      data-area="{{ $savedAddress->area }}"
+                      data-building="{{ $savedAddress->building_no }}"
+                      data-street="{{ $savedAddress->street_no }}"
+                      data-floor="{{ $savedAddress->floor }}"
+                      data-lat="{{ $savedAddress->latitude }}"
+                      data-lng="{{ $savedAddress->longitude }}"
+                      @if($savedAddress->is_default) selected @endif
+                    >
+                      {{ $savedAddress->title }} — {{ $savedAddress->complete_address }}
+                      @if($savedAddress->is_default) (Par défaut) @endif
+                    </option>
+                  @endforeach
+                </select>
+                <p class="co-hint">{{ data_get($checkoutUi, 'saved_address_hint', 'Sélectionnez une adresse enregistrée ou gardez le repère carte.') }}</p>
+              </div>
+              @endif
+
+              <div class="co-grid2">
+                <div class="co-field">
+                  <label class="co-label" for="deliveryDistrict">{{ data_get($checkoutUi, 'district', 'Quartier / zone') }}</label>
+                  <input type="text" id="deliveryDistrict" placeholder="Ex: Poto-Poto" class="co-input">
+                </div>
+                <div class="co-field">
+                  <label class="co-label" for="deliveryLandmark">{{ data_get($checkoutUi, 'landmark', 'Lieu connu / repère') }}</label>
+                  <input type="text" id="deliveryLandmark" placeholder="Ex: Marché Total, pharmacie..." class="co-input">
+                </div>
+              </div>
+
+              <div class="co-field">
+                <label class="co-label" for="deliveryComplement">{{ data_get($checkoutUi, 'complement', 'Complément d\'adresse') }}</label>
+                <textarea id="deliveryComplement" class="co-input co-input--area"
+                          placeholder="Bâtiment, portail, étage, code d'accès, détail pour le livreur..."></textarea>
+                <p id="deliveryMapStatus" class="co-map-status">{{ data_get($checkoutUi, 'map_hint', 'Placez un repère sur la carte pour une livraison plus précise.') }}</p>
+                <div id="deliveryPrecisionAlert" class="co-precision-alert" aria-live="polite"></div>
+              </div>
+
+              <div class="co-map-helpers">
+                <button type="button" id="locateDeliveryBtn" class="co-map-btn">
+                  <i class="fas fa-location-arrow"></i> Me localiser
+                </button>
+                <button type="button" id="usePinBtn" class="co-map-btn">
+                  <i class="fas fa-map-pin"></i> Placer repère
+                </button>
+                <button type="button" id="clearDeliveryBtn" class="co-map-btn">
+                  <i class="fas fa-times"></i> Réinitialiser
+                </button>
+              </div>
+
+              <div class="co-map-wrap">
+                <div id="map" class="co-map-canvas"></div>
+              </div>
+
+            </div>
+          </div>
+
+          {{-- ── Retrait ── --}}
+          <div id="pickupPanel" class="co-card co-hidden">
+            <div class="co-card__hd">
+              <div class="co-card__icon"><i class="fas fa-store"></i></div>
+              <span class="co-card__title">{{ data_get($checkoutUi, 'pickup', 'Retrait au restaurant') }}</span>
+            </div>
+            <div class="co-card__body">
+              <div class="co-pickup-info">
+                <div class="co-pickup-info__lbl">{{ data_get($checkoutUi, 'restaurant', 'Restaurant') }}</div>
+                <div class="co-pickup-info__name">{{ $restaurantModel->name ?? 'Restaurant partenaire' }}</div>
+                <div class="co-pickup-info__addr">{{ $restaurantModel->address ?? 'Adresse non renseignée' }}</div>
+              </div>
+              <div class="co-field co-field--spaced">
+                <label class="co-label" for="pickupNote">{{ data_get($checkoutUi, 'pickup_note', 'Note de retrait') }}</label>
+                <textarea id="pickupNote" name="pickup_note" class="co-input co-input--area"
+                          placeholder="Heure de passage, nom de la personne, repère utile..."></textarea>
+                <p class="co-hint">{{ data_get($checkoutUi, 'pickup_note_hint', 'Un code de retrait sera généré après validation.') }}</p>
+              </div>
+            </div>
+          </div>
+
+          {{-- ── Step 2 navigation ── --}}
+          <div class="co-step-nav">
+            <a href="{{ route('cart.detail') }}" class="co-step-btn-back">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+              Modifier le panier
+            </a>
+            <button type="button" class="co-step-btn-next" onclick="coGoToStep(3)">
+              Continuer vers le paiement
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </button>
+          </div>
+
+          </div>{{-- /coStep2 --}}
+
+          {{-- ══ STEP 3 : Paiement & Options ══ --}}
+          <div class="co-step-section" id="coStep3">
+
+          {{-- ── Promo & Pourboire ── --}}
+          <div class="co-card">
+            <div class="co-card__hd">
+              <div class="co-card__icon"><i class="fas fa-tag"></i></div>
+              <span class="co-card__title">Code promo &amp; Pourboire</span>
+            </div>
+            <div class="co-card__body">
+              <div class="co-tip-promo-grid">
+                <div>
+                  <label class="co-label" for="tip">Pourboire livreur (FCFA)</label>
+                  <div class="co-inline">
+                    <input type="number" min="0" id="tip" name="driver_tip" placeholder="0" value="0" class="co-input">
+                    <button type="button" onclick="applyTip()" class="co-map-btn co-map-btn--fixed">
+                      <i class="fas fa-plus"></i>
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <label class="co-label" for="voucher">Code promo</label>
+                  <div class="co-inline">
+                    <input type="text" id="voucher" name="voucher_code" placeholder="Entrez votre code" class="co-input">
+                    <button type="button" id="applyVoucher" class="co-voucher-btn">
+                      Appliquer
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {{-- ── Mode de paiement ── --}}
+          <div class="co-card">
+            <div class="co-card__hd">
+              <div class="co-card__icon"><i class="fas fa-credit-card"></i></div>
+              <span class="co-card__title">Mode de paiement</span>
+            </div>
+            <div class="co-card__body">
+              <div class="payment-methods-card">
+                <div class="payment-methods-list">
+
+                  {{-- Cash --}}
+                  <label class="payment-method-row" data-method="cash">
+                    <input class="payment-method-input" type="radio" name="payment_method" value="cash">
+                    <div class="payment-method-icon">
+                      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" width="20" height="20">
+                        <rect x="3" y="6" width="18" height="12" rx="2"></rect>
+                        <path d="M16 12h4"></path>
+                      </svg>
+                    </div>
+                    <div class="payment-method-copy">
+                      <p class="payment-method-title">Paiement à la livraison</p>
+                      <p class="payment-method-description">Payez en espèces à la réception</p>
+                    </div>
+                    <div class="payment-method-dot"></div>
+                  </label>
+
+                  {{-- Mobile money --}}
+                  <label class="payment-method-row is-active" data-method="mobile_money">
+                    <input class="payment-method-input" type="radio" name="payment_method" value="mobile_money" checked>
+                    <div class="payment-method-copy">
+                      <p class="payment-method-title">Paiement mobile</p>
+                      <p class="payment-method-description">MTN MoMo · Airtel Money</p>
+                      <div class="co-phone-wrap">
+                        <label class="co-label" for="paymentPhone">Numéro à débiter</label>
+                        <div class="co-phone-row">
+                          <div id="paymentOperatorLogoWrap" class="co-hidden">
+                            <img id="paymentOperatorLogo" src="" alt="">
+                          </div>
+                          <input
+                            type="text"
+                            id="paymentPhone"
+                            name="phone"
+                            value="{{ old('phone', '') }}"
+                            autocomplete="off"
+                            inputmode="tel"
+                            class="co-input"
+                            placeholder="06 xxx xxx ou 05 xxx xxx"
+                          >
+                        </div>
+                        <div id="paymentOperatorHint" class="co-payment-operator-hint">
+                          Entrez un numéro commençant par 06 ou 05.
+                        </div>
+                      </div>
+                    </div>
+                    <div class="payment-method-dot"></div>
+                  </label>
+
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {{-- ── Step 3 navigation ── --}}
+          <div class="co-step-nav co-step-nav--split">
+            <button type="button" class="co-step-btn-back" onclick="coGoToStep(2)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+              Livraison
+            </button>
+            <button type="button" class="co-step-btn-next" onclick="coGoToStep(4)">
+              Vérifier la commande
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+            </button>
+          </div>
+
+          </div>{{-- /coStep3 --}}
+
+          {{-- ══ STEP 4 : Confirmation (desktop = sidebar; mobile = this panel) ══ --}}
+          <div class="co-step-section" id="coStep4">
+            <div class="co-step4-mobile">
+              <div class="co-card" style="border:2px solid #009543;">
+                <div class="co-card__hd">
+                  <div class="co-card__icon" style="background:#dcfce7;color:#009543;"><i class="fas fa-check-circle"></i></div>
+                  <span class="co-card__title">Votre commande est prête</span>
+                </div>
+                <div class="co-card__body">
+                  <p style="color:#64748b;font-size:.88rem;margin-bottom:16px;">Vérifiez le récapitulatif ci-dessous puis validez pour passer commande.</p>
+                  <button type="submit" form="checkoutForm" class="co-step-btn-next" style="width:100%;justify-content:center;padding:14px 20px;font-size:.95rem;">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    Commander
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div class="co-step-nav" style="padding-top:8px;margin-top:8px;">
+              <button type="button" class="co-step-btn-back" onclick="coGoToStep(3)">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
+                Modifier le paiement
+              </button>
+            </div>
+          </div>{{-- /coStep4 --}}
+
+        </div>{{-- /co-main --}}
+
+        {{-- ════════════════════════
+             RIGHT COLUMN — Summary
+        ════════════════════════ --}}
+        <div class="co-sidebar">
+          <div class="co-summary-card">
+            <div class="co-summary__hd">
+              <span class="co-summary__title">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17H5a2 2 0 0 0-2 2"/><path d="M15 17h4a2 2 0 0 1 2 2"/><path d="M12 3v14"/><path d="M5 3h14"/></svg>
+                Récapitulatif
+              </span>
+              <a href="{{ route('cart.detail') }}" class="co-summary__edit">Modifier</a>
+            </div>
+            <div class="co-summary__body">
+
+              {{-- Multi-restaurant banner --}}
+              @if($hasMultipleRestaurants)
+                <div class="co-multi-banner">
+                  <div class="co-multi-icon"><i class="fas fa-layer-group"></i></div>
+                  <div>
+                    <div class="co-multi-title">Panier groupé</div>
+                    <div class="co-multi-sub">{{ $checkoutGroups->count() }} restaurants · paiement unique</div>
+                  </div>
+                </div>
+              @endif
+
+              {{-- Items --}}
+              <div class="co-items-scroll">
+                @if($checkoutGroups->isNotEmpty())
+                  @foreach($checkoutGroups as $group)
+                  @php
+                    $restaurant = $group->restaurant ?? null;
+                    $restaurantLogo = $restaurant && method_exists($restaurant, 'publicIdentityImageUrl')
+                      ? $restaurant->publicIdentityImageUrl()
+                      : asset('images/home/service-restaurant.jpg');
+                    $itemsCount = $group->items instanceof \Illuminate\Support\Collection ? $group->items->count() : count($group->items ?? []);
+                  @endphp
+                  <div class="co-rgroup">
+                    <div class="co-rgroup__hd">
+                      <img src="{{ $restaurantLogo }}" alt="{{ $restaurant->name ?? 'Restaurant' }}" class="co-rlogo"
+                           onerror="this.src='{{ asset('images/home/service-restaurant.jpg') }}'">
+                      <div class="co-rinfo">
+                        <div class="co-rname">{{ $restaurant->name ?? 'Restaurant partenaire' }}</div>
+                        <div class="co-rcount">{{ $itemsCount }} article{{ $itemsCount > 1 ? 's' : '' }}</div>
+                      </div>
+                      <div class="co-rsubtotal">
+                        <div class="co-rsubtotal__val">{{ number_format($group->sub_total ?? 0, 0, ',', ' ') }} FCFA</div>
+                      </div>
+                    </div>
+                    @foreach($group->items as $checkout)
+                    <div class="co-item">
+                      <img src="{{ method_exists($checkout, 'publicImageUrl') ? $checkout->publicImageUrl() : ($checkout->image ? (strpos($checkout->image, 'http') === 0 ? $checkout->image : asset('images/product_images/' . $checkout->image)) : asset('images/product_images/default-food.jpg')) }}"
+                           class="co-item__img"
+                           onerror="this.src='{{ asset('images/product_images/default-food.jpg') }}'">
+                      <div class="co-item__body">
+                        <p class="co-item__name">{{ $checkout->name }}</p>
+                        @if(!empty($checkout->description))
+                          <p class="co-item__desc">{{ \Illuminate\Support\Str::limit($checkout->description, 70) }}</p>
+                        @endif
+                        <div class="co-item__qty">Qté : {{ $checkout->qty }}</div>
+                      </div>
+                      <p class="co-item__price">{{ number_format((float)($checkout->cart_price ?? $checkout->price ?? 0), 0, ',', ' ') }} FCFA</p>
+                    </div>
+                    @endforeach
+                  </div>
+                  @endforeach
+                @else
+                  @foreach($checkoutData as $checkout)
+                  <div class="co-item">
+                    <img src="{{ method_exists($checkout, 'publicImageUrl') ? $checkout->publicImageUrl() : ($checkout->image ? (strpos($checkout->image, 'http') === 0 ? $checkout->image : asset('images/product_images/' . $checkout->image)) : asset('images/product_images/default-food.jpg')) }}"
+                         class="co-item__img">
+                    <div class="co-item__body">
+                      <p class="co-item__name">{{ $checkout->name }}</p>
+                      <div class="co-item__qty">Qté : {{ $checkout->qty }}</div>
+                    </div>
+                    <p class="co-item__price">{{ number_format($checkout->price, 0, ',', ' ') }} FCFA</p>
+                  </div>
+                  @endforeach
+                @endif
+              </div>
+
+              {{-- Totals --}}
+              @php
+                $checkoutTax          = (float)($tax ?? 0);
+                $checkoutServiceFee   = (float)($service_fee ?? 0);
+                $checkoutLoyaltyDiscount = (float)($loyaltyDiscount ?? 0);
+                $checkoutGrandTotal   = (float)($grandTotal ?? 0);
+              @endphp
+
+              <div class="co-totals">
+                <div class="co-trow">
+                  <span class="co-trow__lbl">Sous-total</span>
+                  <span class="co-trow__val" id="checkoutSubtotal">{{ number_format($total, 0, ',', ' ') }} FCFA</span>
+                </div>
+                <div class="co-trow">
+                  <span class="co-trow__lbl" id="deliveryFeeLabel">Frais de livraison</span>
+                  <span class="co-trow__val" id="deliveryFee">{{ number_format($charges->delivery_fee, 0, ',', ' ') }} FCFA</span>
+                </div>
+                @if(!empty($weatherSurchargeActive) && $weatherSurcharge > 0)
+                <div class="co-trow" style="color:#b45309;">
+                  <span class="co-trow__lbl">
+                      <i class="fas fa-cloud-rain" style="font-size:11px;margin-right:4px;"></i>
+                      {{ $weatherSurchargeLabel ?? 'Majoration saison des pluies' }}
+                  </span>
+                  <span class="co-trow__val">+{{ number_format($weatherSurcharge, 0, ',', ' ') }} FCFA</span>
+                </div>
+                @endif
+                <div class="co-trow">
+                  <span class="co-trow__lbl">Frais de service</span>
+                  <span class="co-trow__val" id="serviceFee">{{ number_format($checkoutServiceFee, 0, ',', ' ') }} FCFA</span>
+                </div>
+                <div class="co-trow">
+                  <span class="co-trow__lbl">Taxes</span>
+                  <span class="co-trow__val" id="taxAmount">{{ number_format($checkoutTax, 0, ',', ' ') }} FCFA</span>
+                </div>
+
+                @if(auth()->check() && $loyaltyPoints > 0)
+                <div class="co-loyalty">
+                  <div class="co-loyalty__hd">
+                    <span class="co-loyalty__title">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="#009543"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
+                      Points fidélité
+                    </span>
+                    <label class="co-loyalty__cb">
+                      <input type="checkbox" id="useLoyaltyPoints" name="use_loyalty_points" value="1" class="co-loyalty__input" onchange="updateLoyaltyDiscount()">
+                      Utiliser
+                    </label>
+                  </div>
+                  <div id="loyaltyDiscountRow">
+                    <span class="co-ld-lbl">Réduction appliquée</span>
+                    <span class="co-ld-val" id="loyaltyDiscountAmount">-{{ number_format($checkoutLoyaltyDiscount, 0, ',', ' ') }} FCFA</span>
+                  </div>
+                  <input type="hidden" name="loyalty_points_used" id="loyaltyPointsUsed" value="0">
+                </div>
+                @endif
+
+                <div class="co-grand">
+                  <span class="co-grand__lbl">Total</span>
+                  <span class="co-grand__val" id="ttotal">{{ number_format($checkoutGrandTotal, 0, ',', ' ') }} FCFA</span>
+                </div>
+              </div>
+
+              {{-- Hidden fields --}}
+              <input type="hidden" name="qty"                       value="1">
+              <input type="hidden" id="restaurant"                  value="{{ optional($resturant)->restaurant_id }}">
+              <input type="hidden" id="checkoutRestaurantIds"       value="{{ $checkoutGroups->pluck('restaurant_id')->filter()->unique()->implode(',') }}">
+              <input type="hidden" id="checkoutBaseSubtotal"        value="{{ $total }}">
+              <input type="hidden" id="checkoutDeliveryFeeBase"     value="{{ (float)($charges->delivery_fee ?? 0) }}">
+              <input type="hidden" id="checkoutPickupFeeBase"       value="{{ (float)($charges->pickup_fee ?? 0) }}">
+              <input type="hidden" id="checkoutTaxRate"             value="{{ (float)($charges->tax ?? 0) }}">
+              <input type="hidden" id="checkoutServiceFeeRate"      value="{{ (float)($charges->service_fee ?? 0) }}">
+              <input type="hidden" id="checkoutLoyaltyDiscountBase" value="{{ $checkoutLoyaltyDiscount }}">
+              <input type="hidden" name="sub_total"                 value="{{ $total }}">
+              <input type="hidden" name="tax"                       value="{{ $charges->tax }}">
+              <input type="hidden" name="delivery_charges"          value="{{ $charges->delivery_fee }}">
+              <input type="hidden" id="sub_total"                   value="{{ $checkoutGrandTotal }}">
+              <input type="hidden" id="total" name="amount"         value="{{ $checkoutGrandTotal }}">
+
+              {{-- Submit --}}
+              <button type="submit" id="checkoutSubmitBtn" class="btn">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                <span id="btnText">Commander</span>
+              </button>
+
+              <div class="co-ssl">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                Paiement 100% sécurisé · SSL
+              </div>
+
+            </div>{{-- co-summary__body --}}
+          </div>{{-- co-summary-card --}}
+        </div>{{-- co-sidebar --}}
+
+      </div>{{-- co-layout --}}
+    </form>
+
+    {{-- ── Mobile CTA sticky ── --}}
+    <div class="co-mobile-cta">
+      <div class="co-mcta-row">
+        <span class="co-mcta-lbl">Total estimé</span>
+        <span class="co-mcta-val" id="mobileTotalDisplay">{{ number_format($checkoutGrandTotal, 0, ',', ' ') }} FCFA</span>
+      </div>
+      <button type="button" class="co-mcta-btn" onclick="document.getElementById('checkoutSubmitBtn').click()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+        <span id="mobileBtnText">Commander</span>
+      </button>
+    </div>
+
+  </div>{{-- co-page__wrap --}}
+</section>
+
+@endsection
+
 @section('scripts')
-<script src="{{ asset('js/checkout.js') }}"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script>
+window.checkoutApiConfig = {
+    createCheckoutUrl: @json(route('checkout.api')),
+    paymentStatusBaseUrl: @json(url('/checkout/payments')),
+    loginUrl: @json(route('user.login', ['redirect' => request()->getRequestUri()])),
+};
+</script>
+<script src="{{ asset('js/checkout.js') }}?v={{ @filemtime(public_path('js/checkout.js')) ?: time() }}"></script>
+<script>
+const CHECKOUT_MAPBOX_TOKEN = @json(mapbox_public_token());
+const CHECKOUT_DEFAULT_LOCATION = { lat: -4.2767, lng: 15.2832 };
+const CHECKOUT_RESTAURANT_NAME = @json($restaurantModel->name ?? 'Restaurant partenaire');
+let checkoutMap;
+let checkoutMarker;
+let checkoutSearchTimeout;
+let checkoutVoucherDiscount = 0;
+const savedAddressSelect = document.getElementById('savedAddressSelect');
+const savedAddressIdField = document.getElementById('savedAddressId');
+const checkoutAddressState = {
+    precisionLevel: 'blind',
+    confirmed: false,
+    source: 'manual',
+    city: 'Brazzaville',
+    department: 'Brazzaville',
+};
+
+function getFulfillmentMode() {
+    return document.querySelector('input[name="fulfillment_mode"]:checked')?.value || 'delivery';
+}
+
+function isCheckoutAddressTooBroad(level) {
+    return ['district', 'area', 'blind'].includes(String(level || 'blind'));
+}
+
+function inferDepartmentFromCity(city) {
+    const normalized = String(city || '').trim().toLowerCase();
+    if (!normalized) return '';
+    if (normalized.includes('pointe')) return 'Pointe-Noire';
+    if (normalized.includes('brazzaville')) return 'Brazzaville';
+    return city;
+}
+
+function syncCheckoutAddressState() {
+    const cityField = document.getElementById('deliveryCity');
+    const departmentField = document.getElementById('deliveryDepartment');
+    const confirmedField = document.getElementById('deliveryAddressConfirmed');
+    if (cityField) cityField.value = checkoutAddressState.city || '';
+    if (departmentField) departmentField.value = checkoutAddressState.department || '';
+    if (confirmedField) confirmedField.value = checkoutAddressState.confirmed ? '1' : '0';
+}
+
+function updateCheckoutPrecisionAlert(forceMessage = '', isError = false) {
+    const box = document.getElementById('deliveryPrecisionAlert');
+    if (!box) return;
+
+    if (getFulfillmentMode() === 'pickup') {
+        box.className = 'co-precision-alert';
+        box.textContent = '';
+        return;
+    }
+
+    const needsConfirmation = isCheckoutAddressTooBroad(checkoutAddressState.precisionLevel) && !checkoutAddressState.confirmed;
+    const message = forceMessage || (needsConfirmation
+        ? 'Adresse encore trop large pour une livraison fiable. Placez le repère exact sur la carte avant de continuer.'
+        : '');
+
+    if (!message) {
+        box.className = 'co-precision-alert';
+        box.textContent = '';
+        return;
+    }
+
+    box.className = `co-precision-alert is-visible ${isError || needsConfirmation ? 'co-precision-alert--warn' : 'co-precision-alert--ok'}`;
+    box.textContent = message;
+}
+
+function updateCheckoutActionState() {
+    const button = document.getElementById('checkoutSubmitBtn');
+    if (!button) return;
+    button.disabled = getFulfillmentMode() === 'delivery'
+        && isCheckoutAddressTooBroad(checkoutAddressState.precisionLevel)
+        && !checkoutAddressState.confirmed;
+}
+
+function setCheckoutAddressState(partial = {}) {
+    Object.assign(checkoutAddressState, partial);
+    syncCheckoutAddressState();
+    updateCheckoutPrecisionAlert();
+    updateCheckoutActionState();
+}
+
+function getBaseSubtotal() {
+    return parseFloat(document.getElementById('checkoutBaseSubtotal')?.value || '0');
+}
+
+function getBaseDeliveryFee() {
+    return parseFloat(document.getElementById('checkoutDeliveryFeeBase')?.value || '0');
+}
+
+function getBasePickupFee() {
+    return parseFloat(document.getElementById('checkoutPickupFeeBase')?.value || '0');
+}
+
+function getTaxRate() {
+    return parseFloat(document.getElementById('checkoutTaxRate')?.value || '0');
+}
+
+function getServiceFeeRate() {
+    return parseFloat(document.getElementById('checkoutServiceFeeRate')?.value || '0');
+}
+
+function getBaseLoyaltyDiscount() {
+    return parseFloat(document.getElementById('checkoutLoyaltyDiscountBase')?.value || '0');
+}
+
+function getCurrentFee() {
+    return getFulfillmentMode() === 'pickup' ? getBasePickupFee() : getBaseDeliveryFee();
+}
+
+function recalculateCheckoutTotals() {
+    const mode = getFulfillmentMode();
+    const subtotal = getBaseSubtotal();
+    const fee = getCurrentFee();
+    const tax = (getTaxRate() / 100) * subtotal;
+    const serviceFee = ((fee + tax + subtotal) / 100) * getServiceFeeRate();
+    const tipInput = document.getElementById('tip');
+    const tip = mode === 'pickup' ? 0 : parseFloat(tipInput?.value || '0');
+    const loyaltyApplied = document.getElementById('useLoyaltyPoints')?.checked ? getBaseLoyaltyDiscount() : 0;
+    const total = Math.max(0, subtotal + fee + tax + serviceFee + tip - checkoutVoucherDiscount - loyaltyApplied);
+
+    const deliveryLabel = document.getElementById('deliveryFeeLabel');
+    const deliveryFee = document.getElementById('deliveryFee');
+    const serviceFeeEl = document.getElementById('serviceFee');
+    const taxAmount = document.getElementById('taxAmount');
+    const totalText = document.getElementById('ttotal');
+    const totalInput = document.getElementById('total');
+    const feeInput = document.querySelector('input[name="delivery_charges"]');
+    const subTotalInput = document.querySelector('input[name="sub_total"]');
+    const hiddenSubTotal = document.getElementById('sub_total');
+    const tipWrapper = document.getElementById('tip')?.closest('div')?.parentElement;
+    const pickupPanel = document.getElementById('pickupPanel');
+    const deliveryPanel = document.getElementById('deliveryAddressPanel');
+    const addressTitle = document.getElementById('addressPanelTitle');
+    const addressInput = document.getElementById('searchMapInput');
+    const paymentMethod = document.querySelector('input[name="payment_method"]:checked')?.value || 'cash';
+    const mobileMoneyPhonePanel = document.getElementById('mobileMoneyPhonePanel');
+    const paymentPhoneInput = document.getElementById('paymentPhone');
+    if (paymentPhoneInput) {
+        updatePaymentOperatorHint(paymentPhoneInput.value);
+    }
+
+    if (deliveryLabel) deliveryLabel.textContent = mode === 'pickup' ? 'Frais de retrait' : 'Frais de livraison';
+    if (deliveryFee) deliveryFee.textContent = formatFcfaAmount(fee);
+    if (serviceFeeEl) serviceFeeEl.textContent = formatFcfaAmount(serviceFee);
+    if (taxAmount) taxAmount.textContent = formatFcfaAmount(tax);
+    if (totalText) totalText.textContent = formatFcfaAmount(total);
+    if (totalInput) totalInput.value = total;
+    if (feeInput) feeInput.value = fee;
+    if (subTotalInput) subTotalInput.value = subtotal;
+    if (hiddenSubTotal) hiddenSubTotal.value = total;
+    if (tipInput && mode === 'pickup') tipInput.value = 0;
+    if (tipWrapper) tipWrapper.classList.toggle('co-hidden', mode === 'pickup');
+    if (pickupPanel) pickupPanel.classList.toggle('co-hidden', mode !== 'pickup');
+    if (deliveryPanel) deliveryPanel.classList.toggle('co-hidden', mode === 'pickup');
+    if (addressTitle) addressTitle.textContent = mode === 'pickup' ? 'Point de retrait' : 'Adresse de livraison';
+    if (addressInput) addressInput.required = mode !== 'pickup';
+    if (mobileMoneyPhonePanel) mobileMoneyPhonePanel.classList.toggle('co-hidden', paymentMethod !== 'mobile_money');
+    if (paymentPhoneInput) paymentPhoneInput.required = paymentMethod === 'mobile_money';
+
+    const btnText = document.getElementById('btnText');
+    if (btnText) {
+        if (paymentMethod === 'cash') {
+            btnText.textContent = mode === 'pickup' ? 'Commander (Paiement au retrait)' : 'Commander (Paiement à la livraison)';
+        } else if (paymentMethod === 'mobile_money') {
+            btnText.textContent = mode === 'pickup' ? 'Payer puis retirer' : 'Commander (Paiement mobile)';
+        } else {
+            btnText.textContent = mode === 'pickup' ? 'Payer puis retirer' : 'Commander';
+        }
+    }
+
+    updateCheckoutPrecisionAlert();
+    updateCheckoutActionState();
+}
+
 // Mise à jour du total avec pourboire
-function myFunction() {
-    var total = document.getElementById("sub_total").value;
-    var tip = document.getElementById("tip").value || 0;
-    var newTotal = Number(total) + Number(tip);
-    document.getElementById("ttotal").innerHTML = newTotal.toLocaleString('fr-FR') + ' FCFA';
-    document.getElementById("total").value = newTotal;
+function applyTip() {
+    recalculateCheckoutTotals();
+}
+
+function formatFcfaAmount(value) {
+    return `${Math.round(Number(value || 0)).toLocaleString('fr-FR')} FCFA`;
 }
 
 // Appliquer le code promo
@@ -322,14 +898,10 @@ document.getElementById('applyVoucher')?.addEventListener('click', function() {
     var voucherInput = document.getElementById('voucher');
     var voucher = voucherInput.value.trim();
     var restaurant = document.getElementById('restaurant').value;
-    var subTotal = parseFloat(document.getElementById("sub_total").value) || 0;
-    var deliveryFee = parseFloat(document.getElementById("deliveryFee").textContent.replace(/[^\d]/g, '')) || 0;
-    var taxAmount = parseFloat(document.getElementById("taxAmount").textContent.replace(/[^\d]/g, '')) || 0;
-    var serviceFee = parseFloat(document.getElementById("serviceFee").textContent.replace(/[^\d]/g, '')) || 0;
-    var totalBeforeDiscount = subTotal + deliveryFee + taxAmount + serviceFee;
+    var subTotal = getBaseSubtotal();
     
     if(!voucher) {
-        alert('Veuillez entrer un code promo');
+        showToast('Veuillez entrer un code promo', 'error');
         return;
     }
     
@@ -345,75 +917,70 @@ document.getElementById('applyVoucher')?.addEventListener('click', function() {
         },
         body: JSON.stringify({voucher: voucher, restaurant: restaurant})
     })
-    .then(response => response.json())
-    .then(response => {
-        if(response.status && response.data != null) {
+    .then(async (response) => ({ ok: response.ok, data: await response.json().catch(() => ({})) }))
+    .then(({ ok, data: response }) => {
+        if(ok && response.status && response.data != null) {
             var discount = (response.data.discount / 100) * subTotal;
-            var newTotal = Math.max(0, totalBeforeDiscount - discount);
+            checkoutVoucherDiscount = discount;
             
             // Afficher la réduction
             var discountRow = document.getElementById('voucherDiscountRow');
             if(!discountRow) {
                 discountRow = document.createElement('div');
                 discountRow.id = 'voucherDiscountRow';
-                discountRow.style.cssText = 'display: flex; justify-content: space-between; margin-bottom: 0.5rem; padding: 0.75rem; background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.1) 100%); border-radius: 12px;';
+                discountRow.className = 'co-voucher-row';
                 var totalDiv = document.getElementById('ttotal').parentElement;
                 totalDiv.parentElement.insertBefore(discountRow, totalDiv);
             }
-            discountRow.innerHTML = '<span style="color: #059669; font-weight: 600;"><i class="fas fa-tag"></i> Réduction code promo</span><span style="font-weight: 700; color: #059669;">-' + discount.toLocaleString('fr-FR') + ' FCFA</span>';
-            discountRow.style.display = 'flex';
+            discountRow.innerHTML = '<span class="co-voucher-row__label"><i class="fas fa-tag"></i> Réduction code promo</span><span class="co-voucher-row__value">-' + Math.round(discount).toLocaleString('fr-FR') + ' FCFA</span>';
+            discountRow.classList.remove('co-hidden');
             
-            document.getElementById("ttotal").innerHTML = newTotal.toLocaleString('fr-FR') + ' FCFA';
-            document.getElementById("total").value = newTotal;
-            document.getElementById("sub_total").value = newTotal;
+            recalculateCheckoutTotals();
             
             btn.textContent = '✓ Appliqué';
-            btn.style.background = '#10B981';
-            btn.style.color = 'white';
+            btn.classList.add('is-applied');
             voucherInput.disabled = true;
             
             // Afficher un message de succès
             var successMsg = document.createElement('div');
-            successMsg.style.cssText = 'padding: 0.75rem; background: #10B981; color: white; border-radius: 8px; margin-top: 0.5rem; font-size: 0.875rem;';
-            successMsg.textContent = '✓ Code promo appliqué ! Réduction de ' + discount.toLocaleString('fr-FR') + ' FCFA';
+            successMsg.className = 'co-voucher-success';
+            successMsg.textContent = '✓ Code promo appliqué ! Réduction de ' + Math.round(discount).toLocaleString('fr-FR') + ' FCFA';
             voucherInput.parentElement.appendChild(successMsg);
             setTimeout(() => successMsg.remove(), 3000);
         } else {
             btn.disabled = false;
             btn.textContent = 'Appliquer';
-            alert(response.message || 'Code promo invalide ou expiré');
+            showToast(response.message || 'Code promo invalide ou expiré.', 'error');
         }
     })
     .catch(error => {
         btn.disabled = false;
         btn.textContent = 'Appliquer';
         console.error('Erreur:', error);
-        alert('Erreur lors de la vérification du code promo');
+        showToast('Erreur lors de la vérification du code promo', 'error');
     });
 });
 
 // Gestion des méthodes de paiement
-document.querySelectorAll('.payment-option').forEach(function(option) {
+document.querySelectorAll('.payment-method-row').forEach(function(option) {
     option.addEventListener('click', function() {
+        if (this.classList.contains('is-disabled')) {
+            return;
+        }
+
         // Retirer la sélection de toutes les options
-        document.querySelectorAll('.payment-option').forEach(function(opt) {
-            opt.style.borderColor = 'var(--gray-200)';
-            opt.style.background = 'white';
+        document.querySelectorAll('.payment-method-row').forEach(function(opt) {
+            opt.classList.remove('is-active');
         });
         // Ajouter la sélection à l'option cliquée
-        this.style.borderColor = 'var(--primary)';
-        this.style.background = 'rgba(255, 107, 53, 0.05)';
-        
-        // Mettre à jour le texte du bouton
-        var method = this.dataset.method;
-        var btnText = document.getElementById('btnText');
-        if(method === 'cash') {
-            btnText.textContent = 'Commander (Paiement à la livraison)';
-        } else if(method === 'mobile_money') {
-            btnText.textContent = 'Commander (Mobile Money)';
-        } else if(method === 'paypal') {
-            btnText.textContent = 'Payer avec PayPal';
+        this.classList.add('is-active');
+
+        const input = this.querySelector('input[type="radio"]');
+        if (input) {
+            input.checked = true;
         }
+
+        recalculateCheckoutTotals();
     });
 });
 
@@ -429,41 +996,103 @@ function updateLoyaltyDiscount() {
     if (!useLoyalty || !discountRow) return;
     
     if (useLoyalty.checked) {
-        discountRow.style.display = 'block';
-        const discount = parseFloat(discountAmount.textContent.replace(/[^\d]/g, '')) || 0;
-        const currentTotal = parseFloat(totalInput.value) || 0;
-        const newTotal = Math.max(0, currentTotal - discount);
-        
-        totalElement.textContent = newTotal.toLocaleString('fr-FR') + ' FCFA';
-        totalInput.value = newTotal;
-        
+        discountRow.classList.remove('co-hidden');
         // Calculer les points utilisés
         const pointsPer1000 = 100;
-        const pointsUsed = Math.floor((discount / 1000) * pointsPer1000);
+        const pointsUsed = Math.floor((getBaseLoyaltyDiscount() / 1000) * pointsPer1000);
         loyaltyPointsUsed.value = pointsUsed;
     } else {
-        discountRow.style.display = 'none';
-        const discount = parseFloat(discountAmount.textContent.replace(/[^\d]/g, '')) || 0;
-        const currentTotal = parseFloat(totalInput.value) || 0;
-        const newTotal = currentTotal + discount;
-        
-        totalElement.textContent = newTotal.toLocaleString('fr-FR') + ' FCFA';
-        totalInput.value = newTotal;
+        discountRow.classList.add('co-hidden');
         loyaltyPointsUsed.value = 0;
     }
+    recalculateCheckoutTotals();
 }
 
 // Mise à jour automatique du total avec pourboire
 document.getElementById('tip')?.addEventListener('input', function() {
-    myFunction();
+    applyTip();
     updateLoyaltyDiscount();
 });
 
-// Initialiser la première option comme sélectionnée
-document.querySelector('.payment-option[data-method="cash"]').click();
+function detectMobileMoneyOperator(phone) {
+    const digits = String(phone || '').replace(/\D+/g, '');
+    if (!digits) {
+        return { operator: 'unknown', label: 'Entrez un numéro commençant par 06 ou 05.' };
+    }
+
+    let local = digits;
+    if (local.startsWith('242')) {
+        local = local.slice(3);
+    }
+    if (local.startsWith('0')) {
+        local = local.slice(1);
+    }
+
+    if (local.startsWith('6')) {
+        return { operator: 'mtn', label: 'MTN détecté.' };
+    }
+
+    if (local.startsWith('5')) {
+        return { operator: 'airtel', label: 'Airtel détecté.' };
+    }
+
+    return { operator: 'unknown', label: 'Numéro non reconnu. Utilisez 06 ou 05.' };
+}
+
+function updatePaymentOperatorHint(phone) {
+    const hint = document.getElementById('paymentOperatorHint');
+    const logoWrap = document.getElementById('paymentOperatorLogoWrap');
+    const logo = document.getElementById('paymentOperatorLogo');
+    const result = detectMobileMoneyOperator(phone);
+
+    if (hint) {
+        hint.textContent = result.label;
+        hint.classList.toggle('is-detected', result.operator !== 'unknown');
+    }
+
+    if (!logoWrap || !logo) return;
+    if (result.operator === 'mtn') {
+        logo.src = "{{ asset('images/payments/mtn-momo-guideline.png') }}";
+        logo.alt = 'MTN';
+        logoWrap.classList.remove('co-hidden');
+    } else if (result.operator === 'airtel') {
+        logo.src = "{{ asset('images/payments/airtel-money-logo.svg') }}";
+        logo.alt = 'Airtel';
+        logoWrap.classList.remove('co-hidden');
+    } else {
+        logoWrap.classList.add('co-hidden');
+        logo.removeAttribute('src');
+        logo.removeAttribute('alt');
+    }
+}
+
+document.getElementById('paymentPhone')?.addEventListener('input', function() {
+    updatePaymentOperatorHint(this.value);
+});
+
+// Initialiser la sélection comme dans le composant fourni
+document.querySelector('.payment-method-row[data-method="mobile_money"]')?.click();
+
+document.querySelectorAll('.fulfillment-option').forEach(function(option) {
+    option.addEventListener('click', function() {
+        document.querySelectorAll('.fulfillment-option').forEach(function(opt) {
+            opt.classList.remove('is-active');
+        });
+        this.classList.add('is-active');
+        this.querySelector('input[type="radio"]').checked = true;
+        recalculateCheckoutTotals();
+    });
+});
+
+document.getElementById('scheduleOrderToggle')?.addEventListener('change', function() {
+    const panel = document.getElementById('scheduleOrderPanel');
+    if (panel) {
+        panel.style.display = this.checked ? 'grid' : 'none';
+    }
+});
 
 // Gestion de la soumission du formulaire via API
-document.getElementById('checkoutForm')?.addEventListener('submit', function(e) {
+document.getElementById('checkoutForm')?.addEventListener('submit', async function(e) {
     e.preventDefault();
     
     var paymentMethod = document.querySelector('input[name="payment_method"]:checked')?.value;
@@ -472,35 +1101,105 @@ document.getElementById('checkoutForm')?.addEventListener('submit', function(e) 
     var longitude = document.getElementById('longitude')?.value;
     var driverTip = document.getElementById('tip')?.value || 0;
     var voucherCode = document.getElementById('voucher')?.value || null;
+    var deliveryDistrict = document.getElementById('deliveryDistrict')?.value.trim() || '';
+    var deliveryLandmark = document.getElementById('deliveryLandmark')?.value.trim() || '';
+    var deliveryComplement = document.getElementById('deliveryComplement')?.value.trim() || '';
+    var pickupNote = document.getElementById('pickupNote')?.value.trim() || '';
+    var paymentPhone = document.getElementById('paymentPhone')?.value.trim() || '';
+    var fulfillmentMode = getFulfillmentMode();
+    var scheduleEnabled = document.getElementById('scheduleOrderToggle')?.checked || false;
+    var scheduledDate = scheduleEnabled ? document.getElementById('scheduledDate')?.value : null;
+    var savedAddressId = document.getElementById('savedAddressId')?.value || '';
     
     // Validation de l'adresse
-    if(!deliveryAddress || deliveryAddress.trim() === '') {
-        alert('Veuillez entrer une adresse de livraison');
+    if(fulfillmentMode === 'delivery' && (!deliveryAddress || deliveryAddress.trim() === '')) {
+        showToast('Veuillez entrer une adresse de livraison', 'error');
         document.getElementById('searchMapInput').focus();
+        return false;
+    }
+
+    if (fulfillmentMode === 'delivery' && isCheckoutAddressTooBroad(checkoutAddressState.precisionLevel) && !checkoutAddressState.confirmed) {
+        const preciseMessage = 'Confirmez precisement l adresse de livraison sur la carte avant de continuer.';
+        updateCheckoutStatus(preciseMessage, true);
+        updateCheckoutPrecisionAlert(preciseMessage, true);
+        document.getElementById('usePinBtn')?.focus();
         return false;
     }
     
-    // Validation des coordonnées
-    if(!latitude || !longitude || (latitude === '-4.2767' && longitude === '15.2832')) {
-        alert('Veuillez sélectionner une adresse précise sur la carte en cliquant ou en recherchant une adresse');
-        document.getElementById('searchMapInput').focus();
+    const hasDefaultCoordinates = String(latitude) === String(CHECKOUT_DEFAULT_LOCATION.lat)
+        && String(longitude) === String(CHECKOUT_DEFAULT_LOCATION.lng);
+
+    if (fulfillmentMode === 'delivery' && deliveryAddress && (!latitude || !longitude || hasDefaultCoordinates)) {
+        const geocodedResults = await checkoutSearch(deliveryAddress, 1);
+        if (geocodedResults[0]) {
+            applyCheckoutAddress(geocodedResults[0], {
+                confirmed: !isCheckoutAddressTooBroad(geocodedResults[0].precisionLevel),
+                source: 'search',
+            });
+            latitude = geocodedResults[0].lat;
+            longitude = geocodedResults[0].lng;
+            updateCheckoutStatus(
+                isCheckoutAddressTooBroad(geocodedResults[0].precisionLevel)
+                    ? 'Adresse trouvée au niveau quartier. Confirmez le point exact sur la carte.'
+                    : 'Adresse manuelle géolocalisée automatiquement.'
+            );
+        } else {
+            latitude = null;
+            longitude = null;
+            updateCheckoutStatus('Adresse manuelle conservée sans géolocalisation précise.');
+        }
+    }
+
+    if (scheduleEnabled && !scheduledDate) {
+        showToast('Veuillez choisir une date et une heure de planification.', 'error');
+        document.getElementById('scheduledDate').focus();
         return false;
     }
+
+    var fullDeliveryAddress = fulfillmentMode === 'pickup'
+        ? ['Retrait sur place', CHECKOUT_RESTAURANT_NAME, pickupNote ? 'Note: ' + pickupNote : ''].filter(Boolean).join(' | ')
+        : [
+            deliveryAddress,
+            deliveryDistrict ? 'Quartier: ' + deliveryDistrict : '',
+            deliveryLandmark ? 'Repère: ' + deliveryLandmark : '',
+            deliveryComplement ? 'Complément: ' + deliveryComplement : ''
+        ].filter(Boolean).join(' | ');
     
     // Normaliser le payment_method pour correspondre à l'API
     var apiPaymentMethod = paymentMethod;
     if (paymentMethod === 'mobile_money') {
         apiPaymentMethod = 'momo'; // Adapter selon votre backend
+        if (!paymentPhone) {
+            showToast('Saisissez un numéro valide commençant par 06 ou 05.', 'error');
+            document.getElementById('paymentPhone')?.focus();
+            return false;
+        }
+
+        const detectedOperator = detectMobileMoneyOperator(paymentPhone);
+        if (detectedOperator.operator === 'unknown') {
+            showToast(detectedOperator.label, 'error');
+            document.getElementById('paymentPhone')?.focus();
+            return false;
+        }
     }
     
     // Préparer les données pour l'API
     const formData = {
         payment_method: apiPaymentMethod,
-        delivery_address: deliveryAddress,
-        d_lat: latitude,
-        d_lng: longitude,
-        driver_tip: driverTip,
-        voucher_code: voucherCode
+        fulfillment_mode: fulfillmentMode,
+        delivery_address: fullDeliveryAddress,
+        delivery_area: fulfillmentMode === 'pickup' ? null : (deliveryDistrict || null),
+        delivery_city: fulfillmentMode === 'pickup' ? null : (checkoutAddressState.city || 'Brazzaville'),
+        delivery_department: fulfillmentMode === 'pickup' ? null : (checkoutAddressState.department || inferDepartmentFromCity(checkoutAddressState.city || 'Brazzaville') || 'Brazzaville'),
+        delivery_address_confirmed: fulfillmentMode === 'pickup' ? null : checkoutAddressState.confirmed,
+        d_lat: fulfillmentMode === 'pickup' ? null : latitude,
+        d_lng: fulfillmentMode === 'pickup' ? null : longitude,
+        address_id: fulfillmentMode === 'pickup' ? null : savedAddressId || null,
+        driver_tip: fulfillmentMode === 'pickup' ? 0 : driverTip,
+        voucher_code: voucherCode,
+        pickup_note: pickupNote,
+        scheduled_date: scheduleEnabled ? scheduledDate : null,
+        phone: apiPaymentMethod === 'momo' ? paymentPhone : null
     };
     
     // Appeler l'API via le gestionnaire de checkout
@@ -508,157 +1207,523 @@ document.getElementById('checkoutForm')?.addEventListener('submit', function(e) 
         checkoutManager.processCheckout(formData);
     } else {
         console.error('CheckoutManager non disponible');
-        alert('Erreur: Le système de checkout n\'est pas disponible. Veuillez recharger la page.');
+        showToast('Le système de paiement est indisponible. Veuillez recharger la page.', 'error');
     }
     
     return false;
 });
 
+function buildCheckoutAddressDetails(lat, lng, feature) {
+    const district = extractCheckoutContext(feature, ['neighborhood', 'locality', 'district']) || extractCheckoutContext(feature, ['place']) || 'Brazzaville';
+    const landmark = extractCheckoutContext(feature, ['poi', 'address']) || '';
+    const city = extractCheckoutContext(feature, ['place']) || 'Brazzaville';
+    const department = extractCheckoutContext(feature, ['region']) || inferDepartmentFromCity(city) || 'Brazzaville';
+    const placeTypes = Array.isArray(feature.place_type) ? feature.place_type : [];
+    let precisionLevel = 'blind';
+    if (placeTypes.includes('poi') || feature.address) {
+        precisionLevel = 'exact';
+    } else if (placeTypes.includes('address')) {
+        precisionLevel = 'street';
+    } else if (placeTypes.includes('neighborhood') || placeTypes.includes('locality') || placeTypes.includes('district')) {
+        precisionLevel = 'district';
+    } else if (placeTypes.includes('place') || placeTypes.includes('region')) {
+        precisionLevel = 'area';
+    }
+    return {
+        lat,
+        lng,
+        label: feature.place_name || `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+        district,
+        city,
+        department,
+        precisionLevel,
+        landmark,
+        addressLine: feature.text || feature.place_name || `${lat.toFixed(6)}, ${lng.toFixed(6)}`
+    };
+}
+
+function extractCheckoutContext(feature, preferredTypes) {
+    if (!feature) return '';
+    const context = Array.isArray(feature.context) ? feature.context : [];
+    for (const type of preferredTypes) {
+        if ((feature.place_type || []).includes(type) && feature.text) {
+            return feature.text;
+        }
+        const hit = context.find((entry) => (entry.id || '').startsWith(type + '.'));
+        if (hit && hit.text) return hit.text;
+    }
+    return '';
+}
+
+var _checkoutMapboxOk = null;
+
+async function checkoutReverseGeocodeNominatim(lat, lng) {
+    try {
+        const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=fr&zoom=18`);
+        const d = await r.json();
+        const addr = d.address || {};
+        return {
+            lat, lng,
+            label: d.display_name || `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+            district: addr.suburb || addr.neighbourhood || addr.city_district || '',
+            city: addr.city || addr.town || 'Brazzaville',
+            department: addr.state || 'Brazzaville',
+            precisionLevel: addr.road ? 'address' : 'area',
+            landmark: addr.road || '',
+            addressLine: d.display_name || `${lat.toFixed(6)}, ${lng.toFixed(6)}`
+        };
+    } catch(e) {
+        return { lat, lng, label: `${lat.toFixed(6)}, ${lng.toFixed(6)}`, district:'Brazzaville', city:'Brazzaville', department:'Brazzaville', precisionLevel:'area', landmark:'', addressLine:`${lat.toFixed(6)}, ${lng.toFixed(6)}` };
+    }
+}
+
+async function checkoutReverseGeocode(lat, lng) {
+    if (_checkoutMapboxOk === false) return checkoutReverseGeocodeNominatim(lat, lng);
+    try {
+        const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${lng},${lat}.json?access_token=${CHECKOUT_MAPBOX_TOKEN}&limit=1&language=fr&types=address,poi,neighborhood,locality,place`;
+        const response = await fetch(url);
+        if (!response.ok) { _checkoutMapboxOk = false; return checkoutReverseGeocodeNominatim(lat, lng); }
+        _checkoutMapboxOk = true;
+        const data = await response.json().catch(() => ({}));
+        if (data.features && data.features[0]) {
+            return buildCheckoutAddressDetails(lat, lng, data.features[0]);
+        }
+    } catch (error) {
+        _checkoutMapboxOk = false;
+        return checkoutReverseGeocodeNominatim(lat, lng);
+    }
+    return { lat, lng, label: `${lat.toFixed(6)}, ${lng.toFixed(6)}`, district:'Brazzaville', city:'Brazzaville', department:'Brazzaville', precisionLevel:'area', landmark:'', addressLine:`${lat.toFixed(6)}, ${lng.toFixed(6)}` };
+}
+
+async function checkoutSearchNominatim(query, limit = 5) {
+    try {
+        const r = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=cg&limit=${limit}&accept-language=fr&addressdetails=1`);
+        const results = await r.json();
+        return (results || []).map(function(r) {
+            const addr = r.address || {};
+            return {
+                lat: parseFloat(r.lat), lng: parseFloat(r.lon),
+                label: r.display_name,
+                district: addr.suburb || addr.neighbourhood || addr.city_district || '',
+                city: addr.city || addr.town || 'Brazzaville',
+                department: addr.state || 'Brazzaville',
+                precisionLevel: addr.road ? 'address' : 'area',
+                landmark: addr.road || '',
+                addressLine: r.display_name
+            };
+        });
+    } catch(e) { return []; }
+}
+
+async function checkoutSearch(query, limit = 5) {
+    if (_checkoutMapboxOk === false) return checkoutSearchNominatim(query, limit);
+    try {
+        let url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${CHECKOUT_MAPBOX_TOKEN}&autocomplete=true&limit=${limit}&language=fr&country=cg&types=address,poi,neighborhood,locality,place`;
+        const latitude = document.getElementById('latitude')?.value;
+        const longitude = document.getElementById('longitude')?.value;
+        if (latitude && longitude) {
+            url += `&proximity=${longitude},${latitude}`;
+        }
+        const response = await fetch(url);
+        if (!response.ok) { _checkoutMapboxOk = false; return checkoutSearchNominatim(query, limit); }
+        _checkoutMapboxOk = true;
+        const data = await response.json().catch(() => ({}));
+        if (!data.features) return [];
+        return data.features.map((feature) => {
+            const [lng, lat] = feature.center;
+            return buildCheckoutAddressDetails(lat, lng, feature);
+        });
+    } catch (error) {
+        _checkoutMapboxOk = false;
+        return checkoutSearchNominatim(query, limit);
+    }
+}
+
+function renderCheckoutSuggestions(items) {
+    const box = document.getElementById('deliverySuggestions');
+    if (!box) return;
+    box.innerHTML = '';
+    if (!items.length) {
+        box.classList.remove('is-visible');
+        return;
+    }
+    items.forEach((item) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'checkout-suggestion-item';
+        button.textContent = item.label;
+        button.addEventListener('click', () => {
+            applyCheckoutAddress(item);
+            box.classList.remove('is-visible');
+        });
+        box.appendChild(button);
+    });
+    box.classList.add('is-visible');
+}
+
+function updateCheckoutStatus(message, isError = false) {
+    const status = document.getElementById('deliveryMapStatus');
+    if (!status) return;
+    status.textContent = message;
+    status.classList.toggle('is-error', isError);
+}
+
+function applyCheckoutAddress(item, options = {}) {
+    document.getElementById('searchMapInput').value = item.label || item.addressLine || '';
+    document.getElementById('deliveryDistrict').value = item.district || '';
+    if (!document.getElementById('deliveryLandmark').value) {
+        document.getElementById('deliveryLandmark').value = item.landmark || '';
+    }
+    document.getElementById('latitude').value = item.lat;
+    document.getElementById('longitude').value = item.lng;
+    if (savedAddressSelect && !options.keepSavedSelection) {
+        savedAddressSelect.value = '';
+    }
+    if (savedAddressIdField && !options.keepSavedSelection) {
+        savedAddressIdField.value = '';
+    }
+    if (checkoutMarker) {
+        checkoutMarker.setLatLng([item.lat, item.lng]);
+    } else if (checkoutMap) {
+        checkoutMarker = L.marker([item.lat, item.lng], { draggable: true }).addTo(checkoutMap);
+        checkoutMarker.on('dragend', async function(event) {
+            const pos = event.target.getLatLng();
+            const details = await checkoutReverseGeocode(pos.lat, pos.lng);
+            applyCheckoutAddress(details, { confirmed: true, source: 'map' });
+        });
+    }
+    if (checkoutMap) {
+        checkoutMap.setView([item.lat, item.lng], 16);
+    }
+
+    const precisionLevel = item.precisionLevel || 'blind';
+    const confirmed = options.confirmed === true
+        ? true
+        : (options.confirmed === false ? false : !isCheckoutAddressTooBroad(precisionLevel));
+
+    setCheckoutAddressState({
+        precisionLevel,
+        confirmed,
+        source: options.source || 'search',
+        city: item.city || 'Brazzaville',
+        department: item.department || inferDepartmentFromCity(item.city || 'Brazzaville') || 'Brazzaville',
+    });
+
+    if (isCheckoutAddressTooBroad(precisionLevel) && !confirmed) {
+        updateCheckoutStatus('Adresse trouvée au niveau quartier. Placez maintenant le repère exact sur la carte.', true);
+    } else {
+        updateCheckoutStatus(item.district ? `Repère confirmé pour ${item.district}.` : 'Repère confirmé sur la carte.');
+    }
+}
+
+function applySavedCheckoutAddress(option) {
+    const lat = parseFloat(option.dataset.lat || CHECKOUT_DEFAULT_LOCATION.lat);
+    const lng = parseFloat(option.dataset.lng || CHECKOUT_DEFAULT_LOCATION.lng);
+    const addressLine = option.dataset.address || '';
+    const district = option.dataset.area || '';
+    const landmark = [option.dataset.building || '', option.dataset.street || '', option.dataset.floor || ''].filter(Boolean).join(' · ');
+    const city = /pointe-noire/i.test(addressLine) ? 'Pointe-Noire' : 'Brazzaville';
+
+    if (savedAddressIdField) {
+        savedAddressIdField.value = option.value || '';
+    }
+
+    applyCheckoutAddress({
+        label: [option.dataset.title || '', addressLine].filter(Boolean).join(' - '),
+        addressLine: addressLine,
+        district: district,
+        landmark: landmark,
+        city: city,
+        department: inferDepartmentFromCity(city),
+        precisionLevel: landmark || /(\d{1,5}|av\.|avenue|rue|bd\.|boulevard)/i.test(addressLine) ? 'street' : 'district',
+        lat: Number.isFinite(lat) ? lat : CHECKOUT_DEFAULT_LOCATION.lat,
+        lng: Number.isFinite(lng) ? lng : CHECKOUT_DEFAULT_LOCATION.lng,
+    }, { confirmed: true, source: 'saved_address', keepSavedSelection: true });
+
+    if (savedAddressSelect) {
+        savedAddressSelect.value = option.value || '';
+    }
+    updateCheckoutStatus('Adresse enregistrée appliquée.');
+}
+
 function initMap() {
-    // Coordonnées par défaut (Centre de Brazzaville, Congo)
-    var defaultLat = -4.2767;
-    var defaultLng = 15.2832;
-    var lati = defaultLat;
-    var long = defaultLng;
-    
-    var geocoder = new google.maps.Geocoder();
-    var map = new google.maps.Map(document.getElementById('map'), {
-        center: {lat: lati, lng: long},
-        zoom: 13,
-        styles: [
-            {"featureType": "poi", "stylers": [{"visibility": "off"}]}
-        ]
+    const mapBox = document.getElementById('map');
+    if (!mapBox) return;
+    if (!CHECKOUT_MAPBOX_TOKEN) {
+        mapBox.innerHTML = '<div class="co-map-fallback">Carte indisponible. Ajoutez MAPBOX_PUBLIC_TOKEN.</div>';
+        return;
+    }
+
+    checkoutMap = L.map('map', { zoomControl: true }).setView([CHECKOUT_DEFAULT_LOCATION.lat, CHECKOUT_DEFAULT_LOCATION.lng], 13);
+    L.tileLayer('https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/{z}/{x}/{y}?access_token=' + CHECKOUT_MAPBOX_TOKEN, {
+        tileSize: 512,
+        zoomOffset: -1,
+        attribution: '&copy; OpenStreetMap contributors &copy; Mapbox',
+        maxZoom: 19
+    }).addTo(checkoutMap);
+
+    checkoutMarker = L.marker([CHECKOUT_DEFAULT_LOCATION.lat, CHECKOUT_DEFAULT_LOCATION.lng], { draggable: true }).addTo(checkoutMap);
+    checkoutMarker.on('dragend', async function(event) {
+        const pos = event.target.getLatLng();
+        const details = await checkoutReverseGeocode(pos.lat, pos.lng);
+        applyCheckoutAddress(details, { confirmed: true, source: 'map' });
     });
-    
-    var input = document.getElementById('searchMapInput');
-    var autocomplete = new google.maps.places.Autocomplete(input, {
-        componentRestrictions: {country: ['cg', 'cd']}, // Congo et RDC
-        fields: ['geometry', 'name', 'formatted_address']
+
+    checkoutMap.on('click', async function(event) {
+        const details = await checkoutReverseGeocode(event.latlng.lat, event.latlng.lng);
+        applyCheckoutAddress(details, { confirmed: true, source: 'map' });
     });
-    autocomplete.bindTo('bounds', map);
-    
-    var infowindow = new google.maps.InfoWindow();
-    var marker = new google.maps.Marker({
-        position: {lat: lati, lng: long},
-        map: map,
-        draggable: true,
-        icon: {
-            url: 'https://maps.google.com/mapfiles/ms/icons/red-dot.png'
+
+    const searchInput = document.getElementById('searchMapInput');
+    searchInput?.addEventListener('input', function() {
+        const query = this.value.trim();
+        clearTimeout(checkoutSearchTimeout);
+        if (query.length < 3) {
+            document.getElementById('deliverySuggestions')?.classList.remove('is-visible');
+            return;
+        }
+        checkoutSearchTimeout = setTimeout(async () => {
+            const suggestions = await checkoutSearch(query);
+            renderCheckoutSuggestions(suggestions);
+        }, 250);
+    });
+
+    searchInput?.addEventListener('keydown', async function(event) {
+        if (event.key !== 'Enter') return;
+        event.preventDefault();
+        const query = this.value.trim();
+        if (query.length < 3) return;
+        const result = await checkoutSearch(query, 1);
+        if (result[0]) {
+            applyCheckoutAddress(result[0], {
+                confirmed: !isCheckoutAddressTooBroad(result[0].precisionLevel),
+                source: 'search',
+            });
+            document.getElementById('deliverySuggestions')?.classList.remove('is-visible');
         }
     });
 
-    // Essayer d'obtenir la position de l'utilisateur
-    if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(function(position) {
-            var userLat = position.coords.latitude;
-            var userLng = position.coords.longitude;
-            
-            map.setCenter({lat: userLat, lng: userLng});
-            map.setZoom(15);
-            marker.setPosition({lat: userLat, lng: userLng});
-            document.getElementById('latitude').value = userLat;
-            document.getElementById('longitude').value = userLng;
-            
-            // Obtenir l'adresse depuis les coordonnées (éviter Djoué-Léfini)
-            geocoder.geocode({'location': {lat: userLat, lng: userLng}}, function(results, status) {
-                if (status === 'OK' && results[0]) {
-                    var address = results[0].formatted_address;
-                    // Filtrer les adresses contenant "djoue" ou "lefini" pour éviter l'affichage incorrect
-                    if (address && !address.toLowerCase().includes('djoue') && !address.toLowerCase().includes('lefini')) {
-                        document.getElementById('searchMapInput').value = address;
-                    } else {
-                        // Si l'adresse contient djoue/lefini, laisser l'utilisateur saisir manuellement
-                        document.getElementById('searchMapInput').placeholder = 'Entrez votre adresse de livraison';
-                    }
+    document.getElementById('locateDeliveryBtn')?.addEventListener('click', function() {
+        if (!navigator.geolocation) {
+            updateCheckoutStatus('La géolocalisation n’est pas disponible sur cet appareil.', true);
+            return;
+        }
+        updateCheckoutStatus('Localisation en cours...');
+        navigator.geolocation.getCurrentPosition(async function(position) {
+            const details = await checkoutReverseGeocode(position.coords.latitude, position.coords.longitude);
+            applyCheckoutAddress(details, { confirmed: true, source: 'gps' });
+        }, function() {
+            updateCheckoutStatus('Impossible de récupérer votre position actuelle.', true);
+        }, {
+            enableHighAccuracy: true,
+            timeout: 12000,
+            maximumAge: 0
+        });
+    });
+
+    document.getElementById('usePinBtn')?.addEventListener('click', function() {
+        updateCheckoutStatus('Cliquez sur la carte pour placer le repère de livraison.');
+    });
+
+    if (savedAddressSelect) {
+        savedAddressSelect.addEventListener('change', function() {
+            const selected = this.selectedOptions && this.selectedOptions[0];
+            if (!selected || !selected.value) {
+                if (savedAddressIdField) {
+                    savedAddressIdField.value = '';
                 }
-            });
-        }, function(error) {
-            console.log('Erreur de géolocalisation:', error);
-            // Utiliser les coordonnées par défaut
+                return;
+            }
+            applySavedCheckoutAddress(selected);
         });
     }
 
-    autocomplete.addListener('place_changed', function() {
-        marker.setVisible(true);
-        var place = autocomplete.getPlace();
-        
-        if (!place.geometry) {
-            console.log("Aucun détail disponible pour: " + place.name);
-            return;
-        }
-        
-        if (place.geometry.viewport) {
-            map.fitBounds(place.geometry.viewport);
-        } else {
-            map.setCenter(place.geometry.location);
-            map.setZoom(17);
-        }
-
-        marker.setPosition(place.geometry.location);
-        var lat = place.geometry.location.lat();
-        var lng = place.geometry.location.lng();
-        
-        document.getElementById('latitude').value = lat;
-        document.getElementById('longitude').value = lng;
-        
-        // Mettre à jour l'adresse complète
-        if (place.formatted_address) {
-            document.getElementById('searchMapInput').value = place.formatted_address;
-        }
-        
-        infowindow.setContent('<div style="padding: 0.5rem;"><strong>' + (place.name || place.formatted_address) + '</strong></div>');
-        infowindow.open(map, marker);
-    });
-
-    google.maps.event.addListener(marker, 'dragend', function(event) {
-        var latLng = event.latLng;
-        var lat = latLng.lat();
-        var lng = latLng.lng();
-        
-        document.getElementById('latitude').value = lat;
-        document.getElementById('longitude').value = lng;
-        
-        geocoder.geocode({'location': latLng}, function(results, status) {
-            if (status === 'OK' && results[0]) {
-                var address = results[0].formatted_address;
-                // Filtrer les adresses contenant "djoue" ou "lefini"
-                if (address && !address.toLowerCase().includes('djoue') && !address.toLowerCase().includes('lefini')) {
-                    document.getElementById('searchMapInput').value = address;
-                    infowindow.setContent('<div style="padding: 0.5rem;"><strong>' + address + '</strong></div>');
-                } else {
-                    // Si l'adresse contient djoue/lefini, afficher un message générique
-                    infowindow.setContent('<div style="padding: 0.5rem;"><strong>Position sélectionnée</strong><br>Veuillez entrer votre adresse manuellement</div>');
-                }
-                infowindow.open(map, marker);
+    ['searchMapInput', 'deliveryDistrict', 'deliveryLandmark', 'deliveryComplement'].forEach((fieldId) => {
+        const field = document.getElementById(fieldId);
+        field?.addEventListener('input', function() {
+            if (savedAddressSelect) {
+                savedAddressSelect.value = '';
+            }
+            if (savedAddressIdField) {
+                savedAddressIdField.value = '';
+            }
+            if (fieldId === 'searchMapInput' || fieldId === 'deliveryDistrict') {
+                setCheckoutAddressState({
+                    confirmed: false,
+                    source: 'manual',
+                    precisionLevel: fieldId === 'deliveryDistrict' ? 'district' : checkoutAddressState.precisionLevel,
+                });
             }
         });
     });
-    
-    // Clic sur la carte pour placer le marqueur
-    map.addListener('click', function(event) {
-        var lat = event.latLng.lat();
-        var lng = event.latLng.lng();
-        
-        marker.setPosition({lat: lat, lng: lng});
-        document.getElementById('latitude').value = lat;
-        document.getElementById('longitude').value = lng;
-        
-        geocoder.geocode({'location': {lat: lat, lng: lng}}, function(results, status) {
-            if (status === 'OK' && results[0]) {
-                var address = results[0].formatted_address;
-                // Filtrer les adresses contenant "djoue" ou "lefini"
-                if (address && !address.toLowerCase().includes('djoue') && !address.toLowerCase().includes('lefini')) {
-                    document.getElementById('searchMapInput').value = address;
-                    infowindow.setContent('<div style="padding: 0.5rem;"><strong>' + address + '</strong></div>');
-                } else {
-                    // Si l'adresse contient djoue/lefini, afficher un message générique
-                    infowindow.setContent('<div style="padding: 0.5rem;"><strong>Position sélectionnée</strong><br>Veuillez entrer votre adresse manuellement</div>');
-                }
-                infowindow.open(map, marker);
-            }
+
+    document.getElementById('clearDeliveryBtn')?.addEventListener('click', function() {
+        document.getElementById('searchMapInput').value = '';
+        document.getElementById('deliveryDistrict').value = '';
+        document.getElementById('deliveryLandmark').value = '';
+        document.getElementById('deliveryComplement').value = '';
+        if (savedAddressSelect) {
+            savedAddressSelect.value = '';
+        }
+        if (savedAddressIdField) {
+            savedAddressIdField.value = '';
+        }
+        document.getElementById('latitude').value = CHECKOUT_DEFAULT_LOCATION.lat;
+        document.getElementById('longitude').value = CHECKOUT_DEFAULT_LOCATION.lng;
+        if (checkoutMarker) {
+            checkoutMarker.setLatLng([CHECKOUT_DEFAULT_LOCATION.lat, CHECKOUT_DEFAULT_LOCATION.lng]);
+        }
+        checkoutMap.setView([CHECKOUT_DEFAULT_LOCATION.lat, CHECKOUT_DEFAULT_LOCATION.lng], 13);
+        setCheckoutAddressState({
+            precisionLevel: 'blind',
+            confirmed: false,
+            source: 'manual',
+            city: 'Brazzaville',
+            department: 'Brazzaville',
         });
+        updateCheckoutStatus('Repère réinitialisé. Repositionnez la livraison sur la carte.');
+    });
+
+    document.addEventListener('click', function(event) {
+        if (!event.target.closest('#searchMapInput') && !event.target.closest('#deliverySuggestions')) {
+            document.getElementById('deliverySuggestions')?.classList.remove('is-visible');
+        }
     });
 }
+
+window.handleCheckoutClientError = function(message, payload = null) {
+    const normalized = String(message || '').toLowerCase();
+    if (
+        normalized.includes('confirmez precisement l adresse de livraison')
+        || Boolean(payload?.errors?.delivery_address_confirmed)
+    ) {
+        updateCheckoutStatus('Confirmez precisement l adresse de livraison sur la carte avant de continuer.', true);
+        updateCheckoutPrecisionAlert('Confirmez precisement l adresse de livraison sur la carte avant de continuer.', true);
+        document.getElementById('usePinBtn')?.focus();
+        return true;
+    }
+    return false;
+};
 </script>
-<script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCkXFIvxvN0M1Chg644bLwAnXEQUG_RKUI&libraries=places&callback=initMap" async defer></script>
+<script>
+window.addEventListener('load', function () {
+    initMap();
+    syncCheckoutAddressState();
+    if (savedAddressSelect && savedAddressSelect.value) {
+        savedAddressSelect.dispatchEvent(new Event('change'));
+    }
+    recalculateCheckoutTotals();
+}, { once: true });
+</script>
+<script>
+/* ── Checkout Wizard ── */
+(function () {
+    'use strict';
+    var _step = 2;
+
+    function validateStep(step) {
+        if (step === 2) {
+            if (typeof getFulfillmentMode === 'function' && getFulfillmentMode() === 'delivery') {
+                var addr = (document.getElementById('searchMapInput') || {}).value || '';
+                if (!addr.trim()) {
+                    if (typeof showToast === 'function') showToast('Veuillez entrer une adresse de livraison.', 'error');
+                    var f = document.getElementById('searchMapInput');
+                    if (f) f.focus();
+                    return false;
+                }
+                if (typeof isCheckoutAddressTooBroad === 'function'
+                    && typeof checkoutAddressState !== 'undefined'
+                    && isCheckoutAddressTooBroad(checkoutAddressState.precisionLevel)
+                    && !checkoutAddressState.confirmed) {
+                    if (typeof showToast === 'function') showToast('Précisez le repère sur la carte avant de continuer.', 'error');
+                    return false;
+                }
+            }
+        }
+        if (step === 3) {
+            var method = (document.querySelector('input[name="payment_method"]:checked') || {}).value;
+            if (method === 'mobile_money') {
+                var phone = ((document.getElementById('paymentPhone') || {}).value || '').trim();
+                if (!phone) {
+                    if (typeof showToast === 'function') showToast('Saisissez le numéro pour le paiement mobile.', 'error');
+                    var pf = document.getElementById('paymentPhone');
+                    if (pf) pf.focus();
+                    return false;
+                }
+                if (typeof detectMobileMoneyOperator === 'function') {
+                    var op = detectMobileMoneyOperator(phone);
+                    if (op.operator === 'unknown') {
+                        if (typeof showToast === 'function') showToast(op.label, 'error');
+                        return false;
+                    }
+                }
+            }
+        }
+        return true;
+    }
+
+    function updateStepper(step) {
+        for (var i = 2; i <= 4; i++) {
+            var node = document.getElementById('stepNode' + i);
+            var text = document.getElementById('stepText' + i);
+            if (!node) continue;
+            var state = i < step ? 'done' : (i === step ? 'active' : 'idle');
+            node.className = 'co-step-node co-step-node--' + state;
+            if (text) text.className = 'co-step-text co-step-text--' + state;
+            var checkEl = node.querySelector('.co-step-check');
+            var numEl = node.querySelector('.co-step-num');
+            if (checkEl) checkEl.style.display = i < step ? '' : 'none';
+            if (numEl) numEl.style.display = i < step ? 'none' : '';
+        }
+        for (var j = 1; j <= 3; j++) {
+            var wire = document.getElementById('stepWire' + j);
+            if (wire) wire.className = 'co-step-wire co-step-wire--' + (j < step ? 'done' : 'idle');
+        }
+    }
+
+    function updateMobileCta(step) {
+        var btn = document.querySelector('.co-mcta-btn');
+        if (!btn) return;
+        btn.onclick = null;
+        if (step === 4) {
+            btn.textContent = 'Commander';
+            btn.onclick = function () {
+                var sb = document.getElementById('checkoutSubmitBtn');
+                if (sb) sb.click();
+            };
+        } else if (step === 3) {
+            btn.textContent = 'Vérifier la commande →';
+            btn.onclick = function () { coGoToStep(4); };
+        } else {
+            btn.textContent = 'Continuer →';
+            btn.onclick = function () { coGoToStep(_step + 1); };
+        }
+    }
+
+    function goToStep(n) {
+        if (n > _step && !validateStep(_step)) return;
+        _step = n;
+        document.querySelectorAll('.co-step-section').forEach(function (s) { s.classList.remove('is-active'); });
+        var section = document.getElementById('coStep' + n);
+        if (section) section.classList.add('is-active');
+        var sidebar = document.querySelector('.co-sidebar');
+        if (sidebar) sidebar.classList.toggle('is-step4-visible', n === 4);
+        updateStepper(n);
+        updateMobileCta(n);
+        if (n === 2 && typeof checkoutMap !== 'undefined' && checkoutMap) {
+            setTimeout(function () { checkoutMap.invalidateSize(); }, 250);
+        }
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    window.coGoToStep = goToStep;
+
+    /* Init after DOM ready */
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function () { goToStep(2); });
+    } else {
+        goToStep(2);
+    }
+})();
+</script>
 @endsection

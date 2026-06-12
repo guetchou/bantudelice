@@ -17,12 +17,14 @@ class TransportBooking extends Model
 
     protected $fillable = [
         'uuid', 'booking_no', 'type', 'user_id', 'driver_id', 'vehicle_id',
-        'pickup_address', 'pickup_lat', 'pickup_lng', 
+        'pickup_address', 'pickup_lat', 'pickup_lng',
         'dropoff_address', 'dropoff_lat', 'dropoff_lng',
         'scheduled_at', 'started_at', 'completed_at', 'cancelled_at',
+        'driver_arrived_at', 'picked_up_at', 'closed_at', 'cash_collected_at',
         'return_date', 'estimated_distance', 'estimated_duration',
         'estimated_price', 'actual_price', 'tax', 'discount', 'total_price',
-        'payment_method', 'payment_status', 'status', 'notes'
+        'payment_method', 'payment_status', 'status', 'notes', 'cancel_reason',
+        'last_status_changed_at',
     ];
 
     protected $casts = [
@@ -32,7 +34,12 @@ class TransportBooking extends Model
         'started_at' => 'datetime',
         'completed_at' => 'datetime',
         'cancelled_at' => 'datetime',
+        'driver_arrived_at' => 'datetime',
+        'picked_up_at' => 'datetime',
+        'closed_at' => 'datetime',
+        'cash_collected_at' => 'datetime',
         'return_date' => 'datetime',
+        'last_status_changed_at' => 'datetime',
         'estimated_price' => 'decimal:2',
         'actual_price' => 'decimal:2',
         'tax' => 'decimal:2',
@@ -82,4 +89,3 @@ class TransportBooking extends Model
         return \Database\Factories\TransportBookingFactory::new();
     }
 }
-

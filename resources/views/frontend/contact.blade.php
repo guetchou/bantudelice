@@ -1,172 +1,162 @@
+@php
+    $authBrand = app(\App\Services\AuthBrandingService::class)->resolve(request());
+    $brandRouteParams = $authBrand['key'] !== 'bantudelice' ? ['brand' => $authBrand['key']] : [];
+    $brandColor = $authBrand['primary'];
+    $brandDark = $authBrand['primary_dark'];
+    $brandSoft = $authBrand['primary_soft'];
+@endphp
 @extends('frontend.layouts.app-modern')
-@section('title', 'Contactez-nous | BantuDelice')
-@section('description', 'Contactez l\'équipe BantuDelice. Nous sommes là pour répondre à toutes vos questions.')
+@section('title', 'Contactez-nous | ' . $authBrand['name'])
+@section('description', $authBrand['contact_intro'])
+@section('body_class', 'bd-contact-page')
+@section('body_style', "--contact-brand-color: {$brandColor}; --contact-brand-dark: {$brandDark}; --contact-brand-soft: {$brandSoft};")
 
 @section('content')
-<!-- Hero Section -->
-<section style="background: linear-gradient(135deg, var(--secondary) 0%, var(--accent) 100%); padding: 150px 0 80px; text-align: center;">
+<section class="contact-hero">
     <div class="container">
-        <span class="section-badge" style="background: rgba(255,255,255,0.1); color: white;">
-            <img src="{{ asset('images/icons/happy-customer.svg') }}" alt="Contact" style="width: 20px; height: 20px; vertical-align: middle; margin-right: 6px;">
-            Contact
-        </span>
-        <h1 style="color: white; font-size: clamp(2rem, 5vw, 3rem); margin-top: 1rem;">
-            Contactez-nous
-        </h1>
-        <p style="color: rgba(255,255,255,0.8); max-width: 600px; margin: 1rem auto 0; font-size: 1.125rem;">
-            Une question ? Une suggestion ? Nous sommes là pour vous aider !
+        <span class="section-badge contact-hero-badge">Contact</span>
+        <h1 class="contact-hero-title">Contactez {{ $authBrand['name'] }}</h1>
+        <p class="contact-hero-copy">
+            {{ $authBrand['contact_intro'] }}
         </p>
     </div>
 </section>
 
-<!-- Contact Section -->
 <section class="section">
     <div class="container">
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 3rem; align-items: start;">
-            
-            <!-- Contact Form -->
-            <div style="background: white; padding: 2rem; border-radius: var(--radius-2xl); box-shadow: var(--shadow-lg);">
-                <h2 style="font-size: 1.5rem; margin-bottom: 0.5rem;">Envoyez-nous un message</h2>
-                <p style="color: var(--gray-500); margin-bottom: 1.5rem;">Remplissez le formulaire ci-dessous et nous vous répondrons rapidement.</p>
-                
-                @if(Session::has('message'))
-                    <div style="background: var(--success); color: white; padding: 1rem; border-radius: var(--radius-lg); margin-bottom: 1.5rem; text-align: center;">
-                        <strong>{{ Session::get('message') }}</strong>
+        <div class="contact-grid">
+            <div class="contact-form-card">
+                <h2 class="contact-heading">Envoyez-nous un message</h2>
+                <p class="contact-subtitle">Décrivez votre besoin et l'équipe {{ $authBrand['name'] }} vous répondra dans les meilleurs délais.</p>
+
+                @if(Session::has('success'))
+                    <div class="contact-success">
+                        <strong>{{ Session::get('success') }}</strong>
                     </div>
                 @endif
-                
-                <form action="{{ route('contact') }}" method="post">
+
+                <form action="{{ route('contact', $brandRouteParams) }}" method="post">
                     @csrf
-                    
-                    <!-- Name -->
-                    <div style="margin-bottom: 1.25rem;">
-                        <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: var(--gray-700);">
-                            Nom complet
-                        </label>
-                        <input type="text" name="name" placeholder="Votre nom"
-                               style="width: 100%; padding: 0.875rem 1rem; border: 2px solid var(--gray-200); border-radius: var(--radius-lg); font-size: 1rem; transition: all 0.2s;"
+                    @if(isset($brandRouteParams['brand']))
+                        <input type="hidden" name="brand" value="{{ $brandRouteParams['brand'] }}">
+                    @endif
+
+                    <div class="contact-field">
+                        <label class="contact-label">Nom complet</label>
+                        <input type="text" name="name" value="{{ old('name') }}" placeholder="Votre nom"
+                               class="contact-input"
                                required>
                         @if($errors->has('name'))
-                            <span style="color: var(--error); font-size: 0.875rem;">{{ $errors->first('name') }}</span>
+                            <span class="contact-error">{{ $errors->first('name') }}</span>
                         @endif
                     </div>
-                    
-                    <!-- Email -->
-                    <div style="margin-bottom: 1.25rem;">
-                        <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: var(--gray-700);">
-                            Adresse email
-                        </label>
-                        <input type="email" name="email" placeholder="votre@email.com"
-                               style="width: 100%; padding: 0.875rem 1rem; border: 2px solid var(--gray-200); border-radius: var(--radius-lg); font-size: 1rem; transition: all 0.2s;"
+
+                    <div class="contact-field">
+                        <label class="contact-label">Adresse email</label>
+                        <input type="email" name="email" value="{{ old('email') }}" placeholder="votre@email.com"
+                               class="contact-input"
                                required>
+                        @if($errors->has('email'))
+                            <span class="contact-error">{{ $errors->first('email') }}</span>
+                        @endif
                     </div>
-                    
-                    <!-- Phone -->
-                    <div style="margin-bottom: 1.25rem;">
-                        <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: var(--gray-700);">
-                            Numéro de téléphone
-                        </label>
-                        <input type="tel" name="phone" placeholder="+242 06 XXX XX XX"
-                               style="width: 100%; padding: 0.875rem 1rem; border: 2px solid var(--gray-200); border-radius: var(--radius-lg); font-size: 1rem; transition: all 0.2s;"
+
+                    <div class="contact-field">
+                        <label class="contact-label">Numéro de téléphone</label>
+                        <input type="tel" name="phone" value="{{ old('phone') }}" placeholder="{{ $authBrand['support_phone'] }}"
+                               class="contact-input"
                                required>
+                        @if($errors->has('phone'))
+                            <span class="contact-error">{{ $errors->first('phone') }}</span>
+                        @endif
                     </div>
-                    
-                    <!-- Message -->
-                    <div style="margin-bottom: 1.5rem;">
-                        <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: var(--gray-700);">
-                            Votre message
-                        </label>
+
+                    <div class="contact-field">
+                        <label class="contact-label">Sujet</label>
+                        <select name="subject" class="contact-input">
+                            <option value="" disabled {{ old('subject') ? '' : 'selected' }}>Sélectionnez un sujet</option>
+                            <option value="Commande en cours" {{ old('subject') === 'Commande en cours' ? 'selected' : '' }}>Commande en cours</option>
+                            <option value="Problème de livraison" {{ old('subject') === 'Problème de livraison' ? 'selected' : '' }}>Problème de livraison</option>
+                            <option value="Paiement" {{ old('subject') === 'Paiement' ? 'selected' : '' }}>Paiement</option>
+                            <option value="Mon compte" {{ old('subject') === 'Mon compte' ? 'selected' : '' }}>Mon compte</option>
+                            <option value="Autre" {{ old('subject') === 'Autre' ? 'selected' : '' }}>Autre</option>
+                        </select>
+                        @if($errors->has('subject'))
+                            <span class="contact-error">{{ $errors->first('subject') }}</span>
+                        @endif
+                    </div>
+
+                    <div class="contact-field contact-field--last">
+                        <label class="contact-label">Votre message</label>
                         <textarea name="message" rows="5" placeholder="Comment pouvons-nous vous aider ?"
-                                  style="width: 100%; padding: 0.875rem 1rem; border: 2px solid var(--gray-200); border-radius: var(--radius-lg); font-size: 1rem; transition: all 0.2s; resize: vertical;"
-                                  required></textarea>
+                                  class="contact-input contact-input--textarea"
+                                  required>{{ old('message') }}</textarea>
+                        @if($errors->has('message'))
+                            <span class="contact-error">{{ $errors->first('message') }}</span>
+                        @endif
                     </div>
-                    
-                    <!-- Submit -->
-                    <button type="submit" class="btn btn-primary btn-lg" style="width: 100%;">
-                        <img src="{{ asset('images/icons/food-delivery.svg') }}" alt="" style="width: 20px; height: 20px; vertical-align: middle; margin-right: 8px; filter: brightness(10);">
+
+                    <button type="submit" class="contact-submit">
+                        <img src="{{ asset('images/icons/food-delivery.svg') }}" alt="" class="contact-submit-icon">
                         Envoyer le message
                     </button>
                 </form>
             </div>
-            
-            <!-- Contact Info -->
+
             <div>
-                <h2 style="font-size: 1.5rem; margin-bottom: 1.5rem;">Informations de contact</h2>
-                
-                <!-- Address -->
-                <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem; padding: 1.5rem; background: var(--gray-50); border-radius: var(--radius-xl);">
-                    <div style="width: 50px; height: 50px; background: var(--primary); border-radius: var(--radius-lg); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                        <img src="{{ asset('images/icons/package-box.svg') }}" alt="Adresse" style="width: 32px; height: 32px;">
+                <h2 class="contact-heading contact-heading--side">Informations de contact</h2>
+
+                <div class="contact-info-card">
+                    <div class="contact-info-icon">
+                        <img src="{{ asset('images/icons/package-box.svg') }}" alt="Adresse" class="contact-info-icon-image">
                     </div>
                     <div>
-                        <h4 style="font-size: 1rem; margin-bottom: 0.25rem;">Adresse</h4>
-                        <p style="color: var(--gray-600); margin: 0;">Brazzaville, République du Congo</p>
+                        <h4 class="contact-info-title">Adresse</h4>
+                        <p class="contact-info-copy">Brazzaville, République du Congo</p>
                     </div>
                 </div>
-                
-                <!-- Email -->
-                <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem; padding: 1.5rem; background: var(--gray-50); border-radius: var(--radius-xl);">
-                    <div style="width: 50px; height: 50px; background: var(--primary); border-radius: var(--radius-lg); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                        <i class="fas fa-envelope" style="color: white; font-size: 1.25rem;"></i>
-                    </div>
+
+                <div class="contact-info-card">
                     <div>
-                        <h4 style="font-size: 1rem; margin-bottom: 0.25rem;">Email</h4>
-                        <a href="mailto:contact@bantudelice.cg" style="color: var(--primary);">contact@bantudelice.cg</a>
+                        <h4 class="contact-info-title">Email</h4>
+                        <a href="mailto:{{ $authBrand['support_email'] }}" class="contact-brand-link">{{ $authBrand['support_email'] }}</a>
                     </div>
                 </div>
-                
-                <!-- Phone -->
-                <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem; padding: 1.5rem; background: var(--gray-50); border-radius: var(--radius-xl);">
-                    <div style="width: 50px; height: 50px; background: var(--primary); border-radius: var(--radius-lg); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                        <i class="fas fa-phone-alt" style="color: white; font-size: 1.25rem;"></i>
-                    </div>
+
+                <div class="contact-info-card">
                     <div>
-                        <h4 style="font-size: 1rem; margin-bottom: 0.25rem;">Téléphone</h4>
-                        <a href="tel:+242064000000" style="color: var(--primary);">+242 06 400 00 00</a>
+                        <h4 class="contact-info-title">Téléphone</h4>
+                        <a href="tel:{{ preg_replace('/[^0-9+]/', '', $authBrand['support_phone']) }}" class="contact-brand-link">{{ $authBrand['support_phone'] }}</a>
                     </div>
                 </div>
-                
-                <!-- WhatsApp -->
-                <div style="display: flex; gap: 1rem; margin-bottom: 2rem; padding: 1.5rem; background: var(--gray-50); border-radius: var(--radius-xl);">
-                    <div style="width: 50px; height: 50px; background: #25D366; border-radius: var(--radius-lg); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                        <i class="fab fa-whatsapp" style="color: white; font-size: 1.5rem;"></i>
-                    </div>
+
+                <div class="contact-info-card">
                     <div>
-                        <h4 style="font-size: 1rem; margin-bottom: 0.25rem;">WhatsApp</h4>
-                        <a href="https://wa.me/242064000000" style="color: #25D366;">Discuter sur WhatsApp</a>
+                        <h4 class="contact-info-title">WhatsApp</h4>
+                        <a href="{{ $authBrand['support_whatsapp'] }}" class="contact-whatsapp-link">Discuter sur WhatsApp</a>
                     </div>
                 </div>
-                
-                <!-- Social Links -->
-                <h4 style="margin-bottom: 1rem;">Suivez-nous</h4>
-                <div style="display: flex; gap: 1rem;">
-                    <a href="https://www.facebook.com/bantudelice/" target="_blank" 
-                       style="width: 44px; height: 44px; background: #1877F2; color: white; border-radius: var(--radius-lg); display: flex; align-items: center; justify-content: center; transition: transform 0.2s;">
-                        <i class="fab fa-facebook-f"></i>
-                    </a>
-                    <a href="https://twitter.com/bantudelice" target="_blank"
-                       style="width: 44px; height: 44px; background: #1DA1F2; color: white; border-radius: var(--radius-lg); display: flex; align-items: center; justify-content: center; transition: transform 0.2s;">
-                        <i class="fab fa-twitter"></i>
-                    </a>
-                    <a href="https://www.instagram.com/bantudelice/" target="_blank"
-                       style="width: 44px; height: 44px; background: linear-gradient(45deg, #f09433 0%,#e6683c 25%,#dc2743 50%,#cc2366 75%,#bc1888 100%); color: white; border-radius: var(--radius-lg); display: flex; align-items: center; justify-content: center; transition: transform 0.2s;">
-                        <i class="fab fa-instagram"></i>
-                    </a>
+
+                <div class="contact-links-card">
+                    <h4 class="contact-info-title">Liens utiles</h4>
+                    <div class="contact-links-row">
+                        <a href="{{ route('help', $brandRouteParams) }}" class="contact-primary-link">Support</a>
+                        <a href="{{ route('privacy.policy', $brandRouteParams) }}" class="contact-secondary-link">Confidentialité</a>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </section>
 
-<!-- Map Section -->
-<section style="height: 400px;">
-    <iframe 
-        src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d127535.45561509853!2d15.178615799999999!3d-4.2633597!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x1a6a3130f8e1f2c7%3A0x8e1f3e1f3e1f3e1f!2sBrazzaville%2C%20Republic%20of%20the%20Congo!5e0!3m2!1sen!2s!4v1234567890" 
-        width="100%" 
-        height="100%" 
-        style="border:0;" 
-        allowfullscreen="" 
-        loading="lazy" 
+<section class="contact-map-section">
+    <iframe
+        src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d127535.45561509853!2d15.178615799999999!3d-4.2633597!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x1a6a3130f8e1f2c7%3A0x8e1f3e1f3e1f3e1f!2sBrazzaville%2C%20Republic%20of%20the%20Congo!5e0!3m2!1sen!2s!4v1234567890"
+        width="100%"
+        height="100%"
+        class="contact-map-frame"
+        allowfullscreen=""
+        loading="lazy"
         referrerpolicy="no-referrer-when-downgrade">
     </iframe>
 </section>

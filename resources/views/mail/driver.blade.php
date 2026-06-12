@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Bienvenue Livreur BantuDelice</title>
+    <title>Bienvenue livreur | Plateforme</title>
     <style>
         * {
             margin: 0;
@@ -22,7 +22,7 @@
             background-color: #ffffff;
         }
         .header {
-            background: linear-gradient(135deg, #FF6B35 0%, #E55A2B 100%);
+            background: linear-gradient(135deg, #ff5a1f 0%, #e04d15 100%);
             padding: 40px 30px;
             text-align: center;
         }
@@ -52,7 +52,7 @@
         }
         .highlight-box {
             background: linear-gradient(135deg, rgba(255, 107, 53, 0.1) 0%, rgba(245, 158, 11, 0.1) 100%);
-            border-left: 4px solid #FF6B35;
+            border-left: 4px solid #ff5a1f;
             padding: 20px;
             margin: 25px 0;
             border-radius: 0 8px 8px 0;
@@ -102,7 +102,7 @@
         }
         .cta-button {
             display: inline-block;
-            background: linear-gradient(135deg, #FF6B35 0%, #E55A2B 100%);
+            background: linear-gradient(135deg, #ff5a1f 0%, #e04d15 100%);
             color: #ffffff !important;
             text-decoration: none;
             padding: 15px 40px;
@@ -155,7 +155,7 @@
     <div class="email-container">
         <!-- Header -->
         <div class="header">
-            <img src="{{ url('frontend/images/BuntuDelice.png') }}" alt="BantuDelice">
+            <img src="{{ url('frontend/images/Logo2.png') }}" alt="Plateforme">
             <h1>Bienvenue dans l'équipe de livreurs !</h1>
         </div>
         
@@ -164,7 +164,7 @@
             <p class="greeting">Bonjour {{ $data['name'] ?? 'Nouveau livreur' }},</p>
             
             <p class="message">
-                Félicitations ! Votre inscription en tant que livreur BantuDelice a été reçue avec succès.
+                Félicitations ! Votre inscription en tant que livreur a été reçue avec succès.
             </p>
             
             <div class="highlight-box">
@@ -214,14 +214,14 @@
             
             <p class="message">
                 À très bientôt sur les routes !<br>
-                <strong>L'équipe BantuDelice</strong>
+                <strong>L'équipe plateforme</strong>
             </p>
         </div>
         
         <!-- Footer -->
         <div class="footer">
             <p>
-                © {{ date('Y') }} BantuDelice. Tous droits réservés.<br>
+                © {{ date('Y') }} Plateforme. Tous droits réservés.<br>
                 Brazzaville, République du Congo
             </p>
             <div class="footer-links">

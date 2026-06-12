@@ -12,6 +12,7 @@ use App\Review;
 use App\Services\RestaurantService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Str;
@@ -26,34 +27,101 @@ class RestaurantController extends Controller
     {
         $this->restaurantService = new RestaurantService();
     }
+
+    protected function normalizeEtaRange($rawValue, int $defaultMin, int $defaultMax): array
+    {
+        $etaMin = $defaultMin;
+        $etaMax = $defaultMax;
+
+        if (empty($rawValue)) {
+            return [$etaMin, $etaMax];
+        }
+
+        $rawEstimatedTime = trim((string) $rawValue);
+        $estimatedMinutes = null;
+
+        if (is_numeric($rawEstimatedTime)) {
+            $estimatedMinutes = (int) $rawEstimatedTime;
+        } elseif (preg_match('/^(\d{1,2}):(\d{2})(?::(\d{2}))?$/', $rawEstimatedTime, $matches)) {
+            $estimatedMinutes = ((int) $matches[1] * 60) + (int) $matches[2];
+            if ($estimatedMinutes === 0 && !empty($matches[3])) {
+                $estimatedMinutes = (int) $matches[3];
+            }
+        } elseif (preg_match('/(\d+)/', $rawEstimatedTime, $matches)) {
+            $estimatedMinutes = (int) $matches[1];
+        }
+
+        if ($estimatedMinutes !== null && $estimatedMinutes > 0 && $estimatedMinutes <= 180) {
+            $etaMin = max(15, $estimatedMinutes - 5);
+            $etaMax = $estimatedMinutes + 5;
+        }
+
+        return [$etaMin, $etaMax];
+    }
+
     public function search(Request $request)
     {
-    	$validator = Validator::make(
+        $validator = Validator::make(
             $request->all(),
-            array(
-                'query'=>'required',
-            ));
-           
+            [
+                'query' => 'required',
+            ]
+        );
+
         if ($validator->fails()) {
             $error_messages = implode(',', $validator->messages()->all());
-            $response_array = array('status' => false, 'error_code' => 101, 'message' => $error_messages);
-        } 
-        else{
-              $restaurants = Restaurant::where('name','like','%'.$request->get('query').'%')->get();
-              foreach ($restaurants as $restaurant) {
-                $restaurant['ratings'] = $restaurant->ratings()->avg('rating');
-                  }
-                
-            }
+
             return response()->json([
-            	'status' => true,
-             'data' => $restaurants
-            ]);
+                'status' => false,
+                'error_code' => 101,
+                'message' => $error_messages,
+                'data' => [],
+            ], 422);
+        }
+
+        $restaurants = Restaurant::where('name', 'like', '%' . $request->get('query') . '%')->get();
+        $restaurants = $restaurants->map(function ($restaurant) {
+            return [
+                'id' => $restaurant->id,
+                'name' => $restaurant->name,
+                'city' => $restaurant->city,
+                'phone' => $restaurant->phone,
+                'address' => $restaurant->address,
+                'slogan' => $restaurant->slogan,
+                'latitude' => $restaurant->latitude,
+                'longitude' => $restaurant->longitude,
+                'delivery_charges' => $restaurant->delivery_charges,
+                'avg_delivery_time' => $restaurant->avg_delivery_time,
+                'approved' => (int) $restaurant->approved,
+                'featured' => (int) $restaurant->featured,
+                'ratings' => $restaurant->ratings()->avg('rating'),
+                'logo_url' => $restaurant->publicIdentityImageUrl(),
+                'cover_image_url' => $restaurant->publicCoverImageUrl(),
+            ];
+        })->values();
+
+        return response()->json([
+            'status' => true,
+            'data' => $restaurants
+        ]);
     }
     public function restaurantsByCuisine($cuisine)
     {
-    	$get=Cuisine::find($cuisine);
+        $get = Cuisine::find($cuisine);
+
+        if (!$get) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Cuisine introuvable',
+                'data' => [],
+            ], 404);
+        }
+
     	$res=$get->restaurants()->select('restaurant_id','name','city','phone','address','cover_image','logo','slogan','latitude','longitude')->get();
+        foreach ($res as $restaurant) {
+            $restaurant['logo_url'] = $restaurant->publicIdentityImageUrl();
+            $restaurant['cover_image_url'] = $restaurant->publicCoverImageUrl();
+        }
     	return response()->json([
            'status' => true,
            'data' => $res
@@ -62,6 +130,12 @@ class RestaurantController extends Controller
     
     public function sendFilters()
     {
+        if (!Schema::hasTable('filters')) {
+            return response()->json([
+                'filter' => [],
+            ]);
+        }
+
         $filters=Filter::with('searchfilters')->get();
         return response()->json([
          'filter' => $filters
@@ -71,6 +145,11 @@ class RestaurantController extends Controller
     public function restaurantAbout($restaurant)
    {
         $restaurantDetail=Restaurant::select('address','name','logo','cover_image','slogan')->with('working_hours')->find($restaurant);
+
+        if ($restaurantDetail) {
+            $restaurantDetail->logo_url = $restaurantDetail->publicIdentityImageUrl();
+            $restaurantDetail->cover_image_url = $restaurantDetail->publicCoverImageUrl();
+        }
         
         $restaurantDetail['reviews']=DB::table('ratings')
         ->join('users', 'users.id', '=', 'ratings.user_id')
@@ -137,23 +216,22 @@ class RestaurantController extends Controller
             $restaurants = $query->get();
             
             // Formater les données pour l'API
-            $formattedRestaurants = $restaurants->map(function($restaurant) use ($defaultDeliveryFee, $defaultDeliveryTimeMin, $defaultDeliveryTimeMax) {
+            $formattedRestaurants = $restaurants->map(function($restaurant) use ($defaultDeliveryFee, $defaultDeliveryTimeMin, $defaultDeliveryTimeMax, $defaultRating) {
                 // Calculer la note moyenne depuis la DB
                 $avgRating = $restaurant->ratings()->avg('rating');
                 $ratingCount = $restaurant->ratings()->count();
                 
                 // Calculer le temps de livraison depuis avg_delivery_time ou depuis les commandes réelles
-                $etaMin = $defaultDeliveryTimeMin;
-                $etaMax = $defaultDeliveryTimeMax;
-                
-                if ($restaurant->avg_delivery_time) {
-                    $time = \Carbon\Carbon::parse($restaurant->avg_delivery_time);
-                    $minutes = $time->hour * 60 + $time->minute;
-                    if ($minutes > 0) {
-                        $etaMin = max(15, $minutes - 5);
-                        $etaMax = $minutes + 5;
-                    }
-                } else {
+                [$etaMin, $etaMax] = $this->normalizeEtaRange(
+                    $restaurant->avg_delivery_time,
+                    $defaultDeliveryTimeMin,
+                    $defaultDeliveryTimeMax
+                );
+
+                if (
+                    !$restaurant->avg_delivery_time
+                    || ($etaMin === $defaultDeliveryTimeMin && $etaMax === $defaultDeliveryTimeMax)
+                ) {
                     // Calculer depuis les commandes réelles (temps moyen entre ordered_time et delivered_time)
                     $avgDeliveryMinutes = DB::table('orders')
                         ->where('restaurant_id', $restaurant->id)
@@ -163,7 +241,7 @@ class RestaurantController extends Controller
                         ->selectRaw('AVG(TIMESTAMPDIFF(MINUTE, ordered_time, delivered_time)) as avg_minutes')
                         ->value('avg_minutes');
                     
-                    if ($avgDeliveryMinutes && $avgDeliveryMinutes > 0) {
+                    if ($avgDeliveryMinutes && $avgDeliveryMinutes > 0 && $avgDeliveryMinutes <= 180) {
                         $etaMin = max(15, round($avgDeliveryMinutes) - 5);
                         $etaMax = round($avgDeliveryMinutes) + 5;
                     }
@@ -181,9 +259,9 @@ class RestaurantController extends Controller
                 $isTopRated = ($restaurant->featured ?? false) || ($avgRating >= $topRatedThreshold && $ratingCount >= $topRatedMinReviews);
                 
                 // URL de l'image
-                $thumbnailUrl = $restaurant->logo 
-                    ? URL::to('/') . '/images/restaurant_images/' . $restaurant->logo
-                    : null;
+                $thumbnailUrl = method_exists($restaurant, 'publicIdentityImageUrl')
+                    ? $restaurant->publicIdentityImageUrl()
+                    : ($restaurant->logo ? URL::to('/') . '/images/restaurant_images/' . $restaurant->logo : null);
                 
                 return [
                     'id' => $restaurant->id,
@@ -275,20 +353,11 @@ class RestaurantController extends Controller
             
             $data = $paginator->getCollection()->map(function($restaurant) use ($defaultDeliveryFee, $defaultDeliveryTimeMin, $defaultDeliveryTimeMax, $defaultRating, $topRatedThreshold, $topRatedMinReviews) {
                 // Calculer le temps de livraison
-                $etaMin = $defaultDeliveryTimeMin;
-                $etaMax = $defaultDeliveryTimeMax;
-                if ($restaurant->avg_delivery_time) {
-                    try {
-                        $time = \Carbon\Carbon::parse($restaurant->avg_delivery_time);
-                        $minutes = $time->hour * 60 + $time->minute;
-                        if ($minutes > 0) {
-                            $etaMin = max(15, $minutes - 5);
-                            $etaMax = $minutes + 5;
-                        }
-                    } catch (\Exception $e) {
-                        // Garder les valeurs par défaut
-                    }
-                }
+                [$etaMin, $etaMax] = $this->normalizeEtaRange(
+                    $restaurant->avg_delivery_time,
+                    $defaultDeliveryTimeMin,
+                    $defaultDeliveryTimeMax
+                );
                 
                 // Frais de livraison
                 $deliveryFee = $restaurant->delivery_charges ?? $defaultDeliveryFee;
@@ -300,9 +369,9 @@ class RestaurantController extends Controller
                 $isTopRated = ($restaurant->featured ?? false) || ($restaurant->avg_rating >= $topRatedThreshold && $restaurant->rating_count >= $topRatedMinReviews);
                 
                 // URL de l'image
-                $thumbnailUrl = $restaurant->logo 
-                    ? URL::to('/') . '/images/restaurant_images/' . $restaurant->logo
-                    : null;
+                $thumbnailUrl = method_exists($restaurant, 'publicIdentityImageUrl')
+                    ? $restaurant->publicIdentityImageUrl()
+                    : ($restaurant->logo ? URL::to('/') . '/images/restaurant_images/' . $restaurant->logo : null);
                 
                 return [
                     'id' => $restaurant->id,
@@ -366,7 +435,13 @@ class RestaurantController extends Controller
     public function getReviews($id, Request $request)
     {
         try {
-            $restaurant = Restaurant::findOrFail($id);
+            if (!Restaurant::whereKey($id)->exists()) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Restaurant introuvable',
+                    'data' => [],
+                ], 404);
+            }
             
             $perPage = $request->query('per_page', 10);
             $page = $request->query('page', 1);
@@ -423,7 +498,13 @@ class RestaurantController extends Controller
     public function getActivePromos($id)
     {
         try {
-            $restaurant = Restaurant::findOrFail($id);
+            if (!Restaurant::whereKey($id)->exists()) {
+                return response()->json([
+                    'status' => false,
+                    'message' => 'Restaurant introuvable',
+                    'data' => [],
+                ], 404);
+            }
             
             $promos = \App\Voucher::where('restaurant_id', $id)
                 ->where('start_date', '<=', now())

@@ -14,6 +14,8 @@ class HomeController extends Controller
             return redirect('/admin');
         else if (auth()->user()->type === 'restaurant')
             return redirect('/restaurant');
+        else if (auth()->user()->type === 'driver')
+            return redirect('/driver/deliveries');
         else
             return redirect('login');
     }

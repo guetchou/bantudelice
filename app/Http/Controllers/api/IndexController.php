@@ -16,6 +16,7 @@ use App\Required;
 use App\Category;
 use App\SearchFilter;
 use Illuminate\Support\Facades\URL;
+use Illuminate\Support\Facades\Schema;
 use DB;
 use Illuminate\Support\Facades\Validator;
 
@@ -26,6 +27,98 @@ if (!defined('BASE_URL_CUISINE')) define('BASE_URL_CUISINE',URL::to('/').'/image
 
 class IndexController extends Controller
 {
+   protected function normalizeFilterInput($value): array
+   {
+        if (is_array($value)) {
+            return collect($value)
+                ->map(fn ($item) => is_string($item) ? trim($item) : $item)
+                ->filter(fn ($item) => $item !== null && $item !== '')
+                ->values()
+                ->all();
+        }
+
+        if ($value === null || $value === '') {
+            return [];
+        }
+
+        $decoded = json_decode($value, true);
+        if (json_last_error() === JSON_ERROR_NONE && is_array($decoded)) {
+            return collect($decoded)
+                ->map(fn ($item) => is_string($item) ? trim($item) : $item)
+                ->filter(fn ($item) => $item !== null && $item !== '')
+                ->values()
+                ->all();
+        }
+
+        return collect(explode(',', str_replace(['[', ']'], '', (string) $value)))
+            ->map(fn ($item) => trim($item))
+            ->filter(fn ($item) => $item !== '')
+            ->values()
+            ->all();
+   }
+
+   protected function resolveRestaurantImageUrl($value): ?string
+   {
+        if (empty($value)) {
+            return URL::to('/') . '/images/placeholder.png';
+        }
+
+        if (preg_match('/^https?:\/\//i', (string) $value)) {
+            return $value;
+        }
+
+        return URL::to('/') . '/images/restaurant_images/' . ltrim((string) $value, '/');
+   }
+
+   protected function formatRestaurantCard($restaurant): array
+   {
+        $data = $restaurant instanceof Restaurant
+            ? $restaurant->getAttributes()
+            : (array) $restaurant;
+
+        $restaurantId = $data['id'] ?? null;
+        $restaurantName = $data['name'] ?? $data['restuarant_name'] ?? $data['restaurant_name'] ?? null;
+        $logo = $data['logo'] ?? null;
+        $cover = $data['cover_image'] ?? null;
+
+        if ($restaurant instanceof Restaurant && method_exists($restaurant, 'publicIdentityImageUrl')) {
+            $logo = $restaurant->publicIdentityImageUrl();
+        }
+
+        if ($restaurant instanceof Restaurant && method_exists($restaurant, 'publicCoverImageUrl')) {
+            $cover = $restaurant->publicCoverImageUrl();
+        }
+
+        return [
+            'id' => $restaurantId,
+            'name' => $restaurantName,
+            'address' => $data['address'] ?? null,
+            'city' => $data['city'] ?? null,
+            'slogan' => $data['slogan'] ?? null,
+            'latitude' => $data['latitude'] ?? null,
+            'longitude' => $data['longitude'] ?? null,
+            'distance' => isset($data['distance']) ? round((float) $data['distance'], 2) : null,
+            'logo_url' => $this->resolveRestaurantImageUrl($logo),
+            'cover_image_url' => $this->resolveRestaurantImageUrl($cover),
+        ];
+   }
+
+   protected function formatProductCard($product): array
+   {
+        $image = $product->image ?? null;
+
+        return [
+            'id' => $product->id,
+            'product_name' => $product->product_name ?? $product->name ?? null,
+            'category_id' => $product->category_id ?? null,
+            'price' => $product->price ?? null,
+            'featured' => (int) ($product->featured ?? 0),
+            'restaurant_id' => $product->restaurant_id ?? null,
+            'restaurant_name' => $product->resturant_name ?? null,
+            'image_url' => !empty($image) ? URL::to('/') . '/images/product_images/' . $image : null,
+        ];
+   }
+
    public function index(Request $request,$radius = 1000)
    {
         $latitude=31.4644341;
@@ -59,6 +152,18 @@ class IndexController extends Controller
 ->orderBy("distance",'asc')
 ->limit(20)
 ->get();
+
+    $nearbyRestaurants = $nearbyRestaurants->map(fn ($restaurant) => $this->formatRestaurantCard($restaurant))->values();
+    $featuredRestaurant = $featuredRestaurant->map(fn ($restaurant) => $this->formatRestaurantCard($restaurant))->values();
+    $trendingProduct = $trendingProduct->map(fn ($product) => $this->formatProductCard($product))->values();
+    $trendingCuisine = $trendingCuisine->map(function ($cuisine) {
+        return [
+            'id' => $cuisine->id,
+            'name' => $cuisine->name,
+            'image_url' => !empty($cuisine->image) ? URL::to('/') . '/images/cuisine/' . $cuisine->image : null,
+        ];
+    })->values();
+
    return response()->json([
    	'status' =>true,
    	'featuredRestaurants' =>$featuredRestaurant,
@@ -73,134 +178,193 @@ class IndexController extends Controller
 
    public function searchQurey(Request $request)
    {
-   	$validator = Validator::make(
-            $request->all(),
-            array(
-                'qurey'=>'required',
-            ));
-         $searchTerm=$request->qurey;
-        if ($validator->fails()) {
-            $error_messages = implode(',', $validator->messages()->all());
-            $response_array = array('status' => false, 'error_code' => 101, 'message' => $error_messages);
-        } 
-        else {
-        	$resultData=DB::table('restaurants')
-        ->where('name', 'like', '%'.$searchTerm.'%')->
-        orWhere('keywords','%'.$searchTerm.'%')
-        ->get();
+        $searchTerm = trim((string) ($request->searchTerm ?? $request->query ?? $request->q ?? $request->qurey ?? ''));
 
-   return response()->json([
-   	'status' =>true,
-   	'search' =>$resultData,
-   ]);
+        if ($searchTerm === '') {
+            return response()->json([
+                'status' => false,
+                'error_code' => 101,
+                'message' => 'Le mot-clé de recherche est requis',
+            ], 422);
         }
+
+        $query = DB::table('restaurants')->where('name', 'like', '%' . $searchTerm . '%');
+
+        if (Schema::hasColumn('restaurants', 'keywords')) {
+            $query->orWhere('keywords', 'like', '%' . $searchTerm . '%');
+        }
+
+        $resultData = $query->get()->map(fn ($restaurant) => $this->formatRestaurantCard($restaurant))->values();
+
+        return response()->json([
+            'status' => true,
+            'search' => $resultData,
+        ]);
    }
    public function restaurantDetail($restaurant)
    {
         $restaurantDetail=Restaurant::find($restaurant);
         $RestaurantCate=Category::with('products')->where('restaurant_id',$restaurant)->get();
+
+        if (!$restaurantDetail) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Restaurant introuvable',
+            ], 404);
+        }
+
+        $restaurantPayload = [
+            'id' => $restaurantDetail->id,
+            'name' => $restaurantDetail->name,
+            'address' => $restaurantDetail->address,
+            'city' => $restaurantDetail->city,
+            'phone' => $restaurantDetail->phone,
+            'slogan' => $restaurantDetail->slogan,
+            'description' => $restaurantDetail->description,
+            'latitude' => $restaurantDetail->latitude,
+            'longitude' => $restaurantDetail->longitude,
+            'logo_url' => $restaurantDetail->publicIdentityImageUrl(),
+            'cover_image_url' => $restaurantDetail->publicCoverImageUrl(),
+        ];
+
+        $categoryPayload = $RestaurantCate->map(function ($category) {
+            return [
+                'id' => $category->id,
+                'name' => $category->name,
+                'products' => collect($category->products ?? [])->map(function ($product) {
+                    return [
+                        'id' => $product->id,
+                        'name' => $product->name,
+                        'price' => $product->price,
+                        'discount_price' => $product->discount_price ?? null,
+                        'image_url' => !empty($product->image) ? URL::to('/') . '/images/product_images/' . $product->image : null,
+                    ];
+                })->values(),
+            ];
+        })->values();
+
         return response()->json([
         'status'=> true,
-        'data' =>$restaurantDetail,
-        'categoryWithPro' =>$RestaurantCate,
+        'data' => $restaurantPayload,
+        'categoryWithPro' => $categoryPayload,
         ]);
    }
 
    public function proDetail($id)
    {
-        $proDetail=Product::findOrFail($id);
-         
-         $getReq=Required::where('product_id',$id)->get();
-         $getOptional=Optional::where('product_id',$id)->get();
-         
-        //  $proDetail['addOns']=$getAddOn;
-        //  $proDetail['optional']=$getOptional;
-         
-         
-         if(empty($getReq) OR $getReq==null OR $getReq=''){
-             $getAddOn=null;
-         }
-         else{
-             $getAddOn=AddOnTitle::select('id','title')->with(['requireds' => function($q) use ($id) {
-                        $q->where('product_id', '=', $id);
-                    }])->get();
-               $proDetail['addOns']=$getAddOn;
-         $proDetail['optional']=$getOptional;
-         }
-        
-              
-         
-       // $proDetail['titles']=AddOnTitle::with('requireds')->where('product_id',$id)->get();
+        $proDetail=Product::find($id);
+
+        if (!$proDetail) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Produit introuvable',
+                'data' => null,
+            ], 404);
+        }
+
+        $getAddOn = null;
+        $getOptional = null;
+
+        if (Schema::hasTable('optionals')) {
+            $getOptional = Optional::where('product_id', $id)->get();
+        }
+
+        if (Schema::hasTable('requireds')) {
+            $hasRequired = Required::where('product_id', $id)->exists();
+
+            if ($hasRequired) {
+                $getAddOn = AddOnTitle::select('id', 'title')->with(['requireds' => function($q) use ($id) {
+                    $q->where('product_id', '=', $id);
+                }])->get();
+            }
+        }
        
         return response()->json([
           'status'=> true,
-          'data' => $proDetail,
+          'data' => [
+              'id' => $proDetail->id,
+              'name' => $proDetail->name,
+              'description' => $proDetail->description,
+              'price' => $proDetail->price,
+              'discount_price' => $proDetail->discount_price ?? null,
+              'restaurant_id' => $proDetail->restaurant_id,
+              'category_id' => $proDetail->category_id,
+              'image_url' => !empty($proDetail->image) ? URL::to('/') . '/images/product_images/' . $proDetail->image : null,
+              'addOns' => $getAddOn,
+              'optional' => $getOptional,
+          ],
           ]);
    }
     public function searchFilter(Request $request)
     {
-            $getOffers = $request->offers;
-            $getCuisines = $request->cuisines;
-            
-            $offers=str_replace(array( '[', ']' ), '', $getOffers);
-            $offersArray = explode(',', $offers);
+            $offersArray = $this->normalizeFilterInput($request->offers);
+            $cuisinesArray = $this->normalizeFilterInput($request->cuisines);
 
-            $cuisines=str_replace(array( '[', ']' ), '', $getCuisines);
-            $cuisinesArray = explode(',', $cuisines);
+            $restaurants = Restaurant::query();
+            $hasFilter = false;
 
-            $getname=SearchFilter::select("id","name")->whereIn('id', $offersArray)->get();
+            $offerColumnMap = [
+                '1' => 'delivery',
+                'free delivery' => 'delivery',
+                'free_delivery' => 'delivery',
+                'delivery' => 'delivery',
+                '2' => 'deal',
+                'deal' => 'deal',
+                '3' => 'vouchers',
+                'accept vouchers' => 'vouchers',
+                'accept_vouchers' => 'vouchers',
+                'vouchers' => 'vouchers',
+            ];
 
-            $getCuisi=SearchFilter::select("id","name")->whereIn('id', $cuisinesArray)->get();
-            $names=$getCuisi->pluck('name')->toArray();
-        if($offersArray!="" && $offersArray!=null){
+            $offerColumns = collect($offersArray)
+                ->map(function ($offer) use ($offerColumnMap) {
+                    $normalized = strtolower(trim((string) $offer));
+                    return $offerColumnMap[$normalized] ?? null;
+                })
+                ->filter()
+                ->unique()
+                ->values();
 
-                 foreach ($getname as $key) {
-
-                  if(!empty($key->name))
-                  {
-                    if($key->name == 'Free Delivery')
-                    {
-                      $search_conditions[]='delivery';
+            if ($offerColumns->isNotEmpty()) {
+                $restaurants->where(function ($query) use ($offerColumns) {
+                    foreach ($offerColumns as $column) {
+                        if (Schema::hasColumn('restaurants', $column)) {
+                            $query->orWhere($column, 'yes');
+                        }
                     }
-                    if ($key->name == 'Deal') {
-                      $search_conditions[]='deal';
-                    }
-                    if ($key->name == 'Accept Vouchers') {
-                      $search_conditions[]='vouchers';
-                    }
-                    
-                  }
+                });
+                $hasFilter = true;
+            }
 
-                    $query = "SELECT * FROM restaurants";
+            $cuisineIds = collect($cuisinesArray)
+                ->filter(fn ($item) => is_numeric($item))
+                ->map(fn ($item) => (int) $item)
+                ->values();
 
-                    if(!empty($search_conditions))
-                    {
-                      $query .= " where ";
+            $cuisineNames = collect($cuisinesArray)
+                ->filter(fn ($item) => !is_numeric($item))
+                ->map(fn ($item) => trim((string) $item))
+                ->values();
 
-                      $query .= implode(" = 'yes' or  ",$search_conditions)." = 'yes'";
-                      
-                      $results = DB::select( DB::raw($query));
-                      
+            if ($cuisineIds->isNotEmpty() || $cuisineNames->isNotEmpty()) {
+                $restaurants->whereHas('cuisines', function ($query) use ($cuisineIds, $cuisineNames) {
+                    if ($cuisineIds->isNotEmpty()) {
+                        $query->whereIn('cuisines.id', $cuisineIds);
                     }
-                 }
-        }
-                  if($cuisinesArray!="" && $cuisinesArray!=null){
-                    
-                    $fetchCuisines=Cuisine::whereIn('name',$names)->get();
-                    $iDs=$fetchCuisines->pluck('id')->toArray();
-                    $restaurantGet=DB::table('cuisine_restaurant')->whereIn('cuisine_id',$iDs)->get();
-                    $restiDs=$restaurantGet->pluck('restaurant_id')->toArray();
-                    $rest=Restaurant::with('ratings')->whereIn('id',$restiDs)->get()->toArray();
-                   
-                  }
-                  
-                  if(empty($results)){
-                      $results = array();
-                  }
-                  
-               $getFinal=array_merge($results,$rest);  
-         
-             return response()->json([
+
+                    if ($cuisineNames->isNotEmpty()) {
+                        $method = $cuisineIds->isNotEmpty() ? 'orWhereIn' : 'whereIn';
+                        $query->{$method}('cuisines.name', $cuisineNames);
+                    }
+                });
+                $hasFilter = true;
+            }
+
+            $getFinal = $hasFilter
+                ? $restaurants->get()->map(fn ($restaurant) => $this->formatRestaurantCard($restaurant))->values()
+                : collect();
+
+            return response()->json([
                'data' => $getFinal
             ]);
             

@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Option B — Kinshasa Neon (Uber Eats style)</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Inter',sans-serif;background:#0f1117;color:#f0f4f8;display:flex;min-height:100vh;font-size:14px;}
+
+/* === SIDEBAR LARGE (280px) avec labels + contexte resto === */
+.sidebar{width:280px;background:#0d1016;display:flex;flex-direction:column;flex-shrink:0;position:fixed;top:0;left:0;height:100vh;border-right:1px solid rgba(255,255,255,.07);}
+
+/* Header resto avec stats inline */
+.sb-header{padding:16px 20px;border-bottom:1px solid rgba(255,255,255,.07);}
+.sb-resto{display:flex;align-items:center;gap:12px;margin-bottom:12px;}
+.sb-resto-img{width:44px;height:44px;border-radius:10px;background:#1a1d27;display:flex;align-items:center;justify-content:center;color:#009543;font-size:18px;font-weight:800;flex-shrink:0;}
+.sb-resto-name{font-size:15px;font-weight:700;color:#f0f4f8;}
+.sb-resto-loc{font-size:12px;color:#8892a4;display:flex;align-items:center;gap:4px;}
+.sb-stats{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.sb-stat{background:#1a1d27;border-radius:8px;padding:10px 12px;}
+.sb-stat .sv{font-size:18px;font-weight:800;color:#f0f4f8;letter-spacing:-.02em;}
+.sb-stat .sl{font-size:10px;font-weight:600;color:#8892a4;text-transform:uppercase;letter-spacing:.08em;margin-top:1px;}
+.sb-stat.green .sv{color:#00c957;}
+.sb-stat.orange .sv{color:#ff6b35;}
+
+/* Toggle statut  */
+.sb-toggle{display:flex;align-items:center;gap:8px;margin:12px 20px;padding:10px 12px;background:#1a1d27;border-radius:8px;border:1px solid rgba(255,255,255,.06);}
+.sb-toggle .toggle-label{flex:1;font-size:13px;font-weight:500;color:#f0f4f8;}
+.sb-toggle .toggle-sub{font-size:11px;color:#8892a4;}
+.toggle-sw{width:44px;height:24px;background:#009543;border-radius:100px;position:relative;flex-shrink:0;cursor:pointer;}
+.toggle-sw::after{content:'';position:absolute;width:18px;height:18px;background:#fff;border-radius:50%;top:3px;right:3px;transition:.2s;}
+
+/* Nav */
+.nav-group{padding:8px 12px 0;}
+.nav-group-label{font-size:10px;font-weight:700;color:#4a5568;letter-spacing:.14em;text-transform:uppercase;padding:8px 8px 4px;}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 10px;color:#8892a4;font-size:13px;font-weight:500;cursor:pointer;border-left:2px solid transparent;border-radius:8px;transition:all .15s;text-decoration:none;margin-bottom:2px;}
+.nav-item i{font-size:14px;width:16px;text-align:center;color:#4a5568;}
+.nav-item:hover{background:rgba(255,255,255,.04);color:#f0f4f8;}
+.nav-item.active{background:rgba(0,149,67,.12);color:#f0f4f8;font-weight:600;border-left-color:#009543;}
+.nav-item.active i{color:#009543;}
+.nav-item .badge-pill{margin-left:auto;background:rgba(255,107,53,.2);color:#ff6b35;font-size:10px;font-weight:700;padding:2px 7px;border-radius:100px;}
+
+/* === MAIN === */
+.main{margin-left:280px;flex:1;display:flex;flex-direction:column;}
+
+/* === TOPBAR mode nuit === */
+.topbar{height:60px;background:#1a1d27;border-bottom:1px solid rgba(255,255,255,.07);display:flex;align-items:center;padding:0 24px;justify-content:space-between;position:sticky;top:0;z-index:10;}
+.topbar-left h1{font-size:20px;font-weight:700;color:#f0f4f8;letter-spacing:-.02em;}
+.topbar-left .sub{font-size:12px;color:#8892a4;margin-top:1px;}
+.topbar-right{display:flex;align-items:center;gap:12px;}
+.topbar-chip{display:flex;align-items:center;gap:6px;background:#22263a;padding:6px 12px;border-radius:8px;font-size:12px;font-weight:600;color:#f0f4f8;cursor:pointer;}
+.topbar-chip .dot{width:8px;height:8px;border-radius:50%;background:#22c55e;animation:pulse 2s infinite;}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.topbar-btn{height:34px;padding:0 14px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:none;font-family:'Inter',sans-serif;}
+.topbar-btn.primary{background:#009543;color:#fff;}
+.topbar-btn.ghost{background:#22263a;color:#8892a4;border:1px solid rgba(255,255,255,.1);}
+.topbar-bell{position:relative;color:#8892a4;cursor:pointer;font-size:18px;padding:6px;}
+.topbar-bell .cnt{position:absolute;top:2px;right:2px;width:16px;height:16px;background:#ff6b35;color:#fff;border-radius:50%;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;animation:badge-pulse 3s infinite;}
+@keyframes badge-pulse{0%,100%{transform:scale(1)}50%{transform:scale(1.1)}}
+
+/* === CONTENT === */
+.content{padding:20px 24px;flex:1;}
+
+/* === LIVE ORDERS : cards horizontales === */
+.live-section{margin-bottom:20px;}
+.live-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.live-header h2{font-size:16px;font-weight:700;color:#f0f4f8;}
+.live-header .live-badge{display:flex;align-items:center;gap:5px;background:rgba(239,68,68,.15);color:#f87171;font-size:11px;font-weight:700;padding:3px 10px;border-radius:100px;border:1px solid rgba(239,68,68,.25);}
+.live-badge .dot{width:6px;height:6px;border-radius:50%;background:#f87171;animation:pulse 1s infinite;}
+.live-scroll{display:flex;gap:12px;overflow-x:auto;padding-bottom:4px;}
+.live-scroll::-webkit-scrollbar{height:4px;}
+.live-scroll::-webkit-scrollbar-track{background:transparent;}
+.live-scroll::-webkit-scrollbar-thumb{background:#22263a;border-radius:2px;}
+
+.live-card{background:#1a1d27;border:1px solid rgba(255,255,255,.08);border-radius:10px;padding:14px;min-width:220px;flex-shrink:0;cursor:pointer;transition:border-color .15s;}
+.live-card:hover{border-color:rgba(0,149,67,.4);}
+.live-card.urgent{border-color:rgba(255,107,53,.4);background:rgba(255,107,53,.04);}
+.live-card .lc-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px;}
+.live-card .lc-num{font-size:13px;font-weight:700;color:#f0f4f8;}
+.live-card .lc-timer{font-size:12px;font-weight:700;color:#ff6b35;background:rgba(255,107,53,.15);padding:2px 8px;border-radius:4px;}
+.live-card .lc-timer.ok{color:#00c957;background:rgba(0,201,87,.12);}
+.live-card .lc-client{font-size:12px;color:#8892a4;margin-bottom:4px;}
+.live-card .lc-items{font-size:13px;color:#f0f4f8;margin-bottom:8px;}
+.live-card .lc-footer{display:flex;justify-content:space-between;align-items:center;}
+.live-card .lc-amount{font-size:14px;font-weight:700;color:#f0f4f8;}
+.live-card .lc-action{height:28px;padding:0 12px;background:#009543;color:#fff;border:none;border-radius:6px;font-size:12px;font-weight:600;cursor:pointer;}
+.live-card .lc-action.secondary{background:#22263a;color:#8892a4;border:1px solid rgba(255,255,255,.1);}
+
+/* === GRILLE STATS + CHART === */
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:20px;}
+.stat-card{background:#1a1d27;border:1px solid rgba(255,255,255,.07);border-radius:10px;padding:18px;box-shadow:0 4px 20px rgba(0,0,0,.3);}
+.stat-card .s-label{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#8892a4;margin-bottom:8px;}
+.stat-card .s-val{font-size:32px;font-weight:800;color:#f0f4f8;letter-spacing:-.03em;line-height:1;}
+.stat-card .s-trend{font-size:11px;font-weight:600;margin-top:6px;}
+.stat-card .s-trend.up{color:#00c957;}
+.stat-card .s-trend.down{color:#f87171;}
+.stat-card .s-trend.warn{color:#fbbf24;}
+
+/* === TABLE HISTORIQUE === */
+.table-section{background:#1a1d27;border:1px solid rgba(255,255,255,.07);border-radius:10px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,.3);}
+.table-section-header{padding:14px 18px;border-bottom:1px solid rgba(255,255,255,.07);display:flex;align-items:center;justify-content:space-between;}
+.table-section-header h3{font-size:13px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#8892a4;}
+.table-filter{display:flex;gap:6px;}
+.tf-btn{height:28px;padding:0 12px;background:#22263a;border:1px solid rgba(255,255,255,.08);border-radius:6px;color:#8892a4;font-size:11px;font-weight:600;cursor:pointer;}
+.tf-btn.active{background:rgba(0,149,67,.15);border-color:rgba(0,149,67,.3);color:#00c957;}
+table{width:100%;border-collapse:collapse;}
+thead th{background:#22263a;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:#8892a4;padding:10px 16px;text-align:left;}
+tbody td{padding:13px 16px;border-bottom:1px solid rgba(255,255,255,.05);font-size:13px;color:#f0f4f8;}
+tbody tr:hover td{background:#22263a;}
+tbody tr:last-child td{border-bottom:none;}
+.badge{display:inline-flex;align-items:center;padding:3px 9px;border-radius:100px;font-size:11px;font-weight:600;}
+.bs{background:rgba(0,149,67,.15);color:#00c957;}
+.bw{background:rgba(251,191,36,.15);color:#fbbf24;}
+.bd{background:rgba(239,68,68,.15);color:#f87171;}
+.bi{background:rgba(96,165,250,.15);color:#60a5fa;}
+</style>
+</head>
+<body>
+
+<!-- SIDEBAR -->
+<aside class="sidebar">
+  <div class="sb-header">
+    <div class="sb-resto">
+      <div class="sb-resto-img">P</div>
+      <div>
+        <div class="sb-resto-name">Pili Pili</div>
+        <div class="sb-resto-loc"><i class="fas fa-location-dot" style="font-size:10px"></i>Pointe-Noire</div>
+      </div>
+    </div>
+    <div class="sb-stats">
+      <div class="sb-stat green"><div class="sv">24</div><div class="sl">Commandes</div></div>
+      <div class="sb-stat orange"><div class="sv">4</div><div class="sl">En attente</div></div>
+      <div class="sb-stat"><div class="sv">87 400</div><div class="sl">CA FCFA</div></div>
+      <div class="sb-stat"><div class="sv">4.7★</div><div class="sl">Note</div></div>
+    </div>
+  </div>
+
+  <div class="sb-toggle">
+    <div>
+      <div class="toggle-label">Restaurant ouvert</div>
+      <div class="toggle-sub">Ferme à 22:00</div>
+    </div>
+    <div class="toggle-sw"></div>
+  </div>
+
+  <nav style="flex:1;overflow-y:auto;">
+    <div class="nav-group">
+      <div class="nav-group-label">Pilotage</div>
+      <a class="nav-item active" href="#"><i class="fas fa-chart-line"></i>Tableau de bord</a>
+      <a class="nav-item" href="#"><i class="fas fa-receipt"></i>Commandes<span class="badge-pill">4</span></a>
+      <a class="nav-item" href="#"><i class="fas fa-fire-burner"></i>Écran cuisine</a>
+      <a class="nav-item" href="#"><i class="fas fa-wallet"></i>Paiements</a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-label">Catalogue</div>
+      <a class="nav-item" href="#"><i class="fas fa-utensils"></i>Menu</a>
+      <a class="nav-item" href="#"><i class="fas fa-images"></i>Médias</a>
+      <a class="nav-item" href="#"><i class="fas fa-layer-group"></i>Catégories</a>
+      <a class="nav-item" href="#"><i class="fas fa-bowl-food"></i>Plats</a>
+    </div>
+    <div class="nav-group">
+      <div class="nav-group-label">Configuration</div>
+      <a class="nav-item" href="#"><i class="fas fa-clock"></i>Horaires</a>
+      <a class="nav-item" href="#"><i class="fas fa-tags"></i>Bons de réduction</a>
+      <a class="nav-item" href="#"><i class="fas fa-store"></i>Profil</a>
+    </div>
+  </nav>
+</aside>
+
+<div class="main">
+  <header class="topbar">
+    <div class="topbar-left">
+      <h1>Tableau de bord</h1>
+      <div class="sub">Mardi 19 mai 2026</div>
+    </div>
+    <div class="topbar-right">
+      <div class="topbar-chip"><span class="dot"></span>En ligne · 28 min moy.</div>
+      <button class="topbar-btn ghost"><i class="fas fa-download" style="font-size:11px"></i> Export</button>
+      <button class="topbar-btn primary"><i class="fas fa-plus" style="font-size:11px"></i> Nouveau plat</button>
+      <div class="topbar-bell"><i class="fas fa-bell"></i><span class="cnt">3</span></div>
+    </div>
+  </header>
+
+  <div class="content">
+
+    <!-- LIVE ORDERS SCROLL -->
+    <div class="live-section">
+      <div class="live-header">
+        <h2>Commandes en direct</h2>
+        <span class="live-badge"><span class="dot"></span>4 actives</span>
+      </div>
+      <div class="live-scroll">
+        <div class="live-card urgent">
+          <div class="lc-top"><span class="lc-num">#1042</span><span class="lc-timer">18 min ⚠</span></div>
+          <div class="lc-client">Jean-Paul M.</div>
+          <div class="lc-items">Poulet braisé × 2, Plantain</div>
+          <div class="lc-footer"><span class="lc-amount">8 500 F</span><button class="lc-action">Accepter</button></div>
+        </div>
+        <div class="live-card">
+          <div class="lc-top"><span class="lc-num">#1041</span><span class="lc-timer ok">12 min</span></div>
+          <div class="lc-client">Marie K.</div>
+          <div class="lc-items">Fufu, Ndolé</div>
+          <div class="lc-footer"><span class="lc-amount">6 200 F</span><button class="lc-action secondary">En prépa</button></div>
+        </div>
+        <div class="live-card">
+          <div class="lc-top"><span class="lc-num">#1043</span><span class="lc-timer ok">8 min</span></div>
+          <div class="lc-client">Roger M.</div>
+          <div class="lc-items">Maboke × 2</div>
+          <div class="lc-footer"><span class="lc-amount">9 000 F</span><button class="lc-action">Accepter</button></div>
+        </div>
+        <div class="live-card">
+          <div class="lc-top"><span class="lc-num">#1045</span><span class="lc-timer ok">2 min</span></div>
+          <div class="lc-client">Claudine B.</div>
+          <div class="lc-items">Saka-saka × 1</div>
+          <div class="lc-footer"><span class="lc-amount">3 500 F</span><button class="lc-action">Accepter</button></div>
+        </div>
+        <div class="live-card" style="opacity:.5">
+          <div class="lc-top"><span class="lc-num">#1040</span><span class="lc-timer ok">→ Livré</span></div>
+          <div class="lc-client">Alain B.</div>
+          <div class="lc-items">Ndolé × 1</div>
+          <div class="lc-footer"><span class="lc-amount">4 500 F</span><button class="lc-action secondary">Terminé</button></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- STATS -->
+    <div class="stats-grid">
+      <div class="stat-card">
+        <div class="s-label">Commandes</div>
+        <div class="s-val">24</div>
+        <div class="s-trend up">↑ 12% vs hier</div>
+      </div>
+      <div class="stat-card">
+        <div class="s-label">CA du jour</div>
+        <div class="s-val">87k</div>
+        <div class="s-trend up">↑ 8%</div>
+      </div>
+      <div class="stat-card">
+        <div class="s-label">Temps moyen</div>
+        <div class="s-val">28'</div>
+        <div class="s-trend warn">+4 min</div>
+      </div>
+      <div class="stat-card">
+        <div class="s-label">Note clients</div>
+        <div class="s-val">4.7</div>
+        <div class="s-trend up">↑ +0.2</div>
+      </div>
+    </div>
+
+    <!-- TABLE HISTORIQUE -->
+    <div class="table-section">
+      <div class="table-section-header">
+        <h3>Historique du jour</h3>
+        <div class="table-filter">
+          <button class="tf-btn active">Tous</button>
+          <button class="tf-btn">Livrés</button>
+          <button class="tf-btn">Annulés</button>
+        </div>
+      </div>
+      <table>
+        <thead><tr><th>#</th><th>Client</th><th>Commande</th><th>Montant</th><th>Statut</th><th>Heure</th></tr></thead>
+        <tbody>
+          <tr><td style="color:#8892a4">#1042</td><td>Jean-Paul M.</td><td>Poulet braisé × 2</td><td><strong>8 500 F</strong></td><td><span class="badge bw">En attente</span></td><td style="color:#8892a4">14:32</td></tr>
+          <tr><td style="color:#8892a4">#1041</td><td>Marie K.</td><td>Fufu, Ndolé</td><td><strong>6 200 F</strong></td><td><span class="badge bi">En prépa</span></td><td style="color:#8892a4">14:28</td></tr>
+          <tr><td style="color:#8892a4">#1040</td><td>Alain B.</td><td>Ndolé × 1</td><td><strong>4 500 F</strong></td><td><span class="badge bs">Livré</span></td><td style="color:#8892a4">14:10</td></tr>
+          <tr><td style="color:#8892a4">#1039</td><td>Sophie N.</td><td>Poisson braisé × 2</td><td><strong>11 000 F</strong></td><td><span class="badge bs">Livré</span></td><td style="color:#8892a4">13:55</td></tr>
+          <tr><td style="color:#8892a4">#1038</td><td>Pierre L.</td><td>Maboke</td><td><strong>5 000 F</strong></td><td><span class="badge bd">Annulé</span></td><td style="color:#8892a4">13:40</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+  </div>
+</div>
+
+<div style="position:fixed;bottom:16px;right:16px;background:#009543;color:#fff;padding:8px 18px;border-radius:100px;font-size:13px;font-weight:700;z-index:100;box-shadow:0 4px 16px rgba(0,149,67,.4);">
+  Option B — Kinshasa Neon · Sidebar stats + Live scroll + Mode nuit
+</div>
+</body>
+</html>

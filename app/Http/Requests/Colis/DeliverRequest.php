@@ -14,8 +14,12 @@ class DeliverRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'otp' => 'required|string|size:6',
+            'otp' => 'nullable|string|size:6',
+            'type' => 'nullable|in:photo,signature',
+            'file' => 'nullable|image|max:5120',
+            'notes' => 'nullable|string',
+            'latitude' => 'nullable|numeric|between:-90,90',
+            'longitude' => 'nullable|numeric|between:-180,180',
         ];
     }
 }
-

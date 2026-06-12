@@ -4,10 +4,11 @@ namespace Tests\Feature\Colis;
 
 use App\Domain\Colis\Enums\ShipmentStatus;
 use App\Domain\Colis\Models\Shipment;
+use App\Payment;
+use App\Services\PaymentService;
 use App\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
-use Laravel\Sanctum\Sanctum;
 
 class ShipmentPaymentTest extends TestCase
 {
@@ -22,7 +23,6 @@ class ShipmentPaymentTest extends TestCase
     public function test_customer_can_choose_cod_payment()
     {
         $user = User::factory()->create();
-        Sanctum::actingAs($user);
 
         $shipment = Shipment::factory()->create([
             'customer_id' => $user->id,
@@ -30,7 +30,7 @@ class ShipmentPaymentTest extends TestCase
             'payment_status' => 'unpaid'
         ]);
 
-        $response = $this->postJson("/api/v1/colis/shipments/{$shipment->id}/payment", [
+        $response = $this->actingAs($user, 'api')->postJson("/api/v1/colis/shipments/{$shipment->id}/payment", [
             'provider' => 'cod'
         ]);
 
@@ -42,7 +42,6 @@ class ShipmentPaymentTest extends TestCase
     public function test_customer_can_initiate_momo_payment()
     {
         $user = User::factory()->create();
-        Sanctum::actingAs($user);
 
         $shipment = Shipment::factory()->create([
             'customer_id' => $user->id,
@@ -51,8 +50,31 @@ class ShipmentPaymentTest extends TestCase
             'total_price' => 5000
         ]);
 
-        $response = $this->postJson("/api/v1/colis/shipments/{$shipment->id}/payment", [
-            'provider' => 'momo'
+        $payment = Payment::create([
+            'user_id' => $user->id,
+            'shipment_id' => $shipment->id,
+            'provider' => 'momo',
+            'provider_reference' => 'TEST-MOMO-REF-001',
+            'status' => 'PENDING',
+            'amount' => 5000,
+            'currency' => 'XAF',
+            'meta' => [],
+        ]);
+
+        $this->mock(PaymentService::class, function ($mock) use ($payment) {
+            $mock->shouldReceive('startManagedPayment')
+                ->once()
+                ->andReturn([
+                    'payment' => $payment,
+                    'payment_payload' => [
+                        'redirect_url' => null,
+                    ],
+                ]);
+        });
+
+        $response = $this->actingAs($user, 'api')->postJson("/api/v1/colis/shipments/{$shipment->id}/payment", [
+            'provider' => 'momo',
+            'phone' => '060000000',
         ]);
 
         $response->assertStatus(200);
@@ -66,4 +88,3 @@ class ShipmentPaymentTest extends TestCase
         ]);
     }
 }
-

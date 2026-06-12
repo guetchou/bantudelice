@@ -1,235 +1,279 @@
 @extends('frontend.layouts.app-modern')
-@section('title', 'Recherche : ' . $qurey . ' | BantuDelice')
-@section('description', 'Résultats de recherche pour ' . $qurey . ' sur BantuDelice.')
+@php
+    $foodBrandName = \App\Services\ConfigService::getCompanyName();
+@endphp
+@section('description', 'Recherchez des restaurants, des plats et des menus disponibles pour la livraison ' . $foodBrandName . ' près de chez vous.')
 
-@section('styles')
-<style>
-    .search-page {
-        padding: 120px 0 60px;
-        background: linear-gradient(135deg, #FAFAFA 0%, #FFFFFF 100%);
-        min-height: calc(100vh - 80px);
-    }
-    
-    .page-header {
-        margin-bottom: 2rem;
-    }
-    
-    .breadcrumb-modern {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        font-size: 0.9rem;
-        margin-bottom: 1rem;
-    }
-    
-    .breadcrumb-modern a {
-        color: var(--gray-500);
-        text-decoration: none;
-    }
-    
-    .breadcrumb-modern a:hover {
-        color: var(--primary);
-    }
-    
-    .breadcrumb-modern .separator {
-        color: var(--gray-300);
-    }
-    
-    .breadcrumb-modern .current {
-        color: var(--gray-900);
-        font-weight: 600;
-    }
-    
-    .search-title {
-        font-size: 2rem;
-        font-weight: 700;
-        color: var(--gray-900);
-        margin-bottom: 0.5rem;
-    }
-    
-    .search-title span {
-        color: var(--primary);
-    }
-    
-    .results-count {
-        color: var(--gray-600);
-    }
-    
-    .restaurants-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-        gap: 1.5rem;
-    }
-    
-    .restaurant-card {
-        background: white;
-        border-radius: 16px;
-        overflow: hidden;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-        transition: all 0.3s ease;
-        text-decoration: none;
-    }
-    
-    .restaurant-card:hover {
-        transform: translateY(-6px);
-        box-shadow: 0 12px 40px rgba(0,0,0,0.12);
-    }
-    
-    .restaurant-image {
-        width: 100%;
-        height: 160px;
-        object-fit: cover;
-    }
-    
-    .restaurant-content {
-        padding: 1.25rem;
-    }
-    
-    .restaurant-name {
-        font-size: 1.1rem;
-        font-weight: 700;
-        color: var(--gray-900);
-        margin-bottom: 0.5rem;
-    }
-    
-    .restaurant-cuisines {
-        font-size: 0.85rem;
-        color: var(--gray-500);
-        margin-bottom: 0.75rem;
-        display: -webkit-box;
-        -webkit-line-clamp: 1;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
-    }
-    
-    .restaurant-rating {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.25rem;
-        color: #B45309;
-        font-weight: 600;
-        font-size: 0.9rem;
-    }
-    
-    .restaurant-rating i {
-        color: #FBBF24;
-    }
-    
-    .empty-state {
-        text-align: center;
-        padding: 4rem 2rem;
-        background: white;
-        border-radius: 20px;
-        max-width: 500px;
-        margin: 0 auto;
-    }
-    
-    .empty-state i {
-        font-size: 4rem;
-        color: var(--gray-300);
-        margin-bottom: 1rem;
-    }
-    
-    .empty-state h3 {
-        color: var(--gray-700);
-        margin-bottom: 0.5rem;
-    }
-    
-    .empty-state p {
-        color: var(--gray-500);
-        margin-bottom: 1.5rem;
-    }
-</style>
-@endsection
+@section('title', trans('ui.search.title') . ' | ' . trans('ui.site.name'))
+@section('body_class', 'bd-search-page')
 
 @section('content')
-<section class="search-page">
+@php
+    $filtersData = $filtersData ?? [];
+    $restaurants = collect($restaurants ?? []);
+    $products = collect($products ?? []);
+    $recommendations = collect($recommendations ?? []);
+    $productRecommendations = collect($productRecommendations ?? []);
+    $searchUi = trans('ui.search');
+    $commonUi = trans('ui.common');
+    $recommendationLabels = [
+        'favorite_restaurant' => 'Favori',
+        'history_restaurant' => 'Commandé souvent',
+        'history_cuisine' => 'Cuisine aimée',
+        'history_category' => 'Catégorie aimée',
+        'city' => 'Dans votre zone',
+        'distance' => 'Proche de vous',
+        'price_band' => 'Budget adapté',
+        'daypart' => 'Adapté au moment',
+        'featured' => 'En vedette',
+        'discount' => 'Promo',
+        'recent' => 'Récent',
+        'name' => 'Correspondance forte',
+        'restaurant' => 'Restaurant lié',
+        'category' => 'Catégorie liée',
+        'query' => 'Votre requête',
+    ];
+@endphp
+
+<section class="search-hero">
     <div class="container">
-        <!-- Header -->
-        <div class="page-header">
-            <nav class="breadcrumb-modern">
-                <a href="{{ route('home') }}">
-                    <i class="fas fa-home"></i> Accueil
-                </a>
-                <span class="separator">/</span>
-                <span class="current">Recherche</span>
-            </nav>
-            
-            <h1 class="search-title">Résultats pour "<span>{{ $qurey }}</span>"</h1>
-            <p class="results-count">{{ $restaurants->count() }} restaurant{{ $restaurants->count() > 1 ? 's' : '' }} trouvé{{ $restaurants->count() > 1 ? 's' : '' }}</p>
+        <div class="search-hero-copy">
+            <div class="search-hero-badge">{{ data_get($searchUi, 'advanced', 'Recherche avancée') }}</div>
+            <h1 class="search-hero-title">{{ $qurey }}</h1>
+            <p class="search-hero-description">Restaurants, plats et recommandations triés par pertinence, proximité et popularité.</p>
         </div>
-        
-        <!-- Filtres avancés -->
-        <div class="search-filters" style="background: white; padding: 1.5rem; border-radius: 12px; margin-bottom: 2rem; box-shadow: 0 2px 8px rgba(0,0,0,0.05);">
-            <form action="{{ route('serach') }}" method="get" id="filterForm">
-                <input type="hidden" name="qurey" value="{{ $qurey }}">
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; align-items: end;">
-                    <div>
-                        <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #191919; font-size: 0.875rem;">Note minimum</label>
+    </div>
+</section>
+
+<section class="search-page-shell">
+    <div class="container">
+        <div class="row">
+            <div class="col-lg-3 mb-4">
+                <div class="card shadow-sm border-0 search-panel">
+                    <div class="card-body">
+                        <h5 class="search-panel-title">{{ data_get($searchUi, 'filters', 'Filtres') }}</h5>
+                        <form method="GET" action="{{ route('search') }}" class="search-filter-form">
+                            <input type="hidden" name="query" value="{{ $qurey }}">
+                            <div class="form-group">
+                                <label>{{ data_get($searchUi, 'sort', 'Tri') }}</label>
+                                <select name="sort" class="form-control">
+                                    @foreach([
+                                        'relevance' => 'Pertinence',
+                                        'recommended' => 'Recommandés',
+                                        'rating' => 'Mieux notés',
+                                        'delivery_fee' => 'Frais de livraison',
+                                        'distance' => 'Distance',
+                                        'featured' => 'En vedette',
+                                    ] as $value => $label)
+                                        <option value="{{ $value }}" {{ data_get($filtersData, 'sort', 'relevance') === $value ? 'selected' : '' }}>{{ $label }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>{{ data_get($searchUi, 'city', 'Ville') }}</label>
+                                <input type="text" name="city" value="{{ data_get($filtersData, 'city') }}" class="form-control" placeholder="Brazzaville">
+                            </div>
+                            <div class="form-group">
+                                <label>{{ data_get($searchUi, 'min_rating', 'Note minimale') }}</label>
+                                <select name="min_rating" class="form-control">
+                                    <option value="">Toutes</option>
+                                    @for($i = 5; $i >= 1; $i--)
+                                        <option value="{{ $i }}" {{ (string) data_get($filtersData, 'min_rating') === (string) $i ? 'selected' : '' }}>{{ $i }}+</option>
+                                    @endfor
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>{{ data_get($searchUi, 'product_sort', 'Tri des plats') }}</label>
+                                <select name="product_sort" class="form-control">
+                                    @foreach([
+                                        'relevance' => 'Pertinence',
+                                        'featured' => 'En vedette',
+                                        'price_low' => 'Prix croissant',
+                                        'price_high' => 'Prix décroissant',
+                                    ] as $value => $label)
+                                        <option value="{{ $value }}" {{ data_get($filtersData, 'product_sort', 'relevance') === $value ? 'selected' : '' }}>{{ $label }}</option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>{{ data_get($searchUi, 'max_delivery_fee', 'Frais livraison max') }}</label>
+                                <input type="number" name="max_delivery_fee" min="0" step="1" value="{{ data_get($filtersData, 'max_delivery_fee') }}" class="form-control" placeholder="5000">
+                            </div>
+                            <div class="form-group">
+                                <label>{{ data_get($searchUi, 'cuisine', 'Cuisine') }}</label>
+                                <select name="cuisine_id" class="form-control">
+                                    <option value="">Toutes</option>
+                                    @foreach($cuisines as $cuisine)
+                                        <option value="{{ $cuisine->id }}" {{ (string) data_get($filtersData, 'cuisine_id') === (string) $cuisine->id ? 'selected' : '' }}>
+                                            {{ $cuisine->name }}
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>{{ data_get($searchUi, 'min_price', 'Prix min') }}</label>
+                                <input type="number" name="min_price" min="0" step="1" value="{{ data_get($filtersData, 'min_price') }}" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <label>{{ data_get($searchUi, 'max_price', 'Prix max') }}</label>
+                                <input type="number" name="max_price" min="0" step="1" value="{{ data_get($filtersData, 'max_price') }}" class="form-control">
+                            </div>
+                            <div class="form-group">
+                                <div class="custom-control custom-switch">
+                                    <input type="checkbox" class="custom-control-input" id="featuredOnly" name="featured" value="1" {{ data_get($filtersData, 'featured') ? 'checked' : '' }}>
+                                    <label class="custom-control-label" for="featuredOnly">{{ data_get($searchUi, 'featured_only', 'Seulement en vedette') }}</label>
+                                </div>
+                            </div>
+                            <button class="search-filter-submit" type="submit">{{ data_get($searchUi, 'apply', 'Appliquer') }}</button>
+                            <a href="{{ route('search', ['query' => $qurey]) }}" class="search-filter-reset">{{ data_get($searchUi, 'reset', 'Réinitialiser les filtres') }}</a>
+                        </form>
+                    </div>
+                </div>
+
+                @if($recommendations->isNotEmpty())
+                    <div class="card shadow-sm border-0 mt-4 search-panel">
+                        <div class="card-body">
+                            <h5 class="search-panel-title">{{ $commonUi['for_you'] ?? 'Pour vous' }}</h5>
+                            <div class="d-grid gap-3">
+                                @foreach($recommendations as $restaurant)
+                                    @php
+                                        $restaurantImage = method_exists($restaurant, 'publicIdentityImageUrl')
+                                            ? $restaurant->publicIdentityImageUrl()
+                                            : ($restaurant->logo ? (strpos($restaurant->logo, 'http') === 0 ? $restaurant->logo : asset('images/restaurant_images/' . $restaurant->logo)) : asset('images/home/service-restaurant.jpg'));
+                                    @endphp
+                                    <a href="{{ route('restaurant.detail', $restaurant->id) }}" class="search-reco-link">
+                                        <img src="{{ $restaurantImage }}" alt="{{ $restaurant->name }}" class="search-reco-thumb">
+                                        <div class="search-reco-copy">
+                                            <div class="search-reco-name">{{ $restaurant->name }}</div>
+                                            <small class="search-reco-meta">{{ number_format((float) ($restaurant->ratings_avg_rating ?? 0), 1) }} ★</small>
+                                            @if(!empty($restaurant->search_reason))
+                                                <div class="search-reco-badges">
+                                                    @foreach(array_slice($restaurant->search_reason, 0, 3) as $reason)
+                                                        <span class="search-reco-badge">{{ $recommendationLabels[$reason] ?? $reason }}</span>
+                                                    @endforeach
+                                                </div>
+                                            @endif
+                                        </div>
+                                    </a>
+                                @endforeach
+                            </div>
+                        </div>
+                    </div>
+                @endif
+
+                @if($productRecommendations->isNotEmpty())
+                    <div class="card shadow-sm border-0 mt-4 search-panel">
+                        <div class="card-body">
+                            <h5 class="search-panel-title">{{ $commonUi['products_for_you'] ?? 'Plats pour vous' }}</h5>
+                            <div class="d-grid gap-3">
+                                @foreach($productRecommendations as $product)
+                                    @php
+                                        $productImage = method_exists($product, 'publicImageUrl')
+                                            ? $product->publicImageUrl()
+                                            : ($product->image ? asset('images/product_images/' . $product->image) : asset('images/product_images/default-food.jpg'));
+                                    @endphp
+                                    <a href="{{ route('pro.detail', $product->id) }}" class="search-reco-link">
+                                        <img src="{{ $productImage }}" alt="{{ $product->name }}" class="search-reco-thumb">
+                                        <div class="search-reco-copy">
+                                            <div class="search-reco-name">{{ $product->name }}</div>
+                                            <small class="search-reco-meta">{{ number_format((float) ($product->price ?? 0), 0, ',', ' ') }} FCFA</small>
+                                            @if(!empty($product->search_reason))
+                                                <div class="search-reco-badges">
+                                                    @foreach(array_slice($product->search_reason, 0, 3) as $reason)
+                                                        <span class="search-reco-badge">{{ $recommendationLabels[$reason] ?? $reason }}</span>
+                                                    @endforeach
+                                                </div>
+                                            @endif
+                                        </div>
+                                    </a>
+                                @endforeach
+                            </div>
+                        </div>
+                    </div>
+                @endif
+            </div>
+
+            <div class="col-lg-9">
+                <div class="search-section-head">
+                    <h3 class="search-section-title">{{ data_get($searchUi, 'restaurants', 'Restaurants') }}</h3>
+                    <small class="search-section-count">{{ $restaurants->count() }} {{ $commonUi['results'] ?? 'résultats' }}</small>
+                </div>
+
+                <div class="row">
+                    @forelse($restaurants as $restaurant)
                         @php
-                            $topRatedThreshold = \App\Services\ConfigService::getTopRatedThreshold();
+                            $restaurantImage = method_exists($restaurant, 'publicIdentityImageUrl')
+                                ? $restaurant->publicIdentityImageUrl()
+                                : ($restaurant->logo ? (strpos($restaurant->logo, 'http') === 0 ? $restaurant->logo : asset('images/restaurant_images/' . $restaurant->logo)) : asset('images/home/service-restaurant.jpg'));
                         @endphp
-                        <select name="min_rating" class="form-select" style="width: 100%; padding: 0.625rem; border: 1px solid #E0E0E0; border-radius: 8px;">
-                            <option value="">Toutes les notes</option>
-                            <option value="{{ number_format($topRatedThreshold, 1) }}" {{ request('min_rating') == number_format($topRatedThreshold, 1) ? 'selected' : '' }}>{{ number_format($topRatedThreshold, 1) }}+ ⭐</option>
-                            <option value="4.0" {{ request('min_rating') == '4.0' ? 'selected' : '' }}>4.0+ ⭐</option>
-                            <option value="3.5" {{ request('min_rating') == '3.5' ? 'selected' : '' }}>3.5+ ⭐</option>
-                            <option value="3.0" {{ request('min_rating') == '3.0' ? 'selected' : '' }}>3.0+ ⭐</option>
-                        </select>
-                    </div>
-                    <div>
-                        <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #191919; font-size: 0.875rem;">Cuisine</label>
-                        <select name="cuisine_id" class="form-select" style="width: 100%; padding: 0.625rem; border: 1px solid #E0E0E0; border-radius: 8px;">
-                            <option value="">Toutes les cuisines</option>
-                            @php $cuisines = \App\Cuisine::all(); @endphp
-                            @foreach($cuisines as $cuisine)
-                                <option value="{{ $cuisine->id }}" {{ request('cuisine_id') == $cuisine->id ? 'selected' : '' }}>{{ $cuisine->name }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div>
-                        <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #191919; font-size: 0.875rem;">Ville</label>
-                        <input type="text" name="city" value="{{ request('city') }}" placeholder="Filtrer par ville" class="form-control" style="width: 100%; padding: 0.625rem; border: 1px solid #E0E0E0; border-radius: 8px;">
-                    </div>
-                    <div>
-                        <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.625rem;">
-                            <i class="fas fa-filter"></i> Filtrer
-                        </button>
-                    </div>
+                        <div class="col-md-6 col-xl-4 mb-4">
+                            <a href="{{ route('restaurant.detail', $restaurant->id) }}" class="search-result-card">
+                                <div class="search-result-media">
+                                    <img src="{{ $restaurantImage }}" alt="{{ $restaurant->name }}" class="search-result-image">
+                                    <div class="search-result-score">{{ number_format((float) ($restaurant->ratings_avg_rating ?? 0), 1) }} ★</div>
+                                </div>
+                                <div class="search-result-body">
+                                    <h5 class="search-result-title">{{ $restaurant->name }}</h5>
+                                    <div class="search-result-meta">{{ $restaurant->address }} · {{ $restaurant->city }}</div>
+                                    <div class="search-result-foot">
+                                        <span class="search-result-chip">{{ $restaurant->cuisines->pluck('name')->implode(' · ') }}</span>
+                                        <strong class="search-result-rating">{{ number_format((float) ($restaurant->ratings_avg_rating ?? 0), 1) }} ★</strong>
+                                    </div>
+                                </div>
+                            </a>
+                        </div>
+                    @empty
+                        <div class="col-12">
+                            <div class="alert alert-light border search-empty-alert">Aucun restaurant ne correspond à votre recherche.</div>
+                        </div>
+                    @endforelse
                 </div>
-            </form>
-        </div>
-        
-        @if($restaurants->count() > 0)
-        <div class="restaurants-grid">
-            @foreach($restaurants as $restaurant)
-            <a href="{{ route('resturant.detail', $restaurant->id) }}" class="restaurant-card">
-                <img src="{{ $restaurant->logo ? (strpos($restaurant->logo, 'http') === 0 ? $restaurant->logo : asset('images/restaurant_images/' . $restaurant->logo)) : asset('images/placeholder.png') }}" 
-                     alt="{{ $restaurant->name }}"
-                     class="restaurant-image"
-                     onerror="this.src='{{ asset('images/placeholder.png') }}'">
-                
-                <div class="restaurant-content">
-                    <h3 class="restaurant-name">{{ $restaurant->name }}</h3>
-                    <p class="restaurant-cuisines">{{ $restaurant->cuisines->pluck('name')->implode(', ') }}</p>
-                    <span class="restaurant-rating">
-                        <i class="fas fa-star"></i>
-                        {{ number_format($restaurant->avg_rating ?? $restaurant->ratings()->avg('rating') ?? 4.0, 1) }}
-                    </span>
+
+                <div class="search-section-head search-section-head--spaced">
+                    <h3 class="search-section-title">{{ data_get($searchUi, 'products', 'Plats') }}</h3>
+                    <small class="search-section-count">{{ $products->count() }} {{ $commonUi['results'] ?? 'résultats' }}</small>
                 </div>
-            </a>
-            @endforeach
+
+                <div class="row">
+                    @forelse($products as $product)
+                        @php
+                            $productImage = method_exists($product, 'publicImageUrl')
+                                ? $product->publicImageUrl()
+                                : ($product->image ? asset('images/product_images/' . $product->image) : asset('images/product_images/default-food.jpg'));
+                        @endphp
+                        <div class="col-md-6 col-xl-4 mb-4">
+                            <a href="{{ route('pro.detail', $product->id) }}" class="search-result-card">
+                                <div class="search-result-media">
+                                    <img src="{{ $productImage }}" alt="{{ $product->name }}" class="search-result-image">
+                                    @if(($product->discount_price ?? 0) > 0 && $product->discount_price < $product->price)
+                                        <div class="search-result-score search-result-score--promo">Promo</div>
+                                    @endif
+                                </div>
+                                <div class="search-result-body">
+                                    <h5 class="search-result-title">{{ $product->name }}</h5>
+                                    <div class="search-result-meta">{{ $product->description }}</div>
+                                    <div class="search-result-foot">
+                                        <div class="search-result-price-group">
+                                            <strong class="search-result-price">{{ number_format((float) ($product->discount_price > 0 ? $product->discount_price : $product->price), 0, ',', ' ') }} FCFA</strong>
+                                            @if(($product->discount_price ?? 0) > 0 && $product->discount_price < $product->price)
+                                                <div class="search-result-price-old"><s>{{ number_format((float) $product->price, 0, ',', ' ') }} FCFA</s></div>
+                                            @endif
+                                        </div>
+                                        <div class="text-right">
+                                            <span class="search-result-chip">{{ optional($product->restaurants)->name }}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </a>
+                        </div>
+                    @empty
+                        <div class="col-12">
+                            <div class="alert alert-light border search-empty-alert">Aucun plat trouvé.</div>
+                        </div>
+                    @endforelse
+                </div>
+            </div>
         </div>
-        @else
-        <div class="empty-state">
-            <i class="fas fa-search"></i>
-            <h3>Aucun résultat</h3>
-            <p>Nous n'avons trouvé aucun restaurant correspondant à "{{ $qurey }}".</p>
-            <a href="{{ route('home') }}" class="btn btn-primary">
-                <i class="fas fa-arrow-left"></i> Retour à l'accueil
-            </a>
-        </div>
-        @endif
     </div>
 </section>
 @endsection

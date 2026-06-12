@@ -24,7 +24,12 @@ class WorkingHourController extends Controller
             ]);
         }
         $working_hours = $restaurant->working_hours()->orderBy('Day')->get();
-        return view('restaurant.working_hour.index')->with('working_hours', $working_hours);
+        $special_closures = $restaurant->special_closures()->get();
+
+        return view('restaurant.working_hour.index', [
+            'working_hours' => $working_hours,
+            'special_closures' => $special_closures,
+        ]);
     }
 
     /**
@@ -47,9 +52,10 @@ class WorkingHourController extends Controller
     {
         $request->validate([
             'day' => 'required|string|max:191',
-            'opening_time'=>'required',
-            'closing_time'=>'required'
+            'opening_time' => 'required',
+            'closing_time' => 'required',
         ]);
+
         $restaurant = auth()->user()->restaurant;
         if (!$restaurant) {
             return redirect()->route('restaurant.dashboard')->with('alert', [
@@ -58,15 +64,14 @@ class WorkingHourController extends Controller
             ]);
         }
 
-        // La colonne en base s'appelle "Day" (majuscule)
         $restaurant->working_hours()->create([
             'Day' => $request->day,
             'opening_time' => $request->opening_time,
             'closing_time' => $request->closing_time,
         ]);
-//        Category::create($request->all());
+
         $alert['type'] = 'success';
-        $alert['message'] = 'Horaires de travail ajoutés avec succès';
+        $alert['message'] = 'Horaire ajouté avec succès';
         return redirect()->route('working_hour.index')->with('alert', $alert);
     }
 

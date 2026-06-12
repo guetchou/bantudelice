@@ -5,79 +5,174 @@ namespace App\Domain\Colis\Services;
 use App\Domain\Colis\Models\Shipment;
 use App\Domain\Colis\Enums\ShipmentStatus;
 use App\Payment;
+use App\Services\FinancialEventService;
+use App\Services\PaymentService;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class ShipmentPaymentService
 {
-    /**
-     * Initier un paiement pour un colis
-     */
-    public function initiatePayment(Shipment $shipment, string $provider): array
+    public function __construct(
+        protected ?FinancialEventService $financialEventService = null
+    ) {}
+
+    public function initiatePayment(Shipment $shipment, string $provider, array $context = []): array
     {
-        // On crée une entrée dans la table existante 'payments'
-        $payment = Payment::create([
+        $paymentService = app(PaymentService::class);
+
+        $paymentFlow = $paymentService->startManagedPayment([
             'user_id' => $shipment->customer_id,
-            'order_id' => null, 
+            'order_id' => null,
             'shipment_id' => $shipment->id,
             'provider' => $provider,
-            'status' => 'PENDING',
-            'amount' => $shipment->total_price,
+            'amount' => $this->normalizePaymentAmount($shipment->total_price),
             'currency' => $shipment->currency,
-            'meta' => [
+        ], [
+            'type' => 'colis',
+            'phone' => $context['phone'] ?? optional($shipment->customer)->phone,
+            'shipment_id' => $shipment->id,
+            'shipment_payment_context' => [
                 'tracking_number' => $shipment->tracking_number,
-                'type' => 'colis'
+                'payment_method' => $provider,
             ],
+        ], [
+            'tracking_number' => $shipment->tracking_number,
+            'type' => 'colis',
+        ]);
+
+        $payment = $paymentFlow['payment'];
+
+        $this->financialEvents()->recordForPayment($payment, 'shipment_payment_initiated', [
+            'tracking_number' => $shipment->tracking_number,
+            'shipment_id' => $shipment->id,
         ]);
 
         return [
             'payment_id' => $payment->id,
-            'checkout_url' => url("/api/v1/payments/process/{$payment->id}"), 
-            'status' => 'pending'
+            'checkout_url' => url("/api/v1/payments/process/{$payment->id}"),
+            'status' => 'pending',
+            'redirect_url' => $paymentFlow['payment_payload']['redirect_url'] ?? null,
         ];
     }
 
-    /**
-     * Confirmer le paiement et débloquer le colis
-     */
     public function finalizePayment(Shipment $shipment, Payment $payment): bool
     {
         return DB::transaction(function () use ($shipment, $payment) {
+            $stateMachine = app(ShipmentStateMachine::class);
+            $currentStatus = $shipment->status;
+            $transitionedToPaid = false;
+
             $shipment->update([
-                'payment_status' => 'paid'
+                'payment_status' => 'paid',
             ]);
 
-            // Faire progresser le colis via la State Machine
-            $stateMachine = app(ShipmentStateMachine::class);
-            $stateMachine->transitionTo($shipment, ShipmentStatus::PAID, [
-                'actor_type' => 'system',
-                'notes' => "Paiement confirmé via {$payment->provider}."
+            if ($stateMachine->canTransition($currentStatus, ShipmentStatus::PAID)) {
+                $stateMachine->transitionTo($shipment, ShipmentStatus::PAID, [
+                    'actor_type' => 'system',
+                    'notes' => "Paiement confirmé via {$payment->provider}.",
+                    'meta' => [
+                        'payment_id' => $payment->id,
+                        'provider' => $payment->provider,
+                    ],
+                ]);
+                $transitionedToPaid = true;
+            }
+
+            $this->financialEvents()->recordForPayment($payment->fresh(), 'shipment_payment_paid', [
+                'tracking_number' => $shipment->tracking_number,
+                'shipment_id' => $shipment->id,
+                'shipment_status' => $shipment->fresh()->status->value,
+                'shipment_previous_status' => $currentStatus->value,
+                'shipment_transition_to_paid' => $transitionedToPaid,
             ]);
 
             return true;
         });
     }
 
-    /**
-     * Gérer le Cash on Delivery (COD)
-     */
     public function handleCOD(Shipment $shipment): void
     {
-        $shipment->update([
-            'payment_status' => 'cod_pending'
-        ]);
-        
-        // Un colis COD passe directement de PRICED à PAID (prêt pour pickup) 
-        // mais avec un flag de paiement à collecter par le coursier
         $stateMachine = app(ShipmentStateMachine::class);
-        $stateMachine->transitionTo($shipment, ShipmentStatus::PAID, [
-            'actor_type' => 'customer',
-            'notes' => "Option Paiement à la livraison choisie."
+        $currentStatus = $shipment->status;
+        $transitionedToPaid = false;
+
+        $shipment->update([
+            'payment_status' => 'cod_pending',
+        ]);
+
+        if ($stateMachine->canTransition($currentStatus, ShipmentStatus::PAID)) {
+            $stateMachine->transitionTo($shipment, ShipmentStatus::PAID, [
+                'actor_type' => 'customer',
+                'notes' => 'Option Paiement à la livraison choisie.',
+                'meta' => [
+                    'payment_mode' => 'cod',
+                ],
+            ]);
+            $transitionedToPaid = true;
+        }
+
+        $this->financialEvents()->record([
+            'order_no' => $shipment->tracking_number,
+            'order_id' => null,
+            'payment_id' => null,
+            'user_id' => $shipment->customer_id,
+            'event_type' => 'shipment_cod_selected',
+            'provider' => 'cod',
+            'amount' => (float) $shipment->cod_amount,
+            'currency' => $shipment->currency,
+            'status' => $shipment->payment_status,
+            'meta' => [
+                'shipment_id' => $shipment->id,
+                'tracking_number' => $shipment->tracking_number,
+                'shipment_previous_status' => $currentStatus->value,
+                'shipment_transition_to_paid' => $transitionedToPaid,
+            ],
         ]);
     }
 
-    /**
-     * Calculer le montant total que le coursier doit reverser (COD collectés)
-     */
+    public function markCodCollected(Shipment $shipment, array $context = []): void
+    {
+        DB::transaction(function () use ($shipment, $context) {
+            $shipment->update([
+                'payment_status' => 'paid',
+                'cod_collected_at' => now(),
+            ]);
+
+            $payment = Payment::where('shipment_id', $shipment->id)->latest('id')->first();
+            if ($payment && strtoupper((string) $payment->status) !== 'PAID') {
+                $payment->update([
+                    'status' => 'PAID',
+                    'meta' => array_merge($payment->meta ?? [], [
+                        'cod_collected_at' => now()->toIso8601String(),
+                        'collected_by_courier_id' => $context['courier_id'] ?? null,
+                    ]),
+                ]);
+
+                $this->financialEvents()->recordForPayment($payment->fresh(), 'shipment_cod_collected', [
+                    'tracking_number' => $shipment->tracking_number,
+                    'shipment_id' => $shipment->id,
+                    'courier_id' => $context['courier_id'] ?? null,
+                ]);
+            } else {
+                $this->financialEvents()->record([
+                    'order_no' => $shipment->tracking_number,
+                    'order_id' => null,
+                    'payment_id' => null,
+                    'user_id' => $shipment->customer_id,
+                    'event_type' => 'shipment_cod_collected',
+                    'provider' => 'cod',
+                    'amount' => (float) $shipment->cod_amount,
+                    'currency' => $shipment->currency,
+                    'status' => $shipment->payment_status,
+                    'meta' => [
+                        'shipment_id' => $shipment->id,
+                        'courier_id' => $context['courier_id'] ?? null,
+                    ],
+                ]);
+            }
+        });
+    }
+
     public function getPendingCourierCOD(int $courierId): array
     {
         $shipments = Shipment::where('assigned_courier_id', $courierId)
@@ -93,13 +188,9 @@ class ShipmentPaymentService
         ];
     }
 
-    /**
-     * Effectuer la réconciliation (reversement des fonds)
-     */
     public function reconcileCourier(int $courierId, int $adminId, array $shipmentIds, float $amount): \App\Domain\Colis\Models\ShipmentReconciliation
     {
         return DB::transaction(function () use ($courierId, $adminId, $shipmentIds, $amount) {
-            // Créer le log de réconciliation
             $reconciliation = \App\Domain\Colis\Models\ShipmentReconciliation::create([
                 'courier_id' => $courierId,
                 'admin_id' => $adminId,
@@ -107,16 +198,53 @@ class ShipmentPaymentService
                 'amount_reconciled' => $amount,
                 'shipment_ids' => $shipmentIds,
                 'status' => 'completed',
-                'notes' => "Réconciliation manuelle effectuée par l'admin."
+                'notes' => "Réconciliation manuelle effectuée par l'admin.",
             ]);
 
-            // Mettre à jour les colis comme payés
             Shipment::whereIn('id', $shipmentIds)->update([
-                'payment_status' => 'paid'
+                'payment_status' => 'paid',
             ]);
+
+            $shipments = Shipment::whereIn('id', $shipmentIds)->get();
+            foreach ($shipments as $shipment) {
+                if (Schema::hasColumn('shipments', 'cod_collected_at') && !$shipment->cod_collected_at) {
+                    $shipment->update(['cod_collected_at' => now()]);
+                }
+
+                $this->financialEvents()->record([
+                    'order_no' => $shipment->tracking_number,
+                    'order_id' => null,
+                    'payment_id' => null,
+                    'user_id' => $shipment->customer_id,
+                    'event_type' => 'shipment_cod_reconciled',
+                    'provider' => 'cod',
+                    'amount' => (float) $shipment->cod_amount,
+                    'currency' => $shipment->currency,
+                    'status' => $shipment->payment_status,
+                    'meta' => [
+                        'shipment_id' => $shipment->id,
+                        'courier_id' => $courierId,
+                        'admin_id' => $adminId,
+                        'reconciliation_id' => $reconciliation->id,
+                    ],
+                ]);
+            }
 
             return $reconciliation;
         });
     }
-}
 
+    protected function financialEvents(): FinancialEventService
+    {
+        return $this->financialEventService ?? app(FinancialEventService::class);
+    }
+
+    protected function normalizePaymentAmount($amount): int
+    {
+        if (!is_numeric($amount)) {
+            return 0;
+        }
+
+        return max(0, (int) round((float) $amount));
+    }
+}

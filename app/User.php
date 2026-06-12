@@ -2,15 +2,18 @@
 
 namespace App;
 
+use App\Support\HasDefaultAvatar;
+use App\Address;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Passport\HasApiTokens;
 
 class User extends Authenticatable
 {
-    use HasApiTokens, Notifiable, HasFactory;
+    use HasApiTokens, Notifiable, HasFactory, HasDefaultAvatar, SoftDeletes;
 
     /**
      * The attributes that are mass assignable.
@@ -19,6 +22,7 @@ class User extends Authenticatable
      */
     protected $fillable = [
     'name',
+    'username',
     'email',
     'password',
     'phone',
@@ -29,6 +33,8 @@ class User extends Authenticatable
     'social_avatar',
     'api_token',
     'email_verified_at',
+    'two_factor_secret',
+    'two_factor_enabled',
     ];
 
     /**
@@ -43,6 +49,48 @@ class User extends Authenticatable
     {
         return $this->hasOne(Restaurant::class);
     }
+
+    public function adminPermissions()
+    {
+        return $this->hasMany(AdminPermission::class)->whereNull('revoked_at');
+    }
+
+    public function hasAdminWorkspace(string $workspace): bool
+    {
+        if ($this->type !== 'admin') {
+            return false;
+        }
+
+        return $this->adminPermissions()
+            ->whereIn('workspace', [$workspace, '*'])
+            ->exists();
+    }
+
+    public function isSuperAdmin(): bool
+    {
+        return $this->type === 'admin'
+            && $this->adminPermissions()->where('workspace', '*')->exists();
+    }
+
+    public function adminWorkspaces(): array
+    {
+        if ($this->isSuperAdmin()) {
+            return ['bantudelice', 'kende', 'mema'];
+        }
+
+        return $this->adminPermissions()
+            ->pluck('workspace')
+            ->filter(fn($w) => $w !== '*')
+            ->values()
+            ->toArray();
+    }
+
+    public function favoriteRestaurants()
+    {
+        return $this->belongsToMany(Restaurant::class, 'restaurant_favorites')
+            ->withTimestamps();
+    }
+
     public function order()
     {
         return $this->hasMany(Order::class);
@@ -60,6 +108,11 @@ class User extends Authenticatable
     public function loyaltyTransactions()
     {
         return $this->hasMany(LoyaltyTransaction::class);
+    }
+
+    public function addresses()
+    {
+        return $this->hasMany(Address::class)->orderByDesc('is_default')->orderByDesc('id');
     }
 
     /**

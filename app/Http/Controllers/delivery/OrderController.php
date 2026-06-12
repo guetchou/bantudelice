@@ -82,7 +82,7 @@ class OrderController extends Controller
         $source_lng = $restuarant_detail->longitude;
 
 
-        $data = file_get_contents(env('FIREBASE_URL') . "/available_providers/.json");
+        $data = file_get_contents(config('services.firebase.rtdb_url') . "/available_providers/.json");
 
         $data = json_decode($data);
         //dd($data);
@@ -150,7 +150,6 @@ class OrderController extends Controller
             $user_data = DB::table('requests')
                 ->where('id', $request_id)
                 ->first();
-            dd($user_data);
 
             $data = DB::table('requests')->where('id', $request_id)->update(['delivery_boy_id' => $temp_driver, 'status' => 2]);
             //dd($data);

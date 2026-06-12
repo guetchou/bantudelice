@@ -20,6 +20,12 @@ class ImageUploadService
     public static function uploadImage(UploadedFile $image, $destination, $oldImage = null)
     {
         try {
+            $absoluteDestination = public_path(trim($destination, '/'));
+
+            if (!is_dir($absoluteDestination)) {
+                @mkdir($absoluteDestination, 0775, true);
+            }
+
             // Générer un nom de fichier unique
             $filename = strtolower(
                 pathinfo($image->getClientOriginalName(), PATHINFO_FILENAME)
@@ -33,16 +39,16 @@ class ImageUploadService
             $filename = str_replace(' ', '-', $filename);
             
             // Déplacer l'image
-            $image->move($destination, $filename);
+            $image->move($absoluteDestination, $filename);
             
             // Supprimer l'ancienne image si elle existe
-            if ($oldImage && file_exists($destination . '/' . $oldImage)) {
-                @unlink($destination . '/' . $oldImage);
+            if ($oldImage && file_exists($absoluteDestination . '/' . $oldImage)) {
+                @unlink($absoluteDestination . '/' . $oldImage);
             }
             
             Log::info('Image uploaded successfully', [
                 'filename' => $filename,
-                'destination' => $destination
+                'destination' => $absoluteDestination
             ]);
             
             return $filename;
@@ -50,7 +56,7 @@ class ImageUploadService
         } catch (Exception $e) {
             Log::error('Image upload failed', [
                 'error' => $e->getMessage(),
-                'destination' => $destination
+                'destination' => $absoluteDestination ?? $destination
             ]);
             throw $e;
         }
@@ -161,4 +167,3 @@ class ImageUploadService
         ];
     }
 }
-

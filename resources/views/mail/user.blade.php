@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Notification BantuDelice</title>
+    <title>Notification plateforme</title>
     <style>
         * {
             margin: 0;
@@ -22,7 +22,7 @@
             background-color: #ffffff;
         }
         .header {
-            background: linear-gradient(135deg, #FF6B35 0%, #E55A2B 100%);
+            background: linear-gradient(135deg, #ff5a1f 0%, #e04d15 100%);
             padding: 30px;
             text-align: center;
         }

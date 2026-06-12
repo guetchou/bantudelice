@@ -1,6 +1,7 @@
 @extends('frontend.layouts.app')
-@section('title','BantuDelice | Accueil')
-@section('keywords','livraison repas, colis, transport')
+@section('title', 'Accueil | Plateforme')
+@section('description', 'Découvrez les services de repas, colis et transport disponibles sur la plateforme à Brazzaville et Pointe-Noire.')
+@section('keywords','livraison repas, mema, kende')
 @php
     $foodEnabled = (bool) config('bantudelice_modules.food.enabled', true);
     $colisEnabled = (bool) config('bantudelice_modules.colis.enabled', true);
@@ -10,15 +11,15 @@
 		<!-- banner-text -->
 		<div class="banner-text">
 			<div class="container">
-				<h2>{{ $foodEnabled ? 'Repas, colis et transport' : 'Colis et transport' }} <br> <span>des services locaux simples et fiables.</span></h2>
+				<h1>{{ $foodEnabled ? 'Repas, Mema et Kende' : 'Mema et Kende' }} <br> <span>des services locaux simples et fiables.</span></h1>
 				<div class="agileits_search">
 					@if($foodEnabled)
-					<form action="{{route('serach')}}" method="get">
-						<input name="qurey" type="text" placeholder="Rechercher un restaurant ou un plat" required="">
+					<form action="{{route('search')}}" method="get">
+						<input name="query" type="text" placeholder="Rechercher un restaurant ou un plat" required="">
 						<input type="submit" value="Rechercher">
 					</form>
 					@elseif($colisEnabled)
-					<a href="{{ route('colis.landing') }}" style="display:inline-flex;align-items:center;justify-content:center;background:#16a34a;color:#fff;font-weight:700;padding:.7rem 1.35rem;border-radius:999px;border:none;cursor:pointer;text-decoration:none;">Découvrir le service colis</a>
+					<a href="{{ route('colis.landing') }}" style="display:inline-flex;align-items:center;justify-content:center;background:#009543;color:#fff;font-weight:700;padding:.7rem 1.35rem;border-radius:999px;border:none;cursor:pointer;text-decoration:none;">Découvrir Mema</a>
 					@endif
 				</div>
 			</div>
@@ -35,17 +36,19 @@
 			<div class="order-agileinfo">
 
   @foreach($restaurants as $restaurant)
+  @php
+    $restaurantImage = method_exists($restaurant, 'publicIdentityImageUrl')
+      ? $restaurant->publicIdentityImageUrl()
+      : ($restaurant->logo ? (strpos($restaurant->logo, 'http') === 0 ? $restaurant->logo : asset('images/restaurant_images/' . $restaurant->logo)) : asset('images/placeholder.png'));
+  @endphp
   <div class="m9resturants col-md-3 col-sm-3 col-xs-6">
-  	<a href="{{route('resturant.detail',$restaurant->id)}}">
+  	<a href="{{route('restaurant.detail',$restaurant->id)}}">
     <div class="thumbnail">
-      <img src="{{asset('images/restaurant_images/' . ($restaurant->logo ?: 'placeholder.png'))}}" alt="..." style="height:200px;" onerror="this.src='{{ asset('images/placeholder.png') }}'">
+      <img src="{{ $restaurantImage }}" alt="{{ $restaurant->name }}" style="height:200px;" loading="lazy" onerror="this.src='{{ asset('images/placeholder.png') }}'">
       <div class="caption">
         <h5>{{$restaurant->name}}</h5>
         <p>
             <b>{{ $restaurant->cuisines->pluck('name')->implode(', ') }}</b>
-         <!--   @foreach($restaurant->cuisines as $cuisine)-->
-        	<!--{{  $cuisine->name }},-->
-        	<!--@endforeach-->
         </p>
         <p><span>{{ number_format($restaurant->ratings, 1) }}/5</span></p>
       </div>
@@ -99,7 +102,7 @@
 					<a href="{{ route('colis.landing') }}" style="text-decoration: none; color: inherit;">
 						
 						<div class="deals-right">
-							<h4>Colis</h4>
+							<h4>Mema</h4>
 							<p>Envoyez ou suivez un colis avec un parcours simple et clair.</p>
 							<p style="margin-top: 0.5rem;"><a href="{{ route('colis.create') }}">Expédier</a> | <a href="{{ route('colis.track_public') }}">Suivre</a></p>
 						</div>
@@ -145,7 +148,7 @@
                     <div class="col-md-6 col-sm-6 deals-grids">
                         
                         <div class="deals-right">
-                            <h4>Colis</h4>
+                            <h4>Mema</h4>
                             <p>Nous prenons en charge des colis locaux avec suivi et coordination.</p>
                         </div>
                         <div class="clearfix"> </div>
@@ -195,7 +198,7 @@
 			<h3 class="m9ls-title">Sélection du moment</h3>
 			<div class="spldishes-agileinfo">
 				<div class="col-md-3 spldishes-m9left">
-					<h5 class="m9ltitle">Les suggestions BantuDelice</h5>
+					<h5 class="m9ltitle">Les suggestions food</h5>
 					<p>Découvrez quelques produits mis en avant selon les disponibilités du moment.</p>
 				</div>
 				<div class="col-md-9 spldishes-grids">
@@ -203,7 +206,7 @@
 					<div id="owl-demo" class="owl-carousel text-center agileinfo-gallery-row">
 						@foreach($products as $product)
 						<a href="{{route('pro.detail', $product->id)}}" class="item g1">
-							<img class="lazyOwl" src="{{asset('images/product_images/' . ($product->image ?: 'default-food.jpg'))}}" title="{{$product->name}}" alt="{{$product->name}}" style="height:217px;" onerror="this.src='{{ asset('images/product_images/default-food.jpg') }}'">
+							<img class="lazyOwl" src="{{ method_exists($product, 'publicImageUrl') ? $product->publicImageUrl() : asset('images/product_images/' . ($product->image ?: 'default-food.jpg')) }}" title="{{$product->name}}" alt="{{$product->name}}" style="height:217px;" onerror="this.src='{{ asset('images/product_images/default-food.jpg') }}'">
 							<div class="agile-dish-caption">
 								<h4>{{$product->name}}</h4>
 								<span>Disponible à la commande selon le restaurant</span>

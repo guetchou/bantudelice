@@ -1,165 +1,168 @@
-@extends('layouts.app')
-
+@extends('layouts.restaurant_app')
+@section('title', 'Ajouter un membre | ' . \App\Services\ConfigService::getCompanyName())
+@section('topbar_title', 'Ajouter un membre')
 @section('employee_nav', 'active')
 
 @section('content')
-    <div class="content-header">
-        <div class="container-fluid">
-            <div class="row mb-2">
-                <div class="col-sm-6">
-                    <h1 class="m-0 text-dark">Employees</h1>
-                </div><!-- /.col -->
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-right">
-                        <li class="breadcrumb-item"><a href="#">Accueil</a></li>
-                        <li class="breadcrumb-item "><a href="{{route('employee.index')}}">Employees</a></li>
-                        <li class="breadcrumb-item active">Créer</li>
-                    </ol>
-                </div><!-- /.col -->
-            </div><!-- /.row -->
-        </div><!-- /.container-fluid -->
-    </div>
-    <section class="content" style="padding: 20px; ">
-        <div class="container-fluid main-content">
-            <div class="row justify-content-center">
-                <div class="col-md-10">
-                    <div class="card card-primary ">
-                        <div class="card-header text-center">
-                            <h3 class="card-title ">Ajouter un employé</h3>
+<div style="max-width:680px;">
+
+    @if(session()->has('alert'))
+        <div class="alert alert-{{ session()->get('alert.type') }} alert-dismissible" role="alert">
+            {{ session()->get('alert.message') }}
+            <button type="button" class="close" data-dismiss="alert"><span>&times;</span></button>
+        </div>
+    @endif
+
+    <div style="background:var(--bd-surface);border:1px solid var(--bd-border);border-radius:var(--bd-radius);overflow:hidden;">
+        <div style="padding:16px 20px;border-bottom:1px solid var(--bd-border-2);display:flex;align-items:center;justify-content:space-between;gap:12px;">
+            <div>
+                <div style="font-size:13px;font-weight:700;color:var(--bd-text);">Ajouter un membre</div>
+                <div style="font-size:11px;color:var(--bd-text-3);margin-top:2px;">Enregistrez un nouveau membre dans votre équipe</div>
+            </div>
+            <a href="{{ route('employee.index') }}"
+               style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:var(--bd-radius);border:1px solid var(--bd-border);background:var(--bd-surface);color:var(--bd-text-2);font-size:12px;font-weight:600;text-decoration:none;transition:.12s;"
+               onmouseover="this.style.borderColor='var(--bd-green)';this.style.color='var(--bd-green)';"
+               onmouseout="this.style.borderColor='var(--bd-border)';this.style.color='var(--bd-text-2)';">
+                <i class="fas fa-arrow-left"></i> Retour
+            </a>
+        </div>
+
+        <form method="post" action="{{ route('employee.store') }}" enctype="multipart/form-data">
+            @csrf
+            <div style="padding:24px 20px;display:flex;flex-direction:column;gap:18px;">
+
+                {{-- Photo de profil --}}
+                <div>
+                    <label style="display:block;font-size:12px;font-weight:600;color:var(--bd-text);margin-bottom:8px;">
+                        Photo de profil
+                    </label>
+                    <div style="display:flex;align-items:center;gap:16px;">
+                        <div id="avatarPreview"
+                             style="width:72px;height:72px;border-radius:50%;background:var(--bd-surface-2);border:2px solid var(--bd-border);overflow:hidden;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                            <i class="fas fa-user" style="font-size:24px;color:var(--bd-text-3);"></i>
                         </div>
-                        <!-- /.card-header -->
-                        <!-- form start -->
-                        <form role="form" method="post" action="{{route('employee.store')}}"
-                              enctype="multipart/form-data">
-                            @csrf
-                            <div class="card-body">
-                                <div class="form-row">
-                                    <div class="form-group col-md-6">
-                                        <div class="qr-el qr-el-3"
-                                             style="min-height: auto;  box-shadow: 2px 0px 30px 5px rgba(0, 0, 0, 0.03); padding:25px; margin:0px 20px;">
-                                            <label for="upload_file" class="hoviringdell uploadBox"
-                                                   id="uploadTrigger"
-                                                   style="height: 110px; text-align:center; width:100%; border:dotted 2px #cccccc;">
-                                                <img src="" style="width: 180px;" id="cover" alt="image">
-                                                <div class="uploadText" style="font-size: 12px;">
-                                                    <span style="color:#F69518;">Télécharger une photo de profil</span><br>
-                                                    Size 320x220
-                                                </div>
-                                            </label>
-                                            <input type="file" id="upload_file" name="image" onchange="cover1(this);">
-                                            @if($errors->has('image'))
-                                                <span class="invalid-feedback" role="alert">
-                                            <strong>{{ $errors->first('image') }}</strong>
-                                        </span>
-                                            @endif
-                                        </div>
-
-                                    </div>
-                                </div>
-                                <div class="form-row">
-                                    <div class="form-group col-md-6">
-                                        <label for="name">Nom</label>
-                                        <input type="text" name="name" value="{{old('name')}}"
-                                               class="form-control {{ $errors->has('name') ? ' is-invalid' : '' }}"
-                                               id="name" placeholder="">
-                                        @if($errors->has('name'))
-                                            <span class="invalid-feedback" role="alert">
-                                            <strong>{{ $errors->first('name') }}</strong>
-                                        </span>
-                                        @endif
-                                    </div>
-                                    <div class="form-group col-md-6">
-                                        <label for="phone">Téléphone</label>
-                                        <input type="text" name="phone" value="{{old('phone')}}"
-                                               class="form-control {{ $errors->has('phone') ? ' is-invalid' : '' }}"
-                                               id="phone">
-                                        @if($errors->has('phone'))
-                                            <span class="invalid-feedback" role="alert">
-                                            <strong>{{ $errors->first('phone') }}</strong>
-                                        </span>
-                                        @endif
-                                    </div>
-                                </div>
-                                <div class="form-row">
-                                    <div class="form-group col-md-6">
-                                        <label for="email">Email</label>
-                                        <input type="text" name="email" value="{{old('email')}}"
-                                               class="form-control {{ $errors->has('email') ? ' is-invalid' : '' }}"
-                                               id="email" placeholder="">
-                                        @if($errors->has('email'))
-                                            <span class="invalid-feedback" role="alert">
-                                            <strong>{{ $errors->first('email') }}</strong>
-                                        </span>
-                                        @endif
-                                    </div>
-                                    <div class="form-group col-md-6">
-                                        <label for="pass">Password</label>
-                                        <input type="password" name="password"
-                                               class="form-control {{ $errors->has('password') ? ' is-invalid' : '' }}"
-                                               id="pass" placeholder="">
-                                        @if($errors->has('password'))
-                                            <span class="invalid-feedback" role="alert">
-                                            <strong>{{ $errors->first('password') }}</strong>
-                                        </span>
-                                        @endif
-                                    </div>
-                                </div>
-                                <div class="form-row">
-                                    <div class="form-group col-md-12">
-                                        <label for="address">Adresse</label>
-                                        <input type="text" name="address" value="{{old('address')}}"
-                                               class="form-control {{ $errors->has('address') ? ' is-invalid' : '' }}"
-                                               id="address" placeholder="">
-                                        @if($errors->has('address'))
-                                            <span class="invalid-feedback" role="alert">
-                                            <strong>{{ $errors->first('address') }}</strong>
-                                        </span>
-                                        @endif
-                                    </div>
-                                </div>
-
-                            </div>
-                            <!-- /.card-body -->
-                            <div class="card-footer">
-                                <a style="float:right; margin:0 5px;" href="{{ route('employee.index') }}"
-                                   class="btn btn-secondary btn-sm">Annuler</a>
-                                <button type="submit" class="btn btn-primary btn-sm"
-                                        style="float:right;">Add
-                                </button>
-                            </div>
-                            @csrf
-                        </form>
+                        <div>
+                            <label for="upload_file"
+                                   style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:var(--bd-radius);border:1px solid var(--bd-border);background:var(--bd-surface);color:var(--bd-text-2);font-size:12px;font-weight:600;cursor:pointer;transition:.12s;"
+                                   onmouseover="this.style.borderColor='var(--bd-green)';this.style.color='var(--bd-green)';"
+                                   onmouseout="this.style.borderColor='var(--bd-border)';this.style.color='var(--bd-text-2)';">
+                                <i class="fas fa-upload"></i> Choisir une photo
+                            </label>
+                            <input type="file" id="upload_file" name="image" accept="image/*"
+                                   style="display:none;" onchange="previewEmpAvatar(this)">
+                            <div style="font-size:11px;color:var(--bd-text-3);margin-top:5px;">JPG, PNG — max 2 Mo</div>
+                            @error('image')
+                                <div style="font-size:11px;color:#dc2626;margin-top:4px;">{{ $message }}</div>
+                            @enderror
+                        </div>
                     </div>
                 </div>
+
+                {{-- Nom + Téléphone --}}
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+                    <div>
+                        <label for="name" style="display:block;font-size:12px;font-weight:600;color:var(--bd-text);margin-bottom:6px;">
+                            Nom complet <span style="color:#dc2626;">*</span>
+                        </label>
+                        <input required type="text" name="name" id="name"
+                               value="{{ old('name') }}" placeholder="Prénom Nom"
+                               style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid {{ $errors->has('name') ? '#dc2626' : 'var(--bd-border)' }};border-radius:var(--bd-radius);font-size:13px;font-family:var(--bd-font);background:var(--bd-surface);color:var(--bd-text);outline:none;transition:border-color .12s;"
+                               onfocus="this.style.borderColor='var(--bd-green)';"
+                               onblur="this.style.borderColor='{{ $errors->has('name') ? '#dc2626' : 'var(--bd-border)' }}';" />
+                        @error('name')
+                            <div style="font-size:11px;color:#dc2626;margin-top:4px;">{{ $message }}</div>
+                        @enderror
+                    </div>
+                    <div>
+                        <label for="phone" style="display:block;font-size:12px;font-weight:600;color:var(--bd-text);margin-bottom:6px;">
+                            Téléphone
+                        </label>
+                        <input type="text" name="phone" id="phone"
+                               value="{{ old('phone') }}" placeholder="+242 06…"
+                               style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid {{ $errors->has('phone') ? '#dc2626' : 'var(--bd-border)' }};border-radius:var(--bd-radius);font-size:13px;font-family:var(--bd-font);background:var(--bd-surface);color:var(--bd-text);outline:none;transition:border-color .12s;"
+                               onfocus="this.style.borderColor='var(--bd-green)';"
+                               onblur="this.style.borderColor='{{ $errors->has('phone') ? '#dc2626' : 'var(--bd-border)' }}';" />
+                        @error('phone')
+                            <div style="font-size:11px;color:#dc2626;margin-top:4px;">{{ $message }}</div>
+                        @enderror
+                    </div>
+                </div>
+
+                {{-- Email + Mot de passe --}}
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+                    <div>
+                        <label for="email" style="display:block;font-size:12px;font-weight:600;color:var(--bd-text);margin-bottom:6px;">
+                            Email <span style="color:#dc2626;">*</span>
+                        </label>
+                        <input required type="email" name="email" id="email"
+                               value="{{ old('email') }}" placeholder="prenom@exemple.com"
+                               style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid {{ $errors->has('email') ? '#dc2626' : 'var(--bd-border)' }};border-radius:var(--bd-radius);font-size:13px;font-family:var(--bd-font);background:var(--bd-surface);color:var(--bd-text);outline:none;transition:border-color .12s;"
+                               onfocus="this.style.borderColor='var(--bd-green)';"
+                               onblur="this.style.borderColor='{{ $errors->has('email') ? '#dc2626' : 'var(--bd-border)' }}';" />
+                        @error('email')
+                            <div style="font-size:11px;color:#dc2626;margin-top:4px;">{{ $message }}</div>
+                        @enderror
+                    </div>
+                    <div>
+                        <label for="pass" style="display:block;font-size:12px;font-weight:600;color:var(--bd-text);margin-bottom:6px;">
+                            Mot de passe <span style="color:#dc2626;">*</span>
+                        </label>
+                        <input required type="password" name="password" id="pass"
+                               placeholder="Min. 8 caractères"
+                               style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid {{ $errors->has('password') ? '#dc2626' : 'var(--bd-border)' }};border-radius:var(--bd-radius);font-size:13px;font-family:var(--bd-font);background:var(--bd-surface);color:var(--bd-text);outline:none;transition:border-color .12s;"
+                               onfocus="this.style.borderColor='var(--bd-green)';"
+                               onblur="this.style.borderColor='{{ $errors->has('password') ? '#dc2626' : 'var(--bd-border)' }}';" />
+                        @error('password')
+                            <div style="font-size:11px;color:#dc2626;margin-top:4px;">{{ $message }}</div>
+                        @enderror
+                    </div>
+                </div>
+
+                {{-- Adresse --}}
+                <div>
+                    <label for="address" style="display:block;font-size:12px;font-weight:600;color:var(--bd-text);margin-bottom:6px;">
+                        Adresse
+                    </label>
+                    <input type="text" name="address" id="address"
+                           value="{{ old('address') }}" placeholder="Quartier, ville…"
+                           style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid {{ $errors->has('address') ? '#dc2626' : 'var(--bd-border)' }};border-radius:var(--bd-radius);font-size:13px;font-family:var(--bd-font);background:var(--bd-surface);color:var(--bd-text);outline:none;transition:border-color .12s;"
+                           onfocus="this.style.borderColor='var(--bd-green)';"
+                           onblur="this.style.borderColor='{{ $errors->has('address') ? '#dc2626' : 'var(--bd-border)' }}';" />
+                    @error('address')
+                        <div style="font-size:11px;color:#dc2626;margin-top:4px;">{{ $message }}</div>
+                    @enderror
+                </div>
+
             </div>
-            <!-- /.row (main row) -->
-        </div><!-- /.container-fluid -->
-    </section>
-    <script>
-        function logo1(input) {
-            if (input.files && input.files[0]) {
-                var reader = new FileReader();
 
-                reader.onload = function (e) {
-                    $('#logo')
-                        .attr('src', e.target.result);
-                };
+            <div style="padding:14px 20px;border-top:1px solid var(--bd-border-2);background:var(--bd-surface-2);display:flex;align-items:center;justify-content:flex-end;gap:8px;">
+                <a href="{{ route('employee.index') }}"
+                   style="display:inline-flex;align-items:center;gap:5px;padding:8px 16px;border-radius:var(--bd-radius);border:1px solid var(--bd-border);background:var(--bd-surface);color:var(--bd-text-2);font-size:12px;font-weight:600;text-decoration:none;transition:.12s;"
+                   onmouseover="this.style.borderColor='var(--bd-green)';this.style.color='var(--bd-green)';"
+                   onmouseout="this.style.borderColor='var(--bd-border)';this.style.color='var(--bd-text-2)';">
+                    Annuler
+                </a>
+                <button type="submit"
+                        style="display:inline-flex;align-items:center;gap:6px;padding:8px 18px;border-radius:var(--bd-radius);background:var(--bd-green);color:#fff;font-size:12px;font-weight:700;border:none;cursor:pointer;font-family:var(--bd-font);transition:.12s;"
+                        onmouseover="this.style.background='var(--bd-green-dark,#007836)';"
+                        onmouseout="this.style.background='var(--bd-green)';">
+                    <i class="fas fa-user-plus"></i> Ajouter
+                </button>
+            </div>
+        </form>
+    </div>
 
-                reader.readAsDataURL(input.files[0]);
-            }
-        }
+</div>
 
-        function licen(input) {
-            if (input.files && input.files[0]) {
-                var reader = new FileReader();
-
-                reader.onload = function (e) {
-                    $('#licence')
-                        .attr('src', e.target.result);
-                };
-
-                reader.readAsDataURL(input.files[0]);
-            }
-        }
-    </script>
+<script>
+function previewEmpAvatar(input) {
+    if (!input.files || !input.files[0]) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const preview = document.getElementById('avatarPreview');
+        preview.innerHTML = '<img src="' + e.target.result + '" style="width:100%;height:100%;object-fit:cover;">';
+    };
+    reader.readAsDataURL(input.files[0]);
+}
+</script>
 @endsection

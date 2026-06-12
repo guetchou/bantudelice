@@ -44,7 +44,7 @@ class VehicleController extends Controller
             'model' => 'required|string|max:191',
             'number' => 'required|string|unique:vehicles',
             'color' => 'required|string|max:191',
-            'license_image' => 'required|image|mimes:jpeg,png,jpg',
+            'license_image' => 'required|image|mimes:jpeg,png,jpg,webp|max:8192',
             'license_number' => 'required|string|unique:vehicles|max:191'
         ]);
         
@@ -121,7 +121,7 @@ class VehicleController extends Controller
             'model' => 'required|string|max:191',
             'number' => 'required|string|unique:vehicles,number,' . $vehicle->id,
             'color' => 'required|string|max:191',
-            'license_image' => 'nullable|image|mimes:jpeg,png,jpg',
+            'license_image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:8192',
             'license_number' => 'required|string|unique:vehicles,license_number,' . $vehicle->id . '|max:191'
         ]);
         

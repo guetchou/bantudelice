@@ -24,8 +24,8 @@
 
     <div class="label-container">
         <div class="header">
-            <h2 style="margin:0;">BantuDelice 242</h2>
-            <p style="margin:0;">Service de Livraison de Colis</p>
+            <h2 style="margin:0;">Mema</h2>
+            <p style="margin:0;">Service de livraison de colis</p>
         </div>
 
         <div class="tracking">
@@ -56,7 +56,7 @@
 
         <div class="footer">
             Merci de votre confiance !<br>
-            www.bantudelice.cg
+            mema.bantudelice.cg
         </div>
     </div>
 
@@ -66,4 +66,3 @@
     </script>
 </body>
 </html>
-

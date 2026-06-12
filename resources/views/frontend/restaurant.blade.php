@@ -1,203 +1,210 @@
 @extends('frontend.layouts.app-modern')
-@section('title', 'Devenir Partenaire | BantuDelice')
-@section('description', 'Rejoignez le réseau BantuDelice en tant que restaurant ou marchand partenaire.')
+@php
+    $foodBrandName = \App\Services\ConfigService::getCompanyName();
+@endphp
+@section('title', 'Devenir Partenaire | ' . $foodBrandName)
+@section('description', 'Rejoignez le réseau ' . $foodBrandName . ' en tant que restaurant ou marchand partenaire.')
+@section('body_class', 'bd-partner-page')
 
 @section('content')
-<!-- Hero Section -->
-<section style="background: linear-gradient(135deg, var(--secondary) 0%, var(--accent) 100%); padding: 150px 0 80px; text-align: center;">
+<section class="partner-hero">
     <div class="container">
-        <span class="section-badge" style="background: rgba(255,255,255,0.1); color: white;">
+        <span class="section-badge partner-hero-badge">
             <i class="fas fa-store"></i> Partenaire
         </span>
-        <h1 style="color: white; font-size: clamp(2rem, 5vw, 3rem); margin-top: 1rem;">
-            Devenez Partenaire BantuDelice
+        <h1 class="partner-hero-title">
+            Devenez Partenaire {{ $foodBrandName }}
         </h1>
-        <p style="color: rgba(255,255,255,0.8); max-width: 600px; margin: 1rem auto 0; font-size: 1.125rem;">
-            Augmentez votre visibilité et vos ventes en rejoignant notre plateforme de livraison.
+        <p class="partner-hero-description">
+            Déposez votre dossier pour référencer votre établissement et centraliser vos opérations de commande sur la plateforme.
         </p>
     </div>
 </section>
 
-<!-- Registration Form -->
-<section class="section">
+<section class="section partner-shell">
     <div class="container">
-        <div style="max-width: 700px; margin: 0 auto;">
-            <!-- Benefits -->
-            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 2rem;">
-                <div style="background: linear-gradient(135deg, rgba(255, 107, 53, 0.1) 0%, rgba(245, 158, 11, 0.1) 100%); padding: 1.5rem; border-radius: var(--radius-xl); text-align: center;">
-                    <div style="width: 48px; height: 48px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 0.75rem;">
-                        <i class="fas fa-chart-line" style="color: white; font-size: 1.25rem;"></i>
+        <div class="partner-form-wrap">
+            <div class="partner-benefits">
+                <div class="partner-benefit-card">
+                    <div class="partner-benefit-icon">
+                        <i class="fas fa-chart-line"></i>
                     </div>
-                    <h4 style="font-size: 0.9375rem; margin: 0;">Plus de clients</h4>
+                    <h4 class="partner-benefit-title">Nouveaux canaux de vente</h4>
                 </div>
-                <div style="background: linear-gradient(135deg, rgba(255, 107, 53, 0.1) 0%, rgba(245, 158, 11, 0.1) 100%); padding: 1.5rem; border-radius: var(--radius-xl); text-align: center;">
-                    <div style="width: 48px; height: 48px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 0.75rem;">
-                        <i class="fas fa-shipping-fast" style="color: white; font-size: 1.25rem;"></i>
+                <div class="partner-benefit-card">
+                    <div class="partner-benefit-icon">
+                        <i class="fas fa-shipping-fast"></i>
                     </div>
-                    <h4 style="font-size: 0.9375rem; margin: 0;">Livraison rapide</h4>
+                    <h4 class="partner-benefit-title">Opérations de livraison</h4>
                 </div>
-                <div style="background: linear-gradient(135deg, rgba(255, 107, 53, 0.1) 0%, rgba(245, 158, 11, 0.1) 100%); padding: 1.5rem; border-radius: var(--radius-xl); text-align: center;">
-                    <div style="width: 48px; height: 48px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 0.75rem;">
-                        <i class="fas fa-hand-holding-usd" style="color: white; font-size: 1.25rem;"></i>
+                <div class="partner-benefit-card">
+                    <div class="partner-benefit-icon">
+                        <i class="fas fa-hand-holding-usd"></i>
                     </div>
-                    <h4 style="font-size: 0.9375rem; margin: 0;">Revenus garantis</h4>
+                    <h4 class="partner-benefit-title">Versements structurés</h4>
                 </div>
             </div>
-            
-            <!-- Alert Messages -->
+
             @if(session()->has('alert'))
-                <div style="background: {{ session()->get('alert.type') == 'success' ? 'var(--success)' : 'var(--error)' }}; color: white; padding: 1rem; border-radius: var(--radius-lg); margin-bottom: 1.5rem; text-align: center;">
+                <div class="partner-alert {{ session()->get('alert.type') == 'success' ? 'is-success' : 'is-error' }}">
                     <strong>{{ session()->get('alert.message') }}</strong>
                 </div>
             @endif
-            
-            <!-- Form Card -->
-            <div style="background: white; padding: 2rem; border-radius: var(--radius-2xl); box-shadow: var(--shadow-lg);">
-                <h2 style="font-size: 1.5rem; margin-bottom: 0.5rem; text-align: center;">Inscription Restaurant/Marchand</h2>
-                <p style="color: var(--gray-500); text-align: center; margin-bottom: 2rem;">Complétez le formulaire pour rejoindre notre réseau</p>
-                
-                <form action="{{ route('partner.register') }}" method="post" enctype="multipart/form-data">
+
+            <div class="partner-card">
+                <h2 class="partner-heading">Ouverture de compte partenaire</h2>
+                <p class="partner-subtitle">Complétez le formulaire pour soumettre votre dossier.</p>
+
+                <form action="{{ route('partner.register') }}" method="post" enctype="multipart/form-data" class="partner-form">
                     @csrf
-                    
-                    <!-- Business Info -->
-                    <h4 style="font-size: 1rem; color: var(--primary); margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 2px solid var(--gray-100);">
+
+                    <h4 class="partner-section-title">
                         <i class="fas fa-store"></i> Informations de l'établissement
                     </h4>
-                    
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
-                        <div>
-                            <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: var(--gray-700);">Nom de l'établissement *</label>
+
+                    <div class="partner-grid">
+                        <div class="partner-field">
+                            <label class="partner-label">Nom de l'établissement *</label>
                             <input type="text" name="name" value="{{ old('name') }}" placeholder="Ex: Restaurant Le Délice"
-                                   style="width: 100%; padding: 0.875rem 1rem; border: 2px solid var(--gray-200); border-radius: var(--radius-lg); font-size: 1rem;" required>
+                                   class="partner-input" required>
                         </div>
-                        <div>
-                            <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: var(--gray-700);">Téléphone *</label>
+                        <div class="partner-field">
+                            <label class="partner-label">Téléphone *</label>
                             <input type="tel" name="phone" value="{{ old('phone') }}" placeholder="+242 06 XXX XX XX"
-                                   style="width: 100%; padding: 0.875rem 1rem; border: 2px solid var(--gray-200); border-radius: var(--radius-lg); font-size: 1rem;" required>
+                                   class="partner-input" required>
                         </div>
                     </div>
-                    
-                    <div style="margin-bottom: 1.5rem;">
-                        <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: var(--gray-700);">Email *</label>
+
+                    <div class="partner-field">
+                        <label class="partner-label">Email *</label>
                         <input type="email" name="email" value="{{ old('email') }}" placeholder="contact@votrerestaurant.com"
-                               style="width: 100%; padding: 0.875rem 1rem; border: 2px solid var(--gray-200); border-radius: var(--radius-lg); font-size: 1rem;" required>
+                               class="partner-input" required>
                     </div>
-                    
-                    <div style="margin-bottom: 1.5rem;">
-                        <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: var(--gray-700);">Slogan</label>
+
+                    <div class="partner-field">
+                        <label class="partner-label">Slogan</label>
                         <input type="text" name="slogan" value="{{ old('slogan') }}" placeholder="Ex: Les meilleurs plats de la ville"
-                               style="width: 100%; padding: 0.875rem 1rem; border: 2px solid var(--gray-200); border-radius: var(--radius-lg); font-size: 1rem;">
+                               class="partner-input">
                     </div>
-                    
-                    <!-- Images -->
-                    <h4 style="font-size: 1rem; color: var(--primary); margin: 2rem 0 1rem; padding-bottom: 0.5rem; border-bottom: 2px solid var(--gray-100);">
+
+                    <h4 class="partner-section-title">
                         <i class="fas fa-image"></i> Images
                     </h4>
-                    
-                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 1.5rem;">
-                        <!-- Logo -->
-                        <div>
-                            <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: var(--gray-700);">Logo</label>
-                            <div style="border: 2px dashed var(--gray-300); border-radius: var(--radius-lg); padding: 1.5rem; text-align: center; cursor: pointer;"
-                                 onclick="document.getElementById('upload_file').click()">
-                                <img src="{{ url('images/placeholder.png') }}" id="proflie_image" alt="Logo" 
-                                     style="width: 80px; height: 80px; border-radius: var(--radius-lg); object-fit: cover; margin: 0 auto 0.5rem;">
-                                <p style="color: var(--gray-500); font-size: 0.8rem; margin: 0;">Logo de l'établissement<br>90x90 pixels</p>
+
+                    <div class="partner-upload-grid">
+                        <div class="partner-field">
+                            <label class="partner-label">Logo</label>
+                            <div class="partner-upload-trigger" onclick="document.getElementById('upload_file').click()">
+                                <img src="{{ url('images/placeholder.png') }}" id="proflie_image" alt="Logo"
+                                     class="partner-upload-preview">
+                                <p class="partner-upload-copy">Logo de l'établissement<br>90x90 pixels</p>
                             </div>
-                            <input type="file" id="upload_file" name="logo" accept="image/*" style="display: none;" onchange="profile(this);">
+                            <input type="file" id="upload_file" name="logo" accept="image/*" class="partner-file-input" onchange="profile(this);">
                         </div>
-                        
-                        <!-- Cover Image -->
-                        <div>
-                            <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: var(--gray-700);">Image de couverture</label>
-                            <div style="border: 2px dashed var(--gray-300); border-radius: var(--radius-lg); padding: 1.5rem; text-align: center; cursor: pointer;"
-                                 onclick="document.getElementById('file-input').click()">
-                                <img src="{{ url('images/placeholder.png') }}" id="licence_image" alt="Couverture" 
-                                     style="width: 80px; height: 80px; border-radius: var(--radius-lg); object-fit: cover; margin: 0 auto 0.5rem;">
-                                <p style="color: var(--gray-500); font-size: 0.8rem; margin: 0;">Photo de couverture<br>Format paysage</p>
+
+                        <div class="partner-field">
+                            <label class="partner-label">Image de couverture</label>
+                            <div class="partner-upload-trigger" onclick="document.getElementById('file-input').click()">
+                                <img src="{{ url('images/placeholder.png') }}" id="licence_image" alt="Couverture"
+                                     class="partner-upload-preview">
+                                <p class="partner-upload-copy">Photo de couverture<br>Format paysage</p>
                             </div>
-                            <input type="file" id="file-input" name="cover_image" accept="image/*" style="display: none;" onchange="licenceimage(this);">
+                            <input type="file" id="file-input" name="cover_image" accept="image/*" class="partner-file-input" onchange="licenceimage(this);">
                         </div>
                     </div>
-                    
-                    <!-- Location -->
-                    <h4 style="font-size: 1rem; color: var(--primary); margin: 2rem 0 1rem; padding-bottom: 0.5rem; border-bottom: 2px solid var(--gray-100);">
+
+                    <h4 class="partner-section-title">
                         <i class="fas fa-map-marker-alt"></i> Localisation
                     </h4>
-                    
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
-                        <div>
-                            <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: var(--gray-700);">Ville *</label>
+
+                    <div class="partner-grid">
+                        <div class="partner-field">
+                            <label class="partner-label">Ville *</label>
                             <input type="text" name="city" value="{{ old('city') }}" placeholder="Ex: Brazzaville"
-                                   style="width: 100%; padding: 0.875rem 1rem; border: 2px solid var(--gray-200); border-radius: var(--radius-lg); font-size: 1rem;" required>
+                                   class="partner-input" required>
                         </div>
-                        <div>
-                            <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: var(--gray-700);">Adresse complète *</label>
+                        <div class="partner-field">
+                            <label class="partner-label">Adresse complète *</label>
                             <input type="text" name="address" value="{{ old('address') }}" placeholder="Quartier, avenue, numéro"
-                                   style="width: 100%; padding: 0.875rem 1rem; border: 2px solid var(--gray-200); border-radius: var(--radius-lg); font-size: 1rem;" required>
+                                   class="partner-input" required>
                         </div>
                     </div>
-                    
-                    <!-- Bank Info -->
-                    <h4 style="font-size: 1rem; color: var(--primary); margin: 2rem 0 1rem; padding-bottom: 0.5rem; border-bottom: 2px solid var(--gray-100);">
-                        <i class="fas fa-university"></i> Informations bancaires
+
+                    {{-- Mobile Money — principal --}}
+                    <h4 class="partner-section-title">
+                        <i class="fas fa-mobile-screen-button"></i> Mobile Money
+                        <span style="font-size:.75rem;font-weight:400;color:#6b7280;margin-left:4px;">(MTN / Airtel)</span>
                     </h4>
-                    
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
-                        <div>
-                            <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: var(--gray-700);">Nom du titulaire *</label>
-                            <input type="text" name="account_name" value="{{ old('account_name') }}" placeholder="Nom sur le compte"
-                                   style="width: 100%; padding: 0.875rem 1rem; border: 2px solid var(--gray-200); border-radius: var(--radius-lg); font-size: 1rem;" required>
+
+                    <div class="partner-field">
+                        <label class="partner-label">Numéro Mobile Money *</label>
+                        <input type="tel" name="paypal_account_no" value="{{ old('paypal_account_no') }}"
+                               placeholder="Ex : +242 06 XXX XX XX" inputmode="tel"
+                               class="partner-input" required>
+                        @error('paypal_account_no')
+                            <span style="color:#dc2626;font-size:.78rem;">{{ $message }}</span>
+                        @enderror
+                    </div>
+
+                    {{-- Banque — optionnel --}}
+                    <h4 class="partner-section-title" style="cursor:pointer;margin-top:20px;"
+                        onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
+                        <i class="fas fa-university"></i> Coordonnées bancaires
+                        <span style="font-size:.75rem;font-weight:400;color:#6b7280;margin-left:4px;">(optionnel) <i class="fas fa-chevron-down" style="font-size:.65rem;"></i></span>
+                    </h4>
+
+                    <div style="display:none;">
+                        <div class="partner-grid">
+                            <div class="partner-field">
+                                <label class="partner-label">Nom du titulaire</label>
+                                <input type="text" name="account_name" value="{{ old('account_name') }}"
+                                       placeholder="Nom sur le compte" class="partner-input">
+                            </div>
+                            <div class="partner-field">
+                                <label class="partner-label">Numéro de compte</label>
+                                <input type="text" name="account_number" value="{{ old('account_number') }}"
+                                       placeholder="Numéro de compte" class="partner-input">
+                            </div>
                         </div>
-                        <div>
-                            <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: var(--gray-700);">Numéro de compte *</label>
-                            <input type="text" name="account_number" value="{{ old('account_number') }}" placeholder="Numéro de compte"
-                                   style="width: 100%; padding: 0.875rem 1rem; border: 2px solid var(--gray-200); border-radius: var(--radius-lg); font-size: 1rem;" required>
+                        <div class="partner-grid">
+                            <div class="partner-field">
+                                <label class="partner-label">Nom de la banque</label>
+                                <input type="text" name="bank_name" value="{{ old('bank_name') }}"
+                                       placeholder="Ex: BGFI, UBA, etc." class="partner-input">
+                            </div>
+                            <div class="partner-field">
+                                <label class="partner-label">Code agence</label>
+                                <input type="text" name="branch_number" value="{{ old('branch_number') }}"
+                                       placeholder="Code agence" class="partner-input">
+                            </div>
                         </div>
                     </div>
-                    
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
-                        <div>
-                            <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: var(--gray-700);">Nom de la banque *</label>
-                            <input type="text" name="bank_name" value="{{ old('bank_name') }}" placeholder="Ex: BGFI, UBA, etc."
-                                   style="width: 100%; padding: 0.875rem 1rem; border: 2px solid var(--gray-200); border-radius: var(--radius-lg); font-size: 1rem;" required>
-                        </div>
-                        <div>
-                            <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: var(--gray-700);">Code agence *</label>
-                            <input type="text" name="branch_number" value="{{ old('branch_number') }}" placeholder="Code agence"
-                                   style="width: 100%; padding: 0.875rem 1rem; border: 2px solid var(--gray-200); border-radius: var(--radius-lg); font-size: 1rem;" required>
-                        </div>
-                    </div>
-                    
-                    <!-- Password -->
-                    <h4 style="font-size: 1rem; color: var(--primary); margin: 2rem 0 1rem; padding-bottom: 0.5rem; border-bottom: 2px solid var(--gray-100);">
+
+                    <h4 class="partner-section-title" style="margin-top:20px;">
                         <i class="fas fa-lock"></i> Sécurité
                     </h4>
-                    
-                    <div style="margin-bottom: 1.5rem;">
-                        <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: var(--gray-700);">Mot de passe *</label>
+
+                    <div class="partner-field">
+                        <label class="partner-label">Mot de passe *</label>
                         <input type="password" name="password" placeholder="Créez un mot de passe sécurisé"
-                               style="width: 100%; padding: 0.875rem 1rem; border: 2px solid var(--gray-200); border-radius: var(--radius-lg); font-size: 1rem;" required>
+                               class="partner-input" autocomplete="new-password" required>
                     </div>
-                    
-                    <!-- Terms -->
-                    <div style="margin-bottom: 1.5rem;">
-                        <label style="display: flex; align-items: flex-start; gap: 0.5rem; cursor: pointer; font-size: 0.9375rem; color: var(--gray-600);">
-                            <input type="checkbox" name="terms" style="width: 18px; height: 18px; accent-color: var(--primary); margin-top: 2px;" required>
-                            <span>J'accepte les <a href="{{ route('terms.conditions') }}" style="color: var(--primary);">conditions générales</a> et la <a href="{{ route('refund.policy') }}" style="color: var(--primary);">politique de remboursement</a> de BantuDelice</span>
+
+                    <div class="partner-terms">
+                        <label class="partner-terms-label">
+                            <input type="checkbox" name="terms" class="partner-terms-checkbox" required>
+                            <span>J'accepte les <a href="{{ route('terms.conditions') }}" class="partner-terms-link">conditions générales</a> et la <a href="{{ route('refund.policy') }}" class="partner-terms-link">politique de remboursement</a> de {{ $foodBrandName }}</span>
                         </label>
                     </div>
-                    
-                    <!-- Submit -->
-                    <button type="submit" class="btn btn-primary btn-lg" style="width: 100%;">
+
+                    <button type="submit" class="partner-submit">
                         <i class="fas fa-paper-plane"></i> Soumettre ma candidature
                     </button>
                 </form>
-                
-                <!-- Login Link -->
-                <p style="text-align: center; color: var(--gray-600); margin-top: 1.5rem;">
-                    Déjà partenaire ? 
-                    <a href="{{ route('login') }}" style="color: var(--primary); font-weight: 600;">Connectez-vous</a>
+
+                <p class="partner-login-note">
+                    Déjà partenaire ?
+                    <a href="{{ route('login') }}" class="partner-login-link">Connectez-vous</a>
                 </p>
             </div>
         </div>

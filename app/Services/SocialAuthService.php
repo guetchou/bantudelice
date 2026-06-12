@@ -13,13 +13,52 @@ use Illuminate\Support\Str;
  */
 class SocialAuthService
 {
+    public static function getProviderRedirectUri(string $provider): string
+    {
+        $config = config("external-services.social_auth.{$provider}");
+        $redirect = $config['redirect'] ?? "/auth/{$provider}/callback";
+
+        return self::normalizeRedirectUri($redirect);
+    }
+
+    public static function getProviderAuthorizedOrigins(string $provider): array
+    {
+        $redirectUri = self::getProviderRedirectUri($provider);
+        $origins = [];
+
+        $origin = parse_url($redirectUri, PHP_URL_SCHEME) . '://' . parse_url($redirectUri, PHP_URL_HOST);
+        $port = parse_url($redirectUri, PHP_URL_PORT);
+
+        if ($port) {
+            $origin .= ':' . $port;
+        }
+
+        $origins[] = $origin;
+
+        $appUrl = config('app.url');
+        if (is_string($appUrl) && $appUrl !== '') {
+            $origins[] = rtrim($appUrl, '/');
+        }
+
+        return array_values(array_unique(array_filter($origins)));
+    }
+
+    public static function getProviderConsoleHints(string $provider): array
+    {
+        return [
+            'provider' => $provider,
+            'callback_uri' => self::getProviderRedirectUri($provider),
+            'authorized_origins' => self::getProviderAuthorizedOrigins($provider),
+        ];
+    }
+
     /**
      * Obtenir l'URL d'autorisation Google
      * 
      * @param string $redirectUri URI de callback (optionnel)
      * @return string URL d'autorisation
      */
-    public static function getGoogleAuthUrl(?string $redirectUri = null): string
+    public static function getGoogleAuthUrl(?string $redirectUri = null, ?string $state = null): string
     {
         $config = config('external-services.social_auth.google');
         
@@ -27,7 +66,7 @@ class SocialAuthService
             throw new \RuntimeException('Authentification Google non activée');
         }
         
-        $redirectUri = $redirectUri ?? url($config['redirect']);
+        $redirectUri = $redirectUri ?? self::getProviderRedirectUri('google');
         
         $params = [
             'client_id' => $config['client_id'],
@@ -36,7 +75,7 @@ class SocialAuthService
             'scope' => 'openid email profile',
             'access_type' => 'offline',
             'prompt' => 'select_account',
-            'state' => csrf_token(),
+            'state' => $state ?? Str::random(40),
         ];
         
         return 'https://accounts.google.com/o/oauth2/v2/auth?' . http_build_query($params);
@@ -52,7 +91,7 @@ class SocialAuthService
     public static function handleGoogleCallback(string $code, ?string $redirectUri = null): array
     {
         $config = config('external-services.social_auth.google');
-        $redirectUri = $redirectUri ?? url($config['redirect']);
+        $redirectUri = $redirectUri ?? self::getProviderRedirectUri('google');
         
         // Échanger le code contre un token
         $tokenResponse = Http::asForm()->post('https://oauth2.googleapis.com/token', [
@@ -98,7 +137,7 @@ class SocialAuthService
      * @param string $redirectUri
      * @return string
      */
-    public static function getFacebookAuthUrl(?string $redirectUri = null): string
+    public static function getFacebookAuthUrl(?string $redirectUri = null, ?string $state = null): string
     {
         $config = config('external-services.social_auth.facebook');
         
@@ -106,14 +145,14 @@ class SocialAuthService
             throw new \RuntimeException('Authentification Facebook non activée');
         }
         
-        $redirectUri = $redirectUri ?? url($config['redirect']);
+        $redirectUri = $redirectUri ?? self::getProviderRedirectUri('facebook');
         
         $params = [
             'client_id' => $config['client_id'],
             'redirect_uri' => $redirectUri,
             'scope' => 'email,public_profile',
             'response_type' => 'code',
-            'state' => csrf_token(),
+            'state' => $state ?? Str::random(40),
         ];
         
         return 'https://www.facebook.com/v18.0/dialog/oauth?' . http_build_query($params);
@@ -129,7 +168,7 @@ class SocialAuthService
     public static function handleFacebookCallback(string $code, ?string $redirectUri = null): array
     {
         $config = config('external-services.social_auth.facebook');
-        $redirectUri = $redirectUri ?? url($config['redirect']);
+        $redirectUri = $redirectUri ?? self::getProviderRedirectUri('facebook');
         
         // Échanger le code contre un token
         $tokenResponse = Http::get('https://graph.facebook.com/v18.0/oauth/access_token', [
@@ -147,28 +186,32 @@ class SocialAuthService
         $tokens = $tokenResponse->json();
         $accessToken = $tokens['access_token'];
         
-        // Récupérer les infos utilisateur
+        // Récupérer les infos utilisateur avec appsecret_proof (HMAC-SHA256 du token)
+        $appSecret = config('external-services.social_auth.facebook.client_secret', '');
+        $appsecretProof = hash_hmac('sha256', $accessToken, $appSecret);
+
         $userResponse = Http::get('https://graph.facebook.com/me', [
-            'access_token' => $accessToken,
-            'fields' => 'id,name,email,picture.type(large)',
+            'access_token'    => $accessToken,
+            'appsecret_proof' => $appsecretProof,
+            'fields'          => 'id,name,email,picture.type(large)',
         ]);
-        
+
         if (!$userResponse->successful()) {
             throw new \RuntimeException('Impossible de récupérer les informations utilisateur');
         }
-        
+
         $fbUser = $userResponse->json();
-        
+
         return self::findOrCreateUser([
-            'provider' => 'facebook',
-            'provider_id' => $fbUser['id'],
-            'email' => $fbUser['email'] ?? null,
-            'name' => $fbUser['name'],
-            'avatar' => $fbUser['picture']['data']['url'] ?? null,
+            'provider'       => 'facebook',
+            'provider_id'    => $fbUser['id'],
+            'email'          => $fbUser['email'] ?? null,
+            'name'           => $fbUser['name'],
+            'avatar'         => $fbUser['picture']['data']['url'] ?? null,
             'email_verified' => !empty($fbUser['email']),
         ]);
     }
-    
+
     /**
      * Authentifier via token (pour app mobile)
      * 
@@ -220,15 +263,20 @@ class SocialAuthService
      */
     protected static function authenticateFacebookToken(string $accessToken): array
     {
+        // appsecret_proof : HMAC-SHA256(access_token, app_secret) — exigé par Meta
+        $appSecret = config('external-services.social_auth.facebook.client_secret', '');
+        $appsecretProof = hash_hmac('sha256', $accessToken, $appSecret);
+
         $response = Http::get('https://graph.facebook.com/me', [
-            'access_token' => $accessToken,
-            'fields' => 'id,name,email,picture.type(large)',
+            'access_token'    => $accessToken,
+            'appsecret_proof' => $appsecretProof,
+            'fields'          => 'id,name,email,picture.type(large)',
         ]);
-        
+
         if (!$response->successful()) {
             throw new \RuntimeException('Token Facebook invalide');
         }
-        
+
         $fbUser = $response->json();
         
         return self::findOrCreateUser([
@@ -383,5 +431,13 @@ class SocialAuthService
         
         return $user->fresh();
     }
-}
 
+    protected static function normalizeRedirectUri(string $redirectUri): string
+    {
+        if (Str::startsWith($redirectUri, ['http://', 'https://'])) {
+            return $redirectUri;
+        }
+
+        return url('/' . ltrim($redirectUri, '/'));
+    }
+}

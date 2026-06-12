@@ -2,6 +2,7 @@
 
 namespace App\Jobs;
 
+use App\Domain\Food\Enums\OrderPaymentStatus;
 use App\Order;
 use App\Cart;
 use App\Services\DeliveryService;
@@ -11,6 +12,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Queue\Middleware\WithoutOverlapping;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -27,6 +29,9 @@ use Illuminate\Support\Facades\Log;
 class ProcessOrderJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+
+    public $timeout = 120;
+    public $failOnTimeout = true;
 
     protected $userId;
     protected $orderNo;
@@ -47,50 +52,28 @@ class ProcessOrderJob implements ShouldQueue
         $this->orderNo = $orderNo;
         $this->cartItems = $cartItems;
         $this->orderData = $orderData;
+        $this->onConnection(config('module_queues.modules.food.connection', 'database_food'));
+        $this->onQueue(config('module_queues.modules.food.queue', 'food'));
     }
 
     /**
-     * Execute the job.
+     * Ce job est intentionnellement désactivé.
      *
-     * @return void
+     * La création de commande, de livraison, de points de fidélité et
+     * de notifications est déjà gérée de façon synchrone dans
+     * CustomerOrderController::getOrders(). Si ce job était déclenché,
+     * il dupliquerait Cart::delete() et LoyaltyService::addPointsFromOrder(),
+     * causant des doubles attributions de points et des paniers supprimés deux fois.
+     *
+     * Ne pas supprimer ce fichier sans supprimer d'abord son enregistrement
+     * dans ModuleQueueService (type 'process_order').
      */
-    public function handle()
+    public function handle(): void
     {
-        DB::beginTransaction();
-        try {
-            // 1. Créer les commandes
-            $orders = $this->createOrders();
-            
-            // 2. Créer les livraisons et déclencher dispatch
-            $this->createDeliveries($orders);
-            
-            // 3. Ajouter les points de fidélité
-            $this->addLoyaltyPoints($orders);
-            
-            // 4. Vider le panier
-            Cart::where('user_id', $this->userId)->delete();
-            
-            DB::commit();
-            
-            // 5. Envoyer les notifications (dans un job séparé pour ne pas bloquer)
-            SendOrderNotificationsJob::dispatch($this->userId, $this->orderNo, $orders->first()->restaurant_id ?? null);
-            
-            Log::info('Commande traitée avec succès', [
-                'order_no' => $this->orderNo,
-                'user_id' => $this->userId,
-                'orders_count' => $orders->count()
-            ]);
-            
-        } catch (\Exception $e) {
-            DB::rollBack();
-            Log::error('Erreur lors du traitement de la commande', [
-                'order_no' => $this->orderNo,
-                'user_id' => $this->userId,
-                'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
-            throw $e;
-        }
+        Log::warning('ProcessOrderJob déclenché alors qu\'il est désactivé — ignorer.', [
+            'order_no' => $this->orderNo,
+            'user_id'  => $this->userId,
+        ]);
     }
 
     /**
@@ -125,7 +108,7 @@ class ProcessOrderJob implements ShouldQueue
                 'd_lat' => $this->orderData['d_lat'] ?? '-4.2767',
                 'd_lng' => $this->orderData['d_lng'] ?? '15.2832',
                 'payment_method' => $this->orderData['payment_method'] ?? 'cash',
-                'payment_status' => $this->orderData['payment_method'] === 'cash' ? 'pending' : 'pending',
+                'payment_status' => OrderPaymentStatus::PENDING->value,
                 'status' => 'pending',
                 'ordered_time' => now(),
             ]);
@@ -151,7 +134,9 @@ class ProcessOrderJob implements ShouldQueue
                 $delivery = $deliveryService->createForOrder($order);
                 
                 // Dispatch automatique
-                AutoAssignDeliveryJob::dispatch($delivery);
+                enqueue_job('food', 'auto_assign_delivery', [
+                    'delivery' => $delivery,
+                ]);
             } catch (\Exception $e) {
                 Log::error('Erreur création livraison dans job', [
                     'order_id' => $order->id,
@@ -203,5 +188,11 @@ class ProcessOrderJob implements ShouldQueue
     {
         return [30, 60, 120]; // Retry après 30s, 60s, 120s
     }
-}
 
+    public function middleware(): array
+    {
+        return [
+            (new WithoutOverlapping("food:process-order:{$this->orderNo}"))->expireAfter(300),
+        ];
+    }
+}

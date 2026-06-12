@@ -18,9 +18,14 @@ class CreateCartExtrasTable extends Migration
             $table->unsignedBigInteger('cart_id');
             $table->unsignedBigInteger('extra_id');
             $table->foreign('cart_id')->references('id')->on('carts')->onDelete('cascade');
-            $table->foreign('extra_id')->references('id')->on('extras')->onDelete('cascade');
             $table->timestamps();
         });
+
+        if (Schema::hasTable('extras')) {
+            Schema::table('cart_extras', function (Blueprint $table) {
+                $table->foreign('extra_id')->references('id')->on('extras')->onDelete('cascade');
+            });
+        }
     }
 
     /**

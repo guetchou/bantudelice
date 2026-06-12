@@ -6,6 +6,7 @@ use App\Cuisine;
 use App\Http\Controllers\Controller;
 use App\Services\DataSyncService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\File;
 
 class CuisineController extends Controller
 {
@@ -40,24 +41,13 @@ class CuisineController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:191',
-            'image'=>'required|image|mimes:png,jpg'
+            'image' => 'required|image|mimes:jpeg,png,jpg,webp|max:8192',
         ]);
-        $cuisine=Cuisine::create($request->all());
-        $image = $request->image;
-                    $destination = 'images/cuisine';
-                    if ($request->hasFile('image')) {
-                        $filename = strtolower(
-                            pathinfo($image->getClientOriginalName(), PATHINFO_FILENAME)
-                            . '-'
-                            . uniqid()
-                            . '.'
-                            . $image->getClientOriginalExtension()
-                        );
-                        $image->move($destination, $filename);
-                        str_replace(" ", "-", $filename);
-                        $cuisine->image = $filename;
-                        $cuisine->save();
-                    }
+
+        $cuisine = new Cuisine();
+        $cuisine->name = $request->input('name');
+        $cuisine->image = $this->storeImage($request->file('image'));
+        $cuisine->save();
         
         // Invalider le cache pour synchroniser les données
         DataSyncService::invalidateCuisineCache($cuisine->id);
@@ -73,9 +63,9 @@ class CuisineController extends Controller
      * @param  int  $id
      * @return \Illuminate\Http\Response
      */
-    public function show($id)
+    public function show(Cuisine $cuisine)
     {
-        //
+        return redirect()->route('cuisine.edit', ['cuisine' => $cuisine->id]);
     }
 
     /**
@@ -101,29 +91,16 @@ class CuisineController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:191',
-            'image' => 'nullable|image|mimes:png,jpg,jpeg'
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:8192',
         ]);
         
-        // Mettre à jour le nom
         $cuisine->name = $request->input('name');
-        
-        // Gérer l'image seulement si une nouvelle image est fournie
-        $destination = 'images/cuisine';
+
         if ($request->hasFile('image')) {
-            $image = $request->file('image');
-            $filename = strtolower(
-                pathinfo($image->getClientOriginalName(), PATHINFO_FILENAME)
-                . '-'
-                . uniqid()
-                . '.'
-                . $image->getClientOriginalExtension()
-            );
-            $image->move($destination, $filename);
-            $filename = str_replace(" ", "-", $filename);
-            $cuisine->image = $filename;
+            $this->deleteImage($cuisine->image);
+            $cuisine->image = $this->storeImage($request->file('image'));
         }
-        // Si pas d'image, on garde l'ancienne
-        
+
         $cuisine->save();
         
         // Invalider le cache pour synchroniser les données
@@ -143,6 +120,7 @@ class CuisineController extends Controller
     public function destroy(Cuisine $cuisine)
     {
         $cuisineId = $cuisine->id;
+        $this->deleteImage($cuisine->image);
         $cuisine->delete();
         
         // Invalider le cache pour synchroniser les données
@@ -151,5 +129,38 @@ class CuisineController extends Controller
         $alert['type'] = 'success';
         $alert['message'] = 'Cuisine supprimée avec succès';
         return redirect()->route('cuisine.index')->with('alert', $alert);
+    }
+
+    protected function storeImage($image): string
+    {
+        $destination = public_path('images/cuisine');
+
+        if (! is_dir($destination)) {
+            mkdir($destination, 0775, true);
+        }
+
+        $filename = strtolower(
+            pathinfo($image->getClientOriginalName(), PATHINFO_FILENAME)
+            . '-'
+            . uniqid()
+            . '.'
+            . $image->getClientOriginalExtension()
+        );
+        $filename = str_replace(' ', '-', $filename);
+        $image->move($destination, $filename);
+
+        return $filename;
+    }
+
+    protected function deleteImage(?string $image): void
+    {
+        if (empty($image)) {
+            return;
+        }
+
+        $path = public_path('images/cuisine/' . $image);
+        if (File::exists($path)) {
+            @unlink($path);
+        }
     }
 }

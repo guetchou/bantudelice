@@ -9,6 +9,7 @@ use App\Restaurant;
 use App\Optional;
 use App\AddOnsTitle;
 use App\Services\DataSyncService;
+use App\Services\UnifiedMediaLibraryService;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -17,6 +18,10 @@ use Illuminate\Support\Str;
 
 class ProductController extends Controller
 {
+    public function __construct(private UnifiedMediaLibraryService $unifiedMediaLibraryService)
+    {
+    }
+
     /**
      * Display a listing of the resource.
      *
@@ -24,9 +29,15 @@ class ProductController extends Controller
      */
     public function index()
     {
-        // dd(auth()->user()->restaurant()->first()->services);
-        $products = Product::where('restaurant_id',auth()->user()->restaurant->id)->get();
-        return view('restaurant.product.index')->with('products', $products);
+        $restaurantId = auth()->user()->restaurant->id;
+        $products = Product::with('categories')
+            ->where('restaurant_id', $restaurantId)
+            ->orderBy('name')
+            ->get();
+        $categories = Category::where('restaurant_id', $restaurantId)
+            ->orderBy('name')
+            ->get();
+        return view('restaurant.product.index', compact('products', 'categories'));
     }
 
     /**
@@ -36,7 +47,9 @@ class ProductController extends Controller
      */
     public function create()
     {
-        return view('restaurant.product.create');
+        return view('restaurant.product.create', [
+            'mediaLibraryOptions' => $this->unifiedMediaLibraryService->groupedOptions(),
+        ]);
 
     }
 
@@ -51,8 +64,9 @@ class ProductController extends Controller
         $request->validate([
             'category_id'=>'required|integer',
             'name'=>'required|string|max:191',
-            'image' => 'nullable|image|mimes:jpeg,png,jpg|max:4096|required_without:image_url',
-            'image_url' => 'nullable|url|max:2048|required_without:image',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:8192|required_without_all:image_url,image_media_path',
+            'image_url' => 'nullable|url|max:2048|required_without_all:image,image_media_path',
+            'image_media_path' => 'nullable|string|max:2048|required_without_all:image,image_url',
             'price'=>'required',
             'discount_price'=>'nullable',
             'description'=>'nullable|string|max:191',
@@ -96,6 +110,13 @@ class ProductController extends Controller
             $product->save();
         } elseif ($request->filled('image_url')) {
             $product->image = $request->image_url;
+            $product->save();
+        } elseif ($request->filled('image_media_path')) {
+            $product->image = $this->unifiedMediaLibraryService->copyToDirectory(
+                $request->input('image_media_path'),
+                'images/product_images',
+                'product-' . $product->id
+            );
             $product->save();
         }
 
@@ -141,7 +162,10 @@ class ProductController extends Controller
      */
     public function edit(Product $product)
     {
-        return view('restaurant.product.edit')->with('product', $product);
+        return view('restaurant.product.edit', [
+            'product' => $product,
+            'mediaLibraryOptions' => $this->unifiedMediaLibraryService->groupedOptions(),
+        ]);
 
     }
 
@@ -161,8 +185,9 @@ class ProductController extends Controller
             'discount_price'=>'nullable',
             'description'=>'nullable|string|max:191',
             'size'=>'nullable',
-            'image' => 'nullable|image|mimes:jpeg,png,jpg|max:4096',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:8192',
             'image_url' => 'nullable|url|max:2048',
+            'image_media_path' => 'nullable|string|max:2048',
         ]);
         $restaurant = auth()->user()->restaurant;
         if (!$restaurant || (int)$product->restaurant_id !== (int)$restaurant->id) {
@@ -201,22 +226,23 @@ class ProductController extends Controller
 
             // Supprimer ancien fichier local si besoin
             if ($oldImage && strpos($oldImage, 'http') !== 0) {
-                $oldPath = public_path('images/product_images/' . $oldImage);
-                if (File::exists($oldPath)) {
-                    @unlink($oldPath);
-                }
+                $this->deleteLocalProductImage($oldImage);
             }
+        } elseif ($request->filled('image_media_path')) {
+            $product->image = $this->unifiedMediaLibraryService->copyToDirectory(
+                $request->input('image_media_path'),
+                'images/product_images',
+                'product-' . $product->id
+            );
+            $product->save();
+
+            $this->deleteLocalProductImage($oldImage);
         } elseif ($request->filled('image_url')) {
             // URL externe: remplacer (supprimer l'ancien fichier local)
             $product->image = $request->image_url;
             $product->save();
 
-            if ($oldImage && strpos($oldImage, 'http') !== 0) {
-                $oldPath = public_path('images/product_images/' . $oldImage);
-                if (File::exists($oldPath)) {
-                    @unlink($oldPath);
-                }
-            }
+            $this->deleteLocalProductImage($oldImage);
         }
 
         // Invalider le cache pour synchroniser les données
@@ -243,12 +269,7 @@ class ProductController extends Controller
 
         $restaurantId = $product->restaurant_id;
 
-        if ($product->image && strpos($product->image, 'http') !== 0) {
-            $path = public_path('images/product_images/' . $product->image);
-            if (File::exists($path)) {
-                @unlink($path);
-            }
-        }
+        $this->deleteLocalProductImage($product->image);
         $product->delete();
         
         // Invalider le cache pour synchroniser les données
@@ -275,5 +296,31 @@ class ProductController extends Controller
         $alert['type'] = 'success';
         $alert['message'] = 'Statut du produit mis à jour avec succès';
         return redirect()->back()->with('alert', $alert);
+    }
+
+    private function deleteLocalProductImage(?string $value): void
+    {
+        $normalized = ltrim((string) $value, '/');
+
+        if ($normalized === '' || Str::startsWith($normalized, ['http://', 'https://'])) {
+            return;
+        }
+
+        if (basename($normalized) === 'default-food.jpg') {
+            return;
+        }
+
+        $relativePath = Str::contains($normalized, '/')
+            ? $normalized
+            : 'images/product_images/' . $normalized;
+
+        if (! Str::startsWith($relativePath, 'images/product_images/')) {
+            return;
+        }
+
+        $path = public_path($relativePath);
+        if (File::exists($path)) {
+            @unlink($path);
+        }
     }
 }

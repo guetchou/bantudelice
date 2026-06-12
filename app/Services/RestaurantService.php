@@ -68,8 +68,20 @@ class RestaurantService
             }
         }
         
-        // Recherche textuelle
-        if (!empty($filters['search'])) {
+        // Recherche par proximité GPS (priorité sur text search)
+        $gpsLat = isset($filters['lat']) && $filters['lat'] !== '' ? (float) $filters['lat'] : null;
+        $gpsLng = isset($filters['lng']) && $filters['lng'] !== '' ? (float) $filters['lng'] : null;
+        $gpsRadius = (float) ($filters['radius_km'] ?? 15);
+
+        if ($gpsLat !== null && $gpsLng !== null) {
+            $query->whereNotNull('latitude')
+                  ->whereNotNull('longitude')
+                  ->whereRaw(
+                      '(6371 * acos(cos(radians(?)) * cos(radians(latitude)) * cos(radians(longitude) - radians(?)) + sin(radians(?)) * sin(radians(latitude)))) < ?',
+                      [$gpsLat, $gpsLng, $gpsLat, $gpsRadius]
+                  );
+        } elseif (!empty($filters['search'])) {
+            // Recherche textuelle (fallback sans coordonnées GPS)
             $search = $filters['search'];
             $query->where(function($q) use ($search) {
                 $q->where('name', 'like', '%' . $search . '%')
@@ -77,35 +89,39 @@ class RestaurantService
                   ->orWhere('description', 'like', '%' . $search . '%');
             });
         }
-        
+
         // Trier
         $sort = $filters['sort'] ?? 'popular';
         
-        switch ($sort) {
-            case 'rating':
-                // Trier par note moyenne décroissante, puis par nombre d'avis
-                // On va trier après avoir récupéré les résultats pour éviter les conflits avec les relations
-                $query->orderBy('featured', 'desc')
-                      ->orderBy('created_at', 'desc');
-                break;
-                
-            case 'delivery_fee':
-                // Trier par frais de livraison croissant
-                $query->orderByRaw('COALESCE(delivery_charges, ?) ASC', [$defaultDeliveryFee])
-                      ->orderBy('name', 'asc');
-                break;
-                
-            case 'name':
-                // Trier par nom alphabétique
-                $query->orderBy('name', 'asc');
-                break;
-                
-            case 'popular':
-            default:
-                // Trier par popularité (featured + date de création)
-                $query->orderByDesc('featured')
-                      ->orderByDesc('created_at');
-                break;
+        if ($gpsLat !== null && $gpsLng !== null && $sort === 'popular') {
+            // En mode GPS, trier par distance croissante, featured en priorité
+            $query->orderByDesc('featured')
+                  ->orderByRaw(
+                      '(6371 * acos(cos(radians(?)) * cos(radians(latitude)) * cos(radians(longitude) - radians(?)) + sin(radians(?)) * sin(radians(latitude)))) ASC',
+                      [$gpsLat, $gpsLng, $gpsLat]
+                  );
+        } else {
+            switch ($sort) {
+                case 'rating':
+                    $query->orderBy('featured', 'desc')
+                          ->orderBy('created_at', 'desc');
+                    break;
+
+                case 'delivery_fee':
+                    $query->orderByRaw('COALESCE(delivery_charges, ?) ASC', [$defaultDeliveryFee])
+                          ->orderBy('name', 'asc');
+                    break;
+
+                case 'name':
+                    $query->orderBy('name', 'asc');
+                    break;
+
+                case 'popular':
+                default:
+                    $query->orderByDesc('featured')
+                          ->orderByDesc('created_at');
+                    break;
+            }
         }
         
         // Pagination

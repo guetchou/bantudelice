@@ -1,102 +1,101 @@
-@extends('layouts.app')
-@section('title','Scheduled order')
-@section('style')
-<link rel="stylesheet" href="{{asset(env('ASSET_URL') .'/plugins/datatables-bs4/css/dataTables.bootstrap4.css')}}">
-<link rel="stylesheet" href="{{asset(env('ASSET_URL').'/plugins/sweetalert2/sweetalert2.css')}}">
-@endsection
+@extends('layouts.restaurant_app')
+@section('title', 'Commandes programmées | ' . \App\Services\ConfigService::getCompanyName())
+@section('topbar_title', 'Commandes programmées')
 @section('order_nav', 'active')
-@section('order_nav_open', 'menu-open')
-@section('order_nav_scheduled', 'active')
 
 @section('content')
-<div class="content-header">
+@include('restaurant.order._ord_shared', ['activeTab' => 'scheduled'])
+
+<div class="ord" style="margin-top:20px;">
+
     @if(session()->has('alert'))
-    <div class="alert alert-{{ session()->get('alert.type') }}">
-        {{ session()->get('alert.message') }}
-    </div>
+        <div class="alert alert-{{ session()->get('alert.type') }} alert-dismissible" role="alert">
+            {{ session()->get('alert.message') }}
+            <button type="button" class="close" data-dismiss="alert"><span>&times;</span></button>
+        </div>
     @endif
-    <div class="container-fluid">
-        <div class="row mb-2">
-            <div class="col-sm-6">
-                <h1 class="m-0 text-dark">Scheduled Orders</h1>
-            </div><!-- /.col -->
-            <div class="col-sm-6">
-                <ol class="breadcrumb float-sm-right">
-                    <li class="breadcrumb-item"><a href="#">Accueil</a></li>
-                    <li class="breadcrumb-item active">Scheduled Orders</li>
-                </ol>
-            </div><!-- /.col -->
-        </div><!-- /.row -->
-    </div><!-- /.container-fluid -->
-</div>
-<section class="content">
-    <div class="container-fluid">
-        <!-- Small boxes (Stat box) -->
-        <div class="row">
-            <div class="col-12">
-                <div class="card">
-                    <div class="card-header">
-                        <h3 class="card-title">Schedule Orders</h3>
 
-                        <div class="card-tools">
-                            <div class="input-group input-group-sm" style="width: 150px;">
-                                <input type="text" name="table_search" class="form-control float-right"
-                                       placeholder="Search">
-
-                                <div class="input-group-append">
-                                    <button type="submit" class="btn btn-default"><i class="fas fa-search"></i>
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    <!-- /.card-header -->
-                    <div class="card-body table-responsive p-2">
-                        <table class="table table-head-fixed text-nowrap" id="example1">
-                            <thead>
+    {{-- Tableau --}}
+    <div class="ord-card">
+        <div class="ord-card__head">
+            <div>
+                <div class="ord-card__title">Commandes programmées</div>
+                <div class="ord-card__meta">Livraison différée · confirmées par le client</div>
+            </div>
+            <span style="font-size:12px;color:var(--bd-text-3);">{{ $orders->count() }} commande(s)</span>
+        </div>
+        <div class="ord-table-wrap">
+            @if($orders->count() > 0)
+                <table class="ord-table">
+                    <thead>
+                        <tr>
+                            <th>Référence</th>
+                            <th class="ord-col-hide">Client</th>
+                            <th>Montant</th>
+                            <th>Date prévue</th>
+                            <th>Statut</th>
+                            <th></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach($orders as $order)
+                            @php
+                                $schedDate = $order->scheduled_date ?? $order->schedule_date ?? null;
+                            @endphp
                             <tr>
-                                <th>ID</th>
-                                <!--<th>Customer Name</th>-->
-                                <th>Restaurant Name</th>
-                                <th>Cost</th>
-                                <th>Scheduled Date</th>
-                                <th>Statut</th>
-                                <th>Action</th>
-                            </tr>
-                            </thead>
-                            <tbody>
-                            @foreach($orders as $index => $order)
-                            <tr>
-                                <td>{{++$index}}</td>
-                                <!--<td>{{$order->user->name}}</td>-->
-                                <td>{{$order->restaurant->name}}</td>
-                                <td>{{$order->total}}</td>
-                                <td>{{$order->scheduled_date}}</td>
-                                <td>{{$order->status}}</td>
                                 <td>
-                                   <a href="{{route('admin.show_order',$order)}}" class="btn btn-outline-warning"title="view"><i class="fa fa-eye"></i></a>
+                                    <span class="ord-ref">{{ $order->order_no }}</span>
+                                    <span class="ord-ref-time">Passée le {{ \Carbon\Carbon::parse($order->created_at)->format('d/m · H:i') }}</span>
+                                </td>
+                                <td class="ord-col-hide">{{ $order->user->name ?? $order->customer_name ?? '—' }}</td>
+                                <td>
+                                    <span class="ord-amount">{{ number_format((float) $order->total, 0, ',', ' ') }}</span>
+                                    <span class="ord-amount-cur">FCFA</span>
+                                </td>
+                                <td>
+                                    @if($schedDate)
+                                        <span class="ord-sched">
+                                            <i class="fas fa-calendar-check" style="color:var(--bd-green);margin-right:4px;"></i>
+                                            {{ \Carbon\Carbon::parse($schedDate)->format('d/m/Y · H:i') }}
+                                        </span>
+                                    @else
+                                        <span style="color:var(--bd-text-3);">—</span>
+                                    @endif
+                                </td>
+                                <td>
+                                    @php
+                                        $stMap = [
+                                            'pending'    => ['Nouvelle',    'new'],
+                                            'new'        => ['Nouvelle',    'new'],
+                                            'accepted'   => ['Acceptée',    'preparing'],
+                                            'preparing'  => ['Préparation', 'preparing'],
+                                            'assigned'   => ['Assignée',    'delivering'],
+                                            'delivering' => ['En route',    'delivering'],
+                                            'completed'  => ['Terminée',    'done'],
+                                            'delivered'  => ['Livrée',      'done'],
+                                            'cancelled'  => ['Annulée',     'cancelled'],
+                                        ];
+                                        $st = $stMap[strtolower($order->status ?? '')] ?? ['Programmée', 'scheduled'];
+                                    @endphp
+                                    <span class="ord-badge ord-badge--{{ $st[1] }}">{{ $st[0] }}</span>
+                                </td>
+                                <td>
+                                    <a href="{{ route('restaurant.show_order', $order->order_no) }}" class="ord-action-btn" title="Voir">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
                                 </td>
                             </tr>
-                            @endforeach
-                            </tbody>
-                        </table>
-                    </div>
-                    <!-- /.card-body -->
+                        @endforeach
+                    </tbody>
+                </table>
+            @else
+                <div class="ord-empty">
+                    <i class="fas fa-calendar-clock" style="color:var(--bd-text-3);"></i>
+                    Aucune commande programmée
                 </div>
-                <!-- /.card -->
-            </div>
-
+            @endif
         </div>
     </div>
-</section>
-@endsection
-@section('script')
-<script src="{{asset(env('ASSET_URL') .'plugins/datatables/jquery.dataTables.js')}}"></script>
-<script src="{{asset(env('ASSET_URL') .'plugins/datatables-bs4/js/dataTables.bootstrap4.js')}}"></script>
-<script>
-    $(function () {
-      $("#example1").DataTable();
-  
-    });
-  </script>
+
+</div>
 @endsection

@@ -13,7 +13,7 @@ class AdminShipmentController extends Controller
 {
     public function __construct()
     {
-        $this->middleware('auth:sanctum');
+        $this->middleware(['auth:api', 'user.role:admin,api']);
     }
 
     public function index(Request $request): JsonResponse
@@ -60,6 +60,8 @@ class AdminShipmentController extends Controller
             'reason' => 'required|string',
         ]);
 
+        $admin = $request->user('api');
+
         // Override direct sans passer par les transitions autorisées (avec audit)
         $newStatus = ShipmentStatus::from($request->status);
         $shipment->update(['status' => $newStatus]);
@@ -67,11 +69,10 @@ class AdminShipmentController extends Controller
         $shipment->events()->create([
             'status' => $newStatus,
             'actor_type' => 'admin',
-            'actor_id' => auth()->id(),
+            'actor_id' => $admin?->id,
             'notes' => "OVERRIDE ADMIN : " . $request->reason,
         ]);
 
         return response()->json(['message' => 'Statut forcé avec succès. Audit log créé.']);
     }
 }
-

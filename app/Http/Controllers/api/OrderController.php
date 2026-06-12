@@ -2,211 +2,288 @@
 
 namespace App\Http\Controllers\api;
 
+use App\Cart;
+use App\Domain\Food\Enums\OrderPaymentStatus;
+use App\Domain\Food\Services\OrderPricingService;
+use App\Domain\Food\Services\PlaceOrderService;
 use App\Http\Controllers\Controller;
 use App\Order;
-use App\Cart;
-use App\Restaurant;
+use App\Services\NotificationService;
+use App\User;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\Validator;
 
-if (!defined('BASE_URL_PROFILE')) define('BASE_URL_PROFILE',URL::to('/').'/images/profile_images/');
-
 class OrderController extends Controller
 {
-    public function notification( $body,$title,$device_token,$key,$click_action)
+    public function notification($body, $title, $deviceToken, $key, $clickAction): JsonResponse
     {
-       
-        $fcmUrl = 'https://fcm.googleapis.com/fcm/send';
-        $token = $device_token;
-        $notification = [
-            'title' => $title,
-            'body' => $body,
-            'sound' => true,
-        ];
-        $extraNotificationData = ["key" => $key, "click_action" =>$click_action];
-        $fcmNotification = [
-            //'registration_ids' => $tokenList, //multiple token array
-            'to' => $token, //single token
-            'notification' => $notification,
-            'data' => $extraNotificationData
-        ];
+        $result = NotificationService::sendWithAction($deviceToken, $title, $body, $key, $clickAction);
 
-        $headers = [
-            'Authorization: key= AAAAGem_t_Q:APA91bHtrZm7cIzbtlnzrwrS8jcszUwx6kPEQS_ZY9nG359OwmlgZYzNc6elU6LLBVmuigcXL11isK-1oVMgwq-LjGGcqV22ERlsWacsgI4KLc9KwJNUIDPLPmYZ1N4ZabV4sxjkcvQT',
-            'Content-Type: application/json'
-        ];
-
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, $fcmUrl);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($fcmNotification));
-        $result = curl_exec($ch);
-        curl_close($ch);
-
-        return response()->json(['data' => 'notification sent', 'action' => $result], 200);
+        return response()->json([
+            'data' => ! empty($result['success']) ? 'notification sent' : 'notification failed',
+            'action' => $result['action'] ?? null,
+        ], 200);
     }
-    public function getOrders(Request $request)
+
+    public function getOrders(Request $request): JsonResponse
     {
-       $validator = Validator::make(
-            $request->all(),
-            array(
-                'user_id'=>'required',
-                'sub_total'=>'required',
-                'total'=>'required',
-                'delivery_fee'=>'required',
-                'tax'=>'required',
-                'delivery_address'=>'required',
-                'd_lat'=>'required',
-                'd_lng'=>'required',
-            ));
-           
+        $validator = Validator::make($request->all(), [
+            'user_id' => 'required|integer',
+            'delivery_address' => 'required|string',
+            'd_lat' => 'required',
+            'd_lng' => 'required',
+            'driver_tip' => 'nullable|numeric|min:0',
+            'payment_method' => 'nullable|string',
+            'voucher_code' => 'nullable|string',
+            'fulfillment_mode' => 'nullable|string',
+        ]);
+
         if ($validator->fails()) {
-            $error_messages = implode(',', $validator->messages()->all());
-            $response_array = array('status' => false, 'error_code' => 101, 'message' => $error_messages);
-        } 
-        else{
-             
-             $datas =Cart::where('user_id',$request->user_id)->get();
-         $orderNo='D-'.rand ( 1000000 , 9999999 );
-foreach($datas as $data){
-    $orders=DB::table('orders')
-    ->insert(
-        [
-        'user_id' => $data->user_id, 'restaurant_id'=>$data->restaurant_id,
-        'product_id'=>$data->product_id,'qty'=>$data->qty,
-        'driver_id' => NULL,'order_no' => $orderNo,
-        'offer_discount' => 4, 'tax'=>$request->tax,
-        'delivery_charges' => $request->delivery_fee, 'sub_total'=>$request->sub_total,
+            return $this->validationErrorResponse($validator);
+        }
 
-        'total' => $request->total, 'admin_commission'=>2,
-        'restaurant_commission' => 4, 'driver_tip'=>$request->driver_tip,
-        'delivery_address' => $request->delivery_address,
+        $validated = $validator->validated();
+        $user = User::find($validated['user_id']);
+        if (! $user) {
+            return $this->notFoundResponse('Utilisateur introuvable');
+        }
 
-        'd_lat' => $request->d_lat, 'd_lng'=>$request->d_lng,
-        'ordered_time' => now(), 'delivered_time'=>now(),'created_at'=>now(),
+        $cartItems = Cart::where('user_id', $user->id)->get();
+        if ($cartItems->isEmpty()) {
+            return $this->notFoundResponse('Panier vide');
+        }
 
-    ]);
-}
-if($orders){
-    Cart::where('user_id',$request->user_id)->delete();
-}
-    
-   return response()->json([
-                'status' => true,
-            ]);
+        $totals = app(OrderPricingService::class)->calculate($cartItems, [
+            'fulfillment_mode' => $validated['fulfillment_mode'] ?? null,
+            'driver_tip' => $validated['driver_tip'] ?? 0,
+            'voucher_code' => $validated['voucher_code'] ?? null,
+        ]);
 
-           }
-}
-public function UserOrderHistory($user)
-{
-$getCompletedOrders=DB::table('orders')
+        $orderNo = app(PlaceOrderService::class)->placeFromCart($user, $cartItems, [
+            'order_no' => 'D-' . rand(1000000, 9999999),
+            'fulfillment_mode' => $validated['fulfillment_mode'] ?? null,
+            'offer_discount' => (float) ($totals['discount'] ?? 0),
+            'tax' => (float) ($totals['tax'] ?? 0),
+            'delivery_charges' => (float) ($totals['delivery_fee'] ?? 0),
+            'sub_total' => (float) ($totals['sub_total'] ?? 0),
+            'total' => (float) ($totals['total'] ?? 0),
+            'driver_tip' => (float) ($totals['driver_tip'] ?? 0),
+            'delivery_address' => $validated['delivery_address'],
+            'd_lat' => $validated['d_lat'],
+            'd_lng' => $validated['d_lng'],
+            'payment_method' => $validated['payment_method'] ?? 'cash',
+            'payment_status' => OrderPaymentStatus::PENDING->value,
+            'status' => 'pending',
+            'ordered_time' => now(),
+            'delivered_time' => null,
+        ]);
+
+        Cart::where('user_id', $user->id)->delete();
+
+        return response()->json([
+            'status' => true,
+            'order_no' => $orderNo,
+        ]);
+    }
+
+    /**
+     * S5.1 — Commandes en cours de l'utilisateur authentifié avec pagination.
+     * Ownership : renvoie uniquement les commandes de l'utilisateur connecté.
+     */
+    public function UserOrderHistory(Request $request, $user = null): JsonResponse
+    {
+        // Résolution de l'utilisateur : depuis auth() si dispo, sinon {user} en param (rétrocompat app mobile)
+        $authUser = auth('api')->user();
+        $userId   = $authUser ? $authUser->id : (int) $user;
+
+        // Ownership : un user ne peut voir que ses propres commandes
+        if ($authUser && $authUser->id !== $userId) {
+            return response()->json(['status' => false, 'message' => 'Non autorisé'], 403);
+        }
+
+        if (!$userId || !User::whereKey($userId)->exists()) {
+            return response()->json(['status' => false, 'message' => 'Utilisateur introuvable', 'data' => []], 404);
+        }
+
+        $perPage = min((int) $request->query('per_page', 15), 50);
+
+        $orders = DB::table('orders')
             ->join('restaurants', 'restaurants.id', '=', 'orders.restaurant_id')
-            ->select('orders.order_no','orders.id','orders.total', 'restaurants.name', 'restaurants.logo','orders.restaurant_id','orders.id','orders.status','orders.created_at')
-            ->where([
-                'orders.user_id'=> $user, 
-                'orders.status'=>'pending'])
-                ->orWhere([
-                'orders.user_id'=> $user, 
-                'orders.status'=>'assign'])
-            ->get();
-            return response()->json([
-     'status' => true,
-     'data' => $getCompletedOrders
+            ->select('orders.order_no', 'orders.id', 'orders.total', 'restaurants.name',
+                     'restaurants.logo', 'orders.restaurant_id', 'orders.status', 'orders.created_at')
+            ->where('orders.user_id', $userId)
+            ->where(function ($q) {
+                $q->where('orders.status', 'pending')->orWhere('orders.status', 'assign');
+            })
+            ->latest('orders.created_at')
+            ->paginate($perPage);
 
-    ]);
-}
+        return response()->json([
+            'status' => true,
+            'data'   => collect($orders->items())->map(fn ($o) => $this->historyPayload($o))->values(),
+            'meta'   => [
+                'current_page' => $orders->currentPage(),
+                'last_page'    => $orders->lastPage(),
+                'per_page'     => $orders->perPage(),
+                'total'        => $orders->total(),
+            ],
+        ]);
+    }
 
-public function UserCompletedOrderHistory($user)
-{
-    $getCompletedOrders=DB::table('completed_orders')
+    /**
+     * S5.1 — Historique des commandes complétées avec pagination et ownership.
+     */
+    public function UserCompletedOrderHistory(Request $request, $user = null): JsonResponse
+    {
+        $authUser = auth('api')->user();
+        $userId   = $authUser ? $authUser->id : (int) $user;
+
+        if ($authUser && $authUser->id !== $userId) {
+            return response()->json(['status' => false, 'message' => 'Non autorisé'], 403);
+        }
+
+        if (!$userId || !User::whereKey($userId)->exists()) {
+            return response()->json(['status' => false, 'message' => 'Utilisateur introuvable', 'data' => []], 404);
+        }
+
+        $perPage = min((int) $request->query('per_page', 15), 50);
+
+        $orders = DB::table('completed_orders')
             ->join('restaurants', 'restaurants.id', '=', 'completed_orders.restaurant_id')
-            ->select('completed_orders.order_no','completed_orders.id','completed_orders.total', 'restaurants.name', 'restaurants.logo','completed_orders.restaurant_id','completed_orders.id','completed_orders.status','completed_orders.created_at','completed_orders.user_id','completed_orders.ordered_time')
-           
-           ->where(function($query) use ($user)
-        {
-            $query->where('completed_orders.user_id',$user)
-                  ->where('completed_orders.status','completed');
-        })
-       ->orWhere(function($query) use ($user)
-        {
-            $query->where('completed_orders.user_id',$user)
-                  ->where('completed_orders.status','cancelled');
-        })
-            ->latest()
+            ->select('completed_orders.order_no', 'completed_orders.id', 'completed_orders.total',
+                     'restaurants.name', 'restaurants.logo', 'completed_orders.restaurant_id',
+                     'completed_orders.status', 'completed_orders.created_at', 'completed_orders.ordered_time')
+            ->where('completed_orders.user_id', $userId)
+            ->whereIn('completed_orders.status', ['completed', 'cancelled'])
+            ->latest('completed_orders.created_at')
+            ->paginate($perPage);
+
+        return response()->json([
+            'status' => true,
+            'data'   => collect($orders->items())->map(fn ($o) => array_merge($this->historyPayload($o), ['ordered_time' => $o->ordered_time]))->values(),
+            'meta'   => [
+                'current_page' => $orders->currentPage(),
+                'last_page'    => $orders->lastPage(),
+                'per_page'     => $orders->perPage(),
+                'total'        => $orders->total(),
+            ],
+        ]);
+    }
+
+    public function completeOrders(Request $request): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'user_id' => 'required|integer',
+            'driver_id' => 'required|integer',
+        ]);
+
+        if ($validator->fails()) {
+            return $this->validationErrorResponse($validator);
+        }
+
+        $validated = $validator->validated();
+        if (! User::whereKey($validated['user_id'])->exists()) {
+            return $this->notFoundResponse('Utilisateur introuvable');
+        }
+
+        $orders = Order::where('user_id', $validated['user_id'])
+            ->where('driver_id', $validated['driver_id'])
             ->get();
 
-     
-     
-    return response()->json([
-     'status' => true,
-     'data' => $getCompletedOrders
+        if ($orders->isEmpty()) {
+            return $this->notFoundResponse('Aucune commande à clôturer');
+        }
 
-    ]);
-}
-public function completeOrders(Request $request)
-{
-    $validator = Validator::make(
-            $request->all(),
-            array(
-                'user_id'=>'required',
-                'driver_id'=>'required',
-            ));
-           
-        if ($validator->fails()) {
-            $error_messages = implode(',', $validator->messages()->all());
-            $response_array = array('status' => false, 'error_code' => 101, 'message' => $error_messages);
-        } 
-        else{
-             
-             $datas =Order::where([
-                 ['user_id',$request->user_id],
-                 ['driver_id',$request->driver_id]
-                 ])->get();
-                 //$getTokens=UserToken::where('user_id',$request->user_id)->get();
-foreach($datas as $data){
-    $orders=DB::table('completed_orders')
-    ->insert(
-        [
-        'user_id' => $data->user_id, 'restaurant_id'=>$data->restaurant_id,
-        'product_id'=>$data->product_id,'qty'=>$data->qty,
-        'driver_id' => $data->driver_id,'order_no' => $data->order_no,
-        'offer_discount' => 4, 'tax'=>$data->tax,
-        'delivery_charges' => $data->delivery_charges, 'sub_total'=>$data->sub_total,
+        DB::transaction(function () use ($orders): void {
+            DB::table('completed_orders')->insert(
+                $orders->map(fn (Order $order) => $this->completedOrderPayload($order))->all()
+            );
 
-        'total' => $data->total, 'admin_commission'=>2,
-        'restaurant_commission' => 4, 'driver_tip'=>11,
-        'delivery_address' => $data->delivery_address, 'scheduled_date'=>$data->scheduled_date,
+            Order::whereIn('id', $orders->pluck('id'))->delete();
+        });
 
-        'd_lat' => $data->d_lat, 'd_lng'=>$data->d_lng,
-        'ordered_time' => $data->ordered_time, 'delivered_time'=>$data->delivered_time,'created_at'=>now(),
+        return response()->json([
+            'status' => true,
+        ]);
+    }
 
-    ]);
-}
-if($orders){
-    
-    
-    // $body='You Have A New Order';
-    //     $title='New Order';
-    //     $key='newOrder';
-    //     $device_token=$getTokens->device_tokens;
-    //     $data=$this->notification($body,$title,$device_token,$key,$user_id);
-    
-    Order::where([
-                 ['user_id',$request->user_id],
-                 ['driver_id',$request->driver_id]
-                 ])->delete();
-}
-    
-   return response()->json([
-                'status' => true,
-            ]);
+    private function completedOrderPayload(Order $order): array
+    {
+        return [
+            'order_no' => $order->order_no,
+            'user_id' => $order->user_id,
+            'restaurant_id' => $order->restaurant_id,
+            'product_id' => $order->product_id,
+            'driver_id' => $order->driver_id,
+            'qty' => $order->qty,
+            'price' => (float) ($order->price ?? 0),
+            'latitude' => $order->latitude,
+            'longitude' => $order->longitude,
+            'total_items' => (int) ($order->total_items ?? 1),
+            'offer_discount' => (float) ($order->offer_discount ?? 0),
+            'tax' => (float) ($order->tax ?? 0),
+            'delivery_charges' => (float) ($order->delivery_charges ?? 0),
+            'sub_total' => (float) ($order->sub_total ?? 0),
+            'total' => (float) ($order->total ?? 0),
+            'admin_commission' => (float) ($order->admin_commission ?? 0),
+            'restaurant_commission' => (float) ($order->restaurant_commission ?? 0),
+            'driver_tip' => (float) ($order->driver_tip ?? 0),
+            'status' => in_array($order->status, ['pending', 'assign', 'prepairing', 'completed', 'cancelled', 'scheduled'], true)
+                ? $order->status
+                : 'completed',
+            'delivery_address' => $order->delivery_address,
+            'scheduled_date' => $order->scheduled_date,
+            'd_lat' => $order->d_lat,
+            'd_lng' => $order->d_lng,
+            'ordered_time' => $order->ordered_time,
+            'delivered_time' => $order->delivered_time,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ];
+    }
 
-           }
-}
+    private function historyPayload($order): array
+    {
+        return [
+            'id' => $order->id,
+            'order_no' => $order->order_no,
+            'total' => $order->total,
+            'restaurant_id' => $order->restaurant_id,
+            'restaurant_name' => $order->name,
+            'restaurant_logo_url' => $this->restaurantLogoUrl($order->logo),
+            'status' => $order->status,
+            'created_at' => $order->created_at,
+        ];
+    }
+
+    private function restaurantLogoUrl(?string $logo): ?string
+    {
+        if (empty($logo)) {
+            return null;
+        }
+
+        return filter_var($logo, FILTER_VALIDATE_URL)
+            ? $logo
+            : URL::to('/') . '/images/restaurant_images/' . $logo;
+    }
+
+    private function validationErrorResponse($validator): JsonResponse
+    {
+        return response()->json([
+            'status' => false,
+            'error_code' => 101,
+            'message' => implode(',', $validator->messages()->all()),
+        ], 422);
+    }
+
+    private function notFoundResponse(string $message): JsonResponse
+    {
+        return response()->json([
+            'status' => false,
+            'message' => $message,
+        ], 404);
+    }
 }

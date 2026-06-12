@@ -1,8 +1,13 @@
 @extends('frontend.layouts.app-modern')
-@section('title', 'Paiement | BantuDelice')
-@section('description', 'Finalisez votre paiement en toute sécurité sur BantuDelice.')
+@php
+    $foodBrandName = \App\Services\ConfigService::getCompanyName();
+@endphp
+@section('title', 'Paiement | ' . $foodBrandName)
+@section('description', 'Finalisez votre paiement en toute sécurité sur ' . $foodBrandName . '.')
 
 @section('styles')
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@700;800;900&display=swap" rel="stylesheet">
 <style>
     .payment-container {
         max-width: 600px;
@@ -17,7 +22,7 @@
     }
     
     .payment-header {
-        background: linear-gradient(135deg, #FF6B35 0%, #F59E0B 100%);
+        background: linear-gradient(135deg, #009543 0%, #F59E0B 100%);
         padding: 2rem;
         text-align: center;
         color: white;
@@ -57,13 +62,13 @@
     }
     
     .payment-method:hover {
-        border-color: #FF6B35;
-        background: rgba(255, 107, 53, 0.03);
+        border-color: #009543;
+        background: rgba(0, 149, 67, 0.03);
     }
     
     .payment-method.active {
-        border-color: #FF6B35;
-        background: rgba(255, 107, 53, 0.05);
+        border-color: #009543;
+        background: rgba(0, 149, 67, 0.05);
     }
     
     .payment-method-icon {
@@ -78,7 +83,7 @@
     }
     
     .payment-method.active .payment-method-icon {
-        background: #FF6B35;
+        background: #009543;
         color: white;
     }
     
@@ -111,8 +116,8 @@
     }
     
     .payment-method.active .payment-method-check {
-        background: #FF6B35;
-        border-color: #FF6B35;
+        background: #009543;
+        border-color: #009543;
         color: white;
     }
     
@@ -151,7 +156,7 @@
     
     .form-control:focus {
         outline: none;
-        border-color: #FF6B35;
+        border-color: #009543;
     }
     
     .form-row {
@@ -203,7 +208,7 @@
     }
     
     .summary-row.total .amount {
-        color: #FF6B35;
+        color: #009543;
     }
     
     .secure-badge {
@@ -217,7 +222,7 @@
     }
     
     .secure-badge i {
-        color: #10B981;
+        color: #009543;
     }
     
     .payment-logos {
@@ -275,11 +280,9 @@
 
 @section('content')
 <!-- Hero Section -->
-<section style="background: linear-gradient(135deg, #FF6B35 0%, #F59E0B 100%); padding: 120px 0 60px;">
+<section style="background: linear-gradient(135deg, #009543 0%, #F59E0B 100%); padding: 120px 0 60px;">
     <div class="container" style="text-align: center;">
-        <h1 style="color: white; font-size: 2rem; font-weight: 700; margin: 0;">
-            <i class="fas fa-lock"></i> Paiement Sécurisé
-        </h1>
+        <h1 style="color: white; font-size: 2rem; font-weight: 700; margin: 0;">Paiement sécurisé</h1>
         <p style="color: rgba(255,255,255,0.9); margin-top: 0.5rem; font-size: 1rem;">
             Finalisez votre commande en toute sécurité
         </p>
@@ -294,22 +297,22 @@
             <!-- Stepper -->
             <div style="display: flex; justify-content: center; gap: 0.5rem; margin-bottom: 2rem;">
                 <div style="display: flex; align-items: center;">
-                    <div style="width: 32px; height: 32px; background: #10B981; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.875rem;">
-                        <i class="fas fa-check"></i>
+                    <div style="width: 32px; height: 32px; background: #009543; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.875rem;">
+                        1
                     </div>
-                    <span style="margin-left: 0.5rem; font-size: 0.875rem; color: #10B981; font-weight: 600;">Panier</span>
+                    <span style="margin-left: 0.5rem; font-size: 0.875rem; color: #009543; font-weight: 600;">Panier</span>
                 </div>
-                <div style="width: 40px; height: 2px; background: #10B981; margin: 0 0.5rem; align-self: center;"></div>
+                <div style="width: 40px; height: 2px; background: #009543; margin: 0 0.5rem; align-self: center;"></div>
                 <div style="display: flex; align-items: center;">
-                    <div style="width: 32px; height: 32px; background: #10B981; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.875rem;">
-                        <i class="fas fa-check"></i>
+                    <div style="width: 32px; height: 32px; background: #009543; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.875rem;">
+                        2
                     </div>
-                    <span style="margin-left: 0.5rem; font-size: 0.875rem; color: #10B981; font-weight: 600;">Livraison</span>
+                    <span style="margin-left: 0.5rem; font-size: 0.875rem; color: #009543; font-weight: 600;">Livraison</span>
                 </div>
-                <div style="width: 40px; height: 2px; background: #FF6B35; margin: 0 0.5rem; align-self: center;"></div>
+                <div style="width: 40px; height: 2px; background: #009543; margin: 0 0.5rem; align-self: center;"></div>
                 <div style="display: flex; align-items: center;">
-                    <div style="width: 32px; height: 32px; background: #FF6B35; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.875rem;">3</div>
-                    <span style="margin-left: 0.5rem; font-size: 0.875rem; color: #FF6B35; font-weight: 600;">Paiement</span>
+                    <div style="width: 32px; height: 32px; background: #009543; color: white; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 600; font-size: 0.875rem;">3</div>
+                    <span style="margin-left: 0.5rem; font-size: 0.875rem; color: #009543; font-weight: 600;">Paiement</span>
                 </div>
             </div>
             
@@ -319,21 +322,19 @@
                     <!-- Alerts -->
                     @if (Session::has('success'))
                         <div class="alert alert-success">
-                            <i class="fas fa-check-circle"></i>
                             <span>{{ Session::get('success') }}</span>
                         </div>
                     @endif
                     
                     @if (Session::has('error'))
                         <div class="alert alert-danger">
-                            <i class="fas fa-exclamation-circle"></i>
                             <span>{{ Session::get('error') }}</span>
                         </div>
                     @endif
                     
                     <!-- Order Summary -->
                     <div class="order-summary">
-                        <h4><i class="fas fa-receipt" style="color: #FF6B35; margin-right: 0.5rem;"></i> Récapitulatif de votre commande</h4>
+                        <h4>Récapitulatif de votre commande</h4>
                         <div class="summary-row">
                             <span style="color: #6B7280;">Sous-total</span>
                             <span>{{ number_format($subTotal ?? 0, 0, ',', ' ') }} FCFA</span>
@@ -347,7 +348,7 @@
                             <span>{{ number_format($tax ?? 0, 0, ',', ' ') }} FCFA</span>
                         </div>
                         @if(isset($discount) && $discount > 0)
-                        <div class="summary-row" style="color: #10B981;">
+                        <div class="summary-row" style="color: #009543;">
                             <span>Réduction</span>
                             <span>-{{ number_format($discount, 0, ',', ' ') }} FCFA</span>
                         </div>
@@ -359,50 +360,30 @@
                     </div>
                     
                     <!-- Payment Methods -->
-                    <h4 style="font-size: 1rem; font-weight: 600; margin: 0 0 1rem; color: #1F2937;">
-                        <i class="fas fa-credit-card" style="color: #FF6B35; margin-right: 0.5rem;"></i> Choisissez votre mode de paiement
-                    </h4>
+                    <h4 style="font-size: 1rem; font-weight: 600; margin: 0 0 1rem; color: #1F2937;">Choisissez votre mode de paiement</h4>
                     
                     <div class="payment-methods">
                         <!-- Cash -->
                         <div class="payment-method active" data-method="cash" onclick="selectPaymentMethod('cash')">
-                            <div class="payment-method-icon">
-                                <i class="fas fa-money-bill-wave"></i>
-                            </div>
                             <div class="payment-method-info">
                                 <h4>Paiement à la livraison</h4>
                                 <p>Payez en espèces à la réception de votre commande</p>
-                            </div>
-                            <div class="payment-method-check">
-                                <i class="fas fa-check" style="font-size: 0.75rem;"></i>
                             </div>
                         </div>
                         
                         <!-- Mobile Money -->
                         <div class="payment-method" data-method="momo" onclick="selectPaymentMethod('momo')">
-                            <div class="payment-method-icon">
-                                <i class="fas fa-mobile-alt"></i>
-                            </div>
                             <div class="payment-method-info">
                                 <h4>Mobile Money</h4>
                                 <p>MTN Mobile Money, Airtel Money</p>
-                            </div>
-                            <div class="payment-method-check">
-                                <i class="fas fa-check" style="font-size: 0.75rem;"></i>
                             </div>
                         </div>
                         
                         <!-- Card -->
                         <div class="payment-method" data-method="card" onclick="selectPaymentMethod('card')">
-                            <div class="payment-method-icon">
-                                <i class="fas fa-credit-card"></i>
-                            </div>
                             <div class="payment-method-info">
                                 <h4>Carte bancaire</h4>
                                 <p>Visa, Mastercard, autres cartes</p>
-                            </div>
-                            <div class="payment-method-check">
-                                <i class="fas fa-check" style="font-size: 0.75rem;"></i>
                             </div>
                         </div>
                     </div>
@@ -422,10 +403,7 @@
                                 <option value="airtel">Airtel Money</option>
                             </select>
                         </div>
-                        <p style="font-size: 0.8125rem; color: #6B7280; margin: 0;">
-                            <i class="fas fa-info-circle" style="color: #3B82F6;"></i>
-                            Vous recevrez une notification sur votre téléphone pour confirmer le paiement.
-                        </p>
+                        <p style="font-size: 0.8125rem; color: #6B7280; margin: 0;">Vous recevrez une notification sur votre téléphone pour confirmer le paiement.</p>
                     </div>
                     
                     <!-- Card Form -->
@@ -460,39 +438,26 @@
                                 </div>
                             </div>
                             
-                            <div class="error-message" id="cardError">
-                                <i class="fas fa-exclamation-circle"></i> <span></span>
-                            </div>
+                            <div class="error-message" id="cardError"><span></span></div>
                         </form>
                     </div>
                     
                     <!-- Submit Button -->
-                    <button type="button" id="payButton" class="btn btn-primary btn-lg" style="width: 100%; margin-top: 1.5rem; padding: 1rem 2rem;" onclick="processPayment()">
-                        <i class="fas fa-lock" style="margin-right: 0.5rem;"></i>
+                    <button type="button" id="payButton" style="display:inline-flex;align-items:center;justify-content:center;width:100%;background:#009543;color:#fff;font-weight:700;font-size:1rem;padding:.9rem 1.5rem;border-radius:14px;border:none;cursor:pointer;transition:background .18s;" style="width: 100%; margin-top: 1.5rem; padding: 1rem 2rem;" onclick="processPayment()">
                         <span id="payButtonText">Confirmer et payer</span>
                         <span id="payButtonAmount" style="font-weight: 700; margin-left: 0.5rem;">{{ number_format($total ?? 0, 0, ',', ' ') }} FCFA</span>
                     </button>
                     
                     <!-- Secure Badge -->
                     <div class="secure-badge">
-                        <i class="fas fa-shield-alt"></i>
-                        <span>Paiement 100% sécurisé</span>
-                    </div>
-                    
-                    <div class="payment-logos">
-                        <i class="fab fa-cc-visa" style="font-size: 2rem; color: #1A1F71;"></i>
-                        <i class="fab fa-cc-mastercard" style="font-size: 2rem; color: #EB001B;"></i>
-                        <img src="{{ asset('images/icons/mtn-momo.png') }}" alt="MTN MoMo" style="height: 24px;" onerror="this.style.display='none'">
-                        <img src="{{ asset('images/icons/airtel-money.png') }}" alt="Airtel Money" style="height: 24px;" onerror="this.style.display='none'">
+                        <span>Paiement traité via un parcours sécurisé.</span>
                     </div>
                 </div>
             </div>
             
             <!-- Back Link -->
             <div style="text-align: center; margin-top: 1.5rem;">
-                <a href="{{ route('checkout.detail') }}" style="color: #6B7280; text-decoration: none; font-size: 0.9375rem;">
-                    <i class="fas fa-arrow-left"></i> Retour au panier
-                </a>
+                <a href="{{ route('checkout.detail') }}" style="color: #6B7280; text-decoration: none; font-size: 0.9375rem;">Retour au panier</a>
             </div>
             
         </div>
@@ -536,7 +501,7 @@
     function processPayment() {
         const payButton = document.getElementById('payButton');
         payButton.disabled = true;
-        payButton.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Traitement en cours...';
+        payButton.textContent = 'Traitement en cours...';
         
         if (selectedPaymentMethod === 'cash') {
             // Soumettre le formulaire de commande pour paiement à la livraison
@@ -566,7 +531,7 @@
             if (!phone || !operator) {
                 showError('Veuillez remplir tous les champs Mobile Money');
                 payButton.disabled = false;
-                payButton.innerHTML = '<i class="fas fa-lock" style="margin-right: 0.5rem;"></i><span id="payButtonText">Payer maintenant</span><span id="payButtonAmount" style="font-weight: 700; margin-left: 0.5rem;">{{ number_format($total ?? 0, 0, ",", " ") }} FCFA</span>';
+                payButton.innerHTML = '<span>Payer maintenant</span><span style="font-weight: 700; margin-left: 0.5rem;">{{ number_format($total ?? 0, 0, ",", " ") }} FCFA</span>';
                 return;
             }
             
@@ -621,21 +586,21 @@
         if (!cardNumber || cardNumber.length < 14) {
             showError('Numéro de carte invalide');
             payButton.disabled = false;
-            payButton.innerHTML = '<i class="fas fa-lock" style="margin-right: 0.5rem;"></i><span>Payer maintenant</span><span style="font-weight: 700; margin-left: 0.5rem;">{{ number_format($total ?? 0, 0, ",", " ") }} FCFA</span>';
+            payButton.innerHTML = '<span>Payer maintenant</span><span style="font-weight: 700; margin-left: 0.5rem;">{{ number_format($total ?? 0, 0, ",", " ") }} FCFA</span>';
             return;
         }
         
         if (!cardMonth || !cardYear) {
             showError('Date d\'expiration invalide');
             payButton.disabled = false;
-            payButton.innerHTML = '<i class="fas fa-lock" style="margin-right: 0.5rem;"></i><span>Payer maintenant</span><span style="font-weight: 700; margin-left: 0.5rem;">{{ number_format($total ?? 0, 0, ",", " ") }} FCFA</span>';
+            payButton.innerHTML = '<span>Payer maintenant</span><span style="font-weight: 700; margin-left: 0.5rem;">{{ number_format($total ?? 0, 0, ",", " ") }} FCFA</span>';
             return;
         }
         
         if (!cardCvv || cardCvv.length < 3) {
             showError('CVV invalide');
             payButton.disabled = false;
-            payButton.innerHTML = '<i class="fas fa-lock" style="margin-right: 0.5rem;"></i><span>Payer maintenant</span><span style="font-weight: 700; margin-left: 0.5rem;">{{ number_format($total ?? 0, 0, ",", " ") }} FCFA</span>';
+            payButton.innerHTML = '<span>Payer maintenant</span><span style="font-weight: 700; margin-left: 0.5rem;">{{ number_format($total ?? 0, 0, ",", " ") }} FCFA</span>';
             return;
         }
         
@@ -650,7 +615,7 @@
             if (response.error) {
                 showError(response.error.message);
                 payButton.disabled = false;
-                payButton.innerHTML = '<i class="fas fa-lock" style="margin-right: 0.5rem;"></i><span>Payer maintenant</span><span style="font-weight: 700; margin-left: 0.5rem;">{{ number_format($total ?? 0, 0, ",", " ") }} FCFA</span>';
+                payButton.innerHTML = '<span>Payer maintenant</span><span style="font-weight: 700; margin-left: 0.5rem;">{{ number_format($total ?? 0, 0, ",", " ") }} FCFA</span>';
             } else {
                 // Token créé avec succès, envoyer au serveur
                 const hiddenInput = document.createElement('input');
@@ -671,7 +636,7 @@
         // Afficher une notification
         const notification = document.createElement('div');
         notification.style.cssText = 'position: fixed; top: 20px; right: 20px; background: #EF4444; color: white; padding: 1rem 1.5rem; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.15); z-index: 10000; max-width: 300px;';
-        notification.innerHTML = `<i class="fas fa-exclamation-circle"></i> ${message}`;
+        notification.innerHTML = `${message}`;
         document.body.appendChild(notification);
         
         setTimeout(() => {

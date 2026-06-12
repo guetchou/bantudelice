@@ -9,6 +9,7 @@ use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
 use Illuminate\Queue\InteractsWithQueue;
 use Illuminate\Queue\SerializesModels;
+use Illuminate\Queue\Middleware\WithoutOverlapping;
 use Illuminate\Support\Facades\Log;
 
 /**
@@ -17,6 +18,9 @@ use Illuminate\Support\Facades\Log;
 class RetryPaymentCallbackJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
+
+    public $timeout = 120;
+    public $failOnTimeout = true;
 
     protected $payment;
     protected $callbackData;
@@ -31,6 +35,8 @@ class RetryPaymentCallbackJob implements ShouldQueue
     {
         $this->payment = $payment;
         $this->callbackData = $callbackData;
+        $this->onConnection(config('module_queues.modules.food.connection', 'database_food'));
+        $this->onQueue(config('module_queues.modules.food.queue', 'food'));
     }
 
     /**
@@ -108,5 +114,11 @@ class RetryPaymentCallbackJob implements ShouldQueue
     {
         return [60, 300, 900]; // Retry après 1min, 5min, 15min
     }
-}
 
+    public function middleware(): array
+    {
+        return [
+            (new WithoutOverlapping("food:retry-payment-callback:{$this->payment->id}"))->expireAfter(300),
+        ];
+    }
+}

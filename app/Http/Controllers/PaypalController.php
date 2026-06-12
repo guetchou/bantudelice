@@ -1,184 +1,165 @@
 <?php
+
 namespace App\Http\Controllers;
 
-use App\Cart;
-use App\Order;
-use Exception;
+use App\Payment;
+use App\Services\CheckoutService;
+use App\Services\PaymentService;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Redirect;
-use Illuminate\Support\Facades\Session;
 
 class PaypalController extends Controller
 {
+    public function __construct(
+        protected CheckoutService $checkoutService,
+        protected PaymentService $paymentService
+    ) {}
+
     public function index()
     {
         return view('paywithpaypal');
     }
-    public function payWithpaypal(Request $request)
+
+    public function payWithpaypal(Request $request): RedirectResponse
     {
-        $this->store($request);
-        return $this->processTransaction($request);
+        if (! auth()->check()) {
+            return redirect()->route('user.login')->with('message', 'Veuillez vous connecter');
+        }
+
+        $request->validate([
+            'fulfillment_mode' => 'nullable|in:delivery,pickup',
+            'delivery_address' => 'nullable|string|max:500',
+            'd_lat' => 'nullable',
+            'd_lng' => 'nullable',
+            'driver_tip' => 'nullable|numeric|min:0',
+            'voucher_code' => 'nullable|string',
+            'scheduled_date' => 'nullable|date|after:now',
+            'pickup_note' => 'nullable|string|max:500',
+        ]);
+
+        try {
+            $result = $this->checkoutService->startCheckout(
+                $request->user(),
+                'paypal',
+                $this->buildCheckoutData($request)
+            );
+
+            $payment = $result['payment'];
+            $redirectUrl = trim((string) data_get($result, 'payment_payload.redirect_url', ''));
+
+            if ($redirectUrl !== '') {
+                return redirect()->away($redirectUrl);
+            }
+
+            $confirmedPayment = $this->paymentService->finalizePayPalReturn($payment, [
+                'demo' => '1',
+                'source' => 'paypal_controller_fallback',
+            ]);
+
+            return $this->redirectToThanks($confirmedPayment, 'Paiement PayPal confirmé.');
+        } catch (\Throwable $e) {
+            Log::error('Erreur lancement checkout PayPal', [
+                'user_id' => optional($request->user())->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return back()->with('message', 'Impossible d’initier le paiement PayPal pour le moment.');
+        }
     }
 
-    
-
-    public function store($request)
+    public function handleReturn(Request $request): RedirectResponse
     {
-        $tax = $request->tax;
-        $delivery_charges = $request->delivery_charges;
-        $driver_tip = $request->driver_tip;
-        $delivery_address = $request->delivery_address;
-        $d_lat = $request->d_lat;
-        $d_lng = $request->d_lng;
-        $sub_total = $request->sub_total;
-        $total = $request->amount;
-        $id = auth()->user()->id;
-        $datas = Cart::where('user_id', $id)->get();
-        $orderNo = 'TD-' . rand(1000000, 9999999);
-        foreach ($datas as $data) {
-            DB::table('orders')->insert([
-                'user_id' => $id,
-                'restaurant_id' => $data->restaurant_id,
-                'product_id' => $data->product_id,
-                'qty' => $data->qty,
-                'driver_id' => null,
-                'order_no' => $orderNo,
-                'offer_discount' => 4,
-                'tax' => $tax,
-                'delivery_charges' => $delivery_charges,
-                'sub_total' => $sub_total,
+        $payment = $this->resolvePaymentFromRequest($request);
+        if (! $payment) {
+            return redirect()->route('cart.detail')->with('message', 'Paiement PayPal introuvable.');
+        }
 
-                'total' => $total,
-                'admin_commission' => 2,
-                'restaurant_commission' => 4,
-                'driver_tip' => $driver_tip,
-                'delivery_address' => $delivery_address,
-                'scheduled_date' => null,
+        try {
+            $payment = $this->paymentService->finalizePayPalReturn($payment, $request->query());
 
-                'd_lat' => $d_lat,
-                'd_lng' => $d_lng,
-                'ordered_time' => Now(),
-                'delivered_time' => Now(),
-                'created_at' => now(),
+            return $this->redirectToThanks($payment, 'Paiement PayPal confirmé.');
+        } catch (\Throwable $e) {
+            Log::error('Erreur retour PayPal', [
+                'payment_id' => $payment->id,
+                'provider_reference' => $payment->provider_reference,
+                'error' => $e->getMessage(),
+            ]);
+
+            return redirect()->route('cart.detail')->with('message', 'Le paiement PayPal n’a pas pu être confirmé.');
+        }
+    }
+
+    public function handleCancel(Request $request): RedirectResponse
+    {
+        $payment = $this->resolvePaymentFromRequest($request);
+        if ($payment) {
+            $this->paymentService->cancelExternalPayment($payment, [
+                'provider' => 'paypal',
+                'query' => $request->query(),
             ]);
         }
-        $request->session()->put('order_id', $orderNo);
+
+        return redirect()->route('cart.detail')->with('message', 'Paiement PayPal annulé.');
     }
 
-
-    /**
-     * process transaction.
-     *
-     * @return \Illuminate\Http\Response
-     */
-    public function processTransaction(Request $request)
+    public function getPaymentStatus(Request $request): RedirectResponse
     {
-        try{
-           $order = Order::where('order_no', Session::get('order_id'))->first();
-            $curl = curl_init();
-
-            curl_setopt_array($curl, array(
-              CURLOPT_URL => 'https://api-m.sandbox.paypal.com/v1/oauth2/token',
-              CURLOPT_RETURNTRANSFER => true,
-              CURLOPT_ENCODING => '',
-              CURLOPT_MAXREDIRS => 10,
-              CURLOPT_TIMEOUT => 0,
-              CURLOPT_FOLLOWLOCATION => true,
-              CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-              CURLOPT_CUSTOMREQUEST => 'POST',
-              CURLOPT_POSTFIELDS => 'grant_type=client_credentials',
-              CURLOPT_HTTPHEADER => array(
-                'Authorization: Basic QWRBajN1ZV9ST2ZvRzViYVd3N1ZRRjBGZE5hS0N2bEdLd09MSEpNbEtXbVA0dFRITnZqd0tHZDlrQWNaeVIyenEyNy0ydlNEbFZBMldtYjg6RUV5dWcwWDJMSXk3aFNwYW9DYkJTR0FNdzltbm12Sy1uNkJZTkIzRjlJcjh0cTlwQ2pnNUhTRkdJd0xrMFQxcGlZQl9IeWlvOHdkZjBqaXY=',
-                'Content-Type: application/x-www-form-urlencoded'
-              ),
-            ));
-
-            $response = curl_exec($curl);
-
-            curl_close($curl);
-            $response2 = json_decode($response);
-            $token = $response2->access_token;
-            $data = [
-                'order_id' => $order->id,
-                'token' => $token,
-                'amount' => $order->total,
-                'code' => $order->order_no
-
-            ];
-            
-            $resp = $this->paypalAuth($data);
-            
-            $resp2 = json_decode($resp);
-            $resp_link = $resp2->links;
-            return redirect($resp_link[1]->href);
-            } catch (Exception $e) {
-            Log::info($e->getMessage());
-        }
-       
+        return $request->boolean('cancelled')
+            ? $this->handleCancel($request)
+            : $this->handleReturn($request);
     }
-    public function paypalAuth($data)
+
+    private function buildCheckoutData(Request $request): array
     {
-        try{
-        $price = str_replace( ',', '',number_format($data['amount'],2));
+        return [
+            'fulfillment_mode' => strtolower((string) $request->input('fulfillment_mode', 'delivery')) === 'pickup' ? 'pickup' : 'delivery',
+            'delivery_address' => trim((string) $request->input('delivery_address', '')),
+            'd_lat' => $request->input('d_lat'),
+            'd_lng' => $request->input('d_lng'),
+            'driver_tip' => $request->input('driver_tip', 0),
+            'voucher_code' => $request->input('voucher_code'),
+            'scheduled_date' => $request->input('scheduled_date'),
+            'pickup_note' => $request->input('pickup_note'),
+        ];
+    }
 
-        $curl = curl_init();
+    private function resolvePaymentFromRequest(Request $request): ?Payment
+    {
+        $paymentId = (int) $request->query('payment_id', 0);
+        $providerReference = trim((string) $request->query('token', ''));
 
-        curl_setopt_array($curl, array(
-          CURLOPT_URL => 'https://api-m.sandbox.paypal.com/v2/checkout/orders',
-          CURLOPT_RETURNTRANSFER => true,
-          CURLOPT_ENCODING => '',
-          CURLOPT_MAXREDIRS => 10,
-          CURLOPT_TIMEOUT => 0,
-          CURLOPT_FOLLOWLOCATION => true,
-          CURLOPT_HTTP_VERSION => CURL_HTTP_VERSION_1_1,
-          CURLOPT_CUSTOMREQUEST => 'POST',
-          CURLOPT_POSTFIELDS =>'{
-          "intent": "CAPTURE",
-          "purchase_units": [
-            {
-              "reference_id": "d9f80740-38f0-11e8-b467-0ed5f89f718b",
-              "amount": {
-                "currency_code": "USD",
-                "value": "'.$price.'"
-              }
+        if ($paymentId > 0) {
+            $payment = Payment::find($paymentId);
+            if (
+                $payment
+                && $providerReference !== ''
+                && ! empty($payment->provider_reference)
+                && $payment->provider_reference !== $providerReference
+            ) {
+                return null;
             }
-          ],
-          "payment_source": {
-            "paypal": {
-              "experience_context": {
-                "payment_method_preference": "IMMEDIATE_PAYMENT_REQUIRED",
-                "payment_method_selected": "PAYPAL",
-                "brand_name": "Mangrove",
-                "locale": "en-US",
-                "landing_page": "LOGIN",
-                "shipping_preference": "NO_SHIPPING",
-                "user_action": "PAY_NOW",
-                "return_url": "'.route("thanks").'?orderID='.$data['code'].'",
-                "cancel_url": "'.route("cart").'"
-              }
-            }
-          }
-        }',
-          CURLOPT_HTTPHEADER => array(
-            'Authorization: Bearer '.$data['token'],
-            'Content-Type: application/json',
-            'PayPal-request-id: '.rand(1000000,9999999)
-          ),
-        ));
 
-        $response = curl_exec($curl);
-        \Log::info($response);
-        $tok = json_decode($response)->id;
-        curl_close($curl);
-
-        //Update trxId
-        // Order::where("id", $data['order_id'])->update(["transaction_id" => $tok]);
-
-        return $response;
-    } catch (Exception $e) {
-            \Log::info($e->getMessage());
+            return $payment;
         }
+
+        if ($providerReference !== '') {
+            return Payment::where('provider', 'paypal')
+                ->where('provider_reference', $providerReference)
+                ->latest('id')
+                ->first();
+        }
+
+        return null;
+    }
+
+    private function redirectToThanks(Payment $payment, string $successMessage): RedirectResponse
+    {
+        $order = $payment->order()->latest('id')->first();
+        if (! $order) {
+            return redirect()->route('cart.detail')->with('message', 'Paiement confirmé, mais commande introuvable.');
+        }
+
+        return redirect()->route('thanks', ['orderID' => $order->order_no])->with('success', $successMessage);
     }
 }

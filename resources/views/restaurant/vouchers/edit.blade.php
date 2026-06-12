@@ -1,97 +1,111 @@
-@extends('layouts.app')
-@section('title')
-    Edit {{$voucher->name}} Voucher
-@endsection
+@extends('layouts.restaurant_app')
+@section('title', 'Modifier un bon de réduction | ' . \App\Services\ConfigService::getCompanyName())
+@section('topbar_title', 'Modifier un bon de réduction')
 @section('vouchers_nav', 'active')
-@section('vouchers_nav_open', 'menu-open')
-@section('vouchers_nav_index', 'active')
-@section('style')
 
-@endsection
 @section('content')
-    <div class="content-header">
-        <div class="container-fluid">
-            <div class="row mb-2">
-                <div class="col-sm-6">
-                    <h1 class="m-0 text-dark">Vouchers</h1>
-                </div><!-- /.col -->
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-right">
-                        <li class="breadcrumb-item"><a href="#">Accueil</a></li>
-                        <li class="breadcrumb-item"><a href="{{route('voucher.index')}}">Vouchers</a></li>
-                        <li class="breadcrumb-item active">{{$voucher->name}}</li>
-                    </ol>
-                </div><!-- /.col -->
-            </div><!-- /.row -->
-        </div><!-- /.container-fluid -->
-    </div>
-    <section class="content">
-        <div class="container-fluid">
-            <!-- Small boxes (Stat box) -->
-            <div class="row">
-                <div class="col-md-7 col-xs-12">
-                    
-                    <div class="card">
-                        <div class="card-header">
-                            <h4>Edit {{$voucher->name}} Voucher</h4>
-                        </div>
-                        <div class="card-body">
-                            <form role="form" method="post" action="{{route('voucher.update',$voucher->id)}}">
-                                @csrf
-                                @method('PUT')
-                                <div class="form-row">
-                                    <div class="form-group col-md-6 col-xs-12">
-                                        <label for="name">Nom</label>
-                                        <input type="text" name="name" class="form-control" placeholder="Enter the name of voucher" value="{{$voucher->name}}" />
-                                    </div>
-                                    <div class="form-group col-md-6 col-xs-12">
-                                        <label for="discount">Discount (%)</label>
-                                        <input type="text" name="discount" class="form-control" placeholder="Enter discount in %" value="{{$voucher->discount}}" />
-                                    </div>
-                                </div>
-                                <div class="form-row">
-                                    <div class="form-group col-md-6 col-xs-12">
-                                        <label for="start_date">From</label>
-                                        <input type="type="date" name="start_date" class="form-control" value="{{$voucher->start_date}}" />
-                                    </div>
-                                    <div class="form-group col-md-6 col-xs-12">
-                                        <label for="end_date">To</label>
-                                        <input type="type="date" name="end_date" class="form-control" value="{{$voucher->end_date}}"/>
-                                    </div>
-                                </div>
-                                <div class="form-row mt-3">
-                                    <div class="form-group col-12">
-                                        <button type="submit" class="btn bg-gradient-success">Update Coupon</button>
-                                        <button type="reset" class="btn bg-gradient-danger">Annuler</button>
-                                    </div>
-                                </div>
-                            </form>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-5 d-sm-block">
-                    <div class="card mx-5">
-                        <div class="card-body">
-                            <img src="{{asset('images/coupons.jpg')}}" width="300" height="300">
-                        </div>
-                    </div>
-                </div>
-            </div>
+<div style="max-width:600px;">
+
+    @if(session()->has('alert'))
+        <div class="alert alert-{{ session()->get('alert.type') }} alert-dismissible" role="alert">
+            {{ session()->get('alert.message') }}
+            <button type="button" class="close" data-dismiss="alert"><span>&times;</span></button>
         </div>
-    </section>
-@endsection
-@section('script')
-<script>
-    $(function () {
-      $("#example1").DataTable();
-      $('#example2').DataTable({
-        "paging": true,
-        "lengthChange": false,
-        "searching": false,
-        "ordering": true,
-        "info": true,
-        "autoWidth": false,
-      });
-    });
-  </script>
+    @endif
+
+    <div style="background:var(--bd-surface);border:1px solid var(--bd-border);border-radius:var(--bd-radius);overflow:hidden;">
+        <div style="padding:16px 20px;border-bottom:1px solid var(--bd-border-2);display:flex;align-items:center;justify-content:space-between;gap:12px;">
+            <div>
+                <div style="font-size:13px;font-weight:700;color:var(--bd-text);">Modifier « {{ $voucher->name }} »</div>
+                <div style="font-size:11px;color:var(--bd-text-3);margin-top:2px;">Mettez à jour les paramètres du bon de réduction</div>
+            </div>
+            <a href="{{ route('voucher.index') }}"
+               style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:var(--bd-radius);border:1px solid var(--bd-border);background:var(--bd-surface);color:var(--bd-text-2);font-size:12px;font-weight:600;text-decoration:none;transition:.12s;"
+               onmouseover="this.style.borderColor='var(--bd-green)';this.style.color='var(--bd-green)';"
+               onmouseout="this.style.borderColor='var(--bd-border)';this.style.color='var(--bd-text-2)';">
+                <i class="fas fa-arrow-left"></i> Retour
+            </a>
+        </div>
+
+        <form method="post" action="{{ route('voucher.update', $voucher->id) }}">
+            @csrf
+            @method('PUT')
+            <div style="padding:24px 20px;display:flex;flex-direction:column;gap:18px;">
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+                    <div>
+                        <label for="name" style="display:block;font-size:12px;font-weight:600;color:var(--bd-text);margin-bottom:6px;">
+                            Nom du bon <span style="color:#dc2626;">*</span>
+                        </label>
+                        <input required type="text" name="name" id="name"
+                               value="{{ old('name', $voucher->name) }}"
+                               placeholder="Ex : PROMO10"
+                               style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid {{ $errors->has('name') ? '#dc2626' : 'var(--bd-border)' }};border-radius:var(--bd-radius);font-size:13px;font-family:var(--bd-font);background:var(--bd-surface);color:var(--bd-text);outline:none;transition:border-color .12s;"
+                               onfocus="this.style.borderColor='var(--bd-green)';"
+                               onblur="this.style.borderColor='{{ $errors->has('name') ? '#dc2626' : 'var(--bd-border)' }}';" />
+                        @error('name')
+                            <div style="font-size:11px;color:#dc2626;margin-top:4px;">{{ $message }}</div>
+                        @enderror
+                    </div>
+                    <div>
+                        <label for="discount" style="display:block;font-size:12px;font-weight:600;color:var(--bd-text);margin-bottom:6px;">
+                            Réduction (%) <span style="color:#dc2626;">*</span>
+                        </label>
+                        <input required type="number" name="discount" id="discount"
+                               value="{{ old('discount', $voucher->discount) }}"
+                               min="1" max="100"
+                               style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid {{ $errors->has('discount') ? '#dc2626' : 'var(--bd-border)' }};border-radius:var(--bd-radius);font-size:13px;font-family:var(--bd-font);background:var(--bd-surface);color:var(--bd-text);outline:none;transition:border-color .12s;"
+                               onfocus="this.style.borderColor='var(--bd-green)';"
+                               onblur="this.style.borderColor='{{ $errors->has('discount') ? '#dc2626' : 'var(--bd-border)' }}';" />
+                        @error('discount')
+                            <div style="font-size:11px;color:#dc2626;margin-top:4px;">{{ $message }}</div>
+                        @enderror
+                    </div>
+                </div>
+
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+                    <div>
+                        <label for="start_date" style="display:block;font-size:12px;font-weight:600;color:var(--bd-text);margin-bottom:6px;">
+                            Date de début <span style="color:#dc2626;">*</span>
+                        </label>
+                        <input required type="date" name="start_date" id="start_date"
+                               value="{{ old('start_date', $voucher->start_date) }}"
+                               style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid {{ $errors->has('start_date') ? '#dc2626' : 'var(--bd-border)' }};border-radius:var(--bd-radius);font-size:13px;font-family:var(--bd-font);background:var(--bd-surface);color:var(--bd-text);outline:none;transition:border-color .12s;" />
+                        @error('start_date')
+                            <div style="font-size:11px;color:#dc2626;margin-top:4px;">{{ $message }}</div>
+                        @enderror
+                    </div>
+                    <div>
+                        <label for="end_date" style="display:block;font-size:12px;font-weight:600;color:var(--bd-text);margin-bottom:6px;">
+                            Date de fin <span style="color:#dc2626;">*</span>
+                        </label>
+                        <input required type="date" name="end_date" id="end_date"
+                               value="{{ old('end_date', $voucher->end_date) }}"
+                               style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid {{ $errors->has('end_date') ? '#dc2626' : 'var(--bd-border)' }};border-radius:var(--bd-radius);font-size:13px;font-family:var(--bd-font);background:var(--bd-surface);color:var(--bd-text);outline:none;transition:border-color .12s;" />
+                        @error('end_date')
+                            <div style="font-size:11px;color:#dc2626;margin-top:4px;">{{ $message }}</div>
+                        @enderror
+                    </div>
+                </div>
+
+            </div>
+
+            <div style="padding:14px 20px;border-top:1px solid var(--bd-border-2);background:var(--bd-surface-2);display:flex;align-items:center;justify-content:flex-end;gap:8px;">
+                <a href="{{ route('voucher.index') }}"
+                   style="display:inline-flex;align-items:center;gap:5px;padding:8px 16px;border-radius:var(--bd-radius);border:1px solid var(--bd-border);background:var(--bd-surface);color:var(--bd-text-2);font-size:12px;font-weight:600;text-decoration:none;transition:.12s;"
+                   onmouseover="this.style.borderColor='var(--bd-green)';this.style.color='var(--bd-green)';"
+                   onmouseout="this.style.borderColor='var(--bd-border)';this.style.color='var(--bd-text-2)';">
+                    Annuler
+                </a>
+                <button type="submit"
+                        style="display:inline-flex;align-items:center;gap:6px;padding:8px 18px;border-radius:var(--bd-radius);background:var(--bd-green);color:#fff;font-size:12px;font-weight:700;border:none;cursor:pointer;font-family:var(--bd-font);transition:.12s;"
+                        onmouseover="this.style.background='var(--bd-green-dark,#007836)';"
+                        onmouseout="this.style.background='var(--bd-green)';">
+                    <i class="fas fa-check"></i> Enregistrer
+                </button>
+            </div>
+        </form>
+    </div>
+
+</div>
 @endsection

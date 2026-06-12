@@ -9,7 +9,9 @@ use App\User;
 use App\Order;
 use App\CompletedOrder;
 use App\Services\DataSyncService;
+use App\Services\UnifiedMediaLibraryService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Facades\Validator;
 use DB;
@@ -17,6 +19,10 @@ use Carbon;
 
 class RestaurantController extends Controller
 {
+    public function __construct(private UnifiedMediaLibraryService $unifiedMediaLibraryService)
+    {
+    }
+
     /**
      * Display a listing of the resource.
      *
@@ -35,7 +41,9 @@ class RestaurantController extends Controller
      */
     public function create()
     {
-        return view('admin.restaurant.create');
+        return view('admin.restaurant.create', [
+            'mediaLibraryOptions' => $this->unifiedMediaLibraryService->groupedOptions(),
+        ]);
     }
 
     /**
@@ -52,8 +60,10 @@ class RestaurantController extends Controller
             'email' => 'required|string|unique:restaurants',
             'password' => 'required|string|min:6|max:191',
             'slogan' => 'required|string|max:191',
-            'logo' => 'nullable|image|mimes:jpeg,png,jpg',
-            'cover_image' => 'nullable|image|mimes:jpeg,png,jpg',
+            'logo' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:8192',
+            'cover_image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:8192',
+            'logo_media_path' => 'nullable|string|max:2048',
+            'cover_image_media_path' => 'nullable|string|max:2048',
             'city' => 'required|string|max:191',
             'address' => 'required|string|max:191',
             'latitude' => 'required',
@@ -100,6 +110,13 @@ class RestaurantController extends Controller
             str_replace(" ", "-", $filename);
             $restaurant->cover_image = $filename;
             $restaurant->save();
+        } elseif ($request->filled('cover_image_media_path')) {
+            $restaurant->cover_image = $this->unifiedMediaLibraryService->copyToDirectory(
+                $request->input('cover_image_media_path'),
+                'images/restaurant_images',
+                'restaurant-cover-' . $restaurant->id
+            );
+            $restaurant->save();
         }
         if ($request->hasFile('logo')) {
             $file = strtolower(
@@ -112,6 +129,13 @@ class RestaurantController extends Controller
             $logo->move($destination, $file);
             str_replace(" ", "-", $file);
             $restaurant->logo = $file;
+            $restaurant->save();
+        } elseif ($request->filled('logo_media_path')) {
+            $restaurant->logo = $this->unifiedMediaLibraryService->copyToDirectory(
+                $request->input('logo_media_path'),
+                'images/restaurant_images',
+                'restaurant-logo-' . $restaurant->id
+            );
             $restaurant->save();
         }
         // Invalider le cache pour synchroniser les données
@@ -201,7 +225,10 @@ $totalYearBy = implode(', ',$totalsByYear);
      */
     public function edit(Restaurant $restaurant)
     {
-        return view('admin.restaurant.edit')->with('restaurant', $restaurant);
+        return view('admin.restaurant.edit', [
+            'restaurant' => $restaurant,
+            'mediaLibraryOptions' => $this->unifiedMediaLibraryService->groupedOptions(),
+        ]);
     }
 
     /**
@@ -216,8 +243,10 @@ $totalYearBy = implode(', ',$totalsByYear);
         $request->validate([
             'name' => 'required|string|max:191',
             'slogan' => 'required|string|max:191',
-            'logo' => 'nullable|image|mimes:jpeg,png,jpg',
-            'cover_image' => 'nullable|image|mimes:jpeg,png,jpg',
+            'logo' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:8192',
+            'cover_image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:8192',
+            'logo_media_path' => 'nullable|string|max:2048',
+            'cover_image_media_path' => 'nullable|string|max:2048',
             'city' => 'required|string|max:191',
             'address' => 'required|string|max:191',
             'latitude' => 'required',
@@ -251,8 +280,27 @@ $totalYearBy = implode(', ',$totalsByYear);
              $user->password = $request->password;
             $user->save();
         }
-            
-        $restaurant->update($request->all());
+
+        $restaurantData = collect([
+            'name' => $request->name,
+            'slogan' => $request->slogan,
+            'city' => $request->city,
+            'address' => $request->address,
+            'latitude' => $request->latitude,
+            'longitude' => $request->longitude,
+            'description' => $request->description,
+            'min_order' => $request->min_order,
+            'avg_delivery_time' => $request->avg_delivery_time,
+            'delivery_range' => $request->delivery_range,
+            'phone' => $request->phone ?: $restaurant->phone,
+            'user_name' => $request->user_name ?: $restaurant->user_name,
+            'email' => $request->email ?: $restaurant->email,
+        ])->reject(function ($value, $key) {
+            return !Schema::hasColumn('restaurants', $key);
+        })->all();
+
+        $restaurant->fill($restaurantData);
+        $restaurant->save();
         
         if($request->cuisine_id){
         $restaurant->cuisines()->sync($request->cuisine_id);
@@ -283,6 +331,13 @@ $totalYearBy = implode(', ',$totalsByYear);
             $cover_image->move($destination, $filename);
             $restaurant->cover_image = $filename;
             $restaurant->update();
+        } elseif ($request->filled('cover_image_media_path')) {
+            $restaurant->cover_image = $this->unifiedMediaLibraryService->copyToDirectory(
+                $request->input('cover_image_media_path'),
+                'images/restaurant_images',
+                'restaurant-cover-' . $restaurant->id
+            );
+            $restaurant->update();
         }
         
         
@@ -306,6 +361,13 @@ $totalYearBy = implode(', ',$totalsByYear);
             $file=str_replace(" ", "-", $file);
             $logo->move($destination, $file);
             $restaurant->logo = $file;
+            $restaurant->update();
+        } elseif ($request->filled('logo_media_path')) {
+            $restaurant->logo = $this->unifiedMediaLibraryService->copyToDirectory(
+                $request->input('logo_media_path'),
+                'images/restaurant_images',
+                'restaurant-logo-' . $restaurant->id
+            );
             $restaurant->update();
         }
         

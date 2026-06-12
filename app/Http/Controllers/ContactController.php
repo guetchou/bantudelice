@@ -12,11 +12,15 @@ class ContactController extends Controller
     public function ContactUs(Request $request)
     {
         $request->validate([
-           'name' => 'required',
-            'email' => 'required',
+            'name' => 'required',
+            'email' => 'required|email',
             'phone' => 'required',
+            'subject' => 'nullable|string|max:120',
             'message' => 'required'
         ]);
-        dd($request->all());
-}
+
+        Contact::create($request->only(['name', 'email', 'phone', 'subject', 'message']));
+
+        return redirect()->back()->with('success', 'Votre message a bien ete envoye.');
+    }
 }

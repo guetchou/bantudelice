@@ -1,24 +1,38 @@
 @extends('frontend.layouts.app-modern')
-
-@section('title', 'Tous les restaurants | BantuDelice')
+@php
+    $foodBrandName = \App\Services\ConfigService::getCompanyName();
+@endphp
+@section('description', 'Parcourez tous les restaurants disponibles sur ' . $foodBrandName . ' et commandez en ligne pour une livraison rapide.')
+@section('title', 'Tous les restaurants | ' . $foodBrandName)
+@section('body_class', 'bd-restaurants-page')
 
 @section('content')
 <!-- Page Tous les Restaurants -->
-<section class="section" style="padding-top: 100px; padding-bottom: 60px; background: #FAFAFA; min-height: 80vh;">
+<section class="section restaurants-page-shell">
     <div class="container">
         <!-- En-tête -->
-        <div style="margin-bottom: 32px;">
-            <h1 style="font-size: 2rem; font-weight: 700; margin: 0 0 8px 0; color: #191919;">Restaurants populaires</h1>
-            <p style="color: #6B6B6B; font-size: 1rem; margin: 0;">Découvrez les restaurants les mieux notés par nos clients</p>
+        <div class="restaurants-page-heading">
+            <div class="restaurants-page-heading-row">
+                <div>
+                    <h1 class="restaurants-page-title">Tous les restaurants</h1>
+                    <p class="restaurants-page-subtitle">Filtrez les restaurants par cuisine, note, frais de livraison et disponibilité.</p>
+                </div>
+                <button type="button" id="nearMeBtn" class="restaurants-near-btn" title="Restaurants près de moi">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+                    <span id="nearMeBtnLabel">Près de moi</span>
+                </button>
+            </div>
         </div>
+        <input type="hidden" id="userLat">
+        <input type="hidden" id="userLng">
         
         <!-- Filtres et Tri -->
-        <div style="background: white; border-radius: 16px; padding: 1.5rem; margin-bottom: 24px; box-shadow: 0 2px 8px rgba(0,0,0,0.08);">
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1rem;">
+        <div class="restaurants-filter-card">
+            <div class="restaurants-filter-grid">
                 <!-- Filtre Cuisine -->
-                <div>
-                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #191919; font-size: 0.875rem;">Cuisine</label>
-                    <select id="filterCuisine" class="filter-select" style="width: 100%; padding: 0.625rem; border: 1px solid #E0E0E0; border-radius: 8px; font-size: 0.875rem;">
+                <div class="restaurants-filter-field">
+                    <label class="restaurants-filter-label" for="filterCuisine">Cuisine</label>
+                    <select id="filterCuisine" class="filter-select restaurants-filter-input">
                         <option value="">Toutes les cuisines</option>
                         @if(isset($cuisines) && $cuisines->count() > 0)
                             @foreach($cuisines as $cuisine)
@@ -29,9 +43,9 @@
                 </div>
                 
                 <!-- Filtre Note minimale -->
-                <div>
-                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #191919; font-size: 0.875rem;">Note minimum</label>
-                    <select id="filterMinRating" class="filter-select" style="width: 100%; padding: 0.625rem; border: 1px solid #E0E0E0; border-radius: 8px; font-size: 0.875rem;">
+                <div class="restaurants-filter-field">
+                    <label class="restaurants-filter-label" for="filterMinRating">Note minimum</label>
+                    <select id="filterMinRating" class="filter-select restaurants-filter-input">
                         <option value="">Toutes les notes</option>
                         @php
                             $topRatedThreshold = \App\Services\ConfigService::getTopRatedThreshold();
@@ -44,9 +58,9 @@
                 </div>
                 
                 <!-- Filtre Frais de livraison max -->
-                <div>
-                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #191919; font-size: 0.875rem;">Frais max (FCFA)</label>
-                    <select id="filterMaxDeliveryFee" class="filter-select" style="width: 100%; padding: 0.625rem; border: 1px solid #E0E0E0; border-radius: 8px; font-size: 0.875rem;">
+                <div class="restaurants-filter-field">
+                    <label class="restaurants-filter-label" for="filterMaxDeliveryFee">Frais max (FCFA)</label>
+                    <select id="filterMaxDeliveryFee" class="filter-select restaurants-filter-input">
                         <option value="">Aucune limite</option>
                         <option value="1000">≤ 1 000 FCFA</option>
                         <option value="2000">≤ 2 000 FCFA</option>
@@ -56,9 +70,9 @@
                 </div>
                 
                 <!-- Tri -->
-                <div>
-                    <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #191919; font-size: 0.875rem;">Trier par</label>
-                    <select id="filterSort" class="filter-select" style="width: 100%; padding: 0.625rem; border: 1px solid #E0E0E0; border-radius: 8px; font-size: 0.875rem;">
+                <div class="restaurants-filter-field">
+                    <label class="restaurants-filter-label" for="filterSort">Trier par</label>
+                    <select id="filterSort" class="filter-select restaurants-filter-input">
                         <option value="popular" {{ request('sort') == 'popular' || !request('sort') ? 'selected' : '' }}>Popularité</option>
                         <option value="rating" {{ request('sort') == 'rating' ? 'selected' : '' }}>Meilleure note</option>
                         <option value="delivery_fee" {{ request('sort') == 'delivery_fee' ? 'selected' : '' }}>Frais de livraison</option>
@@ -68,9 +82,9 @@
             </div>
             
             <!-- Recherche textuelle -->
-            <div>
-                <label style="display: block; margin-bottom: 0.5rem; font-weight: 600; color: #191919; font-size: 0.875rem;">Rechercher</label>
-                <input type="text" id="filterSearch" placeholder="Nom, adresse..." style="width: 100%; padding: 0.625rem; border: 1px solid #E0E0E0; border-radius: 8px; font-size: 0.875rem;" value="{{ request('search') }}">
+            <div class="restaurants-filter-field">
+                <label class="restaurants-filter-label" for="filterSearch">Rechercher</label>
+                <input type="text" id="filterSearch" class="restaurants-filter-input" placeholder="Nom, adresse..." value="{{ request('search') }}">
             </div>
         </div>
         
@@ -81,22 +95,20 @@
         
         <!-- Pagination -->
         @if(isset($paginator) && $paginator->lastPage() > 1)
-        <div id="paginationContainer" style="display: flex; justify-content: center; align-items: center; gap: 1rem; margin-top: 2rem;">
-            <button id="prevPage" class="pagination-btn" data-page="{{ $paginator->currentPage() - 1 }}" 
-                    style="padding: 0.625rem 1.25rem; border: 1px solid #E0E0E0; border-radius: 8px; background: white; cursor: pointer; font-size: 0.875rem; {{ $paginator->currentPage() <= 1 ? 'opacity: 0.5; cursor: not-allowed;' : '' }}"
+        <div id="paginationContainer" class="restaurants-pagination">
+            <button id="prevPage" class="pagination-btn {{ $paginator->currentPage() <= 1 ? 'is-disabled' : '' }}" data-page="{{ $paginator->currentPage() - 1 }}"
                     {{ $paginator->currentPage() <= 1 ? 'disabled' : '' }}>
-                <i class="fas fa-chevron-left"></i> Précédent
+                Précédent
             </button>
             
-            <span style="color: #6B7280; font-size: 0.875rem;">
+            <span class="restaurants-pagination-status">
                 Page <span id="currentPage">{{ $paginator->currentPage() }}</span> / <span id="lastPage">{{ $paginator->lastPage() }}</span>
                 (<span id="totalResults">{{ $paginator->total() }}</span> restaurants)
             </span>
             
-            <button id="nextPage" class="pagination-btn" data-page="{{ $paginator->currentPage() + 1 }}"
-                    style="padding: 0.625rem 1.25rem; border: 1px solid #E0E0E0; border-radius: 8px; background: white; cursor: pointer; font-size: 0.875rem; {{ $paginator->currentPage() >= $paginator->lastPage() ? 'opacity: 0.5; cursor: not-allowed;' : '' }}"
+            <button id="nextPage" class="pagination-btn {{ $paginator->currentPage() >= $paginator->lastPage() ? 'is-disabled' : '' }}" data-page="{{ $paginator->currentPage() + 1 }}"
                     {{ $paginator->currentPage() >= $paginator->lastPage() ? 'disabled' : '' }}>
-                Suivant <i class="fas fa-chevron-right"></i>
+                Suivant
             </button>
         </div>
         @endif
@@ -110,6 +122,10 @@
     let lastPage = {{ isset($paginator) ? $paginator->lastPage() : 1 }};
     let totalResults = {{ isset($paginator) ? $paginator->total() : 0 }};
     let loading = false;
+    const placeholderImageUrl = @json(asset('images/home/food-orb3.jpg'));
+    const MAPBOX_TOKEN = @json(mapbox_public_token());
+    const restaurantDetailBaseUrl = @json(url('restaurant/view'));
+    const restaurantFavoriteBaseUrl = @json(url('restaurants'));
     
     // Fonction pour charger les restaurants
     async function loadRestaurants(page = 1) {
@@ -120,9 +136,9 @@
         const paginationContainer = document.getElementById('paginationContainer');
         
         // Afficher le loader
-        container.innerHTML = '<div style="text-align: center; padding: 60px 20px;"><i class="fas fa-spinner fa-spin" style="font-size: 2rem; color: #05944F;"></i><p style="margin-top: 1rem; color: #6B7280;">Chargement des restaurants...</p></div>';
+        container.innerHTML = renderFeedbackState('Chargement des restaurants...');
         
-        // Récupérer les filtres
+        // Récupérer les filtres + coords GPS si disponibles
         const filters = {
             cuisine: document.getElementById('filterCuisine')?.value || '',
             min_rating: document.getElementById('filterMinRating')?.value || '',
@@ -132,6 +148,9 @@
             page: page,
             per_page: 12
         };
+        const lat = document.getElementById('userLat')?.value;
+        const lng = document.getElementById('userLng')?.value;
+        if (lat && lng) { filters.lat = lat; filters.lng = lng; }
         
         // Nettoyer les filtres vides
         Object.keys(filters).forEach(key => {
@@ -154,6 +173,7 @@
             if (data.status && data.data) {
                 // Mettre à jour les restaurants
                 container.innerHTML = renderRestaurants(data.data);
+                bindRestaurantCards();
                 
                 // Mettre à jour la pagination
                 if (data.meta) {
@@ -174,69 +194,157 @@
                 });
                 window.history.pushState({}, '', url);
             } else {
-                container.innerHTML = '<div style="text-align: center; padding: 60px 20px; color: #6B7280;"><i class="fas fa-exclamation-circle" style="font-size: 2rem; margin-bottom: 16px; opacity: 0.3;"></i><p>Aucun restaurant trouvé</p></div>';
+                showEmptyWithFallback(container);
             }
         } catch (error) {
             console.error('Error loading restaurants:', error);
-            container.innerHTML = '<div style="text-align: center; padding: 60px 20px; color: #EF4444;"><i class="fas fa-exclamation-triangle" style="font-size: 2rem; margin-bottom: 16px;"></i><p>Erreur lors du chargement des restaurants</p></div>';
+            container.innerHTML = renderFeedbackState('Erreur lors du chargement des restaurants.', 'is-error');
         } finally {
             loading = false;
+        }
+    }
+
+    function renderFeedbackState(message, modifier = '') {
+        return `<div class="restaurants-feedback ${modifier}"><p>${message}</p></div>`;
+    }
+
+    let _fallbackMap = null;
+
+    function showEmptyWithFallback(container) {
+        const lat = parseFloat(document.getElementById('userLat')?.value) || null;
+        const lng = parseFloat(document.getElementById('userLng')?.value) || null;
+
+        // Coordonnées par défaut : centre de Brazzaville
+        const centerLat = lat || -4.2767;
+        const centerLng = lng || 15.2832;
+
+        container.innerHTML = `
+        <div class="restaurants-feedback">
+            <div class="restaurants-empty-icon">🍽️</div>
+            <p class="restaurants-empty-title">Aucun restaurant BantuDelice dans cette zone pour l'instant.</p>
+            <p class="restaurants-empty-sub">Notre réseau couvre Brazzaville et Pointe-Noire. Voici un aperçu de la zone — nous y ajoutons de nouveaux partenaires régulièrement.</p>
+            <div class="restaurants-fallback-map" id="fallbackMapBox" style="height:300px;border-radius:14px;overflow:hidden;margin:16px 0;"></div>
+            <a href="https://www.openstreetmap.org/search?query=restaurant+Brazzaville" target="_blank" rel="noopener noreferrer" class="restaurants-empty-cta">
+                Voir sur OpenStreetMap
+            </a>
+        </div>`;
+
+        // Initialiser la carte Leaflet + tuiles Mapbox/OSM
+        if (typeof L === 'undefined') {
+            // Charger Leaflet à la volée si pas encore chargé
+            const css = document.createElement('link');
+            css.rel = 'stylesheet';
+            css.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+            document.head.appendChild(css);
+            const script = document.createElement('script');
+            script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
+            script.onload = function() { _initFallbackMap(centerLat, centerLng, lat && lng); };
+            document.head.appendChild(script);
+        } else {
+            _initFallbackMap(centerLat, centerLng, lat && lng);
+        }
+    }
+
+    function _initFallbackMap(centerLat, centerLng, hasUserPos) {
+        const box = document.getElementById('fallbackMapBox');
+        if (!box) return;
+        if (_fallbackMap) { _fallbackMap.remove(); _fallbackMap = null; }
+
+        _fallbackMap = L.map(box, { zoomControl: true }).setView([centerLat, centerLng], hasUserPos ? 14 : 13);
+
+        const tileUrl = MAPBOX_TOKEN
+            ? `https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/{z}/{x}/{y}?access_token=${MAPBOX_TOKEN}`
+            : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png';
+        const tileOpts = MAPBOX_TOKEN
+            ? { tileSize: 512, zoomOffset: -1, attribution: '© Mapbox © OpenStreetMap', maxZoom: 18 }
+            : { attribution: '© OpenStreetMap', maxZoom: 18 };
+
+        L.tileLayer(tileUrl, tileOpts).addTo(_fallbackMap);
+
+        if (hasUserPos) {
+            const icon = L.divIcon({
+                html: '<div style="width:16px;height:16px;background:#3b82f6;border:3px solid #fff;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,.3)"></div>',
+                iconSize: [16,16], iconAnchor: [8,8], className: ''
+            });
+            L.marker([centerLat, centerLng], { icon })
+                .addTo(_fallbackMap)
+                .bindPopup('Votre position')
+                .openPopup();
+        }
+
+        // Marqueurs pour Brazzaville et Pointe-Noire si pas de position précise
+        if (!hasUserPos) {
+            const dotIcon = function(color) {
+                return L.divIcon({
+                    html: `<div style="width:12px;height:12px;background:${color};border:2px solid #fff;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,.3)"></div>`,
+                    iconSize: [12,12], iconAnchor: [6,6], className: ''
+                });
+            };
+            L.marker([-4.2767, 15.2832], { icon: dotIcon('#009543') }).addTo(_fallbackMap).bindPopup('Brazzaville');
+            L.marker([-4.7769, 11.8632], { icon: dotIcon('#009543') }).addTo(_fallbackMap).bindPopup('Pointe-Noire');
+            _fallbackMap.setView([-4.5, 13.5], 6);
         }
     }
     
     // Fonction pour rendre les restaurants
     function renderRestaurants(restaurants) {
         if (!restaurants || restaurants.length === 0) {
-            return '<div style="text-align: center; padding: 60px 20px; color: #6B7280;"><i class="fas fa-utensils" style="font-size: 3rem; margin-bottom: 16px; opacity: 0.3;"></i><p style="font-size: 1rem; margin: 0;">Aucun restaurant disponible pour le moment</p></div>';
+            return renderFeedbackState('Aucun restaurant disponible pour le moment.');
         }
         
-        let html = '<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 24px;">';
+        let html = '<div class="restaurants-grid restaurants-results-grid">';
         
         restaurants.forEach(restaurant => {
-            const thumbnailUrl = restaurant.thumbnail_url || '{{ asset("images/placeholder.png") }}';
-            const detailUrl = `{{ url('/restaurant') }}/${restaurant.id}`;
+            const thumbnailUrl = restaurant.thumbnail_url || placeholderImageUrl;
+            const detailUrl = `${restaurantDetailBaseUrl}/${restaurant.id}`;
+            const favoriteUrl = `${restaurantFavoriteBaseUrl}/${restaurant.id}/favorite`;
+            const topRatedLabel = restaurant.is_featured
+                ? 'Top note'
+                : `Note ${restaurant.avg_rating || '4.5'}`;
+            const favoriteClass = restaurant.is_favorite ? ' is-active' : '';
             
             html += `
-                <article class="restaurant-card" style="position: relative; border-radius: 16px; background: white; box-shadow: 0 2px 8px rgba(0,0,0,0.08); overflow: hidden; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); cursor: pointer;"
-                        onmouseover="this.style.transform='translateY(-4px)'; this.style.boxShadow='0 8px 24px rgba(0,0,0,0.12)'"
-                        onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(0,0,0,0.08)'"
-                        onclick="window.location.href='${detailUrl}'">
-                    <div style="position: relative; height: 160px; overflow: hidden; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
+                <article class="restaurant-card restaurants-feed-card" data-href="${detailUrl}">
+                    <div class="restaurant-card-image restaurants-feed-card__media">
                         <img src="${thumbnailUrl}" 
                              alt="${restaurant.name}"
-                             style="width: 100%; height: 100%; object-fit: cover; transition: transform 0.3s ease;"
-                             onerror="this.src='{{ asset("images/placeholder.png") }}'"
-                             onmouseover="this.style.transform='scale(1.05)'"
-                             onmouseout="this.style.transform='scale(1)'">
-                        <div style="pointer-events: none; position: absolute; inset: 0; background: linear-gradient(to top, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.05) 50%, transparent 100%);"></div>
-                        <div style="position: absolute; bottom: 8px; left: 8px; display: flex; align-items: center; gap: 4px; background: rgba(255,255,255,0.95); backdrop-filter: blur(8px); padding: 4px 10px; border-radius: 500px; font-size: 0.75rem; font-weight: 500; box-shadow: 0 2px 8px rgba(0,0,0,0.15);">
-                            <i class="fas fa-clock" style="font-size: 0.625rem; color: #6B6B6B;"></i>
+                             class="restaurants-feed-card__image"
+                             onerror="this.src='${placeholderImageUrl}'">
+                        <div class="restaurants-feed-card__overlay"></div>
+                        <div class="restaurants-feed-card__eta">
                             <span>${restaurant.eta_display || '20-35 min'}</span>
                         </div>
                         ${restaurant.is_top_rated ? `
-                        <div style="position: absolute; top: 8px; left: 8px;">
-                            <span style="background: #05944F; color: white; padding: 4px 10px; border-radius: 500px; font-size: 0.6875rem; font-weight: 600; box-shadow: 0 2px 8px rgba(5,148,79,0.3);">
-                                ${restaurant.is_featured ? 'Top noté' : `⭐ ${restaurant.avg_rating}`}
+                        <div class="restaurants-feed-card__badge-wrap">
+                            <span class="restaurants-feed-card__badge">
+                                ${topRatedLabel}
                             </span>
                         </div>
                         ` : ''}
+                        @auth
+                        <form method="POST" action="${favoriteUrl}" class="restaurants-feed-card__favorite-form" onclick="event.stopPropagation();">
+                            @csrf
+                            <button type="submit" aria-label="Ajouter aux favoris" class="restaurants-feed-card__favorite-btn${favoriteClass}">
+                                <i class="fas fa-heart"></i>
+                            </button>
+                        </form>
+                        @endauth
                     </div>
-                    <div style="padding: 14px 16px 16px;">
-                        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; margin-bottom: 6px;">
-                            <h3 style="font-size: 1rem; font-weight: 600; margin: 0; color: #191919; line-height: 1.3; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                    <div class="restaurant-card-content restaurants-feed-card__content">
+                        <div class="restaurants-feed-card__top">
+                            <h3 class="restaurant-card-title restaurants-feed-card__title">
                                 ${restaurant.name}
                             </h3>
-                            <div style="display: flex; align-items: center; gap: 3px; background: #F6F6F6; padding: 4px 8px; border-radius: 500px; font-size: 0.8125rem; font-weight: 600; flex-shrink: 0;">
-                                <span style="color: #191919;">${restaurant.avg_rating || '4.5'}</span>
-                                <i class="fas fa-star" style="color: #FFB800; font-size: 0.625rem;"></i>
+                            <div class="restaurants-feed-card__rating">
+                                <span>${restaurant.avg_rating || '4.5'}</span>
                             </div>
                         </div>
-                        <p style="color: #6B6B6B; font-size: 0.8125rem; margin: 0 0 8px 0; line-height: 1.4; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                        <p class="restaurant-card-cuisine restaurants-feed-card__cuisine">
                             ${restaurant.cuisines_display || 'Cuisine variée'}
                         </p>
-                        <div style="display: flex; justify-content: space-between; align-items: center; padding-top: 8px; border-top: 1px solid #F0F0F0;">
-                            <span style="color: #6B6B6B; font-size: 0.8125rem;">
-                                Frais de livraison : <strong style="color: #191919;">${new Intl.NumberFormat('fr-FR').format(restaurant.delivery_fee || 1500)} FCFA</strong>
+                        <div class="restaurant-card-meta restaurants-feed-card__meta">
+                            <span class="restaurant-card-delivery restaurants-feed-card__delivery">
+                                Frais de livraison : <strong>${new Intl.NumberFormat('fr-FR').format(restaurant.delivery_fee || 1500)} FCFA</strong>
                             </span>
                         </div>
                     </div>
@@ -258,15 +366,13 @@
         
         if (prevBtn) {
             prevBtn.disabled = currentPage <= 1;
-            prevBtn.style.opacity = currentPage <= 1 ? '0.5' : '1';
-            prevBtn.style.cursor = currentPage <= 1 ? 'not-allowed' : 'pointer';
+            prevBtn.classList.toggle('is-disabled', currentPage <= 1);
             prevBtn.setAttribute('data-page', currentPage - 1);
         }
         
         if (nextBtn) {
             nextBtn.disabled = currentPage >= lastPage;
-            nextBtn.style.opacity = currentPage >= lastPage ? '0.5' : '1';
-            nextBtn.style.cursor = currentPage >= lastPage ? 'not-allowed' : 'pointer';
+            nextBtn.classList.toggle('is-disabled', currentPage >= lastPage);
             nextBtn.setAttribute('data-page', currentPage + 1);
         }
         
@@ -277,16 +383,75 @@
         // Afficher/masquer la pagination
         const paginationContainer = document.getElementById('paginationContainer');
         if (paginationContainer) {
-            if (lastPage > 1) {
-                paginationContainer.style.display = 'flex';
-            } else {
-                paginationContainer.style.display = 'none';
-            }
+            paginationContainer.classList.toggle('is-hidden', lastPage <= 1);
         }
     }
+
+    function bindRestaurantCards() {
+        document.querySelectorAll('.restaurants-feed-card[data-href]').forEach(card => {
+            if (card.dataset.bound === '1') {
+                return;
+            }
+
+            card.dataset.bound = '1';
+            card.addEventListener('click', function(event) {
+                if (event.target.closest('form, button, a')) {
+                    return;
+                }
+
+                window.location.href = this.dataset.href;
+            });
+        });
+    }
     
+    // ── Bouton "Près de moi" ───────────────────────────────────────
+    function initNearMeBtn() {
+        const btn = document.getElementById('nearMeBtn');
+        const label = document.getElementById('nearMeBtnLabel');
+        if (!btn) return;
+
+        // Si lat/lng déjà passés depuis la homepage hero
+        const urlLat = new URLSearchParams(window.location.search).get('lat');
+        const urlLng = new URLSearchParams(window.location.search).get('lng');
+        if (urlLat && urlLng) {
+            document.getElementById('userLat').value = urlLat;
+            document.getElementById('userLng').value = urlLng;
+            if (label) label.textContent = 'Position active';
+            btn.classList.add('is-active');
+        }
+
+        btn.addEventListener('click', function() {
+            if (!navigator.geolocation) {
+                alert('Géolocalisation non disponible sur cet appareil.');
+                return;
+            }
+            btn.disabled = true;
+            if (label) label.textContent = 'Localisation…';
+            navigator.geolocation.getCurrentPosition(
+                function(pos) {
+                    document.getElementById('userLat').value = pos.coords.latitude;
+                    document.getElementById('userLng').value = pos.coords.longitude;
+                    if (label) label.textContent = 'Position active';
+                    btn.disabled = false;
+                    btn.classList.add('is-active');
+                    currentPage = 1;
+                    loadRestaurants(1);
+                },
+                function() {
+                    btn.disabled = false;
+                    if (label) label.textContent = 'Près de moi';
+                    alert('Impossible de récupérer votre position. Vérifiez les permissions du navigateur.');
+                },
+                { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 }
+            );
+        });
+    }
+
     // Event listeners pour les filtres
     document.addEventListener('DOMContentLoaded', function() {
+        bindRestaurantCards();
+        initNearMeBtn();
+
         // Filtres
         const filterSelects = document.querySelectorAll('.filter-select');
         filterSelects.forEach(select => {

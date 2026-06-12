@@ -20,8 +20,7 @@ class ShipmentStatusMail extends Mailable
 
     public function build()
     {
-        return $this->subject("Suivi de votre colis BantuDelice : " . $this->shipment->status->label())
+        return $this->subject("Suivi de votre colis Mema : " . $this->shipment->status->label())
                     ->markdown('emails.colis.status_changed');
     }
 }
-

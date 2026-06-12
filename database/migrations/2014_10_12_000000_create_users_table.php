@@ -22,7 +22,7 @@ class CreateUsersTable extends Migration
             $table->string('image')->nullable();
             $table->string('phone')->nullable();
             $table->boolean('blocked')->default(false);
-            $table->enum('type', ['user','admin', 'restaurant'])->default('user');
+            $table->enum('type', ['user','admin', 'restaurant', 'driver'])->default('user');
             $table->timestamps();
         });
     }

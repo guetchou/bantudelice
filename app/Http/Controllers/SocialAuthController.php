@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Services\SocialAuthService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class SocialAuthController extends Controller
 {
@@ -20,11 +21,19 @@ class SocialAuthController extends Controller
         $this->assertProvider($provider);
 
         try {
+            $state = Str::random(40);
+            $request->session()->put("social_auth.{$provider}.state", $state);
+
+            $redirectTarget = (string) $request->query('redirect', '');
+            if (Str::startsWith($redirectTarget, ['/'])) {
+                $request->session()->put('url.intended', $redirectTarget);
+            }
+
             if ($provider === 'google') {
-                return redirect()->away(SocialAuthService::getGoogleAuthUrl());
+                return redirect()->away(SocialAuthService::getGoogleAuthUrl(state: $state));
             }
             if ($provider === 'facebook') {
-                return redirect()->away(SocialAuthService::getFacebookAuthUrl());
+                return redirect()->away(SocialAuthService::getFacebookAuthUrl(state: $state));
             }
         } catch (\Throwable $e) {
             Log::warning('Social auth redirect failed', [
@@ -51,8 +60,8 @@ class SocialAuthController extends Controller
             ]);
         }
 
-        // Vérification simple du state (SocialAuthService utilise csrf_token() comme state)
-        if ($request->filled('state') && $request->state !== csrf_token()) {
+        $expectedState = (string) $request->session()->pull("social_auth.{$provider}.state", '');
+        if (!$request->filled('state') || $expectedState === '' || !hash_equals($expectedState, (string) $request->state)) {
             return redirect()->route('user.login')->with('alert', [
                 'type' => 'danger',
                 'message' => 'Erreur de sécurité (state invalide). Veuillez réessayer.',
@@ -79,13 +88,33 @@ class SocialAuthController extends Controller
 
             auth()->login($user, true);
             $request->session()->regenerate();
+            \App\Services\CartService::migrateSessionCartToDb($user->id);
 
-            // Redirection intelligente selon le type d'utilisateur
-            if ($user->type === 'admin') {
-                return redirect()->route('admin.dashboard')->with('message', 'Connexion Administration réussie !');
+            $isNew    = $result['is_new'] ?? false;
+            $provider = ucfirst($provider);
+
+            // Redirection par type d'utilisateur
+            switch ($user->type) {
+                case 'admin':
+                    return redirect()->route('admin.dashboard')
+                        ->with('message', 'Connexion Administration réussie !');
+
+                case 'restaurant':
+                    return redirect()->intended(route('restaurant.dashboard'))
+                        ->with('message', "Connexion {$provider} réussie !");
+
+                case 'driver':
+                    return redirect()->intended(route('driver.deliveries'))
+                        ->with('message', "Connexion {$provider} réussie !");
+
+                default: // 'user' — client
+                    $message = $isNew
+                        ? 'Bienvenue sur BantuDelice ! Complétez votre profil pour commander plus rapidement.'
+                        : "Connexion {$provider} réussie !";
+
+                    return redirect()->intended(route('user.profile'))
+                        ->with('message', $message);
             }
-
-            return redirect()->route('home')->with('message', 'Connexion réussie !');
         } catch (\Throwable $e) {
             Log::error('Social auth callback failed', [
                 'provider' => $provider,
@@ -99,5 +128,4 @@ class SocialAuthController extends Controller
         }
     }
 }
-
 

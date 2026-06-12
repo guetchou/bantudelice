@@ -1,50 +1,66 @@
+@php
+    $authBrand = app(\App\Services\AuthBrandingService::class)->resolve(request());
+    $brandRouteParams = $authBrand['key'] !== 'bantudelice' ? ['brand' => $authBrand['key']] : [];
+    $brandColor = $authBrand['primary'];
+    $brandDark = $authBrand['primary_dark'];
+    $brandSoft = $authBrand['primary_soft'] ?? 'rgba(0, 149, 67, 0.12)';
+
+    $label = 'Inconnu';
+    $color = '#6B7280';
+    if ($status === 'processed') {
+        $label = 'Traitée';
+        $color = '#05944F';
+    }
+    if ($status === 'not_found') {
+        $label = 'Compte non trouvé';
+        $color = '#F59E0B';
+    }
+@endphp
 @extends('frontend.layouts.app-modern')
-@section('title', 'Statut de suppression | BantuDelice')
+@section('title', 'Statut de suppression | ' . $authBrand['name'])
+@section('description', 'Statut de la demande de suppression de vos données personnelles sur ' . $authBrand['name'] . '.')
+@section('body_class', 'bd-support-page bd-data-deletion-status-page')
+@section('body_style', "--support-brand-color: {$brandColor}; --support-brand-dark: {$brandDark}; --support-brand-soft: {$brandSoft}; --support-brand-veil: {$brandColor}1A; --support-status-color: {$color};")
 
 @section('content')
-<section style="background: linear-gradient(135deg, #111827 0%, #1F2937 100%); padding: 150px 0 80px; text-align: center;">
+<section class="support-hero support-hero--dark">
     <div class="container">
-        <span class="section-badge" style="background: rgba(255,255,255,0.1); color: white;">
+        <span class="section-badge support-hero-badge">
             <i class="fas fa-clipboard-check"></i> Statut
         </span>
-        <h1 style="color: white; font-size: clamp(1.75rem, 4vw, 2.5rem); margin-top: 1rem;">
-            Demande de suppression des données
-        </h1>
-        <p style="color: rgba(255,255,255,0.85); max-width: 760px; margin: 1rem auto 0; font-size: 1.05rem;">
-            Code de confirmation : <strong>{{ $code }}</strong>
+        <h1 class="support-hero-title support-hero-title--compact">Demande de suppression des données</h1>
+        <p class="support-hero-copy support-hero-copy--compact">
+            Référence de confirmation : <strong>{{ $code }}</strong>
         </p>
     </div>
 </section>
 
-<section class="section">
+<section class="section support-section">
     <div class="container">
-        <div style="max-width: 760px; margin: 0 auto; background: #fff; padding: 2rem; border-radius: var(--radius-2xl); box-shadow: var(--shadow-lg);">
-            @php
-                $label = 'Inconnu';
-                $color = '#6B7280';
-                if ($status === 'processed') { $label = 'Traitée'; $color = '#05944F'; }
-                if ($status === 'not_found') { $label = 'Compte non trouvé'; $color = '#F59E0B'; }
-            @endphp
-
-            <div style="display:flex; gap: 1rem; align-items:center;">
-                <div style="width: 44px; height: 44px; border-radius: 12px; background: rgba(5,148,79,0.08); display:flex; align-items:center; justify-content:center;">
-                    <i class="fas fa-user-shield" style="color:#05944F;"></i>
+        <div class="support-status-shell">
+            <article class="support-status-card">
+                <div class="support-status-head">
+                    <div class="support-status-icon">
+                        <i class="fas fa-user-shield"></i>
+                    </div>
+                    <div>
+                        <div class="support-status-label">Statut</div>
+                        <div class="support-status-value">{{ $label }}</div>
+                    </div>
                 </div>
-                <div>
-                    <div style="font-weight: 800; font-size: 1.1rem; margin-bottom: 2px;">Statut</div>
-                    <div style="font-weight: 700; color: {{ $color }};">{{ $label }}</div>
-                </div>
-            </div>
 
-            <hr style="margin: 1.5rem 0; border: none; border-top: 1px solid #E5E7EB;">
+                <hr class="support-status-divider">
 
-            <p style="color: var(--gray-600); line-height: 1.8; margin: 0;">
-                Si vous avez des questions, consultez les <a href="{{ route('data.deletion') }}" style="color: var(--primary); font-weight: 600;">instructions de suppression</a>
-                ou contactez <strong>{{ \App\Services\ConfigService::getContactEmail() }}</strong>.
-            </p>
+                <p class="support-status-copy">
+                    Si vous avez des questions, consultez les <a href="{{ route('data.deletion', $brandRouteParams) }}" class="support-status-link">instructions de suppression</a>
+                    ou contactez <strong>{{ $authBrand['support_email'] }}</strong>.
+                </p>
+
+                <a href="{{ route('privacy.policy', $brandRouteParams) }}" class="support-primary-link support-primary-link--fit">
+                    Politique de confidentialité
+                </a>
+            </article>
         </div>
     </div>
 </section>
 @endsection
-
-

@@ -5,6 +5,7 @@ namespace App\Http;
 use App\Http\Middleware\AdminMiddleware;
 use App\Http\Middleware\RestaurantMiddleware;
 use App\Http\Middleware\DeliveryMiddleware;
+use App\Http\Middleware\EnsureUserRole;
 use App\Http\Middleware\UserMiddleware;
 use Illuminate\Foundation\Http\Kernel as HttpKernel;
 
@@ -42,6 +43,7 @@ class Kernel extends HttpKernel
         ],
 
         'api' => [
+            \Laravel\Sanctum\Http\Middleware\EnsureFrontendRequestsAreStateful::class,
             'throttle:60,1',
             \Illuminate\Routing\Middleware\SubstituteBindings::class,
         ],
@@ -65,10 +67,17 @@ class Kernel extends HttpKernel
         'signed' => \Illuminate\Routing\Middleware\ValidateSignature::class,
         'throttle' => \Illuminate\Routing\Middleware\ThrottleRequests::class,
         'verified' => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
+        'auth.web_or_api' => \App\Http\Middleware\AuthenticateWebOrApi::class,
         'admin' => AdminMiddleware::class,
+        'admin.2fa' => \App\Http\Middleware\RequireAdmin2FA::class,
+        'admin.audit' => \App\Http\Middleware\AdminAuditLogger::class,
         'restaurant'=>RestaurantMiddleware::class,
         'delivery'=>DeliveryMiddleware::class,
         'user'=>UserMiddleware::class,
+        'user.role' => EnsureUserRole::class,
+        'admin.workspace' => \App\Http\Middleware\RequireAdminWorkspace::class,
+        'module' => \App\Http\Middleware\EnsureModuleEnabled::class,
+        'bridge.signature' => \App\Http\Middleware\VerifyBridgeSignature::class,
     ];
 
     /**

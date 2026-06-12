@@ -2,161 +2,289 @@
 
 namespace App\Http\Controllers\admin;
 
-use App\News;
+use App\CmsContent;
+use App\CmsContentType;
 use App\Driver;
 use App\Http\Controllers\Controller;
+use App\News;
+use App\Services\CmsContentService;
+use App\Services\NotificationService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 
 class NewsController extends Controller
 {
-    public function notification( $body,$title,$device_token,$key,$click_action)
+    public function __construct(private CmsContentService $cmsContentService)
     {
-       
-        $fcmUrl = 'https://fcm.googleapis.com/fcm/send';
-        $tokenList = $device_token;
-        $notification = [
-            'title' => $title,
-            'body' => $body,
-            'sound' => true,
-        ];
-        $extraNotificationData = ["key" => $key, "click_action" =>$click_action];
-        $fcmNotification = [
-            'registration_ids' => $tokenList, //multiple token array
-            //'to' => $token, //single token
-            'notification' => $notification,
-            'data' => $extraNotificationData
-        ];
-
-        $headers = [
-            'Authorization: key= AAAAGem_t_Q:APA91bHtrZm7cIzbtlnzrwrS8jcszUwx6kPEQS_ZY9nG359OwmlgZYzNc6elU6LLBVmuigcXL11isK-1oVMgwq-LjGGcqV22ERlsWacsgI4KLc9KwJNUIDPLPmYZ1N4ZabV4sxjkcvQT',
-            'Content-Type: application/json'
-        ];
-
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, $fcmUrl);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($fcmNotification));
-        $result = curl_exec($ch);
-        curl_close($ch);
-
-        return response()->json(['data' => 'notification sent', 'action' => $result], 200);
     }
-    
-    /**
-     * Display a listing of the resource.
-     *
-     * @return \Illuminate\Contracts\View\Factory|\Illuminate\View\View
-     */
+
+    public function notification($body, $title, $device_token, $key, $click_action)
+    {
+        if (empty($device_token)) {
+            return response()->json(['data' => 'no device token', 'action' => null], 200);
+        }
+
+        if (!NotificationService::hasConfiguredFcmKey('driver')) {
+            return response()->json(['data' => 'fcm key missing', 'action' => null], 200);
+        }
+
+        $result = NotificationService::sendToMultipleDevices(
+            $device_token,
+            $title,
+            $body,
+            $key,
+            null,
+            'driver'
+        );
+
+        return response()->json([
+            'data' => !empty($result['success']) ? 'notification sent' : 'notification failed',
+            'action' => $result['action'] ?? null,
+            'result' => $result,
+            'click_action' => $click_action,
+        ], 200);
+    }
+
     public function index()
     {
-        $news = News::all();
+        $this->migrateLegacyNewsIfNeeded();
+
+        $news = $this->newsQuery()->get()->map(fn (CmsContent $content) => $this->presentNewsContent($content));
+
         return view('admin.news.index')->with('news', $news);
     }
 
-    /**
-     * Show the form for creating a new resource.
-     *
-     * @return \Illuminate\Contracts\View\Factory|\Illuminate\View\View
-     */
     public function create()
     {
-        return view('admin.news.create');
+        $this->ensureNewsTypeExists();
+
+        $news = $this->presentNewsContent(new CmsContent([
+            'title' => '',
+            'status' => 'draft',
+        ]));
+
+        return view('admin.news.create')->with('news', $news);
     }
 
-    /**
-     * Store a newly created resource in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @return \Illuminate\Http\RedirectResponse
-     */
     public function store(Request $request)
     {
         $request->validate([
             'title' => 'required|string|max:191',
-            'description'=>'required'
+            'description' => 'required|string',
         ]);
-        $news=News::create($request->all());
-        $alert['type'] = 'success';
-        $alert['message'] = 'Actualité créée avec succès';
-        return redirect()->route('news.index')->with('alert', $alert);
+
+        $type = $this->ensureNewsTypeExists();
+        $content = $this->cmsContentService->create(
+            $type,
+            [
+                'title' => $request->input('title'),
+                'slug' => $this->uniqueNewsSlug($request->input('title')),
+                'status' => 'published',
+                'excerpt' => Str::limit(strip_tags($request->input('description')), 180),
+                'layout' => 'news',
+                'seo_title' => $request->input('title'),
+                'seo_description' => Str::limit(strip_tags($request->input('description')), 160),
+            ],
+            $this->newsFieldValues($type, $request->input('description')),
+            optional(auth()->user())->id
+        );
+
+        return redirect()->route('news.edit', $content->id)->with('alert', [
+            'type' => 'success',
+            'message' => 'Actualité créée avec succès',
+        ]);
     }
 
-    /**
-     * Display the specified resource.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\Response
-     */
     public function show($id)
     {
-        //
+        abort(404);
     }
 
-    /**
-     * Show the form for editing the specified resource.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Contracts\View\Factory|\Illuminate\View\View
-     */
-    public function edit(News $news)
+    public function edit($id)
     {
-        return view('admin.news.edit')->with('news', $news);
+        $this->migrateLegacyNewsIfNeeded();
 
+        $news = $this->presentNewsContent($this->findNewsContentOrFail($id));
+
+        return view('admin.news.edit')->with('news', $news);
     }
 
-    /**
-     * Update the specified resource in storage.
-     *
-     * @param  \Illuminate\Http\Request  $request
-     * @param  int  $id
-     * @return \Illuminate\Http\RedirectResponse
-     */
-    public function update(Request $request, News $news)
+    public function update(Request $request, $id)
     {
         $request->validate([
             'title' => 'required|string|max:191',
-            'description'=>'required'
+            'description' => 'required|string',
         ]);
-        $news->update($request->all());
-        $alert['type'] = 'success';
-        $alert['message'] = 'Actualité mise à jour avec succès';
-        return redirect()->route('news.index')->with('alert', $alert);
+
+        $content = $this->findNewsContentOrFail($id);
+        $content->load('contentType.fields', 'values.field');
+
+        $this->cmsContentService->update(
+            $content,
+            [
+                'title' => $request->input('title'),
+                'slug' => $content->slug ?: $this->uniqueNewsSlug($request->input('title')),
+                'status' => 'published',
+                'excerpt' => Str::limit(strip_tags($request->input('description')), 180),
+                'layout' => 'news',
+                'seo_title' => $request->input('title'),
+                'seo_description' => Str::limit(strip_tags($request->input('description')), 160),
+            ],
+            $this->newsFieldValues($content->contentType, $request->input('description')),
+            optional(auth()->user())->id
+        );
+
+        return redirect()->route('news.index')->with('alert', [
+            'type' => 'success',
+            'message' => 'Actualité mise à jour avec succès',
+        ]);
     }
 
-    /**
-     * Remove the specified resource from storage.
-     *
-     * @param  int  $id
-     * @return \Illuminate\Http\RedirectResponse
-     */
-    public function destroy(News $news)
+    public function destroy($id)
     {
-        $news->delete();
+        $content = $this->findNewsContentOrFail($id);
+        $content->delete();
 
-        $alert['type'] = 'success';
-        $alert['message'] = 'Actualité supprimée avec succès';
-        return redirect()->route('news.index')->with('alert', $alert);
+        return redirect()->route('news.index')->with('alert', [
+            'type' => 'success',
+            'message' => 'Actualité supprimée avec succès',
+        ]);
     }
-    
-     public function sentNotification($id)
+
+    public function sentNotification($id)
     {
-        $getNews=News::find($id);
-        $driver=Driver::get();
-        $device_token=$driver->pluck('device_token')->toArray();
-        
-        
-        $body=$getNews->description;
-        $title=$getNews->title;
-        $key='news';
-        $click_action='news_activity';
-        $data=$this->notification($body,$title,$device_token,$key,$click_action);
-        dd($data);
-        $alert['type'] = 'success';
-        $alert['message'] = 'Actualité envoyée avec succès';
+        $content = $this->findNewsContentOrFail($id);
+        $drivers = Driver::query()->get();
+        $deviceToken = $drivers->pluck('device_token')->filter()->values()->toArray();
+
+        $body = $this->bodyFromContent($content);
+        $title = $content->title;
+        $key = 'news';
+        $clickAction = 'news_activity';
+        $data = $this->notification($body, $title, $deviceToken, $key, $clickAction);
+
+        $alert = [
+            'type' => 'success',
+            'message' => 'Actualité envoyée avec succès',
+        ];
+
+        if (method_exists($data, 'getData')) {
+            $response = $data->getData(true);
+            if (($response['data'] ?? null) === 'fcm key missing') {
+                $alert['type'] = 'warning';
+                $alert['message'] = 'Clé FCM absente. Notification non envoyée.';
+            }
+        }
+
         return redirect()->back()->with('alert', $alert);
+    }
+
+    private function migrateLegacyNewsIfNeeded(): void
+    {
+        $type = $this->ensureNewsTypeExists();
+
+        if (!Schema::hasTable('news')) {
+            return;
+        }
+
+        $legacyItems = News::query()->orderBy('id')->get();
+        if ($legacyItems->isEmpty()) {
+            return;
+        }
+
+        foreach ($legacyItems as $legacyItem) {
+            $slug = 'legacy-news-' . $legacyItem->id;
+            $existing = CmsContent::query()
+                ->where('content_type_id', $type->id)
+                ->where('slug', $slug)
+                ->first();
+
+            if ($existing) {
+                continue;
+            }
+
+            $this->cmsContentService->create(
+                $type,
+                [
+                    'title' => $legacyItem->title,
+                    'slug' => $slug,
+                    'status' => 'published',
+                    'excerpt' => Str::limit(strip_tags((string) $legacyItem->description), 180),
+                    'layout' => 'news',
+                    'seo_title' => $legacyItem->title,
+                    'seo_description' => Str::limit(strip_tags((string) $legacyItem->description), 160),
+                    'created_at' => $legacyItem->created_at,
+                    'updated_at' => $legacyItem->updated_at,
+                ],
+                $this->newsFieldValues($type, (string) $legacyItem->description),
+                optional(auth()->user())->id
+            );
+        }
+    }
+
+    private function ensureNewsTypeExists(): CmsContentType
+    {
+        $type = CmsContentType::query()->with('fields')->where('slug', 'news')->first();
+
+        abort_if(!$type, 500, 'Le type de contenu CMS "news" est introuvable.');
+
+        return $type;
+    }
+
+    private function newsQuery()
+    {
+        $type = $this->ensureNewsTypeExists();
+
+        return CmsContent::query()
+            ->with(['values.field'])
+            ->where('content_type_id', $type->id)
+            ->latest('id');
+    }
+
+    private function findNewsContentOrFail($id): CmsContent
+    {
+        return $this->newsQuery()->findOrFail($id);
+    }
+
+    private function bodyFromContent(CmsContent $content): string
+    {
+        $content->loadMissing('values.field');
+
+        $value = $content->values->first(function ($item) {
+            return optional($item->field)->key === 'news_body';
+        });
+
+        return (string) ($value->value ?? $content->excerpt ?? '');
+    }
+
+    private function presentNewsContent(CmsContent $content): CmsContent
+    {
+        $content->setAttribute('description', $this->bodyFromContent($content));
+
+        return $content;
+    }
+
+    private function newsFieldValues(CmsContentType $type, string $description): array
+    {
+        $field = $type->fields->firstWhere('key', 'news_body');
+
+        return $field ? [$field->id => $description] : [];
+    }
+
+    private function uniqueNewsSlug(string $title): string
+    {
+        $base = Str::slug($title) ?: 'actualite';
+        $slug = $base;
+        $counter = 2;
+
+        $type = $this->ensureNewsTypeExists();
+
+        while (CmsContent::query()->where('content_type_id', $type->id)->where('slug', $slug)->exists()) {
+            $slug = $base . '-' . $counter;
+            $counter++;
+        }
+
+        return $slug;
     }
 }

@@ -1,10 +1,26 @@
 <!DOCTYPE html>
+@php
+    $legacyBrand = app(\App\Services\AuthBrandingService::class)->resolve(request());
+    $legacyBrandKey = $legacyBrand['key'] ?? 'bantudelice';
+    $legacyBrandName = $legacyBrand['name'] ?? 'Plateforme';
+    $legacyHomeLink = match ($legacyBrandKey) {
+        'mema' => route('colis.landing'),
+        'kende' => route('transport.index'),
+        default => route('home'),
+    };
+    $legacyKeywords = match ($legacyBrandKey) {
+        'mema' => 'livraison colis, suivi colis, expédition locale, mema',
+        'kende' => 'transport local, taxi, reservation trajet, kende',
+        default => 'livraison repas, livraison colis, transport local, bantudelice',
+    };
+@endphp
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
-<title>@yield('title')</title>
+<title>@yield('title', $legacyBrandName)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-<meta name="keywords" content="livraison repas, livraison colis, transport local, BantuDelice" />
+<meta name="description" content="@yield('description', $legacyBrandName)" />
+<meta name="keywords" content="@yield('keywords', $legacyKeywords)" />
 <link rel="icon" type="image/x-icon" href="{{asset('favicon.ico')}}">
 <script type="application/x-javascript"> addEventListener("load", function() { setTimeout(hideURLbar, 0); }, false); function hideURLbar(){ window.scrollTo(0,1); } </script>
 <!-- Custom Theme files -->
@@ -141,7 +157,7 @@ img, video, iframe, canvas, svg {
 								<span class="icon-bar"></span>
 								<span class="icon-bar"></span>
 							</button>
-							<a href="{{route('home')}}"><img src="{{asset('frontend/images/BuntuDelice.png')}}" class="img-responsive" height="70" width="150" alt="BantuDelice"></a>
+							<a href="{{ $legacyHomeLink }}"><img src="{{ $legacyBrandKey === 'bantudelice' ? asset('frontend/images/BuntuDelice.png') : asset('frontend/images/Logo2.png') }}" class="img-responsive" height="70" width="150" alt="{{ $legacyBrandName }}"></a>
 						</div>
 						<div class="collapse navbar-collapse" id="bs-megadropdown-tabs">
 							<ul class="nav navbar-nav navbar-right">
@@ -193,7 +209,7 @@ img, video, iframe, canvas, svg {
 										<button type="button" class="dropdown-toggle bd-nav-dropdown-btn" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" style="background:none;border:0;padding:0;">AUTRES SERVICES <b class="caret"></b></button>
 										<ul class="dropdown-menu">
 											@if($colisEnabled)
-												<li><a href="{{ route('colis.landing') }}">Colis</a></li>
+												<li><a href="{{ route('colis.landing') }}">Mema</a></li>
 												<li><a href="{{ route('colis.track_public') }}">Suivi colis</a></li>
 											@endif
 											@if($transportEnabled)
@@ -246,8 +262,8 @@ img, video, iframe, canvas, svg {
 					<h3>Autres services</h3>
 					<ul>
 						@if($colisEnabled)
-							<li><a href="{{ route('colis.landing') }}">Service colis</a></li>
-							<li><a href="{{ route('colis.track_public') }}">Suivre un colis</a></li>
+							<li><a href="{{ route('colis.landing') }}">Accueil Mema</a></li>
+							<li><a href="{{ route('colis.track_public') }}">Suivre un envoi</a></li>
 						@endif
 						@if($transportEnabled)
 							<li><a href="{{ route('transport.taxi') }}">Transport</a></li>
@@ -262,7 +278,6 @@ img, video, iframe, canvas, svg {
 						<li><a href="{{route('privacy.policy')}}">Politique de confidentialité</a></li>
 						<li><a href="{{route('refund.policy')}}">Politique de remboursement</a></li>
 						<li><a href="{{route('data.deletion')}}">Suppression des données</a></li>
-						<li><a href="{{ route('guidance.execution') }}">Guidance execution</a></li>
 					</ul>
 				</div>
 				<div class="col-xs-6 col-sm-3 footer-grids m9-agileits">
@@ -281,7 +296,7 @@ img, video, iframe, canvas, svg {
 	</div>
 	<div class="copym9-agile">
 		<div class="container">
-			<p>&copy; {{date('Y')}} BantuDelice. Tous droits réservés</p>
+			<p>&copy; {{date('Y')}} {{ $legacyBrandName }}. Tous droits réservés</p>
 		</div>
 	</div>
 

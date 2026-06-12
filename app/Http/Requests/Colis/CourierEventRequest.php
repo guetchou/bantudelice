@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Colis;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class CourierEventRequest extends FormRequest
 {
@@ -14,7 +15,11 @@ class CourierEventRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'status' => 'required|string',
+            'status' => [
+                'required',
+                'string',
+                Rule::in(['picked_up', 'in_transit', 'at_relay', 'out_for_delivery', 'failed', 'returned', 'damaged', 'lost']),
+            ],
             'notes' => 'nullable|string',
             'meta' => 'nullable|array',
         ];

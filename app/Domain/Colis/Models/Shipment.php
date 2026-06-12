@@ -35,6 +35,12 @@ class Shipment extends Model
         'assigned_courier_id',
         'pickup_scheduled_at',
         'delivered_at',
+        'delivery_otp_code',
+        'delivery_otp_expires_at',
+        'cod_collected_at',
+        'last_status_changed_at',
+        'delivered_latitude',
+        'delivered_longitude',
     ];
 
     protected $casts = [
@@ -42,6 +48,11 @@ class Shipment extends Model
         'price_breakdown' => 'array',
         'pickup_scheduled_at' => 'datetime',
         'delivered_at' => 'datetime',
+        'delivery_otp_expires_at' => 'datetime',
+        'cod_collected_at' => 'datetime',
+        'last_status_changed_at' => 'datetime',
+        'delivered_latitude' => 'decimal:7',
+        'delivered_longitude' => 'decimal:7',
         'declared_value' => 'decimal:2',
         'cod_amount' => 'decimal:2',
         'total_price' => 'decimal:2',
@@ -74,21 +85,24 @@ class Shipment extends Model
         return $this->hasMany(ShipmentProof::class);
     }
 
+    public function incidents(): HasMany
+    {
+        return $this->hasMany(ShipmentIncident::class);
+    }
+
     public function payments(): HasMany
     {
         return $this->hasMany(\App\Payment::class);
     }
-
-    // --- Scopes de filtrage ---
 
     public function scopeFilter($query, array $filters)
     {
         $query->when($filters['search'] ?? null, function ($query, $search) {
             $query->where(function ($q) use ($search) {
                 $q->where('tracking_number', 'like', "%{$search}%")
-                  ->orWhereHas('customer', function ($q) use ($search) {
-                      $q->where('name', 'like', "%{$search}%");
-                  });
+                    ->orWhereHas('customer', function ($q) use ($search) {
+                        $q->where('name', 'like', "%{$search}%");
+                    });
             });
         })->when($filters['status'] ?? null, function ($query, $status) {
             $query->where('status', $status);
@@ -116,4 +130,3 @@ class Shipment extends Model
         return \Database\Factories\ShipmentFactory::new();
     }
 }
-

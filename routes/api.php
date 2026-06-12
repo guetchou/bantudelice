@@ -2,6 +2,9 @@
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Route;
+use App\Http\Controllers\ModuleHealthController;
+use App\Http\Controllers\PushDeviceController;
+use App\Http\Controllers\SiteContextController;
 
 /*
 |--------------------------------------------------------------------------
@@ -17,12 +20,21 @@ use Illuminate\Support\Facades\Route;
 //Route::middleware('auth:api')->get('/user', function (Request $request) {
 //    return $request->user();
 //});
+Route::get('health/modules', [ModuleHealthController::class, 'index']);
+Route::get('health/modules/{module}', [ModuleHealthController::class, 'show']);
+Route::get('health/dependencies', [ModuleHealthController::class, 'dependencies']);
+Route::get('health/queues', [ModuleHealthController::class, 'queues']);
+Route::get('health/workers', [ModuleHealthController::class, 'workers']);
+Route::get('cms/contents', [\App\Http\Controllers\api\CmsContentApiController::class, 'index']);
+Route::get('cms/contents/{slug}', [\App\Http\Controllers\api\CmsContentApiController::class, 'show']);
+Route::get('site/context', [SiteContextController::class, 'show']);
+
 Route::group(['namespace'=>'api'],function() {
-    Route::post('register', 'UserController@register');
-    Route::post('login', 'UserController@login');
+    Route::post('register',        'UserController@register')->middleware('throttle:10,1');
+    Route::post('login',           'UserController@login')->middleware('throttle:10,1');
     Route::get('user_profile/{user}', 'UserController@profile');
     Route::post('update_profile/', 'UserController@updateProfile');
-    Route::post('forgot_password', 'UserController@forgotPassword');
+    Route::post('forgot_password', 'UserController@forgotPassword')->middleware('throttle:5,1');
     Route::post('add_user_address', 'UserController@addUserAddress');
     Route::get('get_user_address/{user}', 'UserController@getUserAddress');
     Route::post('track_pendings_orders', 'UserController@trackOrders');
@@ -32,19 +44,20 @@ Route::group(['namespace'=>'api'],function() {
 
 //Dirver's APIs
 
-    Route::post('driver_register', 'DriverController@register');
-    Route::post('driver_login', 'DriverController@login');
-    Route::get('driver_profile/{driver}', 'DriverController@profile');
-    Route::post('driver_update_profile/', 'DriverController@updateProfile');
-    Route::post('driver_forgot_password', 'DriverController@forgotPassword');
-    Route::post('set_driver_online/{driver}', 'DriverController@SetDriverOnline');
-    Route::get('set_driver_offline/{driver}', 'DriverController@SetDriverOffline');
-    Route::post('set_time_for_online', 'DriverController@SetDriverOnlineTime');
-    Route::get('order_request/{dirver}', 'DriverController@orderRequests');
-    Route::post('order_accept_by_driver', 'DriverController@acceptOrderRequests');
-    Route::get('ordered_product/{orderno}', 'DriverController@ordersProducts');
-    Route::get('driver_reviews/{dirver}', 'ReviewController@driverReviews');
-    Route::post('driver_earning_history/{dirver}', 'DriverController@driverEarningHistory');
+    Route::post('driver_register',              'DriverAuthController@register')->middleware('throttle:10,1');
+    Route::post('driver_login',                 'DriverAuthController@login')->middleware('throttle:10,1');
+    Route::post('driver_change_password',       'DriverAuthController@changePassword');
+    Route::post('driver_forgot_password',       'DriverAuthController@forgotPassword')->middleware('throttle:5,1');
+    Route::get('driver_profile/{driver}',       'DriverProfileController@profile');
+    Route::post('driver_update_profile/',       'DriverProfileController@updateProfile');
+    Route::post('set_driver_online/{driver}',   'DriverProfileController@setOnline');
+    Route::post('set_driver_offline/{driver}',  'DriverProfileController@setOffline');
+    Route::post('set_time_for_online',          'DriverProfileController@setOnlineTime');
+    Route::get('order_request/{dirver}',        'DriverOrderController@orderRequests');
+    Route::post('order_accept_by_driver',       'DriverOrderController@acceptOrderRequests');
+    Route::get('ordered_product/{orderno}',     'DriverOrderController@ordersProducts');
+    Route::get('driver_reviews/{dirver}',       'ReviewController@driverReviews');
+    Route::post('driver_earning_history/{dirver}', 'DriverOrderController@driverEarningHistory');
     
     
     //Home APIs
@@ -87,93 +100,130 @@ Route::group(['namespace'=>'api'],function() {
      Route::get('get_reason', 'ReasonController@getReason');
      Route::post('reject_order_request', 'ReasonController@rejectOrderRequests');
      
-     Route::get('delivery_summary/{driver}', 'DriverController@deliverySummary');
-     Route::get('latest_news', 'DriverController@latestNews');
+     Route::get('delivery_summary/{driver}', 'DriverOrderController@deliverySummary');
+     Route::get('latest_news', 'DriverOrderController@latestNews');
      
      // Real-time tracking APIs
-     Route::get('order/{orderNo}/status', 'IndexController@getOrderStatus');
-     Route::post('driver/{driverId}/location', 'DriverController@updateLocation');
+     // NOTE: /order/{orderNo}/status est exposé sur la route WEB (routes/web.php) pour avoir accès à la session.
+     // La version API ici est réservée aux clients authentifiés (app mobile, etc.).
+     Route::middleware('auth.web_or_api')->group(function () {
+         Route::get('order/{orderNo}/status', [\App\Http\Controllers\IndexController::class, 'getOrderStatus'])->middleware('module:food');
+     });
+     Route::post('driver/{driverId}/location', 'DriverOrderController@updateLocation')->middleware(['module:food', 'auth:driver_api']);
      
      // Order Rating APIs
-     Route::post('orders/{order}/rating', 'OrderRatingController@store');
-     Route::get('orders/{order}/rating', 'OrderRatingController@show');
-     Route::get('orders/{order}/rating/check', 'OrderRatingController@check');
+     Route::post('orders/{order}/rating', 'OrderRatingController@store')->middleware('module:food');
+     Route::get('orders/{order}/rating', 'OrderRatingController@show')->middleware('module:food');
+     Route::get('orders/{order}/rating/check', 'OrderRatingController@check')->middleware('module:food');
      
      // Delivery & Driver APIs
-     Route::middleware('auth:sanctum')->group(function () {
-         // Côté livreur
-         Route::get('driver/deliveries', 'DriverDeliveriesController@index');
-         Route::patch('driver/deliveries/{delivery}/status', 'DriverDeliveriesController@updateStatus');
-         
-         // Côté client
-         Route::get('orders/{order}/tracking', 'OrderTrackingController@show');
-         
+     Route::middleware('auth:driver_api')->group(function () {
+         Route::get('driver/deliveries', [\App\Http\Controllers\Api\DriverDeliveriesController::class, 'index'])->middleware('module:food');
+         Route::patch('driver/deliveries/{delivery}/status', [\App\Http\Controllers\Api\DriverDeliveriesController::class, 'updateStatus'])->middleware('module:food');
+         Route::post('driver/deliveries/{delivery}/incident', [\App\Http\Controllers\Api\DriverDeliveriesController::class, 'reportIncident'])->middleware('module:food');
+     });
+
+     Route::middleware('auth.web_or_api')->group(function () {
+         Route::get('orders/{order}/tracking', 'OrderTrackingController@show')->middleware('module:food');
+         Route::post('orders/{order}/confirm-delivery', 'OrderTrackingController@confirmDelivery')->middleware('module:food');
+         Route::post('orders/{order}/incident', 'OrderTrackingController@reportIncident')->middleware('module:food');
+         Route::post('orders/{order}/redelivery', 'OrderTrackingController@requestRedelivery')->middleware('module:food');
+     });
+
+     Route::middleware('auth.web_or_api')->group(function () {
          // Checkout & Payment APIs
-         Route::post('checkout', 'CheckoutController@__invoke');
-         Route::get('payments/{payment}', 'PaymentController@show');
-         Route::post('payments/{payment}/confirm', 'PaymentController@confirm');
+         Route::post('checkout', [\App\Http\Controllers\Api\CheckoutController::class, '__invoke'])->middleware('module:food');
+         Route::get('payments/{payment}', [\App\Http\Controllers\Api\PaymentController::class, 'show'])->middleware('module:food');
+         Route::post('payments/{payment}/confirm', [\App\Http\Controllers\Api\PaymentController::class, 'confirm'])->middleware('module:food');
+
+         // Push mobile
+         Route::post('push/devices', [PushDeviceController::class, 'store']);
+         Route::delete('push/devices', [PushDeviceController::class, 'destroy']);
+
+         // S5.2 — Logout mobile
+         Route::delete('user/token', 'UserController@logout')->name('api.user.logout');
+
+         // S5.4 — Profil authentifié (sans {user} en URL)
+         Route::get('user/me', 'UserController@me')->name('api.user.me');
+
+         // S5.5 — Mise à jour profil sécurisée
+         Route::post('user/me', 'UserController@updateMe')->name('api.user.me.update');
+
+         // S5.3 — Favoris restaurants
+         Route::get('user/favorites', 'UserController@favoriteRestaurants')->name('api.user.favorites');
+         Route::post('user/favorites/{restaurant}', 'UserController@toggleFavoriteRestaurant')->name('api.user.favorites.toggle');
+
+         // S5.1 — Historique commandes avec auth + ownership
+         Route::get('user/orders/active',    'OrderController@UserOrderHistory')->name('api.user.orders.active');
+         Route::get('user/orders/completed', 'OrderController@UserCompletedOrderHistory')->name('api.user.orders.completed');
      });
      
     // ... (rest of the file remains same, just moved out of the group)
 });
 
-// Payment Callback (public, mais peut être sécurisé par IP whitelist)
-Route::post('payments/callback/{provider}', [\App\Http\Controllers\api\PaymentCallbackController::class, 'handle'])
+// Payment Callback — throttle 60/min par IP pour éviter le flood
+Route::post('payments/callback/{provider}', [\App\Http\Controllers\Api\PaymentCallbackController::class, 'handle'])
+    ->middleware('throttle:60,1')
     ->name('api.payments.callback');
+
+Route::prefix('bridge/mobile-money')->middleware('bridge.signature')->group(function () {
+    Route::post('payments', [\App\Http\Controllers\Api\MobileMoneyBridgeController::class, 'store']);
+    Route::get('payments/{reference}', [\App\Http\Controllers\Api\MobileMoneyBridgeController::class, 'show']);
+    Route::post('payments/{reference}/reconcile', [\App\Http\Controllers\Api\MobileMoneyBridgeController::class, 'reconcile']);
+});
 
 // Module Colis (V1)
 Route::prefix('v1')->group(function () {
     // Public & Client
-    Route::post('colis/quotes', [\App\Http\Controllers\Api\V1\Colis\QuoteController::class, '__invoke']);
-    Route::get('colis/track/{tracking_number}', [\App\Http\Controllers\Api\V1\Colis\TrackingController::class, '__invoke']);
+    Route::post('colis/quotes', [\App\Http\Controllers\Api\V1\Colis\QuoteController::class, '__invoke'])->middleware('module:colis');
+    Route::get('colis/track/{tracking_number}', [\App\Http\Controllers\Api\V1\Colis\TrackingController::class, '__invoke'])->middleware('module:colis');
     
-    Route::middleware('auth:sanctum')->group(function () {
-        Route::get('colis/shipments', [\App\Http\Controllers\Api\V1\Colis\ShipmentController::class, 'index']);
-        Route::post('colis/shipments', [\App\Http\Controllers\Api\V1\Colis\ShipmentController::class, 'store'])->name('colis.shipments.store');
-        Route::get('colis/shipments/{shipment}', [\App\Http\Controllers\Api\V1\Colis\ShipmentController::class, 'show']);
-        Route::post('colis/shipments/{shipment}/cancel', [\App\Http\Controllers\Api\V1\Colis\ShipmentController::class, 'cancel']);
-        Route::post('colis/shipments/{shipment}/payment', [\App\Http\Controllers\Api\V1\Colis\ShipmentController::class, 'processPayment']);
-        Route::get('colis/shipments/{shipment}/payment-status', [\App\Http\Controllers\Api\V1\Colis\ShipmentController::class, 'paymentStatus']);
-        
-        // Courier
-        Route::get('courier/shipments/assigned', [\App\Http\Controllers\Api\V1\Courier\CourierShipmentController::class, 'assigned']);
-        Route::post('courier/shipments/{shipment}/events', [\App\Http\Controllers\Api\V1\Courier\CourierShipmentController::class, 'pushEvent']);
-        Route::post('courier/shipments/{shipment}/proofs', [\App\Http\Controllers\Api\V1\Courier\CourierShipmentController::class, 'uploadProof']);
-        Route::post('courier/shipments/{shipment}/deliver', [\App\Http\Controllers\Api\V1\Courier\CourierShipmentController::class, 'deliver']);
-        
-        // Admin
-        Route::prefix('admin')->group(function () {
-            Route::get('colis/shipments', [\App\Http\Controllers\Api\V1\Admin\AdminShipmentController::class, 'index']);
-            Route::post('colis/shipments/{shipment}/assign', [\App\Http\Controllers\Api\V1\Admin\AdminShipmentController::class, 'assign']);
-            Route::post('colis/shipments/{shipment}/auto-assign', [\App\Http\Controllers\Api\V1\Admin\AdminShipmentController::class, 'autoAssign']);
-            Route::post('colis/shipments/{shipment}/status', [\App\Http\Controllers\Api\V1\Admin\AdminShipmentController::class, 'overrideStatus']);
-        });
+    Route::middleware('auth:api')->group(function () {
+        Route::get('colis/shipments', [\App\Http\Controllers\Api\V1\Colis\ShipmentController::class, 'index'])->middleware('module:colis');
+        Route::post('colis/shipments', [\App\Http\Controllers\Api\V1\Colis\ShipmentController::class, 'store'])->middleware('module:colis')->name('api.colis.shipments.store');
+        Route::get('colis/shipments/{shipment}', [\App\Http\Controllers\Api\V1\Colis\ShipmentController::class, 'show'])->middleware('module:colis');
+        Route::post('colis/shipments/{shipment}/cancel', [\App\Http\Controllers\Api\V1\Colis\ShipmentController::class, 'cancel'])->middleware('module:colis');
+        Route::post('colis/shipments/{shipment}/payment', [\App\Http\Controllers\Api\V1\Colis\ShipmentController::class, 'processPayment'])->middleware('module:colis');
+        Route::get('colis/shipments/{shipment}/payment-status', [\App\Http\Controllers\Api\V1\Colis\ShipmentController::class, 'paymentStatus'])->middleware('module:colis');
+    });
+
+    Route::middleware('auth:driver_api')->group(function () {
+        Route::get('courier/shipments/assigned', [\App\Http\Controllers\Api\V1\Courier\CourierShipmentController::class, 'assigned'])->middleware('module:colis');
+        Route::post('courier/shipments/{shipment}/events', [\App\Http\Controllers\Api\V1\Courier\CourierShipmentController::class, 'pushEvent'])->middleware('module:colis');
+        Route::post('courier/shipments/{shipment}/proofs', [\App\Http\Controllers\Api\V1\Courier\CourierShipmentController::class, 'uploadProof'])->middleware('module:colis');
+        Route::post('courier/shipments/{shipment}/deliver', [\App\Http\Controllers\Api\V1\Courier\CourierShipmentController::class, 'deliver'])->middleware('module:colis');
+    });
+
+    Route::prefix('admin')->middleware(['auth:api', 'user.role:admin,api'])->group(function () {
+        Route::get('colis/shipments', [\App\Http\Controllers\Api\V1\Admin\AdminShipmentController::class, 'index'])->middleware('module:colis');
+        Route::post('colis/shipments/{shipment}/assign', [\App\Http\Controllers\Api\V1\Admin\AdminShipmentController::class, 'assign'])->middleware('module:colis');
+        Route::post('colis/shipments/{shipment}/auto-assign', [\App\Http\Controllers\Api\V1\Admin\AdminShipmentController::class, 'autoAssign'])->middleware('module:colis');
+        Route::post('colis/shipments/{shipment}/status', [\App\Http\Controllers\Api\V1\Admin\AdminShipmentController::class, 'overrideStatus'])->middleware('module:colis');
     });
 
     // Module Transport
-    Route::prefix('transport')->group(function () {
+    Route::prefix('transport')->middleware('module:transport')->group(function () {
         Route::post('estimate', [\App\Http\Controllers\api\Transport\TransportBookingController::class, 'estimate']);
         
-        Route::middleware('auth:sanctum')->group(function () {
+        Route::middleware('auth:api')->group(function () {
             Route::get('bookings', [\App\Http\Controllers\api\Transport\TransportBookingController::class, 'index']);
             Route::post('bookings', [\App\Http\Controllers\api\Transport\TransportBookingController::class, 'store']);
             Route::get('bookings/{id}', [\App\Http\Controllers\api\Transport\TransportBookingController::class, 'show']);
             Route::post('bookings/{id}/cancel', [\App\Http\Controllers\api\Transport\TransportBookingController::class, 'cancel']);
             Route::post('bookings/{id}/pay', [\App\Http\Controllers\api\Transport\TransportBookingController::class, 'pay']);
-            
-            // Driver routes for transport
-            Route::prefix('driver')->group(function () {
-                Route::get('nearby', [\App\Http\Controllers\api\Transport\DriverTransportController::class, 'nearby']);
-                Route::post('bookings/{id}/accept', [\App\Http\Controllers\api\Transport\DriverTransportController::class, 'accept']);
-                Route::post('bookings/{id}/status', [\App\Http\Controllers\api\Transport\DriverTransportController::class, 'updateStatus']);
-                Route::post('bookings/{id}/location', [\App\Http\Controllers\api\Transport\DriverTransportController::class, 'updateLocation']);
-            });
+        });
+
+        Route::prefix('driver')->middleware('auth:driver_api')->group(function () {
+            Route::get('nearby', [\App\Http\Controllers\api\Transport\DriverTransportController::class, 'nearby']);
+            Route::post('bookings/{id}/accept', [\App\Http\Controllers\api\Transport\DriverTransportController::class, 'accept']);
+            Route::post('bookings/{id}/status', [\App\Http\Controllers\api\Transport\DriverTransportController::class, 'updateStatus']);
+            Route::post('bookings/{id}/location', [\App\Http\Controllers\api\Transport\DriverTransportController::class, 'updateLocation']);
         });
     });
 });
 
 // Métriques admin (nécessite auth)
-Route::middleware('auth:sanctum')->prefix('admin')->group(function () {
+Route::middleware(['auth:api', 'user.role:admin,api'])->prefix('admin')->group(function () {
     Route::get('metrics/realtime', [\App\Http\Controllers\admin\MetricsController::class, 'realtime']);
     Route::get('metrics/historical', [\App\Http\Controllers\admin\MetricsController::class, 'historical']);
 });

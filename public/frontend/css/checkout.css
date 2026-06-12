@@ -35,14 +35,14 @@
     top: -3px
 }
 .step_complete {
-    background: #357ebd
+    background: #ff5a1f
 }
 .step_complete a.check-bc, .step_complete a.check-bc:hover,.afix-1,.afix-1:hover{
     color: #eee;
 }
 .step_line.step_complete {
     background: 0;
-    border-left: 16px solid #357ebd
+    border-left: 16px solid #ff5a1f
 }
 .step_thankyou {
     float: left;
@@ -66,10 +66,10 @@
     color: #222;
 }
 .SuccessField {
-    border-color: #458845 !important;
-    -webkit-box-shadow: 0 0 7px #9acc9a !important;
-    -moz-box-shadow: 0 0 7px #9acc9a !important;
-    box-shadow: 0 0 7px #9acc9a !important;
+    border-color: #009543 !important;
+    -webkit-box-shadow: 0 0 7px #86efac !important;
+    -moz-box-shadow: 0 0 7px #86efac !important;
+    box-shadow: 0 0 7px #86efac !important;
     background: #f9f9f9 url(../images/valid.png) no-repeat 98% center !important
 }
 
@@ -116,7 +116,7 @@
   border: 0px;
   color: #fff;
   text-shadow: 0 1px rgba(0,0,0,0.1); 
-  background-color: #357ebd;/*#4d90fe;*/
+  background-color: #ff5a1f;/*#4d90fe;*/
   padding: 17px 0px;
   font-family: roboto;
   font-size: 14px;
@@ -127,8 +127,8 @@
   /* border: 1px solid #2f5bb7; */
   border: 0px;
   text-shadow: 0 1px rgba(0,0,0,0.3);
-  background-color: #357ae8;
-  /* background-image: -webkit-gradient(linear, 0 0, 0 100%,   from(#4d90fe), to(#357ae8)); */
+  background-color: #ff5a1f;
+  /* background-image: -webkit-gradient(linear, 0 0, 0 100%,   from(#4d90fe), to(#ff5a1f)); */
 }
 
 .login-help{

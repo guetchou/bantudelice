@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Restaurant;
+use App\RestaurantSpecialClosure;
 use App\WorkingHour;
 use Carbon\Carbon;
 
@@ -20,7 +21,7 @@ class RestaurantStatusService
     public static function getStatus($restaurant)
     {
         if (is_int($restaurant)) {
-            $restaurant = Restaurant::with('working_hours')->find($restaurant);
+            $restaurant = Restaurant::with(['working_hours', 'special_closures'])->find($restaurant);
         }
         
         if (!$restaurant) {
@@ -34,6 +35,22 @@ class RestaurantStatusService
         
         $now = Carbon::now();
         $currentDay = strtolower($now->format('l')); // monday, tuesday, etc.
+        $today = $now->toDateString();
+
+        $activeClosure = $restaurant->special_closures()
+            ->whereDate('starts_on', '<=', $today)
+            ->whereDate('ends_on', '>=', $today)
+            ->orderBy('starts_on')
+            ->first();
+
+        if ($activeClosure) {
+            return [
+                'is_open' => false,
+                'next_opening' => $activeClosure->ends_on ? Carbon::parse($activeClosure->ends_on)->addDay()->format('d/m/Y') : null,
+                'current_schedule' => null,
+                'message' => 'Fermé : ' . $activeClosure->label,
+            ];
+        }
         
         // Mapper les jours en français si nécessaire
         $dayMapping = [
@@ -207,4 +224,3 @@ class RestaurantStatusService
         return $status['is_open'] ?? false;
     }
 }
-

@@ -34,7 +34,7 @@ class RestaurantMediaController extends Controller
 
         $request->validate([
             'images' => ['nullable', 'array'],
-            'images.*' => ['image', 'mimes:jpeg,png,jpg,webp', 'max:5120'],
+            'images.*' => ['image', 'mimes:jpeg,png,jpg,webp', 'max:8192'],
             'external_url' => ['nullable', 'url', 'max:2048'],
             'alt_text' => ['nullable', 'string', 'max:191'],
         ]);
@@ -151,5 +151,4 @@ class RestaurantMediaController extends Controller
         return response()->json(['message' => 'Ordre mis à jour']);
     }
 }
-
 

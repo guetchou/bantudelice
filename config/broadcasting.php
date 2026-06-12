@@ -32,12 +32,17 @@ return [
 
         'pusher' => [
             'driver' => 'pusher',
-            'key' => env('PUSHER_APP_KEY'),
+            'key'    => env('PUSHER_APP_KEY'),
             'secret' => env('PUSHER_APP_SECRET'),
             'app_id' => env('PUSHER_APP_ID'),
             'options' => [
-                'cluster' => env('PUSHER_APP_CLUSTER'),
-                'useTLS' => true,
+                'cluster'  => env('PUSHER_APP_CLUSTER', 'mt1'),
+                // Soketi auto-hébergé — host/port/scheme overrides
+                'host'     => env('PUSHER_HOST', '127.0.0.1'),
+                'port'     => (int) env('PUSHER_PORT', 6001),
+                'scheme'   => env('PUSHER_SCHEME', 'http'),
+                'useTLS'   => env('PUSHER_SCHEME', 'http') === 'https',
+                'encrypted'=> false,
             ],
         ],
 

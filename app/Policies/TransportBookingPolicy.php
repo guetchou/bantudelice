@@ -2,8 +2,11 @@
 
 namespace App\Policies;
 
+use App\Driver;
 use App\Domain\Transport\Models\TransportBooking;
+use App\Support\Auth\ActorType;
 use App\User;
+use Illuminate\Contracts\Auth\Authenticatable as AuthenticatableContract;
 use Illuminate\Auth\Access\HandlesAuthorization;
 
 class TransportBookingPolicy
@@ -13,9 +16,9 @@ class TransportBookingPolicy
     /**
      * Perform pre-authorization checks.
      */
-    public function before(User $user, $ability)
+    public function before(AuthenticatableContract $actor, $ability)
     {
-        if ($user->type === 'admin') {
+        if (ActorType::isAdminUser($actor)) {
             return true;
         }
     }
@@ -23,24 +26,34 @@ class TransportBookingPolicy
     /**
      * Determine whether the user can view the model.
      */
-    public function view(User $user, TransportBooking $transportBooking): bool
+    public function view(AuthenticatableContract $actor, TransportBooking $transportBooking): bool
     {
-        return $user->id === $transportBooking->user_id || $user->id === $transportBooking->driver_id;
+        if ($actor instanceof Driver) {
+            return (int) $actor->id === (int) $transportBooking->driver_id;
+        }
+
+        return $actor instanceof User && (int) $actor->id === (int) $transportBooking->user_id;
     }
 
     /**
      * Determine whether the user can update the model.
      */
-    public function update(User $user, TransportBooking $transportBooking): bool
+    public function update(AuthenticatableContract $actor, TransportBooking $transportBooking): bool
     {
-        return $user->id === $transportBooking->user_id || $user->id === $transportBooking->driver_id;
+        if ($actor instanceof Driver) {
+            return (int) $actor->id === (int) $transportBooking->driver_id;
+        }
+
+        return $actor instanceof User && (int) $actor->id === (int) $transportBooking->user_id;
     }
 
     /**
      * Determine whether the user can cancel the booking.
      */
-    public function cancel(User $user, TransportBooking $transportBooking): bool
+    public function cancel(AuthenticatableContract $actor, TransportBooking $transportBooking): bool
     {
-        return $user->id === $transportBooking->user_id && in_array($transportBooking->status->value, ['requested', 'assigned']);
+        return $actor instanceof User
+            && (int) $actor->id === (int) $transportBooking->user_id
+            && in_array($transportBooking->status->value, ['requested', 'assigned'], true);
     }
 }

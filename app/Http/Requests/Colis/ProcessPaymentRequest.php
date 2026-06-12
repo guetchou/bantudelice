@@ -15,7 +15,7 @@ class ProcessPaymentRequest extends FormRequest
     {
         return [
             'provider' => 'required|string|in:momo,airtel,card,cod',
+            'phone' => 'nullable|string|max:30',
         ];
     }
 }
-

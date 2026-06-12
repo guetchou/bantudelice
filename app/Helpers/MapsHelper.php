@@ -6,9 +6,8 @@ if (!function_exists('google_maps_api_key')) {
      */
     function google_maps_api_key(): ?string
     {
-        return config('external-services.geolocation.google_maps.api_key') 
-            ?? env('GOOGLE_MAPS_API_KEY') 
-            ?? null;
+        return config('external-services.geolocation.google_maps.api_key')
+            ?? config('services.google.maps_key');
     }
 }
 

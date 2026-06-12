@@ -28,6 +28,9 @@ class CreateShipmentRequest extends FormRequest
             'pickup_address.district' => 'required|string',
             'pickup_address.address_line' => 'required|string',
             'pickup_address.landmark' => 'nullable|string',
+            'pickup_address.lat' => 'required|numeric|between:-90,90',
+            'pickup_address.lng' => 'required|numeric|between:-180,180',
+            'pickup_address_confirmed' => 'nullable|boolean',
             
             'dropoff_address' => 'required|array',
             'dropoff_address.full_name' => 'required|string',
@@ -36,6 +39,9 @@ class CreateShipmentRequest extends FormRequest
             'dropoff_address.district' => 'required|string',
             'dropoff_address.address_line' => 'required|string',
             'dropoff_address.landmark' => 'nullable|string',
+            'dropoff_address.lat' => 'required|numeric|between:-90,90',
+            'dropoff_address.lng' => 'required|numeric|between:-180,180',
+            'dropoff_address_confirmed' => 'nullable|boolean',
         ];
     }
 }

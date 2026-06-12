@@ -1,7 +1,7 @@
-@extends('frontend.layouts.app-modern')
+@extends('frontend.layouts.colis')
 
-@section('title', 'Suivi de colis | BantuDelice')
-@section('description', 'Suivre un colis BantuDelice via la page publique de tracking, avec un parcours colis distinct du food delivery.')
+@section('title', 'Suivi de colis | Mema')
+@section('description', 'Suivez un colis Mema depuis la page publique de tracking.')
 
 @php
     $paymentExperience = $paymentExperience ?? null;
@@ -36,7 +36,7 @@
                                        placeholder="Entrez votre numéro de suivi (ex: BD-COLIS-20260319-0001)"
                                        value="{{ $trackingNumber ?? '' }}" required>
                                 <div class="input-group-append">
-                                    <button style="display:inline-flex;align-items:center;justify-content:center;background:#16a34a;color:#fff;font-weight:700;padding:.7rem 1.35rem;border-radius:999px;border:none;cursor:pointer;text-decoration:none;" type="submit"><i class="fa fa-search"></i> Rechercher</button>
+                                    <button style="display:inline-flex;align-items:center;justify-content:center;background:#009543;color:#fff;font-weight:700;padding:.7rem 1.35rem;border-radius:999px;border:none;cursor:pointer;text-decoration:none;" type="submit"><i class="fa fa-search"></i> Rechercher</button>
                                 </div>
                             </div>
                         </form>
@@ -93,7 +93,7 @@
                                                 <p class="mb-0 text-muted small">Le coursier est actuellement en route</p>
                                             </div>
                                             <div class="ml-auto">
-                                                <button type="button" id="driverPhoneLink" style="display:inline-flex;align-items:center;background:transparent;color:#16a34a;font-weight:600;font-size:.8rem;padding:.4rem 1rem;border-radius:999px;border:1.5px solid #bbf7d0;cursor:pointer;text-decoration:none;" disabled aria-disabled="true">
+                                                <button type="button" id="driverPhoneLink" style="display:inline-flex;align-items:center;background:transparent;color:#009543;font-weight:600;font-size:.8rem;padding:.4rem 1rem;border-radius:999px;border:1.5px solid #bbf7d0;cursor:pointer;text-decoration:none;" disabled aria-disabled="true">
                                                     <i class="fa fa-phone"></i> Appeler
                                                 </button>
                                             </div>
@@ -260,14 +260,44 @@
         }
     }
 
+    function showTrackingFetchError(message) {
+        const badge = document.getElementById('currentStatusBadge');
+        if (badge) {
+            badge.textContent = 'Mise a jour indisponible';
+            badge.className = 'badge badge-pill badge-danger p-2 px-3';
+        }
+
+        renderPaymentExperience({
+            status: 'ATTENTION',
+            customer_message: message || 'Impossible de verifier le suivi pour le moment.',
+        }, 'pending');
+    }
+
+    function shipmentTrackingUrl() {
+        const url = new URL(`/api/v1/colis/track/${trackingNumber}`, window.location.origin);
+        url.searchParams.set('_ts', Date.now().toString());
+        return url.toString();
+    }
+
     async function pollTracking() {
         if (!trackingNumber) return;
 
         try {
-            const response = await fetch(`/api/v1/colis/track/${trackingNumber}`);
-            const data = await response.json();
+            const response = await fetch(shipmentTrackingUrl(), {
+                headers: {
+                    'Accept': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                },
+                cache: 'no-store',
+            });
+            const data = await response.json().catch(() => ({}));
 
-            if (data.status) {
+            if (!response.ok) {
+                showTrackingFetchError(data?.message || 'Le serveur Mema n’a pas confirme un statut 200 pour ce suivi.');
+                return;
+            }
+
+            if (data.tracking_number && data.status && data.status_label) {
                 const badge = document.getElementById('currentStatusBadge');
                 if (badge) {
                     badge.textContent = data.status_label;
@@ -294,9 +324,12 @@
                 } else if (driverDiv) {
                     driverDiv.style.display = 'none';
                 }
+            } else {
+                showTrackingFetchError(data?.message || 'Aucune confirmation exploitable n’a ete retournee par le suivi Mema.');
             }
         } catch (error) {
             console.error('Erreur de tracking:', error);
+            showTrackingFetchError('Impossible de verifier le suivi Mema pour le moment.');
         }
     }
 

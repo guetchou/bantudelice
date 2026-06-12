@@ -15,12 +15,49 @@ class Delivery extends Model
         'assigned_at',
         'picked_up_at',
         'delivered_at',
+        'pickup_notes',
+        'delivery_notes',
+        'pickup_proof_path',
+        'delivery_proof_path',
+        'delivery_otp_code',
+        'delivery_otp_expires_at',
+        'otp_verified_at',
+        'delivery_confirmation_method',
+        'pickup_latitude',
+        'pickup_longitude',
+        'delivery_latitude',
+        'delivery_longitude',
+        'customer_confirmed_at',
+        'cash_collected_at',
+        'incident_status',
+        'incident_reason',
+        'incident_notes',
+        'incident_reported_by',
+        'incident_reported_by_id',
+        'incident_reported_at',
+        'failed_attempts',
+        'last_failed_attempt_at',
+        'customer_absent_at',
+        'redelivery_requested_at',
+        'support_status',
+        'support_notes',
+        'support_resolved_at',
+        'support_resolved_by',
     ];
     
     protected $casts = [
         'assigned_at' => 'datetime',
         'picked_up_at' => 'datetime',
         'delivered_at' => 'datetime',
+        'delivery_otp_expires_at' => 'datetime',
+        'otp_verified_at' => 'datetime',
+        'customer_confirmed_at' => 'datetime',
+        'cash_collected_at' => 'datetime',
+        'incident_reported_at' => 'datetime',
+        'last_failed_attempt_at' => 'datetime',
+        'customer_absent_at' => 'datetime',
+        'redelivery_requested_at' => 'datetime',
+        'support_resolved_at' => 'datetime',
     ];
     
     public function order()
@@ -61,5 +98,14 @@ class Delivery extends Model
     {
         return $this->status === 'CANCELLED';
     }
-}
 
+    public function requiresOtp(): bool
+    {
+        return !empty($this->delivery_otp_code) && !$this->otp_verified_at;
+    }
+
+    public function hasOpenIncident(): bool
+    {
+        return $this->incident_status === 'open';
+    }
+}

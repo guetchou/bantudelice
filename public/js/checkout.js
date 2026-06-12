@@ -3,7 +3,11 @@
  */
 class CheckoutAPI {
     constructor() {
-        this.baseURL = '/api';
+        this.config = window.checkoutApiConfig || {};
+        this.baseURL = this.config.baseURL || '/api';
+        this.createCheckoutURL = this.config.createCheckoutUrl || `${this.baseURL}/checkout`;
+        this.paymentStatusBaseURL = this.config.paymentStatusBaseUrl || `${this.baseURL}/payments`;
+        this.loginURL = this.config.loginUrl || `/user/login?redirect=${encodeURIComponent(window.location.pathname + window.location.search)}`;
         this.csrfToken = this.getCsrfToken();
     }
 
@@ -13,9 +17,32 @@ class CheckoutAPI {
         return metaToken ? metaToken.content : null;
     }
 
+    isLoginRedirectResponse(response) {
+        if (!response) return false;
+
+        if (response.redirected && response.url) {
+            return /\/(?:user\/login|login)(?:\?|$)/.test(response.url);
+        }
+
+        const contentType = response.headers.get('content-type') || '';
+        return contentType.includes('text/html');
+    }
+
+    redirectToLogin() {
+        window.location.href = this.loginURL;
+    }
+
+    async readJson(response) {
+        try {
+            return await response.json();
+        } catch (error) {
+            return null;
+        }
+    }
+
     async createCheckout(checkoutData) {
         try {
-            const response = await fetch(`${this.baseURL}/checkout`, {
+            const response = await fetch(this.createCheckoutURL, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -27,10 +54,25 @@ class CheckoutAPI {
                 body: JSON.stringify(checkoutData)
             });
 
-            const data = await response.json();
+            if (response.status === 401 || response.status === 419 || this.isLoginRedirectResponse(response)) {
+                this.redirectToLogin();
+                throw new Error('Authentification requise');
+            }
+
+            const data = await this.readJson(response);
             
             if (!response.ok) {
-                throw new Error(data.message || 'Erreur lors du checkout');
+                const error = new Error(data?.message || 'Erreur lors du checkout');
+                error.payload = data;
+                error.statusCode = response.status;
+                throw error;
+            }
+
+            if (data?.status === false) {
+                const error = new Error(data.message || 'Le checkout a été refusé');
+                error.payload = data;
+                error.statusCode = response.status;
+                throw error;
             }
 
             return data;
@@ -42,20 +84,39 @@ class CheckoutAPI {
 
     async getPaymentStatus(paymentId) {
         try {
-            const response = await fetch(`${this.baseURL}/payments/${paymentId}`, {
+            const requestUrl = new URL(`${this.paymentStatusBaseURL}/${paymentId}`, window.location.origin);
+            requestUrl.searchParams.set('_ts', Date.now().toString());
+
+            const response = await fetch(requestUrl.toString(), {
                 method: 'GET',
                 headers: {
                     'Accept': 'application/json',
                     'X-CSRF-TOKEN': this.csrfToken,
                     'X-Requested-With': 'XMLHttpRequest'
                 },
-                credentials: 'same-origin'
+                credentials: 'same-origin',
+                cache: 'no-store'
             });
 
-            const data = await response.json();
+            if (response.status === 401 || response.status === 419 || this.isLoginRedirectResponse(response)) {
+                this.redirectToLogin();
+                throw new Error('Authentification requise');
+            }
+
+            const data = await this.readJson(response);
             
             if (!response.ok) {
-                throw new Error(data.message || 'Erreur lors de la récupération du statut');
+                const error = new Error(data?.message || 'Erreur lors de la récupération du statut');
+                error.payload = data;
+                error.statusCode = response.status;
+                throw error;
+            }
+
+            if (data?.status === false) {
+                const error = new Error(data.message || 'Le statut de paiement a été refusé');
+                error.payload = data;
+                error.statusCode = response.status;
+                throw error;
             }
 
             return data;
@@ -65,20 +126,31 @@ class CheckoutAPI {
         }
     }
 
-    async pollPaymentStatus(paymentId, onStatusChange, maxAttempts = 60, interval = 2000) {
+    async pollPaymentStatus(paymentId, onStatusChange, maxAttempts = 120, interval = 5000) {
         let attempts = 0;
         
         const poll = async () => {
             try {
                 const data = await this.getPaymentStatus(paymentId);
-                const status = data.payment.status;
+                const status = String(data?.payment?.status || '').trim().toUpperCase();
                 
                 if (onStatusChange) {
                     onStatusChange(status, data);
                 }
                 
-                // Si le paiement est terminé (PAID ou FAILED), arrêter le polling
-                if (status === 'PAID' || status === 'FAILED' || status === 'CANCELLED') {
+                // Si le paiement est terminé, arrêter le polling
+                if ([
+                    'SUCCESS',
+                    'SUCCESSFUL',
+                    'PAID',
+                    'COMPLETED',
+                    'CAPTURED',
+                    'APPROVED',
+                    'FAILED',
+                    'CANCELLED',
+                    'EXPIRED',
+                    'REFUNDED',
+                ].includes(status)) {
                     return;
                 }
                 
@@ -87,9 +159,18 @@ class CheckoutAPI {
                     setTimeout(poll, interval);
                 } else {
                     console.warn('Polling timeout atteint');
+                    if (onStatusChange) {
+                        onStatusChange('TIMEOUT', data);
+                    }
                 }
             } catch (error) {
                 console.error('Polling error:', error);
+                attempts++;
+                if (attempts < maxAttempts) {
+                    setTimeout(poll, interval);
+                } else if (onStatusChange) {
+                    onStatusChange('TIMEOUT', null);
+                }
             }
         };
         
@@ -105,6 +186,11 @@ class CheckoutManager {
     constructor() {
         this.api = new CheckoutAPI();
         this.isProcessing = false;
+        this.paymentScreenAutoCloseTimer = null;
+        this.currentPaymentId = null;
+        this.currentPaymentPhone = '';
+        this.currentPaymentAmount = '';
+        this.boundRefreshPaymentStatus = this.refreshPaymentStatusOnResume.bind(this);
     }
 
     async processCheckout(formData) {
@@ -118,28 +204,50 @@ class CheckoutManager {
         try {
             const checkoutData = {
                 payment_method: formData.payment_method,
+                fulfillment_mode: formData.fulfillment_mode || 'delivery',
                 delivery_address: formData.delivery_address,
+                delivery_area: formData.delivery_area || null,
+                delivery_city: formData.delivery_city || null,
+                delivery_department: formData.delivery_department || null,
+                delivery_address_confirmed: Boolean(
+                    formData.delivery_address_confirmed === true
+                    || formData.delivery_address_confirmed === 1
+                    || formData.delivery_address_confirmed === '1'
+                    || formData.delivery_address_confirmed === 'true'
+                ),
                 d_lat: formData.d_lat,
                 d_lng: formData.d_lng,
                 driver_tip: parseFloat(formData.driver_tip) || 0,
-                voucher_code: formData.voucher_code || null
+                voucher_code: formData.voucher_code || null,
+                scheduled_date: formData.scheduled_date || null,
+                address_id: formData.address_id || null,
+                pickup_note: formData.pickup_note || null,
+                phone: formData.phone || null
             };
 
             const result = await this.api.createCheckout(checkoutData);
 
             // Gérer la réponse selon le format (peut être result.data ou result directement)
             const response = result.data || result;
+            const hasPayment = Boolean(response?.payment?.id);
+            const hasOrder = Boolean(response?.order_no || response?.order?.order_no || response?.order?.id);
+
+            if (!hasPayment) {
+                throw new Error('Réponse checkout invalide: paiement manquant.');
+            }
 
             if (response.requires_external_payment) {
                 // Paiement en ligne requis
                 this.handleExternalPayment(response);
-            } else {
+            } else if (hasOrder) {
                 // Paiement cash - commande créée immédiatement
                 this.handleSuccess(response);
+            } else {
+                throw new Error('Réponse checkout invalide: commande manquante.');
             }
         } catch (error) {
             const errorMessage = error.message || (error.response?.data?.message) || 'Erreur lors du checkout';
-            this.handleError(errorMessage);
+            this.handleError(errorMessage, error.payload || error.response?.data || null);
         } finally {
             this.isProcessing = false;
             this.hideLoading();
@@ -153,6 +261,12 @@ class CheckoutManager {
         if (!payment || !payment.id) {
             console.error('Payment data missing', result);
             this.handleError('Erreur: données de paiement manquantes');
+            return;
+        }
+
+        const redirectUrl = paymentPayload?.redirect_url || paymentPayload?.meta?.redirect_url || null;
+        if (redirectUrl) {
+            window.location.href = redirectUrl;
             return;
         }
 
@@ -179,7 +293,24 @@ class CheckoutManager {
         }
     }
 
-    handleError(message) {
+    handleError(message, payload = null) {
+        const normalizedMessage = String(message || '').toLowerCase();
+        if (
+            normalizedMessage.includes('auth') ||
+            normalizedMessage.includes('connect') ||
+            normalizedMessage.includes('session') ||
+            normalizedMessage.includes('csrf') ||
+            normalizedMessage.includes('419') ||
+            normalizedMessage.includes('login')
+        ) {
+            this.api.redirectToLogin();
+            return;
+        }
+
+        if (typeof window.handleCheckoutClientError === 'function' && window.handleCheckoutClientError(message, payload) === true) {
+            return;
+        }
+
         this.showError(message);
     }
 
@@ -190,87 +321,274 @@ class CheckoutManager {
             this.createPaymentStatusScreen();
         }
 
-        // Afficher les instructions selon le provider
-        const provider = payment.provider;
-        const instructions = this.getPaymentInstructions(provider, paymentPayload);
-        
-        document.getElementById('paymentInstructions').innerHTML = instructions;
+        this.currentPaymentId = payment.id;
+        this.currentPaymentPhone = paymentPayload?.meta?.phone || paymentPayload?.phone || '';
+        this.currentPaymentAmount = paymentPayload?.amount
+            || paymentPayload?.meta?.amount
+            || payment?.amount
+            || 'N/A';
+
+        document.getElementById('paymentPhoneValue').textContent = this.formatPhone(this.currentPaymentPhone);
+        document.getElementById('paymentAmountValue').textContent = this.formatAmount(this.currentPaymentAmount);
+        this.updatePaymentStatus(payment?.status || 'INITIATED', { payment });
         document.getElementById('paymentStatusScreen').style.display = 'block';
+        this.bindResumeStatusChecks();
     }
 
     createPaymentStatusScreen() {
         const screen = document.createElement('div');
         screen.id = 'paymentStatusScreen';
-        screen.style.cssText = `
-            position: fixed;
-            top: 0;
-            left: 0;
-            right: 0;
-            bottom: 0;
-            background: rgba(0, 0, 0, 0.8);
-            display: none;
-            align-items: center;
-            justify-content: center;
-            z-index: 9999;
-        `;
-        
+        screen.className = 'payment-status-overlay';
+
         screen.innerHTML = `
-            <div style="background: white; padding: 2rem; border-radius: 1rem; max-width: 500px; width: 90%;">
-                <h2 style="margin-bottom: 1rem;">Paiement en cours</h2>
-                <div id="paymentInstructions"></div>
-                <div id="paymentStatusIndicator" style="margin-top: 1rem; padding: 1rem; background: #f3f4f6; border-radius: 0.5rem;">
-                    <p style="margin: 0;">Vérification du paiement...</p>
+            <div id="paymentStatusCard" class="payment-status-card">
+                <div class="payment-status-waves" aria-hidden="true">
+                    <span class="payment-status-wave"></span>
+                    <span class="payment-status-wave"></span>
+                    <span class="payment-status-wave"></span>
                 </div>
-                <button id="closePaymentScreen" style="margin-top: 1rem; padding: 0.75rem 1.5rem; background: #ef4444; color: white; border: none; border-radius: 0.5rem; cursor: pointer;">
-                    Annuler
-                </button>
+
+                <div class="payment-status-body">
+                    <div id="paymentStatusBadge" class="payment-status-badge">
+                        <span class="payment-status-badge-dot"></span>
+                        Paiement Mobile Money
+                    </div>
+
+                    <h2 class="payment-status-title">Transaction en cours</h2>
+                    <p id="paymentStatusSubtitle" class="payment-status-subtitle">
+                        Veuillez confirmer l’opération sur votre téléphone pour finaliser le paiement.
+                    </p>
+
+                    <div class="payment-status-box">
+                        <span class="payment-status-label">Numéro</span>
+                        <div id="paymentPhoneValue" class="payment-status-value">Numéro non renseigné</div>
+                    </div>
+
+                    <div class="payment-status-box">
+                        <span class="payment-status-label">Montant</span>
+                        <div id="paymentAmountValue" class="payment-status-value">N/A</div>
+                    </div>
+
+                    <div class="payment-status-box payment-status-status-box">
+                        <div>
+                            <span class="payment-status-label">Statut</span>
+                            <div id="paymentStatusText" class="payment-status-value">En attente de confirmation</div>
+                        </div>
+                        <div class="payment-status-loader" aria-hidden="true"></div>
+                    </div>
+
+                    <div class="payment-status-actions">
+                        <button id="verifyPaymentScreen" type="button" class="payment-status-button">Vérifier le paiement</button>
+                        <a href="#" id="closePaymentScreen" class="payment-status-close">Fermer cette fenêtre</a>
+                    </div>
+                </div>
             </div>
         `;
         
         document.body.appendChild(screen);
         
-        document.getElementById('closePaymentScreen').addEventListener('click', () => {
-            screen.style.display = 'none';
+        document.getElementById('verifyPaymentScreen').addEventListener('click', () => {
+            this.checkPaymentNow();
+        });
+
+        document.getElementById('closePaymentScreen').addEventListener('click', (event) => {
+            event.preventDefault();
+            this.hidePaymentStatusScreen();
         });
     }
 
-    getPaymentInstructions(provider, paymentPayload) {
-        switch(provider) {
-            case 'momo':
-                return `
-                    <p>Instructions pour Mobile Money :</p>
-                    <ol>
-                        <li>Composez le code USSD ou utilisez l'application Mobile Money</li>
-                        <li>Entrez le montant : <strong>${paymentPayload?.amount || 'N/A'} FCFA</strong></li>
-                        <li>Confirmez la transaction</li>
-                    </ol>
-                    <p>Nous vérifions automatiquement votre paiement...</p>
-                `;
-            case 'paypal':
-                if (paymentPayload?.redirect_url) {
-                    return `
-                        <p>Redirection vers PayPal...</p>
-                        <a href="${paymentPayload.redirect_url}" target="_blank" style="display: inline-block; margin-top: 1rem; padding: 0.75rem 1.5rem; background: #0070ba; color: white; text-decoration: none; border-radius: 0.5rem;">
-                            Ouvrir PayPal
-                        </a>
-                    `;
-                }
-                return '<p>Paiement PayPal en cours...</p>';
-            default:
-                return '<p>Paiement en cours de traitement...</p>';
+    hidePaymentStatusScreen() {
+        const screen = document.getElementById('paymentStatusScreen');
+        if (screen) {
+            screen.style.display = 'none';
+        }
+        this.unbindResumeStatusChecks();
+
+        if (this.paymentScreenAutoCloseTimer) {
+            clearTimeout(this.paymentScreenAutoCloseTimer);
+            this.paymentScreenAutoCloseTimer = null;
         }
     }
 
-    updatePaymentStatus(status, data) {
-        const indicator = document.getElementById('paymentStatusIndicator');
-        if (!indicator) return;
+    schedulePaymentScreenAutoClose(delay = 4000) {
+        if (this.paymentScreenAutoCloseTimer) {
+            clearTimeout(this.paymentScreenAutoCloseTimer);
+        }
 
-        switch(status) {
+        this.paymentScreenAutoCloseTimer = setTimeout(() => {
+            this.hidePaymentStatusScreen();
+        }, delay);
+    }
+
+    formatPhone(phone) {
+        const digits = String(phone || '').replace(/\D+/g, '');
+
+        if (!digits) {
+            return 'Numéro non renseigné';
+        }
+
+        if (digits.startsWith('242') && digits.length >= 11) {
+            return `+242 ${digits.slice(3, 5)} ${digits.slice(5, 8)} ${digits.slice(8, 10)} ${digits.slice(10, 12)}`.trim();
+        }
+
+        if (digits.length >= 9) {
+            return `${digits.slice(0, 2)} ${digits.slice(2, 5)} ${digits.slice(5, 7)} ${digits.slice(7, 9)}`.trim();
+        }
+
+        return phone;
+    }
+
+    formatAmount(amount) {
+        const numericAmount = Number(amount);
+
+        if (Number.isFinite(numericAmount)) {
+            return `${numericAmount.toLocaleString('fr-FR')} FCFA`;
+        }
+
+        return `${amount || 'N/A'} FCFA`;
+    }
+
+    async checkPaymentNow() {
+        if (!this.currentPaymentId) {
+            return;
+        }
+
+        const verifyButton = document.getElementById('verifyPaymentScreen');
+        if (verifyButton) {
+            verifyButton.disabled = true;
+            verifyButton.textContent = 'Vérification...';
+        }
+
+        try {
+            const data = await this.api.getPaymentStatus(this.currentPaymentId);
+            this.updatePaymentStatus(data?.payment?.status || 'PENDING', data);
+        } catch (error) {
+            console.error('Manual payment verification error:', error);
+        } finally {
+            if (verifyButton) {
+                verifyButton.disabled = false;
+                verifyButton.textContent = 'Vérifier le paiement';
+            }
+        }
+    }
+
+    bindResumeStatusChecks() {
+        this.unbindResumeStatusChecks();
+        window.addEventListener('focus', this.boundRefreshPaymentStatus);
+        window.addEventListener('pageshow', this.boundRefreshPaymentStatus);
+        document.addEventListener('visibilitychange', this.boundRefreshPaymentStatus);
+    }
+
+    unbindResumeStatusChecks() {
+        window.removeEventListener('focus', this.boundRefreshPaymentStatus);
+        window.removeEventListener('pageshow', this.boundRefreshPaymentStatus);
+        document.removeEventListener('visibilitychange', this.boundRefreshPaymentStatus);
+    }
+
+    refreshPaymentStatusOnResume() {
+        const screen = document.getElementById('paymentStatusScreen');
+        const isVisible = screen && screen.style.display !== 'none';
+
+        if (!this.currentPaymentId || !isVisible) {
+            return;
+        }
+
+        if (document.visibilityState && document.visibilityState !== 'visible') {
+            return;
+        }
+
+        this.checkPaymentNow();
+    }
+
+    normalizePaymentStatus(status) {
+        const normalizedStatus = String(status || '').trim().toUpperCase();
+
+        switch (normalizedStatus) {
+            case 'INITIATED':
+                return 'INITIATED';
+            case 'PENDING':
+                return 'PENDING';
+            case 'PROCESSING':
+            case 'PROCESS':
+            case 'IN_PROGRESS':
+                return 'PROCESSING';
+            case 'SUCCESS':
+            case 'SUCCESSFUL':
             case 'PAID':
-                indicator.innerHTML = `
-                    <p style="color: #10b981; font-weight: 600;">✓ Paiement confirmé !</p>
-                    <p>Redirection vers la confirmation de commande...</p>
-                `;
+            case 'COMPLETED':
+            case 'CAPTURED':
+            case 'APPROVED':
+                return 'SUCCESS';
+            case 'FAILED':
+            case 'ERROR':
+                return 'FAILED';
+            case 'CANCELLED':
+                return 'CANCELLED';
+            case 'EXPIRED':
+                return 'EXPIRED';
+            case 'TIMEOUT':
+                return 'TIMEOUT';
+            case 'REFUNDED':
+                return 'REFUNDED';
+            default:
+                return normalizedStatus || 'PENDING';
+        }
+    }
+
+    resolveDisplayStatus(status, data) {
+        const normalizedStatus = this.normalizePaymentStatus(status);
+        const reconciliationStatus = this.normalizePaymentStatus(data?.reconciliation?.status);
+        const experienceStatus = this.normalizePaymentStatus(data?.payment_experience?.status);
+
+        if (['SUCCESS', 'FAILED', 'CANCELLED', 'EXPIRED', 'REFUNDED', 'PROCESSING'].includes(reconciliationStatus)) {
+            return reconciliationStatus;
+        }
+
+        if (['SUCCESS', 'FAILED', 'CANCELLED', 'EXPIRED', 'REFUNDED', 'PROCESSING'].includes(experienceStatus)) {
+            return experienceStatus;
+        }
+
+        return normalizedStatus;
+    }
+
+    updatePaymentStatus(status, data) {
+        const card = document.getElementById('paymentStatusCard');
+        const title = document.querySelector('#paymentStatusCard .payment-status-title');
+        const statusText = document.getElementById('paymentStatusText');
+        const subtitle = document.getElementById('paymentStatusSubtitle');
+        const badge = document.getElementById('paymentStatusBadge');
+        const verifyButton = document.getElementById('verifyPaymentScreen');
+        if (!card || !title || !statusText || !subtitle || !badge) return;
+
+        const normalizedStatus = this.resolveDisplayStatus(status, data);
+        const customerMessage = data?.payment_experience?.customer_message || '';
+        const failureAction = data?.payment_experience?.failure_action || '';
+        card.classList.remove('is-paid', 'is-failed', 'is-timeout', 'is-processing', 'is-initiated', 'is-expired');
+
+        switch(normalizedStatus) {
+            case 'INITIATED':
+                card.classList.add('is-initiated');
+                badge.innerHTML = '<span class="payment-status-badge-dot"></span>Initialisation';
+                title.textContent = 'Initialisation du paiement';
+                subtitle.textContent = customerMessage || 'La transaction est créée. La demande Mobile Money est en cours d’envoi à votre téléphone.';
+                statusText.textContent = 'Initialisation en cours';
+                if (verifyButton) verifyButton.style.display = '';
+                break;
+            case 'PROCESSING':
+                card.classList.add('is-processing');
+                badge.innerHTML = '<span class="payment-status-badge-dot"></span>Traitement opérateur';
+                title.textContent = 'Traitement en cours';
+                subtitle.textContent = customerMessage || 'Votre validation a été transmise. L’opérateur traite maintenant la transaction.';
+                statusText.textContent = 'Traitement en cours';
+                if (verifyButton) verifyButton.style.display = '';
+                break;
+            case 'SUCCESS':
+                card.classList.add('is-paid');
+                badge.innerHTML = '<span class="payment-status-badge-dot"></span>Paiement confirmé';
+                title.textContent = 'Paiement réussi';
+                subtitle.textContent = customerMessage || 'Le paiement a été validé. Redirection vers la confirmation de commande...';
+                statusText.textContent = 'Paiement confirmé';
+                if (verifyButton) verifyButton.style.display = 'none';
                 setTimeout(() => {
                     const orderNo = data?.order?.order_no || data?.order_no || data?.payment?.order_no;
                     if (orderNo) {
@@ -281,18 +599,66 @@ class CheckoutManager {
                 }, 2000);
                 break;
             case 'FAILED':
-                indicator.innerHTML = `
-                    <p style="color: #ef4444; font-weight: 600;">✗ Paiement échoué</p>
-                    <p>Veuillez réessayer ou choisir un autre mode de paiement.</p>
-                `;
+                card.classList.add('is-failed');
+                badge.innerHTML = '<span class="payment-status-badge-dot"></span>Paiement échoué';
+                title.textContent = 'Paiement échoué';
+                subtitle.textContent = customerMessage || failureAction || 'Le paiement a été refusé par l’opérateur. Vous pouvez réessayer après confirmation sur votre téléphone.';
+                statusText.textContent = 'Paiement échoué';
+                if (verifyButton) verifyButton.style.display = '';
+                this.schedulePaymentScreenAutoClose();
+                break;
+            case 'CANCELLED':
+                card.classList.add('is-failed');
+                badge.innerHTML = '<span class="payment-status-badge-dot"></span>Paiement annulé';
+                title.textContent = 'Paiement annulé';
+                subtitle.textContent = customerMessage || 'Le paiement a été annulé. Vous pouvez relancer une nouvelle tentative.';
+                statusText.textContent = 'Paiement annulé';
+                if (verifyButton) verifyButton.style.display = '';
+                this.schedulePaymentScreenAutoClose();
                 break;
             case 'PENDING':
-                indicator.innerHTML = `
-                    <p>Vérification du paiement...</p>
-                    <div style="margin-top: 0.5rem; width: 100%; height: 4px; background: #e5e7eb; border-radius: 2px; overflow: hidden;">
-                        <div style="width: 50%; height: 100%; background: #3b82f6; animation: pulse 2s infinite;"></div>
-                    </div>
-                `;
+                if (this.paymentScreenAutoCloseTimer) {
+                    clearTimeout(this.paymentScreenAutoCloseTimer);
+                    this.paymentScreenAutoCloseTimer = null;
+                }
+                badge.innerHTML = '<span class="payment-status-badge-dot"></span>Paiement Mobile Money';
+                title.textContent = 'Transaction en cours';
+                subtitle.textContent = customerMessage || 'Veuillez confirmer l’opération sur votre téléphone pour finaliser le paiement.';
+                statusText.textContent = 'En attente de confirmation';
+                if (verifyButton) verifyButton.style.display = '';
+                break;
+            case 'EXPIRED':
+                card.classList.add('is-expired');
+                badge.innerHTML = '<span class="payment-status-badge-dot"></span>Paiement expiré';
+                title.textContent = 'Paiement expiré';
+                subtitle.textContent = customerMessage || 'Le délai de confirmation est dépassé. Relancez le paiement si vous souhaitez réessayer.';
+                statusText.textContent = 'Paiement expiré';
+                if (verifyButton) verifyButton.style.display = '';
+                this.schedulePaymentScreenAutoClose(5000);
+                break;
+            case 'REFUNDED':
+                card.classList.add('is-paid');
+                badge.innerHTML = '<span class="payment-status-badge-dot"></span>Paiement remboursé';
+                title.textContent = 'Paiement remboursé';
+                subtitle.textContent = customerMessage || 'Le paiement a été remboursé. Vous pouvez fermer cette fenêtre.';
+                statusText.textContent = 'Paiement remboursé';
+                if (verifyButton) verifyButton.style.display = 'none';
+                break;
+            case 'TIMEOUT':
+                card.classList.add('is-timeout');
+                badge.innerHTML = '<span class="payment-status-badge-dot"></span>Vérification prolongée';
+                title.textContent = 'Vérification prolongée';
+                subtitle.textContent = customerMessage || 'Le paiement est toujours en attente chez l’opérateur. Rechargez la page pour revoir l’état réel.';
+                statusText.textContent = 'Vérification prolongée';
+                if (verifyButton) verifyButton.style.display = '';
+                this.schedulePaymentScreenAutoClose(5000);
+                break;
+            default:
+                badge.innerHTML = '<span class="payment-status-badge-dot"></span>Paiement Mobile Money';
+                title.textContent = 'Transaction en cours';
+                subtitle.textContent = 'La transaction est en cours de synchronisation avec l’opérateur.';
+                statusText.textContent = normalizedStatus;
+                if (verifyButton) verifyButton.style.display = '';
                 break;
         }
     }
@@ -345,5 +711,4 @@ class CheckoutManager {
 
 // Initialiser le gestionnaire de checkout
 const checkoutManager = new CheckoutManager();
-
-
+window.checkoutManager = checkoutManager;

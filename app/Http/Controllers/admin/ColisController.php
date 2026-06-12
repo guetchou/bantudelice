@@ -2,9 +2,12 @@
 
 namespace App\Http\Controllers\admin;
 
+use App\Driver;
 use App\Http\Controllers\Controller;
 use App\Domain\Colis\Models\Shipment;
 use App\Domain\Colis\Enums\ShipmentStatus;
+use App\Domain\Colis\Services\ShipmentStateMachine;
+use App\Services\PaymentExperienceService;
 use Illuminate\Http\Request;
 
 class ColisController extends Controller
@@ -26,15 +29,20 @@ class ColisController extends Controller
             'delivered_today' => Shipment::where('status', 'delivered')->whereDate('delivered_at', now())->count(),
         ];
 
-        $couriers = \App\Driver::where('active', 1)->get();
+        $couriers = Driver::where('approved', 1)->orderBy('name')->get();
 
         return view('admin.colis.index', compact('shipments', 'stats', 'couriers'));
     }
 
     public function show(Shipment $shipment)
     {
-        $shipment->load(['addresses', 'events', 'proofs', 'incidents.reporter']);
-        return view('admin.colis.show', compact('shipment'));
+        $shipment->load(['addresses', 'events', 'proofs', 'incidents.reporter', 'payments' => function ($query) {
+            $query->latest('id');
+        }]);
+
+        $paymentExperience = app(PaymentExperienceService::class)->describe($shipment->payments->first());
+
+        return view('admin.colis.show', compact('shipment', 'paymentExperience'));
     }
 
     /**
@@ -79,7 +87,7 @@ class ColisController extends Controller
         $paymentService = app(\App\Domain\Colis\Services\ShipmentPaymentService::class);
         
         // Liste des coursiers ayant du cash en main (COD non réconciliés)
-        $couriersWithCash = \App\Driver::where('active', 1)
+        $couriersWithCash = Driver::where('approved', 1)
             ->whereHas('shipments', function($q) {
                 $q->where('status', ShipmentStatus::DELIVERED)
                   ->where('payment_status', 'cod_pending')
@@ -182,4 +190,3 @@ class ColisController extends Controller
         return view('admin.colis.print', compact('shipment'));
     }
 }
-

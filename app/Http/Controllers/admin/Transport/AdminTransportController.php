@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Domain\Transport\Models\TransportBooking;
 use App\Domain\Transport\Models\TransportVehicle;
 use App\Domain\Transport\Models\TransportPricingRule;
+use App\Services\PaymentExperienceService;
 use Illuminate\Http\Request;
 
 class AdminTransportController extends Controller
@@ -25,8 +26,30 @@ class AdminTransportController extends Controller
 
     public function bookings()
     {
-        $bookings = TransportBooking::with(['user', 'driver'])->orderBy('created_at', 'desc')->paginate(20);
+        $bookings = TransportBooking::with(['user', 'driver', 'payments' => function ($query) {
+            $query->latest('id');
+        }])->orderBy('created_at', 'desc')->paginate(20);
+
+        $paymentExperienceService = app(PaymentExperienceService::class);
+        $bookings->getCollection()->transform(function ($booking) use ($paymentExperienceService) {
+            $booking->payment_experience = $paymentExperienceService->describe($booking->payments->first());
+            return $booking;
+        });
+
         return view('admin.transport.bookings.index', compact('bookings'));
+    }
+
+    public function showBooking($id)
+    {
+        $booking = TransportBooking::with(['user', 'driver', 'vehicle', 'trackingPoints' => function ($query) {
+            $query->latest('recorded_at')->limit(10);
+        }, 'payments' => function ($query) {
+            $query->latest('id');
+        }])->where('uuid', $id)->orWhere('id', $id)->firstOrFail();
+
+        $paymentExperience = app(PaymentExperienceService::class)->describe($booking->payments->first());
+
+        return view('admin.transport.bookings.show', compact('booking', 'paymentExperience'));
     }
 
     public function vehicles()
@@ -94,4 +117,3 @@ class AdminTransportController extends Controller
         return redirect()->back()->with('success', 'Règle de tarification mise à jour');
     }
 }
-

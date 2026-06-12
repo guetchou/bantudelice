@@ -39,6 +39,35 @@ return [
             'table' => 'jobs',
             'queue' => 'default',
             'retry_after' => 90,
+            'after_commit' => true,
+        ],
+
+        // S7.1 — Redis queues par module (remplace database_*)
+        'database_food' => [
+            'driver'       => 'redis',
+            'connection'   => 'default',
+            'queue'        => env('QUEUE_FOOD', 'food'),
+            'retry_after'  => 90,
+            'after_commit' => true,
+            'block_for'    => null,
+        ],
+
+        'database_colis' => [
+            'driver'       => 'redis',
+            'connection'   => 'default',
+            'queue'        => env('QUEUE_COLIS', 'colis'),
+            'retry_after'  => 90,
+            'after_commit' => true,
+            'block_for'    => null,
+        ],
+
+        'database_transport' => [
+            'driver'       => 'redis',
+            'connection'   => 'default',
+            'queue'        => env('QUEUE_TRANSPORT', 'transport'),
+            'retry_after'  => 90,
+            'after_commit' => true,
+            'block_for'    => null,
         ],
 
         'beanstalkd' => [
@@ -83,6 +112,12 @@ return [
         'driver' => env('QUEUE_FAILED_DRIVER', 'database'),
         'database' => env('DB_CONNECTION', 'mysql'),
         'table' => 'failed_jobs',
+    ],
+
+    'bantudelice' => [
+        'food' => env('QUEUE_FOOD', 'food'),
+        'colis' => env('QUEUE_COLIS', 'colis'),
+        'transport' => env('QUEUE_TRANSPORT', 'transport'),
     ],
 
 ];

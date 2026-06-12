@@ -17,6 +17,11 @@ class PartnerController extends Controller
     {
         return view('frontend.restaurant');
     }
+
+    public function partenaires()
+    {
+        return view('frontend.partenaires');
+    }
     
     public function partnerRegistration(Request $request)
     {
@@ -25,15 +30,16 @@ class PartnerController extends Controller
             'email' => 'required|string|unique:restaurants',
             'password' => 'required|string|min:6|max:191',
             'slogan' => 'required|string|max:191',
-            'logo' => 'nullable|image|mimes:jpeg,png,jpg',
-            'cover_image' => 'nullable|image|mimes:jpeg,png,jpg',
+            'logo' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:8192',
+            'cover_image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:8192',
             'city' => 'required|string|max:191',
              'address' => 'required|string|max:191',
              'phone' => 'required|string|max:191|unique:restaurants',
-             'account_name'=>'required|string',
-             'account_number'=>'required|string',
-             'bank_name'=>'required',
-             'branch_number'=>'required',
+             'paypal_account_no' => 'required|string|max:30',
+             'account_name'=>'nullable|string',
+             'account_number'=>'nullable|string',
+             'bank_name'=>'nullable',
+             'branch_number'=>'nullable',
         ]);
          //dd($request->all());
         $request['password'] = bcrypt($request->password);

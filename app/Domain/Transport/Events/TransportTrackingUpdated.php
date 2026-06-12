@@ -3,9 +3,7 @@
 namespace App\Domain\Transport\Events;
 
 use App\Domain\Transport\Models\TransportBooking;
-use Illuminate\Broadcasting\Channel;
 use Illuminate\Broadcasting\InteractsWithSockets;
-use Illuminate\Broadcasting\PresenceChannel;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Foundation\Events\Dispatchable;
@@ -36,7 +34,7 @@ class TransportTrackingUpdated implements ShouldBroadcast
      */
     public function broadcastOn()
     {
-        return new Channel('transport.booking.' . $this->booking_uuid . '.tracking');
+        return new PrivateChannel('transport.booking.' . $this->booking_uuid . '.tracking');
     }
 
     /**
@@ -46,5 +44,14 @@ class TransportTrackingUpdated implements ShouldBroadcast
     {
         return 'location.updated';
     }
-}
 
+    public function broadcastWith(): array
+    {
+        return [
+            'booking_uuid' => $this->booking_uuid,
+            'lat' => (float) $this->lat,
+            'lng' => (float) $this->lng,
+            'speed' => $this->speed !== null ? (float) $this->speed : null,
+        ];
+    }
+}

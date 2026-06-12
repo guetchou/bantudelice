@@ -3,681 +3,526 @@
 <head>
     <meta charset="utf-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <title>BantuDelice | Connexion Administration</title>
+    <title>BantuDelice — Connexion</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <link rel="icon" type="image/x-icon" href="{{asset('favicon.ico')}}">
-    
-    <!-- Google Fonts -->
+    <link rel="icon" type="image/x-icon" href="{{ asset('favicon.ico') }}">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    
-    <!-- Font Awesome -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <style>
-        :root {
-            --primary: #E85A24;
-            --primary-dark: #C74A1A;
-            --primary-light: #FF7A44;
-            --secondary: #1A1A2E;
-            --accent: #16213E;
-            --success: #10B981;
-            --warning: #F59E0B;
-            --danger: #EF4444;
-            --light: #F8FAFC;
-            --dark: #0F172A;
-            --gray-50: #F9FAFB;
-            --gray-100: #F3F4F6;
-            --gray-200: #E5E7EB;
-            --gray-300: #D1D5DB;
-            --gray-400: #9CA3AF;
-            --gray-500: #6B7280;
-            --gray-600: #4B5563;
-            --gray-700: #374151;
-            --gray-800: #1F2937;
-            --gray-900: #111827;
-        }
-        
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            font-family: 'Plus Jakarta Sans', sans-serif;
-            min-height: 100vh;
-            display: flex;
-            background: linear-gradient(135deg, var(--secondary) 0%, var(--accent) 50%, var(--dark) 100%);
-            overflow: hidden;
-        }
-        
-        /* Left Side - Branding */
-        .login-branding {
-            flex: 1;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            padding: 3rem;
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .login-branding::before {
-            content: '';
-            position: absolute;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background: radial-gradient(circle, rgba(232, 90, 36, 0.15) 0%, transparent 60%);
-            animation: pulse-bg 8s ease-in-out infinite;
-        }
-        
-        @keyframes pulse-bg {
-            0%, 100% { transform: scale(1) rotate(0deg); opacity: 0.5; }
-            50% { transform: scale(1.1) rotate(180deg); opacity: 0.8; }
-        }
-        
-        .branding-content {
-            position: relative;
-            z-index: 1;
-            text-align: center;
-            max-width: 500px;
-        }
-        
-        .brand-logo {
-            width: 180px;
-            height: auto;
-            margin-bottom: 2rem;
-            filter: drop-shadow(0 10px 30px rgba(232, 90, 36, 0.3));
-            animation: float 6s ease-in-out infinite;
-        }
-        
-        @keyframes float {
-            0%, 100% { transform: translateY(0); }
-            50% { transform: translateY(-10px); }
-        }
-        
-        .branding-content h1 {
-            font-size: 2.5rem;
-            font-weight: 800;
-            color: white;
-            margin-bottom: 1rem;
-            line-height: 1.2;
-        }
-        
-        .branding-content h1 span {
-            color: var(--primary);
-        }
-        
-        .branding-content p {
-            font-size: 1.1rem;
-            color: var(--gray-400);
-            line-height: 1.7;
-            margin-bottom: 2rem;
-        }
-        
-        .features-list {
-            display: flex;
-            flex-direction: column;
-            gap: 1rem;
-        }
-        
-        .feature-item {
-            display: flex;
-            align-items: center;
-            gap: 1rem;
-            color: var(--gray-300);
-            font-size: 0.95rem;
-        }
-        
-        .feature-item i {
-            width: 40px;
-            height: 40px;
-            background: linear-gradient(135deg, var(--primary), var(--primary-light));
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: white;
-            font-size: 1rem;
-        }
-        
-        /* Right Side - Login Form */
-        .login-form-container {
-            width: 500px;
-            min-height: 100vh;
-            background: white;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            padding: 3rem;
-            position: relative;
-        }
-        
-        .login-form-container::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 4px;
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        html, body {
             height: 100%;
-            background: linear-gradient(to bottom, var(--primary), var(--primary-light), var(--warning));
+            font-family: 'Plus Jakarta Sans', Arial, sans-serif;
         }
-        
-        .form-header {
-            margin-bottom: 2rem;
+
+        body {
+            display: flex;
+            min-height: 100vh;
+            overflow: hidden;
         }
-        
-        .form-header h2 {
-            font-size: 1.75rem;
-            font-weight: 700;
-            color: var(--gray-900);
-            margin-bottom: 0.5rem;
-        }
-        
-        .form-header p {
-            color: var(--gray-500);
-            font-size: 0.95rem;
-        }
-        
-        .login-form {
+
+        /* ══════════════════════════════════════
+           LEFT PANEL
+        ══════════════════════════════════════ */
+        .bl-left {
+            width: 42%;
+            flex-shrink: 0;
+            background: #F5A41B;
+            position: relative;
+            overflow: hidden;
             display: flex;
             flex-direction: column;
-            gap: 1.5rem;
+            padding: 28px 24px;
         }
-        
-        .form-group {
+
+        /* Wavy edge droite */
+        .bl-left::after {
+            content: '';
+            position: absolute;
+            top: 0; right: -44px; bottom: 0;
+            width: 88px;
+            background: #FAF8F4;
+            border-radius: 60% 0 0 60%;
+            z-index: 5;
+            pointer-events: none;
+        }
+
+        /* Food orbs — cercles superposés comme la home */
+        .bl-orbs {
+            position: absolute;
+            inset: 0;
+            z-index: 2;
+            pointer-events: none;
+        }
+        .bl-orb {
+            position: absolute;
+            border-radius: 50%;
+            overflow: hidden;
+            border: 4px solid rgba(255,255,255,0.85);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.18);
+        }
+        .bl-orb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .bl-o1 { width: 230px; height: 230px; top: 15%;  left: 10%; }
+        .bl-o2 { width: 170px; height: 170px; top:  9%;  right: 10%; }
+        .bl-o3 { width: 195px; height: 195px; bottom: 14%; left: 4%; }
+        .bl-o4 { width: 150px; height: 150px; bottom: 20%; right:  8%; }
+
+        /* Brand */
+        .bl-brand {
+            display: flex;
+            align-items: center;
+            gap: 9px;
             position: relative;
+            z-index: 6;
         }
-        
-        .form-group label {
-            display: block;
-            font-size: 0.875rem;
+        .bl-brand img {
+            height: 34px;
+            width: auto;
+            filter: brightness(0) invert(1);
+        }
+        .bl-brand-name {
+            font-size: 14px;
+            font-weight: 800;
+            color: #fff;
+            letter-spacing: 0.3px;
+        }
+
+        /* Tagline bas */
+        .bl-tagline {
+            position: absolute;
+            bottom: 32px; left: 24px; right: 56px;
+            z-index: 6;
+            color: rgba(255,255,255,0.92);
+            font-size: 12.5px;
             font-weight: 600;
-            color: var(--gray-700);
-            margin-bottom: 0.5rem;
+            line-height: 1.55;
         }
-        
-        .input-wrapper {
+
+        /* Zigzags left */
+        .bl-zap { position: absolute; z-index: 6; line-height: 0; }
+
+        /* ══════════════════════════════════════
+           RIGHT PANEL
+        ══════════════════════════════════════ */
+        .bl-right {
+            flex: 1;
+            background: #FAF8F4;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 48px;
             position: relative;
+            overflow: hidden;
         }
-        
-        .input-wrapper i {
+
+        /* Photos décoratives coins */
+        .bl-deco {
             position: absolute;
-            left: 1rem;
-            top: 50%;
-            transform: translateY(-50%);
-            color: var(--gray-400);
-            font-size: 1rem;
-            transition: color 0.3s ease;
+            width: 180px;
+            height: 180px;
+            object-fit: cover;
+            filter: grayscale(80%) opacity(0.35);
+            pointer-events: none;
         }
-        
-        .input-wrapper input {
+        .bl-deco-tr {
+            top: -20px; right: -20px;
+            border-radius: 0 0 0 60%;
+        }
+        .bl-deco-br {
+            bottom: -20px; right: -20px;
+            border-radius: 60% 0 0 0;
+        }
+
+        /* Zigzags right */
+        .bl-zap-r { position: absolute; line-height: 0; }
+
+        /* Card */
+        .bl-card {
             width: 100%;
-            padding: 0.875rem 1rem 0.875rem 3rem;
-            border: 2px solid var(--gray-200);
-            border-radius: 12px;
-            font-family: inherit;
-            font-size: 1rem;
-            color: var(--gray-900);
-            transition: all 0.3s ease;
-            background: var(--gray-50);
+            max-width: 390px;
+            position: relative;
+            z-index: 2;
         }
-        
-        .input-wrapper input:focus {
-            outline: none;
-            border-color: var(--primary);
-            background: white;
-            box-shadow: 0 0 0 4px rgba(232, 90, 36, 0.1);
+
+        .bl-card h2 {
+            font-size: 27px;
+            font-weight: 800;
+            color: #1a1a1a;
+            text-transform: uppercase;
+            letter-spacing: -0.3px;
+            margin-bottom: 24px;
         }
-        
-        .input-wrapper input:focus + i,
-        .input-wrapper input:focus ~ i {
-            color: var(--primary);
+
+        /* Alerts */
+        .bl-alert {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 11px 15px;
+            border-radius: 10px;
+            font-size: 13px;
+            margin-bottom: 14px;
         }
-        
-        .input-wrapper input::placeholder {
-            color: var(--gray-400);
-        }
-        
-        .password-toggle {
-            position: absolute;
-            right: 1rem;
-            top: 50%;
-            transform: translateY(-50%);
-            background: none;
+        .bl-alert.error   { background: #fdecea; color: #c0392b; }
+        .bl-alert.success { background: #e8f7ee; color: #1a7a40; }
+
+        /* Inputs */
+        .bl-field { margin-bottom: 13px; }
+        .bl-field input {
+            width: 100%;
+            background: #EDECEB;
             border: none;
-            color: var(--gray-400);
-            cursor: pointer;
-            padding: 0.25rem;
-            transition: color 0.3s ease;
+            border-radius: 12px;
+            padding: 14px 18px;
+            font-size: 14px;
+            color: #1a1a1a;
+            outline: none;
+            font-family: inherit;
+            transition: background .2s, box-shadow .2s;
         }
-        
-        .password-toggle:hover {
-            color: var(--gray-600);
+        .bl-field input::placeholder { color: #aaa; }
+        .bl-field input:focus {
+            background: #e5e4e2;
+            box-shadow: 0 0 0 3px rgba(0,149,67,.18);
         }
-        
-        .form-options {
+        .bl-field-err { font-size: 12px; color: #c0392b; margin-top: 4px; padding-left: 4px; }
+
+        /* Password */
+        .bl-pw { position: relative; }
+        .bl-pw input { padding-right: 46px; }
+        .bl-pw-btn {
+            position: absolute; right: 13px; top: 50%;
+            transform: translateY(-50%);
+            background: none; border: none;
+            cursor: pointer; color: #bbb; font-size: 14px;
+            transition: color .2s;
+        }
+        .bl-pw-btn:hover { color: #666; }
+
+        /* Options */
+        .bl-options {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            margin-bottom: 18px;
         }
-        
-        .remember-me {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-            cursor: pointer;
-        }
-        
-        .remember-me input[type="checkbox"] {
-            width: 18px;
-            height: 18px;
-            accent-color: var(--primary);
-            cursor: pointer;
-        }
-        
-        .remember-me span {
-            font-size: 0.9rem;
-            color: var(--gray-600);
-        }
-        
-        .forgot-password {
-            font-size: 0.9rem;
-            color: var(--primary);
-            text-decoration: none;
-            font-weight: 500;
-            transition: color 0.3s ease;
-        }
-        
-        .forgot-password:hover {
-            color: var(--primary-dark);
-            text-decoration: underline;
-        }
-        
-        .btn-login {
-            width: 100%;
-            padding: 1rem;
-            background: linear-gradient(135deg, var(--primary), var(--primary-light));
-            border: none;
-            border-radius: 12px;
-            color: white;
-            font-family: inherit;
-            font-size: 1rem;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            display: flex;
+        .bl-remember { display: flex; align-items: center; gap: 7px; }
+        .bl-remember input { width: 15px; height: 15px; accent-color: #009543; cursor: pointer; }
+        .bl-remember label { font-size: 13px; color: #555; cursor: pointer; }
+        .bl-forgot { font-size: 13px; color: #009543; text-decoration: none; font-weight: 500; }
+        .bl-forgot:hover { text-decoration: underline; }
+
+        /* Bouton — centré, pas full-width (écart #4) */
+        .bl-btn-wrap { text-align: center; margin-bottom: 0; }
+        .bl-btn-submit {
+            display: inline-flex;
             align-items: center;
             justify-content: center;
-            gap: 0.5rem;
+            gap: 8px;
+            padding: 13px 44px;
+            background: #009543;
+            color: #fff;
+            border: none;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 700;
+            cursor: pointer;
+            font-family: inherit;
+            transition: background .2s, transform .15s, box-shadow .2s;
             position: relative;
             overflow: hidden;
         }
-        
-        .btn-login::before {
+        .bl-btn-submit:hover {
+            background: #007836;
+            transform: translateY(-1px);
+            box-shadow: 0 6px 20px rgba(0,149,67,.28);
+        }
+        .bl-btn-submit:active { transform: translateY(0); }
+        .bl-btn-submit.loading { opacity: .75; pointer-events: none; }
+        .bl-btn-submit.loading .btn-text { visibility: hidden; }
+        .bl-btn-submit.loading::after {
             content: '';
             position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-            transition: left 0.5s ease;
+            width: 18px; height: 18px;
+            border: 2px solid #fff;
+            border-top-color: transparent;
+            border-radius: 50%;
+            animation: bl-spin .7s linear infinite;
         }
-        
-        .btn-login:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 30px rgba(232, 90, 36, 0.3);
-        }
-        
-        .btn-login:hover::before {
-            left: 100%;
-        }
-        
-        .btn-login:active {
-            transform: translateY(0);
-        }
-        
-        .divider {
+        @keyframes bl-spin { to { transform: rotate(360deg); } }
+
+        /* Diviseur lignes vertes (écart #5) */
+        .bl-divider {
             display: flex;
             align-items: center;
-            gap: 1rem;
-            color: var(--gray-400);
-            font-size: 0.875rem;
+            gap: 10px;
+            margin: 18px 0;
+            color: #aaa;
+            font-size: 13px;
         }
-        
-        .divider::before,
-        .divider::after {
+        .bl-divider::before, .bl-divider::after {
             content: '';
             flex: 1;
             height: 1px;
-            background: var(--gray-200);
+            background: #009543;
+            opacity: 0.4;
         }
-        
-        .social-login {
-            display: flex;
-            gap: 1rem;
-        }
-        
-        .btn-social {
+
+        /* Social */
+        .bl-social { display: flex; gap: 12px; margin-bottom: 18px; }
+        .bl-btn-soc {
             flex: 1;
-            padding: 0.875rem;
-            border: 2px solid var(--gray-200);
-            border-radius: 12px;
-            background: white;
-            font-family: inherit;
-            font-size: 0.9rem;
-            font-weight: 500;
-            color: var(--gray-700);
-            cursor: pointer;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 0.5rem;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+            padding: 12px; border-radius: 12px;
+            border: 1.5px solid #d9d8d6; background: #fff;
+            color: #1a1a1a; font-size: 13px; font-weight: 600;
+            text-decoration: none; font-family: inherit; cursor: pointer;
+            transition: border-color .2s, box-shadow .2s;
         }
-        
-        .btn-social:hover {
-            border-color: var(--gray-300);
-            background: var(--gray-50);
-        }
-        
-        .btn-social.google i { color: #DB4437; }
-        .btn-social.facebook i { color: #4267B2; }
-        
-        .form-footer {
+        .bl-btn-soc:hover { border-color: #bbb; box-shadow: 0 2px 8px rgba(0,0,0,.08); }
+        .bl-btn-soc .fab { font-size: 16px; }
+        .bl-btn-soc.google   .fab { color: #DB4437; }
+        .bl-btn-soc.facebook .fab { color: #1877F2; }
+        .bl-soc-off { opacity: .5; cursor: not-allowed; pointer-events: none; }
+
+        /* Footer */
+        .bl-footer {
             text-align: center;
-            margin-top: 1.5rem;
-            padding-top: 1.5rem;
-            border-top: 1px solid var(--gray-200);
+            font-size: 12.5px;
+            color: #888;
+            padding-top: 14px;
+            border-top: 1px solid #e8e6e3;
+            line-height: 1.9;
         }
-        
-        .form-footer p {
-            color: var(--gray-500);
-            font-size: 0.9rem;
+        .bl-footer a { color: #009543; font-weight: 600; text-decoration: none; }
+        .bl-footer a:hover { text-decoration: underline; }
+
+        /* ══════════════════════════════════════
+           RESPONSIVE
+        ══════════════════════════════════════ */
+        @media (max-width: 900px) {
+            .bl-left { display: none; }
+            .bl-right { padding: 32px 20px; }
+            .bl-deco { display: none; }
         }
-        
-        .form-footer a {
-            color: var(--primary);
-            text-decoration: none;
-            font-weight: 600;
-            transition: color 0.3s ease;
-        }
-        
-        .form-footer a:hover {
-            color: var(--primary-dark);
-            text-decoration: underline;
-        }
-        
-        /* Alert Messages */
-        .alert {
-            padding: 1rem;
-            border-radius: 10px;
-            margin-bottom: 1rem;
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            font-size: 0.9rem;
-        }
-        
-        .alert-danger {
-            background: #FEE2E2;
-            color: #991B1B;
-            border: 1px solid #FECACA;
-        }
-        
-        .alert-success {
-            background: #D1FAE5;
-            color: #065F46;
-            border: 1px solid #A7F3D0;
-        }
-        
-        .alert i {
-            font-size: 1.25rem;
-        }
-        
-        /* Responsive */
-        @media (max-width: 1024px) {
-            .login-branding {
-                display: none;
-            }
-            
-            .login-form-container {
-                width: 100%;
-                max-width: 480px;
-                margin: 0 auto;
-                min-height: auto;
-                padding: 2rem;
-                border-radius: 20px;
-                margin-top: 2rem;
-                margin-bottom: 2rem;
-            }
-            
-            .login-form-container::before {
-                display: none;
-            }
-            
-            body {
-                padding: 1rem;
-                align-items: center;
-                justify-content: center;
-            }
-        }
-        
         @media (max-width: 480px) {
-            .login-form-container {
-                padding: 1.5rem;
-            }
-            
-            .social-login {
-                flex-direction: column;
-            }
-        }
-        
-        /* Loading State */
-        .btn-login.loading {
-            pointer-events: none;
-            opacity: 0.8;
-        }
-        
-        .btn-login.loading .btn-text {
-            visibility: hidden;
-        }
-        
-        .btn-login.loading::after {
-            content: '';
-            position: absolute;
-            width: 20px;
-            height: 20px;
-            border: 2px solid white;
-            border-top-color: transparent;
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-        }
-        
-        @keyframes spin {
-            to { transform: rotate(360deg); }
+            .bl-social { flex-direction: column; }
+            .bl-card h2 { font-size: 22px; }
         }
     </style>
 </head>
 <body>
-    <!-- Left Side - Branding -->
-    <div class="login-branding">
-        <div class="branding-content">
-            <img src="{{asset('frontend/images/BuntuDelice.png')}}" alt="BantuDelice" class="brand-logo">
-            <h1>Bienvenue sur <span>BantuDelice</span></h1>
-            <p>La plateforme de livraison de repas et services à domicile au Congo. Gérez votre restaurant, vos livraisons et vos commandes en toute simplicité.</p>
-            
-            <div class="features-list">
-                <div class="feature-item">
-                    <i class="fas fa-chart-line"></i>
-                    <span>Tableau de bord analytique en temps réel</span>
-                </div>
-                <div class="feature-item">
-                    <i class="fas fa-bell"></i>
-                    <span>Notifications instantanées des commandes</span>
-                </div>
-                <div class="feature-item">
-                    <i class="fas fa-truck"></i>
-                    <span>Suivi GPS des livraisons en direct</span>
-                </div>
-                <div class="feature-item">
-                    <i class="fas fa-shield-alt"></i>
-                    <span>Sécurité renforcée et paiements sécurisés</span>
-                </div>
-            </div>
+
+{{-- ══════════════ LEFT PANEL ══════════════ --}}
+<div class="bl-left">
+
+    {{-- Food orbs — 4 cercles superposés, pattern identique à la section home --}}
+    <div class="bl-orbs">
+        <div class="bl-orb bl-o1">
+            <img src="{{ asset('frontend/images/g4.jpg') }}" alt=""
+                 onerror="this.src='{{ asset('images/home/service-restaurant.jpg') }}'">
+        </div>
+        <div class="bl-orb bl-o2">
+            <img src="{{ asset('frontend/images/g5.jpg') }}" alt=""
+                 onerror="this.src='{{ asset('images/home/service-driver.jpg') }}'">
+        </div>
+        <div class="bl-orb bl-o3">
+            <img src="{{ asset('frontend/images/g1.jpg') }}" alt=""
+                 onerror="this.src='{{ asset('images/home/service-cuisine.jpg') }}'">
+        </div>
+        <div class="bl-orb bl-o4">
+            <img src="{{ asset('frontend/images/g3.jpg') }}" alt=""
+                 onerror="this.src='{{ asset('images/home/service-restaurant.jpg') }}'">
         </div>
     </div>
-    
-    <!-- Right Side - Login Form -->
-    <div class="login-form-container">
-        <div class="form-header">
-            <h2>Connexion</h2>
-            <p>Connectez-vous pour accéder à votre espace professionnel</p>
-        </div>
-        
+
+    <div class="bl-brand">
+        <img src="{{ asset('frontend/images/BuntuDelice.png') }}" alt="BantuDelice">
+        <span class="bl-brand-name">BantuDelice</span>
+    </div>
+
+    <div class="bl-tagline">La cuisine congolaise<br>livrée chez vous</div>
+
+    {{-- Zigzag top-right --}}
+    <div class="bl-zap" style="top:14px; right:58px;">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+            <polyline points="3,2 10,10 3,18" stroke="rgba(0,0,0,0.28)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+            <polyline points="10,2 17,10 10,18" stroke="rgba(0,0,0,0.28)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+    </div>
+    {{-- Zigzag bas-gauche --}}
+    <div class="bl-zap" style="bottom:70px; left:14px;">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <polyline points="4,3 12,12 4,21" stroke="rgba(0,0,0,0.22)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+            <polyline points="12,3 20,12 12,21" stroke="rgba(0,0,0,0.22)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+    </div>
+
+</div>
+
+{{-- ══════════════ RIGHT PANEL ══════════════ --}}
+<div class="bl-right">
+
+    {{-- Photos décoratives coins (écart #3) --}}
+    <img class="bl-deco bl-deco-tr"
+         src="{{ asset('frontend/images/g6.jpg') }}" alt=""
+         onerror="this.src='{{ asset('images/home/service-restaurant.jpg') }}'">
+    <img class="bl-deco bl-deco-br"
+         src="{{ asset('frontend/images/g7.jpg') }}" alt=""
+         onerror="this.src='{{ asset('images/home/service-cuisine.jpg') }}'">
+
+    {{-- Zigzags panel droit --}}
+    <div class="bl-zap-r" style="top:18px; right:210px;">
+        <svg width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+            <polyline points="3,2 10,10 3,18" stroke="#1a1a1a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+            <polyline points="10,2 17,10 10,18" stroke="#1a1a1a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+    </div>
+    <div class="bl-zap-r" style="top:130px; left:52px;">
+        <svg width="16" height="16" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+            <polyline points="4,2 10,10 4,18" stroke="#1a1a1a" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+    </div>
+    <div class="bl-zap-r" style="bottom:30px; left:48px;">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <polyline points="4,3 12,12 4,21" stroke="#1a1a1a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+            <polyline points="12,3 20,12 12,21" stroke="#1a1a1a" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+    </div>
+    {{-- Zigzag orange milieu-droit --}}
+    <div class="bl-zap-r" style="top:45%; right:32px;">
+        <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+            <polyline points="3,2 10,10 3,18" stroke="#F5A41B" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+    </div>
+    <div class="bl-zap-r" style="bottom:80px; right:54px;">
+        <svg width="26" height="18" viewBox="0 0 26 18" fill="none" aria-hidden="true">
+            <polyline points="2,2 9,9 2,16"  stroke="#F5A41B" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+            <polyline points="11,2 18,9 11,16" stroke="#F5A41B" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+    </div>
+
+    <div class="bl-card">
+        <h2>Bienvenue !</h2>
+
+        {{-- Alertes session --}}
         @if(isset($errors) && $errors->any())
-            <div class="alert alert-danger">
+            <div class="bl-alert error">
                 <i class="fas fa-exclamation-circle"></i>
                 <span>{{ $errors->first() }}</span>
             </div>
         @endif
-        
+
         @if(session('alert'))
             @php
                 $alert = session('alert');
-                $alertType = is_array($alert) && isset($alert['type']) ? $alert['type'] : 'danger';
+                $alertType    = is_array($alert) && isset($alert['type'])    ? $alert['type']    : 'danger';
                 $alertMessage = is_array($alert) && isset($alert['message']) ? $alert['message'] : (is_array($alert) && isset($alert['heading']) ? $alert['heading'] : 'Une erreur est survenue');
             @endphp
-            <div class="alert {{ $alertType == 'danger' ? 'alert-danger' : 'alert-success' }}">
-                <i class="fas {{ $alertType == 'danger' ? 'fa-exclamation-circle' : 'fa-check-circle' }}"></i>
+            <div class="bl-alert {{ $alertType === 'danger' ? 'error' : 'success' }}">
+                <i class="fas {{ $alertType === 'danger' ? 'fa-exclamation-circle' : 'fa-check-circle' }}"></i>
                 <span>{{ $alertMessage }}</span>
             </div>
         @endif
-        
+
         @if(session('success'))
-            <div class="alert alert-success">
+            <div class="bl-alert success">
                 <i class="fas fa-check-circle"></i>
                 <span>{{ session('success') }}</span>
             </div>
         @endif
 
-        <div class="social-login" style="margin-bottom: 1.5rem;">
-            <a class="btn-social google" href="{{ route('auth.social.redirect', ['provider' => 'google']) }}" style="text-decoration:none;">
-                <i class="fab fa-google"></i>
-                Google
-            </a>
-            <a class="btn-social facebook" href="{{ route('auth.social.redirect', ['provider' => 'facebook']) }}" style="text-decoration:none;">
-                <i class="fab fa-facebook-f"></i>
-                Facebook
-            </a>
-        </div>
-
-        <div class="divider">
-            <span>ou par email</span>
-        </div>
-        
-        <form method="post" action="{{ url('login') }}" class="login-form" id="loginForm">
+        {{-- Formulaire — action/csrf/champs inchangés --}}
+        <form method="post" action="{{ url('login') }}" id="loginForm">
             @csrf
-            
-            <div class="form-group">
-                <label for="email">Adresse email</label>
-                <div class="input-wrapper">
-                    <input type="email" 
-                           id="email" 
-                           name="email" 
-                           value="{{ old('email') }}" 
-                           placeholder="votre@email.com"
-                           required
-                           autocomplete="email">
-                    <i class="fas fa-envelope"></i>
-                </div>
+
+            <div class="bl-field">
+                <input type="text"
+                       id="identifier"
+                       name="identifier"
+                       value="{{ old('identifier') }}"
+                       placeholder="Email, +242 06… ou nom d'utilisateur"
+                       required
+                       autocomplete="username"
+                       autofocus>
+                @error('identifier')
+                    <div class="bl-field-err"><i class="fas fa-exclamation-circle"></i> {{ $message }}</div>
+                @enderror
             </div>
-            
-            <div class="form-group">
-                <label for="password">Mot de passe</label>
-                <div class="input-wrapper">
-                    <input type="password" 
-                           id="password" 
-                           name="password" 
-                           placeholder="Votre mot de passe"
+
+            <div class="bl-field">
+                <div class="bl-pw">
+                    <input type="password"
+                           id="password"
+                           name="password"
+                           placeholder="Mot de passe"
                            required
                            autocomplete="current-password">
-                    <i class="fas fa-lock"></i>
-                    <button type="button" class="password-toggle" onclick="togglePassword()">
+                    <button type="button" class="bl-pw-btn" onclick="togglePassword()" aria-label="Afficher le mot de passe">
                         <i class="fas fa-eye" id="toggleIcon"></i>
                     </button>
                 </div>
             </div>
-            
-            <div class="form-options">
-                <label class="remember-me">
+
+            <div class="bl-options">
+                <div class="bl-remember">
                     <input type="checkbox" name="remember" id="remember">
-                    <span>Se souvenir de moi</span>
-                </label>
-                <a href="{{ url('password/reset') }}" class="forgot-password">Mot de passe oublié ?</a>
+                    <label for="remember">Se souvenir de moi</label>
+                </div>
+                <a href="{{ url('password/reset') }}" class="bl-forgot">Mot de passe oublié ?</a>
             </div>
-            
-            <button type="submit" class="btn-login" id="btnLogin">
-                <span class="btn-text">Se connecter</span>
-                <i class="fas fa-arrow-right"></i>
-            </button>
+
+            {{-- Bouton centré, pas full-width (écart #4) --}}
+            <div class="bl-btn-wrap">
+                <button type="submit" class="bl-btn-submit" id="btnLogin">
+                    <span class="btn-text">Se connecter</span>
+                    <i class="fas fa-arrow-right"></i>
+                </button>
+            </div>
         </form>
-        
-        <div class="form-footer">
-            <p>Vous n'avez pas de compte ? 
-                <a href="{{ url('/partner/registration') }}">Devenir partenaire restaurant</a> ou 
+
+        {{-- Diviseur lignes vertes (écart #5) --}}
+        <div class="bl-divider"><span>Ou</span></div>
+
+        {{-- Connexion sociale non disponible sur cette interface (réservée aux clients via /user/login) --}}
+
+        {{-- Footer --}}
+        <div class="bl-footer">
+            <p>Pas encore de compte ?
+                <a href="{{ route('partenaires') }}">Devenir partenaire</a> —
                 <a href="{{ route('user.signup') }}">Créer un compte client</a>
             </p>
-            <p style="margin-top: 0.75rem; padding-top: 0.75rem; border-top: 1px solid var(--gray-200);">
-                <strong>Vous êtes un client ?</strong> 
-                <a href="{{ url('/user/login') }}" style="display: inline-flex; align-items: center; gap: 0.25rem;">
-                    Connectez-vous ici <i class="fas fa-arrow-right" style="font-size: 0.75rem;"></i>
-                </a>
-            </p>
-            <p style="margin-top: 0.5rem;"><a href="{{ url('/') }}">← Retour au site</a></p>
+            <p><a href="{{ url('/') }}">← Retour au site</a></p>
         </div>
     </div>
-    
-    <script>
-        // Toggle password visibility
-        function togglePassword() {
-            const passwordInput = document.getElementById('password');
-            const toggleIcon = document.getElementById('toggleIcon');
-            
-            if (passwordInput.type === 'password') {
-                passwordInput.type = 'text';
-                toggleIcon.classList.remove('fa-eye');
-                toggleIcon.classList.add('fa-eye-slash');
-            } else {
-                passwordInput.type = 'password';
-                toggleIcon.classList.remove('fa-eye-slash');
-                toggleIcon.classList.add('fa-eye');
-            }
-        }
-        
-        // Form submission with loading state
-        document.getElementById('loginForm').addEventListener('submit', function(e) {
-            const btn = document.getElementById('btnLogin');
-            btn.classList.add('loading');
+
+</div>
+
+<script>
+    function togglePassword() {
+        const input = document.getElementById('password');
+        const icon  = document.getElementById('toggleIcon');
+        const show  = input.type === 'password';
+        input.type  = show ? 'text' : 'password';
+        icon.classList.toggle('fa-eye',       !show);
+        icon.classList.toggle('fa-eye-slash',  show);
+    }
+
+    document.getElementById('loginForm').addEventListener('submit', function() {
+        document.getElementById('btnLogin').classList.add('loading');
+    });
+
+    setTimeout(() => {
+        document.querySelectorAll('.bl-alert').forEach(el => {
+            el.style.transition = 'opacity .3s, transform .3s';
+            el.style.opacity    = '0';
+            el.style.transform  = 'translateY(-8px)';
+            setTimeout(() => el.remove(), 300);
         });
-        
-        // Connexion sociale: disponible côté clients (page /user/login)
-        
-        // Auto-hide alerts
-        setTimeout(() => {
-            document.querySelectorAll('.alert').forEach(alert => {
-                alert.style.opacity = '0';
-                alert.style.transform = 'translateY(-10px)';
-                alert.style.transition = 'all 0.3s ease';
-                setTimeout(() => alert.remove(), 300);
-            });
-        }, 5000);
-    </script>
+    }, 5000);
+</script>
 </body>
 </html>

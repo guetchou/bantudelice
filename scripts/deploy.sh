@@ -1,139 +1,154 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-# ===================================
-# BantuDelice - Script de Déploiement
-# Déploiement local/manuel
-# ===================================
+set -euo pipefail
 
-set -e
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+TARGET_HOST="${1:-vps-ovh}"
+TARGET_PATH="${2:-/opt/bantudelice}"
+PHP_BIN="${PHP_BIN:-/usr/bin/php}"
+WEB_USER="${WEB_USER:-www-data}"
+RUN_AUTH_SMOKE="${RUN_AUTH_SMOKE:-0}"
+DRY_RUN="${DRY_RUN:-0}"
+SMOKE_SCRIPT="$ROOT_DIR/scripts/prod_auth_smoke.py"
+RUNTIME_REPAIR_SCRIPT="$ROOT_DIR/scripts/repair_auth_runtime.sh"
 
-# Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-BLUE='\033[0;34m'
-NC='\033[0m'
-
-# Functions
-print_info() {
-    echo -e "${BLUE}[INFO]${NC} $1"
+info() {
+    printf '[INFO] %s\n' "$1"
 }
 
-print_success() {
-    echo -e "${GREEN}[SUCCESS]${NC} $1"
+success() {
+    printf '[OK] %s\n' "$1"
 }
 
-print_warning() {
-    echo -e "${YELLOW}[WARNING]${NC} $1"
+warn() {
+    printf '[WARN] %s\n' "$1" >&2
 }
 
-print_error() {
-    echo -e "${RED}[ERROR]${NC} $1"
-}
-
-PROJECT_PATH="/opt/bantudelice242"
-PROJECT_NAME="bantudelice242"
-
-cd "$PROJECT_PATH" || {
-    print_error "Project directory not found: $PROJECT_PATH"
+fail() {
+    printf '[ERROR] %s\n' "$1" >&2
     exit 1
 }
 
-print_info "Starting deployment of $PROJECT_NAME..."
+command -v rsync >/dev/null 2>&1 || fail "rsync est requis"
+command -v ssh   >/dev/null 2>&1 || fail "ssh est requis"
 
-# 1. Create backup
-print_info "Creating backup..."
-BACKUP_DIR="/opt/backups/bantudelice242/$(date +%Y%m%d_%H%M%S)"
-mkdir -p "$BACKUP_DIR"
+[[ -f "$ROOT_DIR/composer.json" ]] || fail "Racine Laravel introuvable: $ROOT_DIR"
+[[ -f "$RUNTIME_REPAIR_SCRIPT" ]] || fail "Script de réparation runtime introuvable: $RUNTIME_REPAIR_SCRIPT"
 
-# Backup .env
-[ -f .env ] && cp .env "$BACKUP_DIR/.env.backup"
+if [[ "$RUN_AUTH_SMOKE" == "1" ]]; then
+    [[ -f "$SMOKE_SCRIPT" ]] || fail "Script de smoke test introuvable: $SMOKE_SCRIPT"
+fi
 
-# Backup database
-if docker ps | grep -q bantudelice.*postgres; then
-    print_info "Backing up database..."
-    DB_CONTAINER=$(docker ps | grep bantudelice.*postgres | awk '{print $1}' | head -1)
-    if [ -n "$DB_CONTAINER" ]; then
-        docker exec "$DB_CONTAINER" pg_dump -U bantudelice bantudelice > "$BACKUP_DIR/database.sql" 2>/dev/null || \
-        print_warning "Could not backup database"
+if [[ "$DRY_RUN" == "1" ]]; then
+    info "Mode DRY-RUN activé — aucune écriture sur le serveur"
+fi
+
+# ── Pre-flight : vérifier que le VPS répond avant tout rsync ────────────────
+info "Pre-flight : connexion SSH vers ${TARGET_HOST}"
+if ! ssh -o BatchMode=yes -o ConnectTimeout=10 "$TARGET_HOST" "echo ok" >/dev/null 2>&1; then
+    fail "Impossible de joindre ${TARGET_HOST} — annulation avant rsync"
+fi
+success "Pre-flight SSH OK"
+
+# ── Pre-flight : espace disque disponible (seuil 500 Mo) ────────────────────
+REMOTE_FREE_MB=$(ssh "$TARGET_HOST" "df -m '$TARGET_PATH' 2>/dev/null | awk 'NR==2{print \$4}'" 2>/dev/null || echo "0")
+if [[ "$REMOTE_FREE_MB" -lt 500 ]]; then
+    warn "Espace disque faible sur le VPS : ${REMOTE_FREE_MB} Mo disponibles (seuil 500 Mo)"
+fi
+
+info "Déploiement vers ${TARGET_HOST}:${TARGET_PATH}"
+
+RSYNC_ARGS=(
+    -az
+    --delete
+    --exclude=.git/
+    --exclude=.codex-backups/
+    --exclude=.env
+    --exclude=.env.backup*
+    --exclude=vendor/
+    --exclude=node_modules/
+    --exclude=storage/
+    --exclude=bootstrap/cache/
+    --exclude=test-results/
+    --exclude="*.bak-psr4"
+    --exclude="*.bak.*"
+    --exclude=".phpunit.cache/"
+    # Dossiers d'uploads dynamiques — jamais supprimés par rsync
+    --exclude="public/images/cms/"
+    --exclude="public/images/restaurant_images/"
+    --exclude="public/images/product_images/"
+    --exclude="public/images/driver_images/"
+    --exclude="public/images/profile_images/"
+    --exclude="public/images/banner_images/"
+    --exclude="soketi.json"
+    --exclude="firebase-credentials.json"
+)
+
+if [[ "$DRY_RUN" == "1" ]]; then
+    info "DRY-RUN rsync (--dry-run) :"
+    rsync "${RSYNC_ARGS[@]}" --dry-run --itemize-changes "$ROOT_DIR/" "${TARGET_HOST}:${TARGET_PATH}/"
+    success "DRY-RUN terminé — aucun fichier modifié"
+    exit 0
+fi
+
+info "Synchronisation des sources"
+rsync "${RSYNC_ARGS[@]}" "$ROOT_DIR/" "${TARGET_HOST}:${TARGET_PATH}/"
+
+# Invalider les caches Laravel avant la finalisation (évite le cache stale pendant le déploiement)
+ssh "$TARGET_HOST" "php ${TARGET_PATH}/artisan config:clear --quiet 2>/dev/null; php ${TARGET_PATH}/artisan route:clear --quiet 2>/dev/null; php ${TARGET_PATH}/artisan view:clear --quiet 2>/dev/null" || true
+
+# ── Finalisation sur le serveur ──────────────────────────────────────────────
+REMOTE_CMD=$(cat <<EOF
+set -euo pipefail
+cd "$TARGET_PATH"
+mkdir -p storage/logs bootstrap/cache
+composer install --no-dev --prefer-dist --optimize-autoloader --no-interaction \
+  || composer update --no-dev --prefer-dist --optimize-autoloader --no-interaction 2>&1
+PHP_BIN="$PHP_BIN" WEB_USER="$WEB_USER" bash "$TARGET_PATH/scripts/repair_auth_runtime.sh" "$TARGET_PATH"
+
+# Soketi — générer soketi.json depuis le template + .env (jamais de secrets dans le dépôt)
+if [ -f "$TARGET_PATH/soketi.json.template" ] && [ -f "$TARGET_PATH/.env" ]; then
+    PUSHER_APP_ID=\$(grep '^PUSHER_APP_ID=' "$TARGET_PATH/.env" | cut -d= -f2 | tr -d '"')
+    PUSHER_APP_KEY=\$(grep '^PUSHER_APP_KEY=' "$TARGET_PATH/.env" | cut -d= -f2 | tr -d '"')
+    PUSHER_APP_SECRET=\$(grep '^PUSHER_APP_SECRET=' "$TARGET_PATH/.env" | cut -d= -f2 | tr -d '"')
+    if [ -n "\$PUSHER_APP_ID" ] && [ -n "\$PUSHER_APP_KEY" ] && [ -n "\$PUSHER_APP_SECRET" ]; then
+        sed \
+            -e "s/\\\${PUSHER_APP_ID}/\$PUSHER_APP_ID/g" \
+            -e "s/\\\${PUSHER_APP_KEY}/\$PUSHER_APP_KEY/g" \
+            -e "s/\\\${PUSHER_APP_SECRET}/\$PUSHER_APP_SECRET/g" \
+            "$TARGET_PATH/soketi.json.template" > "$TARGET_PATH/soketi.json"
+        chmod 640 "$TARGET_PATH/soketi.json"
     fi
 fi
 
-print_success "Backup created: $BACKUP_DIR"
-
-# 2. Verify .env
-if [ ! -f .env ]; then
-    print_warning ".env file not found."
-    if [ -f .env.example ]; then
-        print_info "Copying .env.example to .env"
-        cp .env.example .env
-        print_warning "Please update .env with your configuration"
-        exit 1
-    else
-        print_error ".env file is required"
-        exit 1
+# Soketi — installer/mettre à jour si nécessaire et démarrer le service
+if command -v node >/dev/null 2>&1 && [ -f "$TARGET_PATH/soketi.json" ]; then
+    if ! command -v soketi >/dev/null 2>&1; then
+        npm install -g @soketi/soketi 2>/dev/null || true
     fi
+    if [ ! -f /etc/systemd/system/soketi-bantudelice.service ]; then
+        cp "$TARGET_PATH/scripts/soketi.service" /etc/systemd/system/soketi-bantudelice.service
+        systemctl daemon-reload
+        systemctl enable soketi-bantudelice
+    fi
+    systemctl restart soketi-bantudelice 2>/dev/null || true
 fi
 
-# 3. Pull latest code (if git repo)
-if [ -d .git ]; then
-    print_info "Pulling latest code..."
-    git fetch origin || true
-    CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "main")
-    git reset --hard "origin/$CURRENT_BRANCH" || git reset --hard origin/main || git reset --hard origin/master || true
-else
-    print_warning "Not a git repository. Skipping git pull."
+# Cache Laravel — config + routes + vues
+php "$TARGET_PATH/artisan" view:clear --quiet 2>/dev/null || true
+php "$TARGET_PATH/artisan" config:cache --quiet 2>/dev/null || true
+php "$TARGET_PATH/artisan" route:cache  --quiet 2>/dev/null || true
+EOF
+)
+
+info "Finalisation Laravel sur le serveur"
+if ! ssh "$TARGET_HOST" "$REMOTE_CMD"; then
+    fail "Finalisation échouée — relancer: ./scripts/bd_ops.py rollback-auth-runtime --backup-dir <dir> --yes"
 fi
 
-# 4. Install dependencies
-print_info "Installing dependencies..."
-composer install --no-interaction --prefer-dist --optimize-autoloader --no-dev || {
-    print_error "Failed to install dependencies"
-    exit 1
-}
-
-# 5. Clear cache
-print_info "Clearing cache..."
-php artisan config:clear || true
-php artisan cache:clear || true
-php artisan route:clear || true
-php artisan view:clear || true
-
-# 6. Run migrations
-print_info "Running migrations..."
-php artisan migrate --force || {
-    print_error "Migration failed"
-    exit 1
-}
-
-print_success "Migrations completed"
-
-# 7. Optimize Laravel
-print_info "Optimizing Laravel..."
-php artisan config:cache || true
-php artisan route:cache || true
-php artisan view:cache || true
-
-# 8. Restart PHP-FPM
-print_info "Restarting PHP-FPM..."
-if docker ps | grep -q thedrop247_php; then
-    docker restart thedrop247_php || true
-    print_success "PHP-FPM restarted"
-else
-    print_warning "PHP-FPM container not found"
+if [[ "$RUN_AUTH_SMOKE" == "1" ]]; then
+    info "Smoke test auth/runtime"
+    python3 "$SMOKE_SCRIPT"
 fi
 
-# 9. Verify compliance
-print_info "Verifying compliance..."
-/usr/local/bin/policy-check-ports.sh --strict || true
-/usr/local/bin/policy-check-proxy-net.sh --strict || true
-
-print_success "Deployment completed successfully!"
-
-# Show status
-echo ""
-print_info "Application URLs:"
-echo "  🌐 Frontend: https://bantudelice.cg"
-echo ""
-print_info "Check logs: tail -f storage/logs/laravel.log"
-
+success "Déploiement terminé"

@@ -13,7 +13,7 @@ return [
     |
     */
 
-    'name' => env('APP_NAME', 'Laravel'),
+    'name' => env('APP_NAME', 'BantuDelice'),
 
     /*
     |--------------------------------------------------------------------------
@@ -229,5 +229,7 @@ return [
         'Carbon' => 'Carbon\Carbon',
 
     ],
+
+    'alert_email' => env('ALERT_EMAIL'),
 
 ];

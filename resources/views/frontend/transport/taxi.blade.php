@@ -1,1161 +1,1459 @@
-@extends('frontend.layouts.app-modern')
-@section('title', 'Commander un Taxi | BantuDelice')
-@section('description', 'Commander un taxi au Congo avec une page transport dediee, sans melanger ce parcours avec le food checkout BantuDelice.')
+@extends('frontend.layouts.transport')
+@section('hide_module_header', true)
+@section('hide_module_footer', true)
+@php
+    $homeContent = $homeContent ?? [];
+    $resolveHomeMedia = static function (?string $path): ?string {
+        if (blank($path)) {
+            return null;
+        }
+
+        return str_starts_with($path, 'http://') || str_starts_with($path, 'https://')
+            ? $path
+            : asset(ltrim($path, '/'));
+    };
+    $transportHeroVisual = $resolveHomeMedia($homeContent['hero_transport_image'] ?? null);
+    $transportHeroStyle = $transportHeroVisual
+        ? "background-image:linear-gradient(135deg, rgba(255,255,255,.96) 0%, rgba(255,255,255,.88) 38%, rgba(255,255,255,.68) 100%), url('{$transportHeroVisual}'); background-size:cover; background-position:center;"
+        : null;
+    $transportHeroBadge = 'Brazzaville · Pointe-Noire · Congo';
+    $transportHeroDescription = $homeContent['hero_description'] ?? 'Saisissez le depart et la destination. Kende calcule le trajet et vous laisse confirmer en toute clarte.';
+    $transportSupportTitle = $homeContent['support_title'] ?? 'Besoin d aide avant de confirmer ?';
+    $transportSupportDescription = $homeContent['support_description'] ?? 'Consultez l aide Kende ou contactez le support pour les zones, les tarifs et les reservations en attente.';
+    $transportSupportCta = $homeContent['support_cta_text'] ?? 'Contacter le support';
+    $transportTestimonials = collect([1, 2, 3])->map(function ($index) use ($homeContent) {
+        return [
+            'tag' => $homeContent['testimonial_' . $index . '_tag'] ?? null,
+            'quote' => $homeContent['testimonial_' . $index . '_quote'] ?? null,
+            'name' => $homeContent['testimonial_' . $index . '_name'] ?? null,
+            'loc' => $homeContent['testimonial_' . $index . '_loc'] ?? null,
+        ];
+    })->filter(fn ($item) => filled($item['quote']))->values();
+    $transportOpportunities = collect([1, 2, 3])->map(function ($index) use ($homeContent, $resolveHomeMedia) {
+        return [
+            'title' => $homeContent['opportunity_' . $index . '_title'] ?? null,
+            'body' => $homeContent['opportunity_' . $index . '_body'] ?? null,
+            'cta' => $homeContent['opportunity_' . $index . '_cta'] ?? null,
+            'url' => $homeContent['opportunity_' . $index . '_url'] ?? null,
+            'image' => $resolveHomeMedia($homeContent['opportunity_' . $index . '_image'] ?? null),
+        ];
+    })->filter(fn ($item) => filled($item['title']) && filled($item['body']) && filled($item['url']))->values();
+@endphp
+
+@section('title', 'Taxi | Kende')
+@section('description', $transportHeroDescription)
 
 @php
     $pricingData = [
-        'base_fare' => (float) ($pricing->base_fare ?? 500),
-        'price_per_km' => (float) ($pricing->price_per_km ?? 200),
-        'price_per_minute' => (float) ($pricing->price_per_minute ?? 50),
-        'minimum_fare' => (float) ($pricing->minimum_fare ?? 1000),
-        'surge_multiplier' => (float) ($pricing->surge_multiplier ?? 1),
+        'base_fare'         => (float) ($pricing->base_fare         ?? 500),
+        'price_per_km'      => (float) ($pricing->price_per_km      ?? 200),
+        'price_per_minute'  => (float) ($pricing->price_per_minute  ?? 50),
+        'minimum_fare'      => (float) ($pricing->minimum_fare      ?? 1000),
+        'surge_multiplier'  => (float) ($pricing->surge_multiplier  ?? 1),
     ];
 
     $rideOptions = [
-        [
-            'key' => 'eco',
-            'name' => 'Eco',
-            'description' => 'Trajet du quotidien, prix le plus leger',
-            'multiplier' => 1,
-            'icon' => 'fas fa-taxi',
-            'base_label' => 'des ' . number_format(max(round(($pricingData['minimum_fare'] ?? 2500)), 2500), 0, ',', ' ') . ' F',
-        ],
-        [
-            'key' => 'comfort',
-            'name' => 'Confort',
-            'description' => 'Plus d espace et prise en charge plus douce',
-            'multiplier' => 1.18,
-            'icon' => 'fas fa-star',
-            'base_label' => 'des ' . number_format(max(round(($pricingData['minimum_fare'] ?? 2500) * 1.18), 4000), 0, ',', ' ') . ' F',
-        ],
-        [
-            'key' => 'xl',
-            'name' => 'XL',
-            'description' => 'Ideal si vous etes plusieurs ou avec bagages',
-            'multiplier' => 1.35,
-            'icon' => 'fas fa-users',
-            'base_label' => 'des ' . number_format(max(round(($pricingData['minimum_fare'] ?? 2500) * 1.35), 5500), 0, ',', ' ') . ' F',
-        ],
+        ['key' => 'eco',     'name' => 'Eco',     'description' => 'Pour le quotidien',     'multiplier' => 1,    'base_label' => 'Le plus leger'],
+        ['key' => 'comfort', 'name' => 'Confort', 'description' => 'Plus d espace',         'multiplier' => 1.18, 'base_label' => 'Plus de confort'],
+        ['key' => 'xl',      'name' => 'XL',      'description' => 'Groupe ou bagages',     'multiplier' => 1.35, 'base_label' => 'Pour plusieurs passagers'],
     ];
 
-    $faqUrl = route('faq');
-    $offersUrl = route('offers');
-    $helpUrl = route('help');
-    $contactUrl = route('contact.us');
-    $aboutUrl = route('about.us');
-    $driverUrl = route('driver');
-    $partnerUrl = route('partner');
-    $legalUrl = route('legal.notices');
-    $cookiesUrl = route('cookies.policy');
-    $privacyUrl = route('privacy.policy');
-    $foodEnabled = (bool) config('bantudelice_modules.food.enabled', true);
-    $colisEnabled = (bool) config('bantudelice_modules.colis.enabled', true);
-    $transportEnabled = (bool) config('bantudelice_modules.transport.enabled', true);
-    $colisUrl = $colisEnabled ? route('colis.landing') : null;
-    $restaurantsUrl = $foodEnabled ? route('restaurants.all') : null;
-    $taxiUrl = route('transport.taxi');
-    $carpoolUrl = route('transport.carpool');
-    $rentalUrl = route('transport.rental');
-    $busUrl = route('transport.bus');
-    $trackOrderUrl = $foodEnabled ? route('track.order') : null;
+    $transportHomeUrl = route('transport.index');
+    $faqUrl           = route('faq');
+    $privacyUrl       = route('privacy.policy', ['brand' => 'kende']);
+    $contactUrl       = route('contact.us', ['brand' => 'kende']);
+    $taxiUrl          = route('transport.taxi');
+    $carpoolUrl       = route('transport.carpool');
+    $rentalUrl        = route('transport.rental');
+    $busUrl           = route('transport.bus');
+    $bookingsUrl      = auth()->check()
+        ? route('transport.my_bookings')
+        : route('user.login', ['redirect' => route('transport.my_bookings')]);
 @endphp
 
 @section('styles')
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Poppins:wght@700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
 <style>
-    .modern-header,
-    .modern-footer { display:none !important; }
+/* ====================================================
+   KENDE TAXI — design tokens
+   ==================================================== */
+:root{
+    --k-or:      #FF6B00;
+    --k-or-10:   rgba(255,107,0,.10);
+    --k-or-20:   rgba(255,107,0,.20);
+    --k-or-sh:   rgba(255,107,0,.24);
+    --k-gr:      #009B3A;
+    --k-gr-10:   rgba(0,155,58,.10);
+    --k-ink:     #111113;
+    --k-t2:      #444447;
+    --k-t3:      #888890;
+    --k-bg:      #F5F5F7;
+    --k-bg2:     #EBEBED;
+    --k-white:   #FFFFFF;
+    --k-line:    #E4E4E6;
+    --k-red:     #DC241F;
 
-    body.bd-future-shell {
-        background:#0f1110;
-        color:#f5f7f1;
-        font-family:'Segoe UI', system-ui, sans-serif;
-        cursor:none;
-    }
+    --r-sm: 8px;
+    --r-md: 14px;
+    --r-lg: 22px;
+    --r-xl: 32px;
 
-    body.bd-future-shell main { overflow:visible; }
+    --sh-card: 0 16px 48px rgba(17,17,19,.09);
+    --sh-sm:   0 4px 16px rgba(17,17,19,.06);
+}
 
-    .taxi-v1 {
-        --ink:#111111;
-        --ink-2:#171a17;
-        --ink-3:#1f231f;
-        --ink-4:#272c27;
-        --green:#009543;
-        --green-soft:rgba(0,149,67,.14);
-        --green-border:rgba(0,149,67,.32);
-        --orange:#16a34a;
-        --orange-soft:rgba(22,163,74,.12);
-        --orange-border:rgba(22,163,74,.26);
-        --paper:#ffffff;
-        --text:#eef2e9;
-        --text-2:#a5ad9d;
-        --text-3:#66705f;
-        --line:rgba(255,255,255,.08);
-        --line-2:rgba(255,255,255,.16);
-        --shadow:0 24px 70px rgba(0,0,0,.45);
-        background:var(--ink);
-        color:var(--text);
-        overflow-x:hidden;
-        -webkit-font-smoothing:antialiased;
-    }
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 
-    .taxi-v1 * { box-sizing:border-box; }
-    .taxi-wrap { max-width:1140px; margin:0 auto; padding:0 2.25rem; }
+body.bd-transport-shell{
+    background:var(--k-bg);
+    color:var(--k-ink);
+    font-family:'Plus Jakarta Sans','Outfit',system-ui,sans-serif;
+    -webkit-font-smoothing:antialiased;
+}
 
-    #taxiCursor { position:fixed; inset:0; z-index:9999; pointer-events:none; }
-    #taxiCursorDot { width:6px; height:6px; background:var(--orange); border-radius:50%; position:absolute; transform:translate(-50%,-50%); }
-    #taxiCursorRing { width:28px; height:28px; border:1px solid rgba(22,163,74,.45); border-radius:50%; position:absolute; transform:translate(-50%,-50%); transition:width .2s,height .2s,border-color .2s,transform .18s cubic-bezier(.25,.46,.45,.94); }
-    body:has(.taxi-v1 a:hover) #taxiCursorRing,
-    body:has(.taxi-v1 button:hover) #taxiCursorRing { width:42px; height:42px; border-color:var(--orange); }
+/* ====================================================
+   NAV
+   ==================================================== */
+.ktx-nav{
+    position:sticky;
+    top:0;
+    z-index:50;
+    background:rgba(255,255,255,.96);
+    backdrop-filter:blur(16px);
+    border-bottom:1px solid var(--k-line);
+}
+.ktx-nav__inner{
+    max-width:1400px;
+    margin:0 auto;
+    padding:0 24px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:16px;
+    height:68px;
+}
+.ktx-brand{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    text-decoration:none;
+    font-family:'Outfit',sans-serif;
+    font-weight:900;
+    font-size:1.3rem;
+    letter-spacing:-.03em;
+    color:var(--k-ink);
+}
+.ktx-brand em{color:var(--k-or);font-style:normal}
+.ktx-brand__dot{
+    width:8px;height:8px;border-radius:50%;
+    background:var(--k-gr);
+    box-shadow:0 0 0 5px var(--k-gr-10);
+}
+.ktx-links{
+    display:flex;align-items:center;gap:4px;
+}
+.ktx-links a{
+    display:inline-flex;align-items:center;
+    height:40px;padding:0 14px;
+    border-radius:999px;
+    font-size:.9rem;font-weight:700;
+    color:var(--k-t2);
+    text-decoration:none;
+    transition:background .15s,color .15s;
+}
+.ktx-links a:hover,.ktx-links a.is-active{
+    background:var(--k-or-10);
+    color:var(--k-or);
+}
+.ktx-actions{display:flex;align-items:center;gap:8px}
+.ktx-btn{
+    display:inline-flex;align-items:center;justify-content:center;
+    height:40px;padding:0 18px;
+    border-radius:999px;
+    font-size:.88rem;font-weight:800;
+    text-decoration:none;
+    border:none;cursor:pointer;
+}
+.ktx-btn--ghost{
+    background:var(--k-white);
+    border:1.5px solid var(--k-line);
+    color:var(--k-ink);
+}
+.ktx-btn--primary{
+    background:var(--k-or);
+    color:#fff;
+    box-shadow:0 6px 18px var(--k-or-sh);
+}
 
-    body.bd-future-shell::before{
-        content:'';position:fixed;inset:0;z-index:9998;pointer-events:none;
-        background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='1'/%3E%3C/svg%3E");
-        opacity:.018;
-    }
+/* ====================================================
+   PAGE SHELL
+   ==================================================== */
+.ktx-page{
+    max-width:1400px;
+    margin:0 auto;
+    padding:0 24px 60px;
+}
 
-    .taxi-wa {
-        position:fixed;bottom:2rem;right:2rem;z-index:200;width:50px;height:50px;border-radius:50%;
-        background:#25d366;display:flex;align-items:center;justify-content:center;color:#fff;
-        box-shadow:0 4px 20px rgba(37,211,102,.35);animation:taxiWaFloat 3.5s ease-in-out infinite;
-    }
-    .taxi-wa svg { width:22px; height:22px; }
-    @keyframes taxiWaFloat { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-5px)} }
+/* ====================================================
+   TOP STRIP — Congo flag
+   ==================================================== */
+.ktx-flag{display:flex;height:3px;width:100%}
+.ktx-flag span{flex:1}
 
-    .taxi-ticker { background:var(--green); height:32px; overflow:hidden; display:flex; align-items:center; position:relative; z-index:100; }
-    .taxi-ticker__track { display:flex; white-space:nowrap; animation:taxiTicker 28s linear infinite; }
-    .taxi-ticker__item { display:inline-flex; align-items:center; gap:12px; padding:0 2.5rem; font-size:.75rem; font-weight:800; color:#fff; letter-spacing:.18em; text-transform:uppercase; }
-    .taxi-ticker__sep { width:5px; height:5px; background:#fff; border-radius:50%; opacity:.5; }
-    @keyframes taxiTicker { 0%{transform:translateX(0)} 100%{transform:translateX(-50%)} }
+/* ====================================================
+   HERO — minimal, focused on the task
+   ==================================================== */
+.ktx-hero{
+    text-align:center;
+    padding:48px 0 32px;
+    border:1px solid transparent;
+    border-radius:28px;
+    margin-bottom:18px;
+    overflow:hidden;
+}
+.ktx-hero__tag{
+    display:inline-flex;align-items:center;gap:7px;
+    background:var(--k-or-10);
+    border:1px solid rgba(255,107,0,.22);
+    border-radius:999px;
+    padding:5px 14px;
+    font-size:.76rem;font-weight:700;
+    color:var(--k-or);
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    margin-bottom:16px;
+}
+.ktx-hero__tag-dot{width:6px;height:6px;border-radius:50%;background:var(--k-or)}
+.ktx-hero h1{
+    font-size:clamp(1.7rem,3.5vw,2.8rem);
+    font-weight:900;
+    letter-spacing:-.04em;
+    color:var(--k-ink);
+    margin-bottom:10px;
+}
+.ktx-hero h1 em{color:var(--k-or);font-style:normal}
+.ktx-hero p{
+    font-size:.97rem;
+    color:var(--k-t2);
+    max-width:460px;
+    margin:0 auto;
+    line-height:1.65;
+}
+.ktx-support-strip{
+    margin:0 0 18px;
+    padding:14px 18px;
+    border:1px solid var(--k-line);
+    border-radius:18px;
+    background:linear-gradient(180deg,#fff 0%,#fafafc 100%);
+    box-shadow:var(--sh-sm);
+    display:flex;
+    align-items:flex-start;
+    justify-content:space-between;
+    gap:18px;
+}
+.ktx-support-strip__eyebrow{
+    font-size:.7rem;
+    font-weight:800;
+    text-transform:uppercase;
+    letter-spacing:.12em;
+    color:var(--k-t3);
+    margin-bottom:6px;
+}
+.ktx-support-strip__title{
+    font-size:1rem;
+    font-weight:800;
+    color:var(--k-ink);
+    margin-bottom:4px;
+}
+.ktx-support-strip__body{
+    color:var(--k-t2);
+    font-size:.92rem;
+    line-height:1.65;
+    max-width:760px;
+}
+.ktx-support-strip__cta{flex-shrink:0}
+.ktx-proof-grid,
+.ktx-op-grid{
+    display:grid;
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    gap:16px;
+}
+.ktx-proof-grid{margin:18px 0 22px}
+.ktx-proof-card,
+.ktx-op-card{
+    border:1px solid var(--k-line);
+    border-radius:18px;
+    background:#fff;
+    box-shadow:var(--sh-sm);
+}
+.ktx-proof-card{padding:16px 16px 14px}
+.ktx-proof-card__tag,
+.ktx-op-section__eyebrow{
+    font-size:.68rem;
+    font-weight:800;
+    letter-spacing:.12em;
+    text-transform:uppercase;
+    color:var(--k-t3);
+}
+.ktx-proof-card__quote{
+    margin:10px 0 12px;
+    color:var(--k-ink);
+    line-height:1.65;
+    font-size:.92rem;
+}
+.ktx-proof-card__meta{color:var(--k-t2);font-size:.8rem}
+.ktx-op-section{
+    margin:0 0 22px;
+    padding:18px;
+    border:1px solid var(--k-line);
+    border-radius:22px;
+    background:linear-gradient(180deg,#fff 0%,#fafafc 100%);
+}
+.ktx-op-section__head{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-end;
+    gap:18px;
+    margin-bottom:14px;
+}
+.ktx-op-section__title{
+    font-size:1.18rem;
+    font-weight:900;
+    color:var(--k-ink);
+    letter-spacing:-.03em;
+}
+.ktx-op-section__body{
+    color:var(--k-t2);
+    font-size:.92rem;
+    line-height:1.65;
+    max-width:720px;
+}
+.ktx-op-card{padding:16px; overflow:hidden}
+.ktx-op-card__media{margin:-16px -16px 14px; aspect-ratio:16/9; background:var(--k-bg2)}
+.ktx-op-card__media img{width:100%; height:100%; object-fit:cover; display:block}
+.ktx-op-card__title{font-weight:800;color:var(--k-ink);margin-bottom:8px}
+.ktx-op-card__body{color:var(--k-t2);font-size:.88rem;line-height:1.65;margin-bottom:12px}
+.ktx-op-card__cta{color:var(--k-or);font-weight:800;text-decoration:none}
 
-    .taxi-nav {
-        position:fixed; top:32px; left:0; right:0; z-index:180;
-        display:flex; align-items:center; justify-content:space-between; gap:1rem;
-        padding:.95rem 3rem; background:rgba(17,17,17,.95); backdrop-filter:blur(24px);
-        border-bottom:1px solid var(--line); transition:padding .3s;
-    }
-    .taxi-nav.is-compact { padding:.68rem 3rem; }
-    .taxi-nav__logo { display:flex; align-items:center; gap:.7rem; font-size:1.45rem; font-weight:900; color:#fff; letter-spacing:-.04em; text-decoration:none; }
-    .taxi-nav__logo-word { color:var(--green); }
-    .taxi-nav__logo-dot { width:10px; height:10px; background:var(--orange); border-radius:50%; box-shadow:0 0 12px rgba(22,163,74,.35); margin-top:-12px; }
-    .taxi-nav__links, .taxi-nav__end { display:flex; align-items:center; gap:.15rem; }
-    .taxi-nav__links a { padding:.4rem .95rem; font-size:.78rem; font-weight:600; color:var(--text-2); border-radius:4px; transition:.15s; text-decoration:none; }
-    .taxi-nav__links a:hover { color:#fff; background:var(--ink-4); }
-    .taxi-nav__links a.is-active { color:var(--orange); background:var(--orange-soft); }
-    .taxi-nav__lang { font-size:.7rem; color:var(--text-3); padding:.3rem .6rem; border:1px solid var(--line-2); border-radius:3px; text-decoration:none; }
-    .taxi-nav__cta { background:var(--orange); color:#fff; padding:.6rem 1.4rem; border-radius:4px; font-size:.82rem; font-weight:900; text-transform:uppercase; letter-spacing:.06em; text-decoration:none; box-shadow:0 2px 16px rgba(22,163,74,.24); }
+/* ====================================================
+   MAIN BOOKING LAYOUT — form left / map right
+   ==================================================== */
+.ktx-booking{
+    display:grid;
+    grid-template-columns:420px 1fr;
+    gap:20px;
+    align-items:start;
+}
 
-    .taxi-hero {
-        min-height:88vh; position:relative; overflow:hidden; display:flex; align-items:flex-end;
-        padding-bottom:0;
-        background:
-            linear-gradient(90deg, rgba(8,10,9,.84) 0%, rgba(8,10,9,.72) 28%, rgba(8,10,9,.22) 56%, rgba(8,10,9,.1) 100%),
-            linear-gradient(180deg, rgba(15,17,16,.12) 0%, rgba(17,20,18,.62) 100%),
-            url('/images/ai/taxi_brazzaville.png') 64% center / cover no-repeat;
-    }
-    .taxi-hero__grid-bg {
-        position:absolute; inset:0; z-index:0;
-        background-image:linear-gradient(rgba(0,149,67,.035) 1px,transparent 1px), linear-gradient(90deg,rgba(22,163,74,.03) 1px,transparent 1px);
-        background-size:60px 60px;
-    }
-    .taxi-hero__stripe, .taxi-hero__stripe-2 {
-        position:absolute; top:-10%; right:18%; width:2px; height:130%; transform:rotate(12deg); z-index:1;
-        background:linear-gradient(to bottom,transparent,rgba(22,163,74,.12),transparent);
-    }
-    .taxi-hero__stripe-2 { right:24%; width:1px; background:linear-gradient(to bottom,transparent,rgba(0,149,67,.10),transparent); }
-    .taxi-hero__num {
-        position:absolute; right:3rem; top:50%; transform:translateY(-50%);
-        font-size:28vw; font-weight:900; color:rgba(0,149,67,.05); line-height:1; user-select:none; z-index:0; letter-spacing:-.06em;
-    }
-    .taxi-hero__inner {
-        position:relative; z-index:2; width:100%; max-width:1200px; margin:0 auto;
-        padding:8.1rem 2rem 0; display:grid; grid-template-columns:minmax(0, 780px); gap:1.5rem; align-items:end;
-    }
-    .taxi-hero__content { max-width:780px; }
-    .taxi-brand-mark {
-        display:flex; align-items:flex-end; gap:.85rem; margin-bottom:1.05rem;
-    }
-    .taxi-brand-mark__word {
-        font-size:clamp(1.8rem, 3.8vw, 3.2rem); line-height:.9; font-weight:900; letter-spacing:-.05em;
-        text-transform:uppercase; color:#fff; font-style:italic;
-    }
-    .taxi-brand-mark__word strong { color:var(--green); }
-    .taxi-brand-mark__dot {
-        width:14px; height:14px; border-radius:50%; background:var(--orange); box-shadow:0 0 0 10px rgba(22,163,74,.12);
-        margin-bottom:.55rem; flex-shrink:0;
-    }
-    .taxi-brand-mark__meta {
-        display:flex; gap:.45rem; flex-wrap:wrap; margin-bottom:.95rem;
-    }
-    .taxi-brand-mark__chip {
-        display:inline-flex; align-items:center; gap:.38rem; padding:.34rem .58rem; border-radius:999px;
-        border:1px solid rgba(255,255,255,.14); background:rgba(255,255,255,.06); color:#eff4ee;
-        font-size:.58rem; font-weight:800; letter-spacing:.1em; text-transform:uppercase;
-    }
-    .taxi-brand-mark__chip::before {
-        content:''; width:8px; height:8px; border-radius:50%; background:var(--green);
-        box-shadow:0 0 0 4px rgba(0,149,67,.18);
-    }
-    .taxi-rv { opacity:0; transform:translateY(20px); animation:taxiReveal .7s cubic-bezier(.22,1,.36,1) forwards; }
-    .taxi-rv1 { animation-delay:.05s; } .taxi-rv2 { animation-delay:.15s; } .taxi-rv3 { animation-delay:.28s; } .taxi-rv4 { animation-delay:.42s; } .taxi-rv5 { animation-delay:.56s; }
-    @keyframes taxiReveal { to { opacity:1; transform:translateY(0); } }
-    .taxi-label {
-        display:inline-flex; align-items:center; gap:10px; font-size:.58rem; letter-spacing:.22em;
-        color:var(--green); text-transform:uppercase; margin-bottom:1.2rem;
-    }
-    .taxi-label::before { content:''; width:24px; height:1px; background:var(--orange); }
-    .taxi-title {
-        font-size:clamp(3.6rem,7vw,6rem); line-height:.9; letter-spacing:-.03em;
-        text-transform:uppercase; color:#fff; margin:0; font-weight:900; font-style:italic;
-    }
-    .taxi-title .accent { color:var(--orange); }
-    .taxi-title .line-2 { display:block; -webkit-text-stroke:1px rgba(255,255,255,.28); color:transparent; }
-    .taxi-sub { font-size:.9rem; color:#eef3ee; line-height:1.68; max-width:560px; margin:1rem 0 1.5rem; font-weight:300; }
-    .taxi-formula { display:flex; gap:.38rem; margin-bottom:1.35rem; }
-    .taxi-formula__btn {
-        flex:1; padding:.66rem 0; border-radius:4px; border:1px solid var(--line-2); background:transparent; color:var(--text-2);
-        font-size:.72rem; font-weight:800; letter-spacing:.04em; text-transform:uppercase; transition:.2s;
-    }
-    .taxi-formula__btn:hover { border-color:var(--orange-border); color:#fff; }
-    .taxi-formula__btn.is-active { background:var(--orange); color:#fff; border-color:var(--orange); box-shadow:0 4px 20px rgba(22,163,74,.25); }
-    .taxi-formula__btn span { display:block; font-size:.56rem; margin-top:.15rem; opacity:.75; }
-    .taxi-stats { display:flex; gap:1.6rem; margin-bottom:1.55rem; }
-    .taxi-stats__num { font-size:1.8rem; font-weight:900; color:var(--green); line-height:1; display:block; }
-    .taxi-stats__lbl { font-size:.6rem; color:var(--text-3); text-transform:uppercase; letter-spacing:.12em; font-weight:600; margin-top:.18rem; }
+/* ====================================================
+   BOOKING PANEL (left)
+   ==================================================== */
+.ktx-panel{
+    position:sticky;
+    top:88px;
+    display:flex;
+    flex-direction:column;
+    gap:12px;
+}
 
-    .taxi-book-panel {
-        background:rgba(255,255,255,.96); border:1px solid rgba(255,255,255,.88); border-radius:22px; overflow:hidden;
-        box-shadow:0 18px 42px rgba(0,0,0,.16); align-self:start; display:flex; flex-direction:column; margin:0 0 1.25rem; color:#111;
+.ktx-card{
+    background:var(--k-white);
+    border:1px solid var(--k-line);
+    border-radius:var(--r-lg);
+    box-shadow:var(--sh-sm);
+    padding:20px;
+}
+
+/* ---- Route picker ---- */
+.ktx-route{
+    display:flex;
+    flex-direction:column;
+    gap:0;
+}
+
+.ktx-route-row{
+    display:flex;
+    align-items:flex-start;
+    gap:12px;
+    position:relative;
+}
+
+.ktx-route-row + .ktx-route-row{
+    margin-top:4px;
+}
+
+/* Connector between dots */
+.ktx-route-connector{
+    display:flex;
+    align-items:flex-start;
+    padding:0 0 0 10px;
+    gap:12px;
+}
+.ktx-route-line{
+    width:2px;
+    height:32px;
+    background:repeating-linear-gradient(
+        to bottom,
+        var(--k-or) 0,
+        var(--k-or) 4px,
+        transparent 4px,
+        transparent 8px
+    );
+    margin:0 auto;
+    flex-shrink:0;
+}
+
+.ktx-dot{
+    width:12px;height:12px;
+    border-radius:50%;
+    border:2.5px solid #fff;
+    box-shadow:0 0 0 2px currentColor;
+    flex-shrink:0;
+    margin-top:14px;
+}
+.ktx-dot--from{color:var(--k-or);background:var(--k-or)}
+.ktx-dot--to{color:var(--k-gr);background:var(--k-gr)}
+
+.ktx-input-wrap{
+    flex:1;
+    position:relative;
+}
+
+.ktx-input-label{
+    display:block;
+    font-size:.75rem;
+    font-weight:800;
+    color:var(--k-t3);
+    letter-spacing:.06em;
+    text-transform:uppercase;
+    margin-bottom:5px;
+}
+
+.ktx-input{
+    width:100%;
+    height:48px;
+    border:1.5px solid var(--k-line);
+    border-radius:var(--r-md);
+    background:var(--k-bg);
+    padding:0 14px;
+    font-size:.92rem;
+    font-weight:600;
+    color:var(--k-ink);
+    font-family:inherit;
+    outline:none;
+    transition:border-color .15s,background .15s,box-shadow .15s;
+}
+.ktx-input:focus{
+    border-color:var(--k-or);
+    background:var(--k-white);
+    box-shadow:0 0 0 3px var(--k-or-10);
+}
+.ktx-input::placeholder{color:var(--k-t3);font-weight:500}
+
+/* Suggestions dropdown */
+.kende-suggestions{
+    position:absolute;
+    left:0;right:0;
+    top:calc(100% + 4px);
+    background:var(--k-white);
+    border:1.5px solid var(--k-line);
+    border-radius:var(--r-md);
+    box-shadow:var(--sh-card);
+    z-index:60;
+    overflow:hidden;
+    display:none;
+    max-height:220px;
+    overflow-y:auto;
+}
+.kende-suggestions.is-visible{display:block}
+.kende-suggestion{
+    display:block;
+    width:100%;
+    border:none;
+    background:transparent;
+    text-align:left;
+    padding:11px 14px;
+    font-size:.88rem;
+    color:var(--k-t2);
+    cursor:pointer;
+    font-family:inherit;
+    transition:background .12s;
+}
+.kende-suggestion:hover{background:var(--k-bg)}
+
+/* Status text */
+.ktx-status{
+    font-size:.78rem;
+    color:var(--k-t3);
+    margin-top:4px;
+    min-height:18px;
+}
+
+/* ---- Action row (buttons) ---- */
+.ktx-action-row{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+    margin-top:4px;
+}
+.ktx-act-btn{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:7px;
+    height:44px;
+    border-radius:var(--r-md);
+    font-size:.85rem;
+    font-weight:700;
+    font-family:inherit;
+    cursor:pointer;
+    transition:all .15s;
+    border:none;
+}
+.ktx-act-btn--locate{
+    background:var(--k-bg);
+    border:1.5px solid var(--k-line);
+    color:var(--k-t2);
+}
+.ktx-act-btn--locate:hover{background:var(--k-bg2)}
+.ktx-act-btn--calc{
+    background:var(--k-ink);
+    color:#fff;
+}
+.ktx-act-btn--calc:hover{background:#2a2a2c}
+
+/* ---- Ride options ---- */
+.ktx-options-label{
+    font-size:.75rem;
+    font-weight:800;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    color:var(--k-t3);
+    margin-bottom:10px;
+}
+.ktx-options-grid{
+    display:flex;
+    flex-direction:column;
+    gap:8px;
+}
+.ktx-opt{
+    display:flex;
+    align-items:center;
+    gap:12px;
+    padding:12px 14px;
+    border:1.5px solid var(--k-line);
+    border-radius:var(--r-md);
+    background:var(--k-bg);
+    cursor:pointer;
+    transition:border-color .15s,background .15s,box-shadow .15s;
+    text-align:left;
+    font-family:inherit;
+}
+.ktx-opt.is-active{
+    background:var(--k-white);
+    border-color:var(--k-or);
+    box-shadow:0 0 0 3px var(--k-or-10);
+}
+.ktx-opt__icon{
+    width:36px;height:36px;
+    border-radius:var(--r-sm);
+    background:var(--k-bg2);
+    display:flex;align-items:center;justify-content:center;
+    font-size:1rem;
+    flex-shrink:0;
+    transition:background .15s;
+}
+.ktx-opt.is-active .ktx-opt__icon{background:var(--k-or-10)}
+.ktx-opt__body{flex:1}
+.ktx-opt__name{
+    font-size:.9rem;
+    font-weight:800;
+    color:var(--k-ink);
+    margin-bottom:2px;
+}
+.ktx-opt.is-active .ktx-opt__name{color:var(--k-or)}
+.ktx-opt__desc{
+    font-size:.78rem;
+    color:var(--k-t3);
+}
+.ktx-opt__check{
+    width:20px;height:20px;
+    border-radius:50%;
+    border:2px solid var(--k-line);
+    display:flex;align-items:center;justify-content:center;
+    flex-shrink:0;
+    color:transparent;
+    font-size:.65rem;
+    font-weight:900;
+    transition:all .15s;
+}
+.ktx-opt.is-active .ktx-opt__check{
+    background:var(--k-or);
+    border-color:var(--k-or);
+    color:#fff;
+}
+
+/* ---- Estimate section (hidden until route calculated) ---- */
+.ktx-estimate{
+    background:var(--k-or-10);
+    border:1px solid rgba(255,107,0,.2);
+    border-radius:var(--r-md);
+    padding:14px 16px;
+}
+.ktx-estimate__head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    margin-bottom:10px;
+}
+.ktx-estimate__label{
+    font-size:.72rem;
+    font-weight:800;
+    text-transform:uppercase;
+    letter-spacing:.08em;
+    color:var(--k-or);
+    margin-bottom:3px;
+}
+.ktx-estimate__meta{
+    font-size:.8rem;
+    color:var(--k-t2);
+}
+.ktx-estimate__price{
+    font-size:1.3rem;
+    font-weight:900;
+    color:var(--k-ink);
+    white-space:nowrap;
+}
+.ktx-stats{
+    display:grid;
+    grid-template-columns:repeat(3,1fr);
+    gap:8px;
+}
+.ktx-stat{
+    background:var(--k-white);
+    border-radius:var(--r-sm);
+    padding:8px 10px;
+    border:1px solid rgba(255,107,0,.12);
+}
+.ktx-stat__k{
+    font-size:.68rem;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.06em;
+    color:var(--k-t3);
+    margin-bottom:3px;
+}
+.ktx-stat__v{
+    font-size:.88rem;
+    font-weight:800;
+    color:var(--k-ink);
+}
+
+/* ---- Collapsible extra options ---- */
+.ktx-details-toggle{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    width:100%;
+    background:none;
+    border:none;
+    cursor:pointer;
+    font-family:inherit;
+    font-size:.88rem;
+    font-weight:700;
+    color:var(--k-t2);
+    padding:4px 0;
+}
+.ktx-details-toggle__icon{
+    font-size:.75rem;
+    color:var(--k-t3);
+    transition:transform .2s;
+}
+.ktx-details-toggle[aria-expanded="true"] .ktx-details-toggle__icon{
+    transform:rotate(180deg);
+}
+.ktx-details-body{
+    display:none;
+    flex-direction:column;
+    gap:12px;
+    padding-top:14px;
+}
+.ktx-details-body.is-open{display:flex}
+
+.ktx-field-label{
+    display:block;
+    font-size:.76rem;
+    font-weight:700;
+    color:var(--k-t3);
+    margin-bottom:5px;
+}
+.ktx-field-input{
+    width:100%;
+    height:44px;
+    border:1.5px solid var(--k-line);
+    border-radius:var(--r-md);
+    background:var(--k-bg);
+    padding:0 12px;
+    font-size:.88rem;
+    font-weight:600;
+    color:var(--k-ink);
+    font-family:inherit;
+    outline:none;
+    transition:border-color .15s,box-shadow .15s;
+}
+.ktx-field-input:focus{
+    border-color:var(--k-or);
+    box-shadow:0 0 0 3px var(--k-or-10);
+}
+.ktx-textarea{
+    width:100%;
+    min-height:70px;
+    border:1.5px solid var(--k-line);
+    border-radius:var(--r-md);
+    background:var(--k-bg);
+    padding:10px 12px;
+    font-size:.86rem;
+    font-weight:500;
+    color:var(--k-ink);
+    font-family:inherit;
+    outline:none;
+    resize:vertical;
+    transition:border-color .15s,box-shadow .15s;
+}
+.ktx-textarea:focus{
+    border-color:var(--k-or);
+    box-shadow:0 0 0 3px var(--k-or-10);
+}
+.ktx-grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+
+/* Chip selectors (timing / paiement) */
+.ktx-chips{display:flex;gap:8px;flex-wrap:wrap}
+.kende-chip{
+    position:relative;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    height:40px;
+    padding:0 16px;
+    border-radius:999px;
+    border:1.5px solid var(--k-line);
+    background:var(--k-bg);
+    font-size:.86rem;
+    font-weight:700;
+    color:var(--k-t2);
+    cursor:pointer;
+    font-family:inherit;
+    transition:all .15s;
+}
+.kende-chip input{
+    position:absolute;inset:0;
+    opacity:0;cursor:pointer;
+}
+.kende-chip.is-selected{
+    background:var(--k-white);
+    border-color:rgba(255,107,0,.3);
+    color:var(--k-or);
+    box-shadow:0 0 0 3px var(--k-or-10);
+}
+
+/* ---- CTA confirm ---- */
+.ktx-confirm{
+    width:100%;
+    height:56px;
+    border:none;
+    border-radius:var(--r-md);
+    background:var(--k-or);
+    color:#fff;
+    font-size:.96rem;
+    font-weight:800;
+    font-family:inherit;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:0 20px;
+    box-shadow:0 10px 28px var(--k-or-sh);
+    transition:transform .15s,box-shadow .15s;
+}
+.ktx-confirm:hover:not(:disabled){
+    transform:translateY(-1px);
+    box-shadow:0 14px 36px var(--k-or-sh);
+}
+.ktx-confirm:disabled{
+    opacity:.5;
+    cursor:not-allowed;
+    box-shadow:none;
+}
+.ktx-confirm__price{
+    font-size:.9rem;
+    opacity:.88;
+    white-space:nowrap;
+}
+
+/* ====================================================
+   MAP SECTION (right col)
+   ==================================================== */
+.ktx-map-col{
+    position:sticky;
+    top:88px;
+}
+.ktx-map-card{
+    background:var(--k-white);
+    border:1px solid var(--k-line);
+    border-radius:var(--r-lg);
+    overflow:hidden;
+    box-shadow:var(--sh-sm);
+}
+.ktx-map-topbar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:12px;
+    padding:14px 18px;
+    border-bottom:1px solid var(--k-line);
+    background:var(--k-white);
+}
+.ktx-map-topbar__info{}
+.ktx-map-topbar__title{
+    font-size:.9rem;
+    font-weight:800;
+    color:var(--k-ink);
+    margin-bottom:2px;
+}
+.ktx-map-topbar__sub{
+    font-size:.78rem;
+    color:var(--k-t3);
+}
+.ktx-geo-badge{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    height:32px;
+    padding:0 12px;
+    border-radius:999px;
+    background:var(--k-bg);
+    border:1px solid var(--k-line);
+    font-size:.76rem;
+    font-weight:700;
+    color:var(--k-t3);
+}
+.ktx-geo-dot{
+    width:7px;height:7px;
+    border-radius:50%;
+    background:var(--k-t3);
+}
+[data-state="ready"]  .ktx-geo-dot{background:var(--k-gr)}
+[data-state="loading"].ktx-geo-dot{background:var(--k-or)}
+[data-state="error"]  .ktx-geo-dot{background:var(--k-red)}
+
+/* Map canvas */
+.ktx-map-canvas{
+    position:relative;
+    height:calc(100vh - 260px);
+    min-height:480px;
+    background:#dfe8f0;
+}
+#taxiMap{
+    position:absolute;
+    inset:0;
+    z-index:1;
+}
+/* Empty state overlay */
+.kende-map__empty{
+    position:absolute;
+    inset:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:3;
+    pointer-events:none;
+}
+.ktx-map-empty-card{
+    border-radius:var(--r-lg);
+    background:rgba(255,255,255,.94);
+    border:1px solid var(--k-line);
+    box-shadow:var(--sh-card);
+    padding:24px 28px;
+    min-width:240px;
+    text-align:center;
+}
+.ktx-map-empty-icon{
+    width:52px;height:52px;
+    margin:0 auto 12px;
+    border-radius:50%;
+    background:var(--k-gr-10);
+    display:flex;align-items:center;justify-content:center;
+    font-size:1.4rem;
+    color:var(--k-gr);
+}
+.ktx-map-empty-title{
+    font-size:.96rem;
+    font-weight:800;
+    color:var(--k-ink);
+    margin-bottom:6px;
+}
+.ktx-map-empty-text{
+    font-size:.82rem;
+    color:var(--k-t3);
+    line-height:1.55;
+}
+
+/* Map controls bar */
+.kende-map__controls{
+    position:absolute;
+    bottom:14px;left:14px;
+    z-index:5;
+    display:flex;gap:6px;flex-wrap:wrap;
+}
+.kende-map__ctrl{
+    height:36px;
+    border:none;
+    border-radius:999px;
+    padding:0 14px;
+    background:rgba(17,17,19,.80);
+    color:#fff;
+    font-size:.8rem;
+    font-weight:700;
+    cursor:pointer;
+    font-family:inherit;
+}
+.kende-map__ctrl.is-active{background:var(--k-or)}
+
+/* Map summary strip */
+.ktx-map-summary{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:1px;
+    background:var(--k-line);
+    border-top:1px solid var(--k-line);
+}
+.ktx-map-summary-cell{
+    background:var(--k-white);
+    padding:10px 14px;
+}
+.ktx-map-summary-k{
+    font-size:.68rem;
+    font-weight:700;
+    text-transform:uppercase;
+    letter-spacing:.06em;
+    color:var(--k-t3);
+    margin-bottom:3px;
+}
+.ktx-map-summary-v{
+    font-size:.85rem;
+    font-weight:800;
+    color:var(--k-ink);
+}
+
+/* ====================================================
+   FOOTER
+   ==================================================== */
+.ktx-footer{
+    margin-top:48px;
+    padding:20px 0;
+    border-top:1px solid var(--k-line);
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:16px;
+    flex-wrap:wrap;
+    color:var(--k-t3);
+    font-size:.84rem;
+}
+.ktx-footer-links{
+    display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+}
+.ktx-footer a{color:inherit;text-decoration:none}
+.ktx-footer a:hover{color:var(--k-or)}
+
+/* ====================================================
+   RESPONSIVE
+   ==================================================== */
+@media(max-width:1080px){
+    .ktx-booking{
+        grid-template-columns:1fr;
+    }
+    .ktx-support-strip{
+        flex-direction:column;
+        align-items:flex-start;
+    }
+    .ktx-proof-grid,
+    .ktx-op-grid{
+        grid-template-columns:1fr;
+    }
+    .ktx-op-section__head{
+        flex-direction:column;
+        align-items:flex-start;
+    }
+    .ktx-panel,.ktx-map-col{
         position:relative;
-        height:auto;
-        width:100%;
-        max-width:760px;
-        margin-left:0;
-        backdrop-filter:blur(10px);
-        -webkit-backdrop-filter:blur(10px);
+        top:0;
     }
-    .taxi-book-panel::before {
-        content:''; position:absolute; inset:0 0 auto 0; height:4px;
-        background:linear-gradient(90deg,var(--green) 0%, var(--orange) 100%);
+    .ktx-map-canvas{
+        height:55vw;
+        min-height:340px;
     }
-    .taxi-book-panel__header {
-        background:#fff; color:#111; padding:.75rem 1rem .4rem; display:flex; align-items:center; justify-content:space-between;
-    }
-    .taxi-book-panel__title { font-size:.76rem; font-weight:900; letter-spacing:.08em; text-transform:uppercase; color:#1f2a22; }
-    .taxi-book-panel__status { display:flex; align-items:center; gap:5px; font-size:.5rem; opacity:.9; text-transform:uppercase; letter-spacing:.1em; color:#5f6a61; }
-    .taxi-book-panel__status span { width:6px; height:6px; background:var(--green); border-radius:50%; animation:taxiBlink 2s ease-in-out infinite; }
-    @keyframes taxiBlink { 0%,100%{opacity:1} 50%{opacity:.3} }
-    .taxi-book-panel__body { padding:.45rem 1rem 1rem; display:flex; flex-direction:column; gap:.65rem; }
-    .taxi-book-panel__body > div { padding:.2rem 0; border-bottom:none; }
-    .taxi-book-panel__body > div:last-of-type { border-bottom:none; }
-    .taxi-book-grid { display:grid; grid-template-columns:minmax(0,1.3fr) minmax(0,1.15fr) auto; gap:.7rem; align-items:end; }
-    .taxi-book-grid--tight { grid-template-columns:1fr 1fr; gap:.55rem; }
-    .taxi-book-col { min-width:0; }
-    .taxi-book-col--pickup {
-        padding:0; border-radius:0;
-        background:transparent;
-        border:none;
-        box-shadow:none;
-        backdrop-filter:none;
-        -webkit-backdrop-filter:none;
-    }
-    .taxi-stage-kicker {
-        display:inline-flex; align-items:center; gap:.45rem; margin-bottom:.2rem; padding:.34rem .52rem;
-        border-radius:999px; background:rgba(255,255,255,.2); border:1px solid rgba(255,255,255,.22); color:#f4fff8;
-        font-size:.52rem; font-weight:900; letter-spacing:.08em; text-transform:uppercase;
-    }
-    .taxi-stage-kicker::before {
-        content:''; width:7px; height:7px; border-radius:50%; background:#8dffbc; box-shadow:0 0 0 4px rgba(141,255,188,.16);
-    }
-    .taxi-stage-destination { display:none !important; }
-    .taxi-stage-destination.is-visible { display:block; }
-    .taxi-progressive-section { display:none !important; }
-    .taxi-progressive-section.is-visible { display:block !important; }
-    .taxi-book-summary.taxi-progressive-section.is-visible { display:grid !important; }
-    .taxi-book-grid--tight.taxi-progressive-section.is-visible { display:grid !important; }
-    .taxi-map-grid.taxi-progressive-section.is-visible { display:grid !important; }
-    .taxi-confirm.taxi-progressive-section.is-visible { display:flex !important; }
-    .taxi-progressive-grid { display:none !important; gap:.56rem; }
-    .taxi-progressive-grid.is-visible { display:grid !important; }
-    .taxi-map-placeholder {
-        display:flex; align-items:center; justify-content:center; min-height:88px;
-        border:1px dashed rgba(17,17,17,.12); border-radius:18px; background:#f6f8f4; color:#6f786d;
-        font-size:.72rem; line-height:1.45; text-align:center; padding:.8rem 1rem;
-    }
-    .taxi-map-placeholder.is-hidden { display:none !important; }
-    .taxi-field-label { display:block; font-size:.52rem; letter-spacing:.16em; color:#4a584d; text-transform:uppercase; margin-bottom:.42rem; font-weight:800; }
-    .taxi-input-wrap {
-        display:flex; align-items:center; gap:.8rem; background:#fff; border:1px solid rgba(17,17,17,.12); border-radius:12px; padding:.92rem 1rem; position:relative;
-        min-height:58px;
-    }
-    .taxi-input-wrap:focus-within { border-color:rgba(0,149,67,.34); box-shadow:0 0 0 3px rgba(0,149,67,.08); }
-    .taxi-input-icon { flex-shrink:0; opacity:.8; }
-    .taxi-input-icon svg { width:16px; height:16px; }
-    #pickupInput, #dropoffInput, #scheduledAtInput, #passengerCount {
-        flex:1; background:transparent; border:none; outline:none; font-size:.94rem; color:#111; font-family:inherit; width:100%;
-    }
-    #pickupInput::placeholder, #dropoffInput::placeholder, #scheduledAtInput::placeholder { color:#97a092; }
-    .taxi-locate-btn {
-        background:#f3f6f3; border:1px solid rgba(17,17,17,.08); color:var(--green); font-size:.64rem; font-weight:900; letter-spacing:.08em; text-transform:uppercase; flex-shrink:0;
-        border-radius:10px; padding:.72rem .92rem; min-height:42px;
-    }
-    .taxi-book-search-cta {
-        display:inline-flex; align-items:center; justify-content:center; align-self:stretch;
-        min-width:150px; min-height:58px; padding:0 1.1rem; border:none; border-radius:12px;
-        background:var(--orange); color:#fff; font-size:.74rem; font-weight:900; letter-spacing:.06em; text-transform:uppercase;
-        box-shadow:0 8px 22px rgba(22,163,74,.22); cursor:pointer; transition:.2s;
-    }
-    .taxi-book-search-cta:hover { background:#16a34a; transform:translateY(-1px); }
-    .taxi-hero-search-meta { display:flex; align-items:center; gap:.9rem; flex-wrap:wrap; margin:-.2rem 0 1.3rem; }
-    .taxi-hero-search-link { font-size:.72rem; color:#eef3ee; text-decoration:none; border-bottom:1px solid rgba(255,255,255,.32); }
-    .taxi-hero-search-link:hover { color:#fff; border-bottom-color:#fff; }
-    .taxi-hero-search-note { font-size:.7rem; color:rgba(255,255,255,.7); }
-    .taxi-arrow-row { display:flex; align-items:center; gap:.6rem; padding:0 .1rem; }
-    .taxi-arrow-row__line { flex:1; height:1px; background:rgba(17,17,17,.08); }
-    .taxi-arrow-row__icon {
-        width:20px; height:20px; border-radius:50%; background:#f6f8f4; border:1px solid rgba(17,17,17,.06);
-        display:flex; align-items:center; justify-content:center; color:#738072;
-    }
-    .taxi-book-summary { display:grid; grid-template-columns:1fr 1fr; gap:.35rem; }
-    .taxi-book-summary__item { background:#f8f9f6; border:1px solid rgba(17,17,17,.05); border-radius:4px; padding:.46rem .58rem; }
-    .taxi-book-summary__key { font-size:.46rem; color:#7a8375; letter-spacing:.08em; text-transform:uppercase; margin-bottom:.12rem; }
-    .taxi-book-summary__val { font-size:.8rem; font-weight:800; color:#111; }
-    .taxi-book-summary__val.is-green { color:var(--green); }
-    .taxi-mode-row, .taxi-pay-row { display:flex; gap:.4rem; padding:.18rem; border-radius:999px; background:#f5f7f4; border:1px solid rgba(17,17,17,.05); }
-    .taxi-mode-row label, .taxi-pay-row label {
-        flex:1; display:flex; align-items:center; justify-content:center; padding:.52rem .42rem; border-radius:999px;
-        border:1px solid transparent; background:transparent; color:#66705f; font-size:.64rem; font-weight:800; text-transform:uppercase; letter-spacing:.03em; cursor:pointer;
-    }
-    .taxi-mode-row input, .taxi-pay-row input { display:none; }
-    .taxi-mode-row label.is-selected, .taxi-pay-row label.is-selected { background:#fff; border-color:rgba(0,149,67,.14); color:var(--green); box-shadow:0 4px 10px rgba(17,17,17,.04); }
-    .taxi-confirm {
-        background:var(--orange); color:#fff; padding:.72rem; border-radius:999px; font-size:.76rem; font-weight:900; letter-spacing:.07em; text-transform:uppercase; border:none;
-        display:flex; align-items:center; justify-content:center; gap:.55rem; width:100%; margin-top:auto; box-shadow:0 4px 18px rgba(22,163,74,.16); transition:.22s;
-    }
-    .taxi-confirm:hover:not(:disabled) { background:#16a34a; transform:translateY(-2px); }
-    .taxi-confirm:disabled { opacity:.55; cursor:not-allowed; }
-    .taxi-confirm__price {
-        background:rgba(255,255,255,.16); border-radius:3px; padding:.16rem .48rem; font-size:.7rem; font-weight:700;
-    }
-    .taxi-options-grid { display:grid; grid-template-columns:1.2fr .8fr; gap:.75rem; align-items:start; }
-    .taxi-options-stack { display:grid; grid-template-columns:1fr; gap:.72rem; }
-
-    .taxi-hero-bottom {
-        position:relative; z-index:2; width:100%; border-top:1px solid var(--line); display:flex; align-items:stretch;
-    }
-    .taxi-hero-bottom__item { flex:1; padding:.82rem 1.6rem; display:flex; align-items:center; gap:.72rem; border-right:1px solid var(--line); font-size:.7rem; color:var(--text-2); }
-    .taxi-hero-bottom__item:last-child { border-right:none; }
-    .taxi-hero-bottom__icon {
-        width:36px; height:36px; border-radius:4px; background:var(--ink-3); border:1px solid var(--line-2); display:flex; align-items:center; justify-content:center; color:var(--orange); flex-shrink:0;
-    }
-    .taxi-hero-bottom__icon svg { width:16px; height:16px; }
-    .taxi-hero-bottom__label { font-size:.72rem; font-weight:800; color:#fff; letter-spacing:.06em; text-transform:uppercase; margin-bottom:.15rem; }
-
-    .taxi-section { padding:5.5rem 0; position:relative; overflow:hidden; }
-    .taxi-section-label {
-        display:inline-flex; align-items:center; gap:10px; margin-bottom:1rem; font-size:.62rem; color:var(--green);
-        letter-spacing:.22em; text-transform:uppercase;
-    }
-    .taxi-section-label::before { content:''; width:24px; height:1px; background:var(--orange); }
-    .taxi-section-title {
-        font-size:clamp(2.3rem,4.2vw,4.2rem); font-weight:900; text-transform:uppercase; letter-spacing:-.01em; line-height:.94; color:#fff; margin-bottom:1rem;
-    }
-    .taxi-section-title em { font-style:italic; color:var(--orange); }
-
-    .taxi-formules { background:var(--ink); }
-    .taxi-formules::before {
-        content:'FORMULES'; position:absolute; left:-2rem; top:50%; transform:translateY(-50%) rotate(-90deg);
-        font-size:4rem; font-weight:900; color:rgba(0,149,67,.06); letter-spacing:.1em; pointer-events:none; white-space:nowrap;
-    }
-    .taxi-formules__grid {
-        display:grid; grid-template-columns:repeat(3,1fr); gap:1px; background:var(--line); border:1px solid var(--line); border-radius:6px; overflow:hidden; margin-top:2.2rem;
-    }
-    .taxi-formule-card { background:var(--ink-2); padding:1.65rem 1.35rem; position:relative; overflow:hidden; transition:background .25s; }
-    .taxi-formule-card:hover { background:var(--ink-3); }
-    .taxi-formule-card.is-featured { background:var(--green); }
-    .taxi-formule-card.is-featured:hover { background:#00a34a; }
-    .taxi-formule-card__num { position:absolute; top:.8rem; right:1rem; font-size:4rem; font-weight:900; color:rgba(255,255,255,.06); line-height:1; }
-    .taxi-formule-card__tag {
-        display:inline-block; font-size:.52rem; letter-spacing:.16em; text-transform:uppercase; padding:3px 8px; border-radius:2px; margin-bottom:1rem;
-        background:var(--orange-soft); color:var(--orange); border:1px solid var(--orange-border);
-    }
-    .taxi-formule-card.is-featured .taxi-formule-card__tag { background:rgba(255,255,255,.14); color:#fff; border-color:rgba(255,255,255,.18); }
-    .taxi-formule-card__name { font-size:1.95rem; font-weight:900; text-transform:uppercase; letter-spacing:-.01em; color:#fff; margin-bottom:.28rem; line-height:1; }
-    .taxi-formule-card__desc { font-size:.74rem; color:var(--text-2); line-height:1.55; margin-bottom:1rem; font-weight:300; }
-    .taxi-formule-card.is-featured .taxi-formule-card__desc { color:rgba(255,255,255,.82); }
-    .taxi-formule-card__price { font-size:1.55rem; font-weight:800; color:var(--orange); line-height:1; margin-bottom:.24rem; }
-    .taxi-formule-card.is-featured .taxi-formule-card__price { color:#fff; }
-    .taxi-formule-card__sub { font-size:.54rem; color:var(--text-3); letter-spacing:.07em; text-transform:uppercase; }
-    .taxi-formule-card.is-featured .taxi-formule-card__sub { color:rgba(255,255,255,.6); }
-    .taxi-formule-card__features { list-style:none; margin-top:.9rem; display:flex; flex-direction:column; gap:.42rem; }
-    .taxi-formule-card__features li { display:flex; align-items:center; gap:.55rem; font-size:.7rem; color:var(--text-2); }
-    .taxi-formule-card.is-featured .taxi-formule-card__features li { color:rgba(255,255,255,.82); }
-    .taxi-formule-card__check { width:15px; height:15px; border-radius:50%; background:var(--green-soft); display:flex; align-items:center; justify-content:center; color:var(--green); flex-shrink:0; }
-    .taxi-formule-card.is-featured .taxi-formule-card__check { background:rgba(255,255,255,.16); color:#fff; }
-    .taxi-formule-card__check svg { width:8px; height:8px; }
-    .taxi-formule-card__cta { display:inline-flex; align-items:center; gap:.5rem; margin-top:1.2rem; font-size:.72rem; font-weight:800; letter-spacing:.07em; text-transform:uppercase; color:var(--orange); transition:gap .2s; }
-    .taxi-formule-card.is-featured .taxi-formule-card__cta { color:#fff; }
-    .taxi-formule-card:hover .taxi-formule-card__cta { gap:.9rem; }
-    .taxi-formule-card__cta svg { width:14px; height:14px; }
-
-    .taxi-howto { background:var(--ink-2); border-top:1px solid var(--line); }
-    .taxi-howto__grid { display:grid; grid-template-columns:1fr 1fr; gap:2.6rem; align-items:center; margin-top:2.2rem; }
-    .taxi-howto__steps { display:flex; flex-direction:column; }
-    .taxi-howto__step { display:flex; gap:1.1rem; align-items:flex-start; padding:1rem 0; border-bottom:1px solid var(--line); transition:padding-left .25s; }
-    .taxi-howto__step:hover { padding-left:.5rem; }
-    .taxi-howto__step:last-child { border-bottom:none; }
-    .taxi-howto__num { font-size:2.2rem; font-weight:900; color:rgba(22,163,74,.14); line-height:1; flex-shrink:0; width:40px; transition:color .25s; }
-    .taxi-howto__step:hover .taxi-howto__num { color:rgba(22,163,74,.32); }
-    .taxi-howto__title { font-size:.96rem; font-weight:800; text-transform:uppercase; letter-spacing:.03em; color:#fff; margin-bottom:.3rem; }
-    .taxi-howto__desc { font-size:.72rem; color:var(--text-2); line-height:1.55; font-weight:300; }
-    .taxi-howto__visual { background:#fcfcfa; color:#111; border:1px solid rgba(17,17,17,.08); border-radius:8px; padding:.85rem; position:relative; overflow:hidden; box-shadow:0 14px 28px rgba(0,0,0,.16); }
-    .taxi-howto__visual::before { content:''; position:absolute; top:-40px; right:-40px; width:220px; height:220px; border-radius:50%; background:radial-gradient(circle,rgba(0,149,67,.08),transparent 70%); }
-    .taxi-map-head { display:flex; align-items:center; justify-content:space-between; gap:.8rem; margin-bottom:.85rem; }
-    .taxi-map-head__title { font-size:.88rem; font-weight:900; letter-spacing:.07em; text-transform:uppercase; color:#111; }
-    .taxi-geostate {
-        display:inline-flex; align-items:center; gap:6px; padding:.36rem .58rem; border-radius:999px;
-        background:#f5f7f4; border:1px solid rgba(17,17,17,.08); color:#5f6a5f; font-size:.58rem; font-weight:800; letter-spacing:.07em; text-transform:uppercase;
-    }
-    .taxi-geostate[data-state="success"] { color:var(--green); border-color:rgba(0,149,67,.18); background:rgba(0,149,67,.06); }
-    .taxi-geostate[data-state="error"] { color:var(--orange); border-color:rgba(22,163,74,.18); background:rgba(22,163,74,.06); }
-    .taxi-map-box { border-radius:8px; overflow:hidden; border:1px solid rgba(17,17,17,.08); background:#edf2ec; min-height:250px; }
-    #taxiMap { width:100%; height:250px; z-index:1; }
-    #taxiMap .leaflet-control-container { z-index:900; }
-    .taxi-map-helper { display:flex; flex-wrap:wrap; gap:.38rem; margin-top:.6rem; }
-    .taxi-map-helper button {
-        padding:.48rem .66rem; border-radius:999px; border:1px solid rgba(17,17,17,.08); background:#fff; color:#4f584d; font-size:.6rem; font-weight:800; text-transform:uppercase; letter-spacing:.04em;
-    }
-    .taxi-map-helper button.is-active { background:var(--green); border-color:var(--green); color:#fff; }
-    .taxi-map-grid { display:grid; grid-template-columns:1fr 1fr; gap:.75rem; margin-top:.75rem; }
-    .taxi-side-panel {
-        background:#f7f8f5; border:1px solid rgba(17,17,17,.06); border-radius:6px; padding:.64rem;
-        display:flex; flex-direction:column; gap:.72rem;
-    }
-    .taxi-side-panel__title { font-size:.56rem; color:#7a8375; letter-spacing:.12em; text-transform:uppercase; margin-bottom:.55rem; font-weight:800; }
-    .taxi-trip-card { display:flex; flex-direction:column; gap:.68rem; }
-    .taxi-trip-point { display:flex; align-items:flex-start; gap:.62rem; padding:.58rem .68rem; background:#fff; border-radius:14px; border:1px solid rgba(17,17,17,.06); }
-    .taxi-trip-point__pin { width:10px; height:10px; border-radius:50%; flex-shrink:0; margin-top:3px; }
-    .taxi-trip-point__pin.is-pickup { background:var(--green); box-shadow:0 0 8px rgba(0,149,67,.25); }
-    .taxi-trip-point__pin.is-dropoff { background:var(--orange); box-shadow:0 0 8px rgba(22,163,74,.25); }
-    .taxi-trip-point strong { display:block; font-size:.68rem; color:#7a8375; text-transform:uppercase; letter-spacing:.07em; margin-bottom:.15rem; }
-    .taxi-trip-point span { color:#111; font-size:.8rem; line-height:1.45; }
-    .taxi-estimate-panel { display:none; }
-    .taxi-estimate-panel.is-visible { display:block; }
-    .taxi-estimate-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:.48rem; }
-    .taxi-estimate-stat { background:#fff; border:1px solid rgba(17,17,17,.06); border-radius:14px; padding:.58rem; }
-    .taxi-estimate-stat small { display:block; font-size:.5rem; color:#7a8375; letter-spacing:.12em; text-transform:uppercase; margin-bottom:.18rem; }
-    .taxi-estimate-stat strong { color:#111; font-size:.88rem; font-weight:900; }
-    .taxi-price-band { margin-top:.52rem; display:flex; align-items:center; justify-content:space-between; gap:.65rem; background:#fff; border:1px solid rgba(17,17,17,.06); border-radius:14px; padding:.64rem .72rem; }
-    .taxi-price-band small { display:block; color:#697465; line-height:1.42; font-size:.74rem; }
-    .taxi-price-band strong { color:var(--green); font-size:1.05rem; font-weight:900; }
-    .taxi-side-panel .taxi-formula { margin:0; gap:.38rem; }
-    .taxi-side-panel .taxi-formula__btn {
-        padding:.62rem 0; font-size:.68rem; letter-spacing:.04em;
-    }
-    .taxi-side-panel .taxi-formula__btn span { font-size:.56rem; margin-top:.15rem; }
-    .taxi-side-panel .taxi-input-wrap { padding:.58rem .72rem; }
-    .taxi-side-panel .taxi-field-label { margin-bottom:.3rem; }
-    .taxi-side-panel > div[style] { margin-top:.72rem !important; }
-
-    .taxi-zones { background:var(--ink); border-top:1px solid var(--line); }
-    .taxi-zones__layout { display:grid; grid-template-columns:1fr 1fr; gap:3.25rem; align-items:center; margin-top:2.8rem; }
-    .taxi-map-abstract {
-        position:relative; height:360px; background:var(--paper); border:1px solid rgba(17,17,17,.08); border-radius:8px; overflow:hidden; box-shadow:0 20px 50px rgba(0,0,0,.22);
-    }
-    .taxi-map-abstract__grid {
-        position:absolute; inset:0; background-image:linear-gradient(rgba(0,149,67,.05) 1px,transparent 1px), linear-gradient(90deg,rgba(22,163,74,.04) 1px,transparent 1px); background-size:40px 40px;
-    }
-    .taxi-map-abstract__roads { position:absolute; inset:0; pointer-events:none; }
-    .taxi-map-zone {
-        position:absolute; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:.72rem; font-weight:900; text-transform:uppercase; letter-spacing:.06em; transition:transform .3s;
-    }
-    .taxi-map-zone:hover { transform:scale(1.05); }
-    .taxi-map-zone.is-bzv { width:180px; height:180px; top:50%; left:55%; transform:translate(-50%,-50%); background:rgba(0,149,67,.15); border:1px solid rgba(0,149,67,.35); color:var(--green); }
-    .taxi-map-zone.is-pnr { width:110px; height:110px; bottom:20%; left:18%; background:rgba(22,163,74,.1); border:1px solid rgba(22,163,74,.22); color:var(--orange); font-size:.62rem; }
-    .taxi-map-zone.is-other { width:70px; height:70px; top:22%; right:14%; background:rgba(17,17,17,.05); border:1px solid rgba(17,17,17,.08); color:#7a8375; font-size:.55rem; }
-    .taxi-map-pulse { position:absolute; top:50%; left:55%; transform:translate(-50%,-50%); width:20px; height:20px; border-radius:50%; background:var(--green); box-shadow:0 0 0 0 rgba(0,149,67,.45); animation:taxiMapPulse 2.5s ease-out infinite; z-index:2; }
-    @keyframes taxiMapPulse { 0%{box-shadow:0 0 0 0 rgba(0,149,67,.45);} 70%{box-shadow:0 0 0 30px rgba(0,149,67,0);} 100%{box-shadow:0 0 0 0 rgba(0,149,67,0);} }
-    .taxi-map-abstract__label { position:absolute; bottom:1.2rem; left:1.2rem; font-size:.55rem; color:#7a8375; letter-spacing:.1em; text-transform:uppercase; }
-    .taxi-zones__list { display:flex; flex-direction:column; gap:1rem; }
-    .taxi-zones__item {
-        display:flex; align-items:flex-start; gap:1rem; padding:1.15rem 1.35rem; background:var(--paper); border:1px solid rgba(17,17,17,.08); border-radius:6px; border-left:3px solid transparent; transition:.22s;
-        box-shadow:0 12px 28px rgba(0,0,0,.12);
-    }
-    .taxi-zones__item:hover { border-left-color:var(--orange); transform:translateX(4px); }
-    .taxi-zones__item.is-active { border-left-color:var(--green); }
-    .taxi-zones__dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; margin-top:4px; }
-    .taxi-zones__dot.is-green { background:var(--green); box-shadow:0 0 8px rgba(0,149,67,.35); }
-    .taxi-zones__dot.is-orange { background:var(--orange); box-shadow:0 0 8px rgba(22,163,74,.35); }
-    .taxi-zones__dot.is-gray { background:#8a9280; }
-    .taxi-zones__name { font-size:1rem; font-weight:900; text-transform:uppercase; color:#111; margin-bottom:.2rem; }
-    .taxi-zones__desc { font-size:.74rem; color:#66705f; line-height:1.55; font-weight:300; }
-    .taxi-zones__badge { margin-left:auto; flex-shrink:0; font-size:.55rem; letter-spacing:.1em; padding:3px 9px; border-radius:2px; text-transform:uppercase; font-weight:800; }
-    .taxi-zones__badge.is-ok { background:rgba(0,149,67,.12); color:var(--green); border:1px solid rgba(0,149,67,.2); }
-    .taxi-zones__badge.is-warn { background:rgba(22,163,74,.1); color:var(--orange); border:1px solid rgba(22,163,74,.2); }
-    .taxi-zones__badge.is-soon { background:#f2f4f1; color:#7a8375; border:1px solid rgba(17,17,17,.08); }
-
-    .taxi-cta { padding:5.5rem 0; background:var(--green); position:relative; overflow:hidden; }
-    .taxi-cta::before { content:'TAXI'; position:absolute; right:-2rem; top:50%; transform:translateY(-50%); font-size:22vw; font-weight:900; color:rgba(255,255,255,.08); line-height:1; pointer-events:none; }
-    .taxi-cta__inner { display:grid; grid-template-columns:1fr auto; gap:2.5rem; align-items:center; position:relative; z-index:1; }
-    .taxi-cta__label { display:inline-flex; align-items:center; gap:10px; margin-bottom:1.2rem; font-size:.62rem; color:rgba(255,255,255,.65); letter-spacing:.22em; text-transform:uppercase; }
-    .taxi-cta__label::before { content:''; width:24px; height:1px; background:#fff; }
-    .taxi-cta__title { font-size:clamp(2.2rem,4.1vw,3.9rem); font-weight:900; text-transform:uppercase; letter-spacing:-.01em; line-height:.92; color:#fff; }
-    .taxi-cta__title em { font-style:italic; opacity:.55; }
-    .taxi-cta__text p { font-size:.84rem; color:rgba(255,255,255,.82); line-height:1.7; margin-top:1.1rem; max-width:430px; }
-    .taxi-cta__buttons { display:flex; flex-direction:column; gap:.8rem; min-width:220px; }
-    .taxi-cta__primary {
-        background:#111; color:#fff; padding:1rem 1.8rem; border-radius:4px; font-size:.88rem; font-weight:900; letter-spacing:.09em; text-transform:uppercase; border:none;
-        display:flex; align-items:center; justify-content:space-between; gap:1rem; box-shadow:0 4px 24px rgba(0,0,0,.25); text-decoration:none;
-    }
-    .taxi-cta__primary svg { width:16px; height:16px; }
-    .taxi-cta__secondary {
-        background:transparent; color:#fff; padding:1rem 1.8rem; border-radius:4px; font-size:.84rem; font-weight:800; letter-spacing:.08em; text-transform:uppercase;
-        border:1.5px solid rgba(255,255,255,.32); display:flex; align-items:center; justify-content:center; gap:.6rem; text-decoration:none;
-    }
-    .taxi-cta__secondary svg { width:14px; height:14px; }
-
-    .taxi-footer { background:var(--ink-2); padding:4rem 3rem 2rem; border-top:1px solid var(--line); }
-    .taxi-footer__grid { display:grid; grid-template-columns:2fr 1fr 1fr 1fr; gap:3rem; max-width:1200px; margin:0 auto; padding-bottom:3rem; border-bottom:1px solid var(--line); }
-    .taxi-footer__brand-name { font-size:1.6rem; font-weight:900; color:#fff; margin-bottom:.8rem; display:flex; align-items:center; gap:.6rem; letter-spacing:-.04em; }
-    .taxi-footer__brand-name span:first-child { color:var(--green); }
-    .taxi-footer__brand-dot { width:8px; height:8px; background:var(--orange); border-radius:50%; margin-top:-10px; }
-    .taxi-footer__desc { font-size:.78rem; color:var(--text-3); line-height:1.85; max-width:260px; margin-bottom:1.5rem; }
-    .taxi-footer__socials { display:flex; gap:.6rem; }
-    .taxi-footer__socials a { width:30px; height:30px; border-radius:50%; border:1px solid var(--line-2); display:flex; align-items:center; justify-content:center; color:var(--text-3); text-decoration:none; }
-    .taxi-footer__col h4 { font-size:.6rem; font-weight:800; text-transform:uppercase; letter-spacing:.18em; color:var(--text-3); margin-bottom:1.2rem; }
-    .taxi-footer__links { display:flex; flex-direction:column; gap:.55rem; }
-    .taxi-footer__links a { font-size:.78rem; color:var(--text-3); text-decoration:none; transition:color .15s; }
-    .taxi-footer__links a:hover { color:var(--text-2); }
-    .taxi-footer__bottom { display:flex; justify-content:space-between; align-items:center; max-width:1200px; margin:0 auto; padding-top:2rem; flex-wrap:wrap; gap:.8rem; }
-    .taxi-footer__copy { font-size:.62rem; color:var(--text-3); letter-spacing:.06em; }
-    .taxi-footer__pay { display:flex; gap:.5rem; flex-wrap:wrap; }
-    .taxi-footer__pay span { background:var(--ink-3); border:1px solid var(--line); border-radius:3px; padding:3px 9px; font-size:.55rem; font-weight:700; color:var(--text-3); letter-spacing:.06em; text-transform:uppercase; }
-    .taxi-footer__legal { display:flex; gap:1.5rem; flex-wrap:wrap; }
-    .taxi-footer__legal a { font-size:.6rem; color:var(--text-3); text-decoration:none; }
-
-    .taxi-suggestions { display:none; position:relative; margin-top:.5rem; }
-    .taxi-suggestions.is-visible { display:grid; gap:.35rem; }
-    .taxi-suggestion-item {
-        width:100%; text-align:left; padding:.7rem .9rem; background:#fff; border:1px solid rgba(17,17,17,.08); border-radius:4px; color:#111; font-size:.8rem;
-    }
-    .taxi-status { margin-top:.45rem; font-size:.72rem; color:#6f786d; line-height:1.55; }
-    .taxi-note {
-        width:100%; min-height:58px; margin-top:.45rem; border:1px solid rgba(17,17,17,.06); border-radius:14px; background:#f8f9f6; padding:.62rem .8rem; resize:vertical; outline:none; font-family:inherit; font-size:.74rem; color:#111;
-    }
-    .taxi-note::placeholder { color:#97a092; }
-    .taxi-login-note, .taxi-legal, .taxi-hint { margin-top:.9rem; font-size:.72rem; line-height:1.6; color:#6f786d; }
-
-    @media (max-width: 900px) {
-        #taxiCursor { display:none; }
-        body.bd-future-shell { cursor:auto; }
-        .taxi-nav, .taxi-wrap, .taxi-footer { padding-left:1.25rem; padding-right:1.25rem; }
-        .taxi-nav { padding:.8rem 1.5rem; }
-        .taxi-nav__links { display:none; }
-        .taxi-hero__inner, .taxi-howto__grid, .taxi-zones__layout, .taxi-cta__inner, .taxi-footer__grid { grid-template-columns:1fr; }
-        .taxi-book-grid, .taxi-book-grid--tight, .taxi-options-grid { grid-template-columns:1fr; }
-        .taxi-hero { min-height:auto; }
-        .taxi-hero__inner { padding:7.1rem 1.1rem 0; gap:1.25rem; }
-        .taxi-brand-mark { margin-bottom:1.1rem; }
-        .taxi-book-panel { display:flex; max-width:100%; margin-top:.5rem; }
-        .taxi-book-panel__body { padding:.78rem; gap:.65rem; }
-        .taxi-formules__grid { grid-template-columns:1fr; }
-        .taxi-hero-bottom { display:grid; grid-template-columns:1fr 1fr; }
-        .taxi-hero-bottom__item { padding:1rem 1.1rem; }
-        .taxi-book-search-cta { width:100%; min-height:52px; }
-    }
-
-    @media (min-width: 901px) {
-        .taxi-stage-destination { display:block !important; }
-    }
-
-    @media (max-width: 767px) {
-        .taxi-formula, .taxi-stats, .taxi-book-summary, .taxi-mode-row, .taxi-pay-row, .taxi-estimate-grid, .taxi-map-grid, .taxi-hero-bottom { grid-template-columns:1fr; display:grid; }
-        .taxi-section { padding:4.25rem 0; }
-        .taxi-hero__inner { padding:6.65rem .9rem 0; }
-        .taxi-brand-mark__word { font-size:clamp(1.7rem, 10vw, 2.8rem); }
-        .taxi-brand-mark__meta { gap:.45rem; margin-bottom:1.15rem; }
-        .taxi-brand-mark__chip { font-size:.58rem; padding:.38rem .62rem; }
-        .taxi-label { margin-bottom:1.15rem; }
-        .taxi-title { font-size:clamp(2.6rem, 12vw, 4.2rem); }
-        .taxi-sub { margin:1rem 0 1.2rem; max-width:none; }
-        .taxi-book-panel { border-radius:16px; }
-        .taxi-map-box, #taxiMap { min-height:220px; height:220px; }
-        .taxi-map-abstract { height:300px; }
-        .taxi-formules::before, .taxi-cta::before, .taxi-hero__num { display:none; }
-        .taxi-cta__buttons { min-width:0; }
-        .taxi-cta__primary, .taxi-cta__secondary { justify-content:center; }
-        .taxi-footer { padding-left:1.25rem; padding-right:1.25rem; }
-        .taxi-footer__bottom, .taxi-footer__legal, .taxi-footer__pay { justify-content:flex-start; }
-        .taxi-wa { right:1rem; bottom:1rem; }
-    }
+    /* Map comes first on mobile */
+    .ktx-map-col{order:-1}
+}
+@media(max-width:640px){
+    .ktx-nav__inner{padding:0 16px}
+    .ktx-links{display:none}
+    .ktx-page{padding:0 14px 48px}
+    .ktx-hero{padding:32px 0 20px}
+    .ktx-grid2{grid-template-columns:1fr}
+    .ktx-map-summary{grid-template-columns:1fr 1fr}
+}
 </style>
 @endsection
 
 @section('content')
-<div id="taxiCursor"><div id="taxiCursorRing"></div><div id="taxiCursorDot"></div></div>
-<a class="taxi-wa" href="{{ $helpUrl }}" aria-label="Contacter le support BantuDelice">
-    <svg viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413Z"/></svg>
-</a>
 
-<div class="taxi-v1">
-    <div class="taxi-ticker">
-        <div class="taxi-ticker__track">
-            <span class="taxi-ticker__item"><span class="taxi-ticker__sep"></span>Taxi urbain Brazzaville — Disponible maintenant</span>
-            <span class="taxi-ticker__item"><span class="taxi-ticker__sep"></span>Paiement Mobile Money · Airtel · MTN · Especes</span>
-            <span class="taxi-ticker__item"><span class="taxi-ticker__sep"></span>Formules Eco, Confort & XL — Prix estime avant depart</span>
-            <span class="taxi-ticker__item"><span class="taxi-ticker__sep"></span>Suivi GPS temps reel — Depart immediat ou programme</span>
-            <span class="taxi-ticker__item"><span class="taxi-ticker__sep"></span>Taxi urbain Brazzaville — Disponible maintenant</span>
-            <span class="taxi-ticker__item"><span class="taxi-ticker__sep"></span>Paiement Mobile Money · Airtel · MTN · Especes</span>
-            <span class="taxi-ticker__item"><span class="taxi-ticker__sep"></span>Formules Eco, Confort & XL — Prix estime avant depart</span>
-            <span class="taxi-ticker__item"><span class="taxi-ticker__sep"></span>Suivi GPS temps reel — Depart immediat ou programme</span>
-        </div>
-    </div>
+{{-- Congo flag strip --}}
+<div class="ktx-flag">
+    <span style="background:#009B3A;"></span>
+    <span style="background:#FBCE07;"></span>
+    <span style="background:#DC241F;"></span>
+</div>
 
-    <nav class="taxi-nav" id="taxiNav">
-        <a class="taxi-nav__logo" href="{{ url('/') }}"><span class="taxi-nav__logo-word">BantuDelice</span><span class="taxi-nav__logo-dot"></span></a>
-        <div class="taxi-nav__links">
-            @if($foodEnabled)
-                <a href="{{ $restaurantsUrl }}">Repas</a>
-            @endif
-            @if($colisEnabled)
-                <a href="{{ $colisUrl }}">Colis</a>
-            @endif
-            <a class="is-active" href="{{ $taxiUrl }}">Taxi</a>
+{{-- NAV --}}
+<nav class="ktx-nav">
+    <div class="ktx-nav__inner">
+        <a href="{{ $transportHomeUrl }}" class="ktx-brand">Ken<em>de</em><span class="ktx-brand__dot"></span></a>
+        <div class="ktx-links">
+            <a href="{{ $taxiUrl }}" class="is-active">Taxi</a>
             <a href="{{ $carpoolUrl }}">Covoiturage</a>
             <a href="{{ $rentalUrl }}">Location</a>
             <a href="{{ $busUrl }}">Bus</a>
-            <a href="#taxiZones">Zones</a>
         </div>
-        <div class="taxi-nav__end">
-            <a class="taxi-nav__lang" href="{{ $contactUrl }}">FR / EN</a>
-            <a class="taxi-nav__cta" href="#taxiBooking">Reserver</a>
+        <div class="ktx-actions">
+            <a href="{{ $bookingsUrl }}" class="ktx-btn ktx-btn--ghost">Mes reservations</a>
+            <a href="{{ $taxiUrl }}" class="ktx-btn ktx-btn--primary">Reserver</a>
         </div>
-    </nav>
+    </div>
+</nav>
 
-    <section class="taxi-hero">
-        <div class="taxi-hero__grid-bg"></div>
-        <div class="taxi-hero__stripe"></div>
-        <div class="taxi-hero__stripe-2"></div>
-        <div class="taxi-hero__num">01</div>
+<div class="ktx-page">
 
-        <div class="taxi-hero__inner">
-            <div class="taxi-hero__content">
-                <div class="taxi-brand-mark taxi-rv taxi-rv1">
-                    <div class="taxi-brand-mark__word"><strong>Gessy</strong> Ride</div>
-                    <span class="taxi-brand-mark__dot" aria-hidden="true"></span>
-                </div>
-                <div class="taxi-brand-mark__meta taxi-rv taxi-rv1">
-                    <span class="taxi-brand-mark__chip">Mobilite urbaine</span>
-                    <span class="taxi-brand-mark__chip">Brazzaville</span>
-                    <span class="taxi-brand-mark__chip">Reserve en direct</span>
-                </div>
-                <div class="taxi-label taxi-rv taxi-rv1">Taxi urbain — Brazzaville</div>
-                <h1 class="taxi-title taxi-rv taxi-rv2">
-                    Votre<br>
-                    <span class="accent">trajet,</span><br>
-                    <span class="line-2">Maintenant.</span>
-                </h1>
-                <p class="taxi-sub taxi-rv taxi-rv3">Reservez en 30 secondes. Prix estime avant depart, chauffeur assigne rapidement, suivi GPS de bout en bout.</p>
+    {{-- HERO --}}
+    <div class="ktx-hero{{ $transportHeroVisual ? ' ktx-hero--with-media' : '' }}" @if($transportHeroStyle) style="{{ $transportHeroStyle }}" @endif>
+        <div class="ktx-hero__tag">
+            <span class="ktx-hero__tag-dot"></span>
+            {{ $transportHeroBadge }}
+        </div>
+        <h1>Reservez votre <em>taxi</em></h1>
+        <p>{{ $transportHeroDescription }}</p>
+    </div>
 
-                <div class="taxi-book-panel taxi-rv taxi-rv4" id="taxiBooking">
-                    <div class="taxi-book-panel__header">
-                        <div class="taxi-book-panel__title">Reserver un taxi</div>
-                        <div class="taxi-book-panel__status"><span></span>Chauffeurs disponibles</div>
-                    </div>
-                    <div class="taxi-book-panel__body">
-                        <div class="taxi-book-grid">
-                            <div class="taxi-book-col taxi-book-col--pickup">
-                                <label for="pickupInput" class="taxi-field-label">Point de depart</label>
-                                <div class="taxi-input-wrap">
-                                    <span class="taxi-input-icon"><svg viewBox="0 0 24 24" fill="none" stroke="var(--green)" stroke-width="2"><circle cx="12" cy="10" r="3"/><path d="M12 2a8 8 0 0 0-8 8c0 5.25 8 13 8 13s8-7.75 8-13a8 8 0 0 0-8-8z"/></svg></span>
-                                    <input type="text" id="pickupInput" placeholder="Adresse ou quartier..." autocomplete="off">
-                                    <button type="button" id="locateMeBtn" class="taxi-locate-btn">GPS ↗</button>
-                                </div>
-                                <div id="pickupSuggestions" class="taxi-suggestions"></div>
-                                <div class="taxi-progressive-section" data-progressive-section>
-                                    <div id="pickupStatus" class="taxi-status">Nous pouvons recuperer votre position ou vous laisser saisir l adresse manuellement.</div>
-                                    <textarea id="pickupNote" class="taxi-note" placeholder="Repere depart: portail, immeuble, station, commerce..."></textarea>
-                                </div>
+    <div class="ktx-support-strip">
+        <div>
+            <div class="ktx-support-strip__eyebrow">Support Kende</div>
+            <div class="ktx-support-strip__title">{{ $transportSupportTitle }}</div>
+            <div class="ktx-support-strip__body">{{ $transportSupportDescription }}</div>
+        </div>
+        <a href="{{ $contactUrl }}" class="ktx-btn ktx-btn--primary ktx-support-strip__cta">{{ $transportSupportCta }}</a>
+    </div>
+
+    {{-- BOOKING + MAP --}}
+    <div class="ktx-booking">
+
+        {{-- LEFT — BOOKING PANEL --}}
+        <aside class="ktx-panel">
+
+            {{-- CARD 1 — Route picker --}}
+            <div class="ktx-card">
+                <form id="taxiBookingForm" method="POST" action="#" onsubmit="return false;">
+                    @csrf
+                    <input type="hidden" id="p_lat"               name="pickup_lat">
+                    <input type="hidden" id="p_lng"               name="pickup_lng">
+                    <input type="hidden" id="d_lat"               name="dropoff_lat">
+                    <input type="hidden" id="d_lng"               name="dropoff_lng">
+                    <input type="hidden" id="estimatedDistance"   name="estimated_distance">
+                    <input type="hidden" id="estimatedDuration"   name="estimated_duration">
+                    <input type="hidden" id="estimatedPriceValue" name="estimated_price">
+                    <input type="hidden" id="selectedRideOption"  name="ride_option" value="eco">
+
+                    {{-- Route input group --}}
+                    <div class="ktx-route" style="margin-bottom:14px;">
+
+                        {{-- Depart --}}
+                        <div class="ktx-route-row">
+                            <span class="ktx-dot ktx-dot--from"></span>
+                            <div class="ktx-input-wrap">
+                                <label class="ktx-input-label" for="pickupInput">Depart</label>
+                                <input id="pickupInput"
+                                       name="pickup_address"
+                                       class="ktx-input"
+                                       type="text"
+                                       placeholder="D'ou partez-vous ?"
+                                       autocomplete="off">
+                                <div id="pickupSuggestions" class="kende-suggestions"></div>
+                                <div id="pickupStatus" class="ktx-status">Saisissez votre depart ou utilisez votre position.</div>
                             </div>
-                            <div class="taxi-book-col taxi-stage-destination" data-destination-stage>
-                                <label for="dropoffInput" class="taxi-field-label">Destination</label>
-                                <div class="taxi-input-wrap">
-                                    <span class="taxi-input-icon"><svg viewBox="0 0 24 24" fill="none" stroke="var(--orange)" stroke-width="2"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg></span>
-                                    <input type="text" id="dropoffInput" placeholder="Ou allez-vous ?" autocomplete="off">
-                                </div>
-                                <div id="dropoffSuggestions" class="taxi-suggestions"></div>
-                                <div class="taxi-progressive-section" data-progressive-section>
-                                    <div id="dropoffStatus" class="taxi-status">Choisissez votre arrivee par recherche ou en cliquant sur la carte.</div>
-                                    <textarea id="dropoffNote" class="taxi-note" placeholder="Repere arrivee: quartier, batiment, barriere, pharmacie..."></textarea>
-                                </div>
-                            </div>
-                            <button type="button" id="heroSearchBtn" class="taxi-book-search-cta">Rechercher</button>
                         </div>
 
-                        <div class="taxi-progressive-grid" data-progressive-grid>
-                            <div class="taxi-book-summary taxi-progressive-section" data-progressive-section>
-                                <div class="taxi-book-summary__item"><div class="taxi-book-summary__key">Distance est.</div><div class="taxi-book-summary__val" id="estDistance">— km</div></div>
-                                <div class="taxi-book-summary__item"><div class="taxi-book-summary__key">Duree est.</div><div class="taxi-book-summary__val" id="estDuration">— min</div></div>
-                                <div class="taxi-book-summary__item"><div class="taxi-book-summary__key">Formule</div><div class="taxi-book-summary__val" id="heroSelectedFormula">Eco</div></div>
-                                <div class="taxi-book-summary__item"><div class="taxi-book-summary__key">Tarif estime</div><div class="taxi-book-summary__val is-green" id="estPrice">{{ number_format((float) ($pricingData['minimum_fare'] ?? 0), 0, ',', ' ') }} FCFA</div></div>
+                        {{-- Connecting line --}}
+                        <div class="ktx-route-connector">
+                            <div class="ktx-route-line"></div>
+                        </div>
+
+                        {{-- Destination --}}
+                        <div class="ktx-route-row">
+                            <span class="ktx-dot ktx-dot--to"></span>
+                            <div class="ktx-input-wrap">
+                                <label class="ktx-input-label" for="dropoffInput">Destination</label>
+                                <input id="dropoffInput"
+                                       name="dropoff_address"
+                                       class="ktx-input"
+                                       type="text"
+                                       placeholder="Ou allez-vous ?"
+                                       autocomplete="off">
+                                <div id="dropoffSuggestions" class="kende-suggestions"></div>
+                                <div id="dropoffStatus" class="ktx-status">Definissez clairement votre destination.</div>
                             </div>
-
-                            <div class="taxi-book-grid--tight taxi-progressive-section" data-progressive-section>
-                                <div>
-                                    <label class="taxi-field-label">Moment du depart</label>
-                                    <div class="taxi-mode-row">
-                                        <label class="taxi-mode-card is-selected"><input type="radio" name="ride_timing" value="now" checked>Maintenant</label>
-                                        <label class="taxi-mode-card"><input type="radio" name="ride_timing" value="later">Programmer</label>
-                                    </div>
-                                </div>
-
-                                <div>
-                                    <label class="taxi-field-label">Paiement</label>
-                                    <div class="taxi-pay-row">
-                                        <label class="taxi-mode-card is-selected"><input type="radio" name="payment_method" value="cash" checked>Especes</label>
-                                        <label class="taxi-mode-card"><input type="radio" name="payment_method" value="momo">Mobile Money</label>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <button id="confirmBtn" class="taxi-confirm taxi-progressive-section" data-progressive-section disabled>
-                                Confirmer la course
-                                <span class="taxi-confirm__price" id="heroConfirmPrice">{{ number_format((float) ($pricingData['minimum_fare'] ?? 0), 0, ',', ' ') }} F</span>
-                            </button>
                         </div>
                     </div>
-                </div>
 
-                <div class="taxi-hero-search-meta taxi-rv taxi-rv4">
-                    <a href="#rideTrackerSection" class="taxi-hero-search-link">Suivi en direct</a>
-                    <span class="taxi-hero-search-note">Saisie rapide, estimation immediate, confirmation ensuite.</span>
-                </div>
-
-                <div class="taxi-formula taxi-rv taxi-rv4" id="heroFormula">
-                    @foreach($rideOptions as $index => $option)
-                        <button type="button" class="taxi-formula__btn{{ $index === 0 ? ' is-active' : '' }}" data-hero-formula="{{ $option['key'] }}">
-                            {{ $option['name'] }}
-                            <span>{{ $option['base_label'] }}</span>
+                    {{-- Action buttons --}}
+                    <div class="ktx-action-row" style="margin-bottom:16px;">
+                        <button id="locateMeBtn" type="button" class="ktx-act-btn ktx-act-btn--locate">
+                            <i class="fas fa-location-arrow"></i> Ma position
                         </button>
-                    @endforeach
-                </div>
-
-                <div class="taxi-stats taxi-rv taxi-rv5">
-                    <div><span class="taxi-stats__num">3'</span><div class="taxi-stats__lbl">Temps moyen<br>d'attente</div></div>
-                    <div><span class="taxi-stats__num">24/7</span><div class="taxi-stats__lbl">Disponibilite<br>service</div></div>
-                    <div><span class="taxi-stats__num">100%</span><div class="taxi-stats__lbl">Prix visible<br>avant depart</div></div>
-                </div>
-            </div>
-        </div>
-
-        <div class="taxi-hero-bottom">
-            <div class="taxi-hero-bottom__item">
-                <div class="taxi-hero-bottom__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><circle cx="12" cy="10" r="3"/><path d="M12 2a8 8 0 0 0-8 8c0 5.25 8 13 8 13s8-7.75 8-13a8 8 0 0 0-8-8z"/></svg></div>
-                <div><div class="taxi-hero-bottom__label">GPS temps reel</div><div style="font-size:.72rem;color:var(--text-3);">Position mise a jour en direct</div></div>
-            </div>
-            <div class="taxi-hero-bottom__item">
-                <div class="taxi-hero-bottom__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="2" y="5" width="20" height="14" rx="2"/><line x1="2" y1="10" x2="22" y2="10"/></svg></div>
-                <div><div class="taxi-hero-bottom__label">Prix transparent</div><div style="font-size:.72rem;color:var(--text-3);">Estimation avant confirmation</div></div>
-            </div>
-            <div class="taxi-hero-bottom__item">
-                <div class="taxi-hero-bottom__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.48 2 2 0 0 1 3.58 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.96a16 16 0 0 0 6.13 6.13l1.92-1.92a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg></div>
-                <div><div class="taxi-hero-bottom__label">Support WhatsApp</div><div style="font-size:.72rem;color:var(--text-3);">Assistance pendant votre trajet</div></div>
-            </div>
-            <div class="taxi-hero-bottom__item">
-                <div class="taxi-hero-bottom__icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
-                <div><div class="taxi-hero-bottom__label">Chauffeurs verifies</div><div style="font-size:.72rem;color:var(--text-3);">Identite et vehicule controles</div></div>
-            </div>
-        </div>
-    </section>
-
-    <section class="taxi-section taxi-formules">
-        <div class="taxi-wrap">
-            <div class="taxi-section-label">Nos formules</div>
-            <h2 class="taxi-section-title">Choisissez<br>votre <em>confort.</em></h2>
-            <div class="taxi-formules__grid">
-                <article class="taxi-formule-card">
-                    <div class="taxi-formule-card__num">01</div>
-                    <div class="taxi-formule-card__tag">Standard</div>
-                    <div class="taxi-formule-card__name">Eco</div>
-                    <div class="taxi-formule-card__desc">Le trajet du quotidien. Rapide, accessible, efficace. Ideal pour les deplacements courts en ville.</div>
-                    <div class="taxi-formule-card__price">{{ number_format(max(round(($pricingData['minimum_fare'] ?? 2500)), 2500), 0, ',', ' ') }} F</div>
-                    <div class="taxi-formule-card__sub">Tarif de base · + {{ number_format(max(round(($pricingData['price_per_km'] ?? 220)), 220), 0, ',', ' ') }} F/km</div>
-                    <ul class="taxi-formule-card__features">
-                        <li><span class="taxi-formule-card__check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>1 a 3 passagers</li>
-                        <li><span class="taxi-formule-card__check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>Bagage cabine inclus</li>
-                        <li><span class="taxi-formule-card__check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>Suivi GPS en direct</li>
-                    </ul>
-                    <div class="taxi-formule-card__cta">Choisir Eco <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></div>
-                </article>
-
-                <article class="taxi-formule-card is-featured">
-                    <div class="taxi-formule-card__num">02</div>
-                    <div class="taxi-formule-card__tag">Populaire</div>
-                    <div class="taxi-formule-card__name">Confort</div>
-                    <div class="taxi-formule-card__desc">Plus d'espace, prise en charge plus douce, chauffeur selectionne. Le bon choix pour la majorite des trajets.</div>
-                    <div class="taxi-formule-card__price">{{ number_format(max(round(($pricingData['minimum_fare'] ?? 2500) * 1.18), 4000), 0, ',', ' ') }} F</div>
-                    <div class="taxi-formule-card__sub">Tarif de base · coefficient 1,18</div>
-                    <ul class="taxi-formule-card__features">
-                        <li><span class="taxi-formule-card__check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>1 a 4 passagers</li>
-                        <li><span class="taxi-formule-card__check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>Climatisation garantie</li>
-                        <li><span class="taxi-formule-card__check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>Suivi GPS + partage de trajet</li>
-                    </ul>
-                    <div class="taxi-formule-card__cta">Choisir Confort <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></div>
-                </article>
-
-                <article class="taxi-formule-card">
-                    <div class="taxi-formule-card__num">03</div>
-                    <div class="taxi-formule-card__tag">Grand groupe</div>
-                    <div class="taxi-formule-card__name">XL</div>
-                    <div class="taxi-formule-card__desc">Ideal si vous etes plusieurs ou avec beaucoup de bagages. Vehicule spacieux, prise en charge adaptee.</div>
-                    <div class="taxi-formule-card__price">{{ number_format(max(round(($pricingData['minimum_fare'] ?? 2500) * 1.35), 5500), 0, ',', ' ') }} F</div>
-                    <div class="taxi-formule-card__sub">Tarif de base · coefficient 1,35</div>
-                    <ul class="taxi-formule-card__features">
-                        <li><span class="taxi-formule-card__check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>Jusqu'a 6 passagers</li>
-                        <li><span class="taxi-formule-card__check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>Grand coffre — bagages multiples</li>
-                        <li><span class="taxi-formule-card__check"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><polyline points="20 6 9 17 4 12"/></svg></span>Ideal aeroport / demenagement</li>
-                    </ul>
-                    <div class="taxi-formule-card__cta">Choisir XL <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></div>
-                </article>
-            </div>
-        </div>
-    </section>
-
-    <section class="taxi-section taxi-howto">
-        <div class="taxi-wrap">
-            <div class="taxi-section-label">Fonctionnement</div>
-            <h2 class="taxi-section-title">Simple.<br><em>Tres simple.</em></h2>
-            <div class="taxi-howto__grid">
-                <div class="taxi-howto__steps">
-                    <div class="taxi-howto__step"><div class="taxi-howto__num">01</div><div><div class="taxi-howto__title">Saisissez votre trajet</div><div class="taxi-howto__desc">Entrez votre point de depart et votre destination. Utilisez la geolocalisation automatique ou tapez l'adresse manuellement.</div></div></div>
-                    <div class="taxi-howto__step"><div class="taxi-howto__num">02</div><div><div class="taxi-howto__title">Choisissez votre formule</div><div class="taxi-howto__desc">Eco, Confort ou XL — le prix s'affiche avant que vous confirmiez. Aucune surprise a l'arrivee.</div></div></div>
-                    <div class="taxi-howto__step"><div class="taxi-howto__num">03</div><div><div class="taxi-howto__title">Confirmez et attendez</div><div class="taxi-howto__desc">Un chauffeur vous est assigne immediatement. Suivez sa position en temps reel jusqu'a sa prise en charge.</div></div></div>
-                    <div class="taxi-howto__step"><div class="taxi-howto__num">04</div><div><div class="taxi-howto__title">Payez a l'arrivee</div><div class="taxi-howto__desc">Especes a bord ou Mobile Money. Le recu et les details de course restent exploitables ensuite.</div></div></div>
-                </div>
-
-                <div class="taxi-howto__visual">
-                    <div class="taxi-map-head">
-                        <div class="taxi-map-head__title">Course en cours</div>
-                        <span class="taxi-geostate" id="geoState" data-state="idle"><i class="fas fa-crosshairs"></i> Attente GPS</span>
-                    </div>
-                    <div class="taxi-map-placeholder" data-map-placeholder>La carte s'affichera apres saisie du depart et de la destination.</div>
-                    <div class="taxi-map-box taxi-progressive-section" data-progressive-section><div id="taxiMap"></div></div>
-                    <div class="taxi-map-helper taxi-progressive-section" data-progressive-section>
-                        <button type="button" id="setPickupPinBtn" class="is-active">Repere depart</button>
-                        <button type="button" id="setDropoffPinBtn">Repere arrivee</button>
-                        <button type="button" id="centerRouteBtn">Centrer la carte</button>
-                        <button type="button" id="clearRouteBtn">Reinitialiser</button>
+                        <button id="heroSearchBtn" type="button" class="ktx-act-btn ktx-act-btn--calc">
+                            <i class="fas fa-route"></i> Calculer le trajet
+                        </button>
                     </div>
 
-                    <div class="taxi-progressive-grid" data-progressive-grid>
-                        <div class="taxi-map-grid taxi-progressive-section" data-progressive-section>
-                            <div class="taxi-side-panel">
-                                <div class="taxi-side-panel__title">Resume</div>
-                                <div class="taxi-trip-card">
-                                    <article class="taxi-trip-point">
-                                        <span class="taxi-trip-point__pin is-pickup"></span>
-                                        <div><strong>Depart</strong><span id="summaryPickup">Non defini pour l instant</span></div>
-                                    </article>
-                                    <article class="taxi-trip-point">
-                                        <span class="taxi-trip-point__pin is-dropoff"></span>
-                                        <div><strong>Arrivee</strong><span id="summaryDropoff">Ajoutez une destination</span></div>
-                                    </article>
-                                </div>
-                            </div>
-
-                            <div class="taxi-side-panel">
-                                <div class="taxi-side-panel__title">Estimation</div>
-                                <div id="estimateSection" class="taxi-estimate-panel">
-                                    <div class="taxi-estimate-grid">
-                                        <article class="taxi-estimate-stat"><small>Distance</small><strong id="estDistanceMap">-- km</strong></article>
-                                        <article class="taxi-estimate-stat"><small>Duree</small><strong id="estDurationMap">-- min</strong></article>
-                                        <article class="taxi-estimate-stat"><small>Tarif min.</small><strong id="estBaseFare">{{ number_format((float) ($pricingData['minimum_fare'] ?? 0), 0, ',', ' ') }} FCFA</strong></article>
-                                    </div>
-                                    <div class="taxi-price-band">
-                                        <div><small id="selectedRideMeta">Selectionnez une formule pour affiner la course.</small></div>
-                                        <strong id="estPriceMap">-- FCFA</strong>
-                                    </div>
-                                </div>
-                                <div class="taxi-hint">La carte sert de verification visuelle. La reservation finale partira avec vos coordonnees GPS, vos reperes et votre formule.</div>
-                            </div>
+                    {{-- Ride options --}}
+                    <div style="margin-bottom:14px;">
+                        <div class="ktx-options-label">Categorie de vehicule</div>
+                        <div class="ktx-options-grid">
+                                    @php
+                                $optSvgs = [
+                                    'eco' => '<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3 13 L5 8 L15 8 L17 13 Z" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linejoin="round"/><circle cx="6.5" cy="14.5" r="1.8" stroke="currentColor" stroke-width="1.3"/><circle cx="13.5" cy="14.5" r="1.8" stroke="currentColor" stroke-width="1.3"/></svg>',
+                                    'comfort' => '<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M2 13 L5 7 L15 7 L18 13 Z" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linejoin="round"/><circle cx="6" cy="14.5" r="1.8" stroke="currentColor" stroke-width="1.3"/><circle cx="14" cy="14.5" r="1.8" stroke="currentColor" stroke-width="1.3"/><path d="M7 7 L8 4.5 L12 4.5 L13 7" stroke="currentColor" stroke-width="1.2"/></svg>',
+                                    'xl' => '<svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M1 13 L4 6 L16 6 L19 13 Z" stroke="currentColor" stroke-width="1.5" fill="none" stroke-linejoin="round"/><circle cx="5.5" cy="14.5" r="1.8" stroke="currentColor" stroke-width="1.3"/><circle cx="14.5" cy="14.5" r="1.8" stroke="currentColor" stroke-width="1.3"/><path d="M4 10 H16" stroke="currentColor" stroke-width="1" opacity="0.4"/></svg>',
+                                ];
+                            @endphp
+                            @foreach($rideOptions as $index => $option)
+                            <button
+                                type="button"
+                                class="ktx-opt{{ $index === 0 ? ' is-active' : '' }}"
+                                data-ride-option
+                                data-option-key="{{ $option['key'] }}"
+                                data-option-name="{{ $option['name'] }}"
+                            >
+                                <span class="ktx-opt__icon">{!! $optSvgs[$option['key']] ?? $optSvgs['eco'] !!}</span>
+                                <span class="ktx-opt__body">
+                                    <span class="ktx-opt__name">{{ $option['name'] }}</span>
+                                    <span class="ktx-opt__desc">{{ $option['description'] }} · {{ $option['base_label'] }}</span>
+                                </span>
+                                <span class="ktx-opt__check">✓</span>
+                            </button>
+                            @endforeach
                         </div>
+                        <div id="heroSelectedFormula" style="display:none;">Eco</div>
+                    </div>
 
-                        <div class="taxi-side-panel taxi-progressive-section" data-progressive-section style="margin-top:0;">
-                            <div class="taxi-side-panel__title">Options de course</div>
-                            <div class="taxi-options-grid">
+                    {{-- Estimate (hidden until route is calculated) --}}
+                    <div id="estimateSection" hidden style="margin-bottom:14px;">
+                        <div class="ktx-estimate">
+                            <div class="ktx-estimate__head">
                                 <div>
-                                    <div class="taxi-formula" id="rideOptionGrid" style="margin:0;">
-                                        @foreach($rideOptions as $index => $option)
-                                            <button
-                                                type="button"
-                                                class="taxi-formula__btn{{ $index === 0 ? ' is-active' : '' }}"
-                                                data-ride-option
-                                                data-option-key="{{ $option['key'] }}"
-                                                data-option-name="{{ $option['name'] }}"
-                                                data-option-multiplier="{{ $option['multiplier'] }}"
-                                            >
-                                                {{ $option['name'] }}
-                                                <span id="ridePrice{{ ucfirst($option['key']) }}">--</span>
-                                            </button>
-                                        @endforeach
-                                    </div>
+                                    <div class="ktx-estimate__label">Estimation du trajet</div>
+                                    <div id="selectedRideMeta" class="ktx-estimate__meta">Eco · estimation en cours</div>
                                 </div>
-                                <div class="taxi-options-stack">
-                                    <div style="margin-top:0;">
-                                        <label for="scheduledAtInput" class="taxi-field-label">Depart programme</label>
-                                        <div class="taxi-input-wrap">
-                                            <input type="datetime-local" id="scheduledAtInput" disabled>
-                                        </div>
-                                    </div>
-                                    <div style="margin-top:0;">
-                                        <label for="passengerCount" class="taxi-field-label">Nombre de passagers</label>
-                                        <div class="taxi-input-wrap">
-                                            <select id="passengerCount">
-                                                <option value="1">1 passager</option>
-                                                <option value="2">2 passagers</option>
-                                                <option value="3">3 passagers</option>
-                                                <option value="4">4 passagers</option>
-                                                <option value="5">5 passagers</option>
-                                                <option value="6">6 passagers ou plus</option>
-                                            </select>
-                                        </div>
-                                    </div>
+                                <div id="estPrice" class="ktx-estimate__price">-- FCFA</div>
+                            </div>
+                            <div class="ktx-stats">
+                                <div class="ktx-stat">
+                                    <div class="ktx-stat__k">Distance</div>
+                                    <div id="estDistance" class="ktx-stat__v">-- km</div>
+                                </div>
+                                <div class="ktx-stat">
+                                    <div class="ktx-stat__k">Duree</div>
+                                    <div id="estDuration" class="ktx-stat__v">-- min</div>
+                                </div>
+                                <div class="ktx-stat">
+                                    <div class="ktx-stat__k">Base</div>
+                                    <div id="estPriceMap" class="ktx-stat__v">-- FCFA</div>
                                 </div>
                             </div>
                         </div>
                     </div>
 
-                    <input type="hidden" id="p_lat">
-                    <input type="hidden" id="p_lng">
-                    <input type="hidden" id="d_lat">
-                    <input type="hidden" id="d_lng">
-                    <input type="hidden" id="estimatedDistance">
-                    <input type="hidden" id="estimatedDuration">
-                    <input type="hidden" id="estimatedPriceValue">
-                    <input type="hidden" id="selectedRideOption" value="eco">
+                    {{-- Paiement --}}
+                    <div style="margin-bottom:14px;">
+                        <div class="ktx-field-label">Paiement</div>
+                        <div class="ktx-chips">
+                            <label class="kende-chip is-selected">
+                                <input type="radio" name="payment_method" value="cash" checked>
+                                Especes
+                            </label>
+                            <label class="kende-chip">
+                                <input type="radio" name="payment_method" value="momo">
+                                Mobile Money
+                            </label>
+                        </div>
+                    </div>
+
+                    {{-- CTA --}}
+                    <button id="confirmBtn" type="button" class="ktx-confirm" disabled>
+                        <span>Confirmer la course</span>
+                        <span id="heroConfirmPrice" class="ktx-confirm__price">--</span>
+                    </button>
+
+                    {{-- Details collapsible --}}
+                    <div style="margin-top:12px;">
+                        <button type="button"
+                                class="ktx-details-toggle"
+                                aria-expanded="false"
+                                onclick="this.setAttribute('aria-expanded', this.getAttribute('aria-expanded')==='true'?'false':'true'); this.nextElementSibling.classList.toggle('is-open')">
+                            <span>Plus d'options (reperes, passagers, horaire)</span>
+                            <span class="ktx-details-toggle__icon"><i class="fas fa-chevron-down"></i></span>
+                        </button>
+                        <div class="ktx-details-body">
+                            <div class="ktx-grid2">
+                                <div>
+                                    <label class="ktx-field-label" for="pickupNote">Repere depart</label>
+                                    <textarea id="pickupNote" name="pickup_note" class="ktx-textarea"
+                                              placeholder="Immeuble, avenue, portail..."></textarea>
+                                </div>
+                                <div>
+                                    <label class="ktx-field-label" for="dropoffNote">Repere arrivee</label>
+                                    <textarea id="dropoffNote" name="dropoff_note" class="ktx-textarea"
+                                              placeholder="Immeuble, avenue, portail..."></textarea>
+                                </div>
+                            </div>
+                            <div class="ktx-grid2">
+                                <div>
+                                    <label class="ktx-field-label" for="passengerCount">Passagers</label>
+                                    <select id="passengerCount" name="passenger_count" class="ktx-field-input">
+                                        <option value="1">1 passager</option>
+                                        <option value="2">2 passagers</option>
+                                        <option value="3">3 passagers</option>
+                                        <option value="4">4 passagers</option>
+                                        <option value="5">5 passagers</option>
+                                        <option value="6">6 passagers</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="ktx-field-label" for="scheduledAtInput">Heure programmee</label>
+                                    <input id="scheduledAtInput" name="scheduled_at" class="ktx-field-input"
+                                           type="datetime-local" disabled>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="ktx-field-label">Moment du depart</div>
+                                <div class="ktx-chips">
+                                    <label class="kende-chip is-selected">
+                                        <input type="radio" name="ride_timing" value="now" checked>
+                                        Maintenant
+                                    </label>
+                                    <label class="kende-chip">
+                                        <input type="radio" name="ride_timing" value="later">
+                                        Programmer
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+
+        </aside>
+
+        {{-- RIGHT — MAP --}}
+        <div class="ktx-map-col">
+            <div class="ktx-map-card">
+                {{-- Top bar --}}
+                <div class="ktx-map-topbar">
+                    <div class="ktx-map-topbar__info">
+                        <div class="ktx-map-topbar__title">Carte du trajet</div>
+                        <div class="ktx-map-topbar__sub">Tracez le depart et l'arrivee sur la carte ou saisissez les adresses.</div>
+                    </div>
+                    <div id="geoState" class="ktx-geo-badge" data-state="idle">
+                        <span class="ktx-geo-dot"></span>
+                        <span>GPS en attente</span>
+                    </div>
+                </div>
+
+                {{-- Map canvas --}}
+                <div class="ktx-map-canvas">
+                    <div id="txMapEmpty" class="kende-map__empty">
+                        <div class="ktx-map-empty-card">
+                            <div class="ktx-map-empty-icon"><i class="fas fa-map-marker-alt"></i></div>
+                            <div class="ktx-map-empty-title">Visualisez votre trajet</div>
+                            <div class="ktx-map-empty-text">Ajoutez le depart et la destination pour afficher le trajet et l'estimation.</div>
+                        </div>
+                    </div>
+                    <div id="taxiMap"></div>
+                    <div id="txMapControls" class="kende-map__controls">
+                        <button id="setPickupPinBtn" type="button" class="kende-map__ctrl is-active">Depart</button>
+                        <button id="setDropoffPinBtn" type="button" class="kende-map__ctrl">Arrivee</button>
+                        <button id="centerRouteBtn" type="button" class="kende-map__ctrl">Centrer</button>
+                        <button id="clearRouteBtn" type="button" class="kende-map__ctrl">Effacer</button>
+                    </div>
+                </div>
+
+                {{-- Summary strip --}}
+                <div class="ktx-map-summary">
+                    <div class="ktx-map-summary-cell">
+                        <div class="ktx-map-summary-k">Depart</div>
+                        <div id="summaryPickup" class="ktx-map-summary-v">Non defini</div>
+                    </div>
+                    <div class="ktx-map-summary-cell">
+                        <div class="ktx-map-summary-k">Arrivee</div>
+                        <div id="summaryDropoff" class="ktx-map-summary-v">A definir</div>
+                    </div>
+                    <div class="ktx-map-summary-cell">
+                        <div class="ktx-map-summary-k">Distance</div>
+                        <div id="estDistanceMap" class="ktx-map-summary-v">-- km</div>
+                    </div>
+                    <div class="ktx-map-summary-cell">
+                        <div class="ktx-map-summary-k">Duree</div>
+                        <div id="estDurationMap" class="ktx-map-summary-v">-- min</div>
+                    </div>
                 </div>
             </div>
         </div>
-    </section>
 
-    <section class="taxi-section taxi-zones" id="taxiZones">
-        <div class="taxi-wrap">
-            <div class="taxi-section-label">Couverture</div>
-            <h2 class="taxi-section-title">Ou nous<br><em>operons.</em></h2>
-            <div class="taxi-zones__layout">
-                <div class="taxi-map-abstract">
-                    <div class="taxi-map-abstract__grid"></div>
-                    <svg class="taxi-map-abstract__roads" viewBox="0 0 420 440">
-                        <path d="M210 80 Q280 150 300 220 Q320 290 280 360" stroke="rgba(22,163,74,.08)" stroke-width="2" fill="none"/>
-                        <path d="M80 180 Q160 200 210 220 Q280 240 340 260" stroke="rgba(0,149,67,.06)" stroke-width="1.5" fill="none"/>
-                        <path d="M140 80 Q160 160 155 220 Q150 280 130 360" stroke="rgba(17,17,17,.08)" stroke-width="1" fill="none"/>
-                        <path d="M80 300 Q130 310 155 320 Q180 330 190 360" stroke="rgba(0,149,67,.08)" stroke-width="1.5" fill="none"/>
-                    </svg>
-                    <div class="taxi-map-zone is-bzv">Brazzaville</div>
-                    <div class="taxi-map-pulse"></div>
-                    <div class="taxi-map-zone is-pnr">Pte-Noire</div>
-                    <div class="taxi-map-zone is-other">Dolisie</div>
-                    <div class="taxi-map-abstract__label">Reseau · en expansion</div>
-                </div>
+    </div>
 
-                <div class="taxi-zones__list">
-                    <div class="taxi-zones__item is-active">
-                        <div class="taxi-zones__dot is-green"></div>
-                        <div><div class="taxi-zones__name">Brazzaville</div><div class="taxi-zones__desc">Couverture complete des arrondissements principaux. Service disponible tous les jours avec attribution rapide.</div></div>
-                        <div class="taxi-zones__badge is-ok">Actif</div>
-                    </div>
-                    <div class="taxi-zones__item">
-                        <div class="taxi-zones__dot is-orange"></div>
-                        <div><div class="taxi-zones__name">Pointe-Noire</div><div class="taxi-zones__desc">Service en deploiement progressif. Disponible sur les zones principales. Confirmer la disponibilite avant reservation.</div></div>
-                        <div class="taxi-zones__badge is-warn">Partiel</div>
-                    </div>
-                    <div class="taxi-zones__item">
-                        <div class="taxi-zones__dot is-gray"></div>
-                        <div><div class="taxi-zones__name">Autres villes</div><div class="taxi-zones__desc">Dolisie, Nkayi et autres villes en cours d'integration. Extension progressive du reseau.</div></div>
-                        <div class="taxi-zones__badge is-soon">Bientot</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
+    @if($transportTestimonials->isNotEmpty())
+    <div class="ktx-proof-grid">
+        @foreach($transportTestimonials as $item)
+        <article class="ktx-proof-card">
+            @if(!empty($item['tag']))
+            <div class="ktx-proof-card__tag">{{ $item['tag'] }}</div>
+            @endif
+            <div class="ktx-proof-card__quote">{{ $item['quote'] }}</div>
+            <div class="ktx-proof-card__meta">{{ trim(($item['name'] ?? '') . ' · ' . ($item['loc'] ?? ''), ' ·') }}</div>
+        </article>
+        @endforeach
+    </div>
+    @endif
 
-    <section class="taxi-cta">
-        <div class="taxi-wrap">
-            <div class="taxi-cta__inner">
-                <div class="taxi-cta__text">
-                    <div class="taxi-cta__label">Pret a partir</div>
-                    <h2 class="taxi-cta__title">Votre chauffeur<br><em>vous attend.</em></h2>
-                    <p>Reservez votre taxi en moins de 30 secondes. Prix transparent, chauffeur verifie, trajet suivi de bout en bout.</p>
-                </div>
-                <div class="taxi-cta__buttons">
-                    <a class="taxi-cta__primary" href="#taxiBooking">Reserver maintenant <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg></a>
-                    <a class="taxi-cta__secondary" href="{{ $contactUrl }}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12 19.79 19.79 0 0 1 1.61 3.48 2 2 0 0 1 3.58 1h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.96a16 16 0 0 0 6.13 6.13l1.92-1.92a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>Contacter le support</a>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <footer class="taxi-footer">
-        <div class="taxi-footer__grid">
+    @if($transportOpportunities->isNotEmpty())
+    <section class="ktx-op-section">
+        <div class="ktx-op-section__head">
             <div>
-                <div class="taxi-footer__brand-name"><span>BantuDelice</span><span class="taxi-footer__brand-dot"></span></div>
-                <p class="taxi-footer__desc">Votre partenaire pour la livraison de repas, l'expedition de colis et le transport urbain. Concu pour le Congo.</p>
-                <div class="taxi-footer__socials">
-                    <a href="https://www.facebook.com/BantuDelice" target="_blank" rel="noopener noreferrer"><i class="fab fa-facebook-f"></i></a>
-                    <a href="https://www.instagram.com/bantudelice.cg/" target="_blank" rel="noopener noreferrer"><i class="fab fa-instagram"></i></a>
-                </div>
+                <div class="ktx-op-section__eyebrow">{{ $homeContent['opportunities_tag'] ?? 'Opportunites transport' }}</div>
+                <div class="ktx-op-section__title">{{ $homeContent['opportunities_title'] ?? 'Grandissez avec Kende' }}</div>
             </div>
-            <div class="taxi-footer__col">
-                <h4>Services</h4>
-                <div class="taxi-footer__links">
-                    <a href="{{ $taxiUrl }}">Taxi urbain</a>
-                    @if($colisEnabled)
-                        <a href="{{ $colisUrl }}">Livraison colis</a>
-                    @endif
-                    @if($foodEnabled)
-                        <a href="{{ $restaurantsUrl }}">Livraison repas</a>
-                    @endif
-                    <a href="{{ $driverUrl }}">Devenir chauffeur</a>
-                    <a href="{{ $partnerUrl }}">Devenir partenaire</a>
-                </div>
-            </div>
-            <div class="taxi-footer__col">
-                <h4>Informations</h4>
-                <div class="taxi-footer__links">
-                    <a href="{{ route('terms.conditions') }}">Conditions generales</a>
-                    <a href="{{ $privacyUrl }}">Confidentialite</a>
-                    <a href="{{ $faqUrl }}">FAQ</a>
-                    <a href="{{ $helpUrl }}">Centre d'aide</a>
-                    <a href="{{ $contactUrl }}">Nous contacter</a>
-                </div>
-            </div>
-            <div class="taxi-footer__col">
-                <h4>Ressources</h4>
-                <div class="taxi-footer__links">
-                    @if($foodEnabled)
-                        <a href="{{ $trackOrderUrl }}">Suivre une commande</a>
-                    @endif
-                    @if($colisEnabled)
-                        <a href="{{ $colisUrl }}">Suivre un colis</a>
-                    @endif
-                    <a href="{{ $offersUrl }}">Voir les offres</a>
-                    <a href="{{ route('site.map') }}">Plan du site</a>
-                </div>
-            </div>
+            <div class="ktx-op-section__body">{{ $homeContent['opportunities_subtitle'] ?? 'Rejoignez Kende comme chauffeur, partenaire flotte ou relais operationnel.' }}</div>
         </div>
-        <div class="taxi-footer__bottom">
-            <div class="taxi-footer__copy">© 2026 BantuDelice. Tous droits reserves. Republique du Congo.</div>
-            <div class="taxi-footer__pay"><span>Mobile Money</span><span>Airtel Money</span><span>MTN MoMo</span><span>Cash</span></div>
-            <div class="taxi-footer__legal"><a href="{{ $legalUrl }}">Mentions legales</a><a href="{{ $cookiesUrl }}">Cookies</a></div>
+        <div class="ktx-op-grid">
+            @foreach($transportOpportunities as $item)
+            <article class="ktx-op-card">
+                @if(!empty($item['image']))
+                <div class="ktx-op-card__media">
+                    <img src="{{ $item['image'] }}" alt="">
+                </div>
+                @endif
+                <div class="ktx-op-card__title">{{ $item['title'] }}</div>
+                <div class="ktx-op-card__body">{{ $item['body'] }}</div>
+                <a href="{{ $item['url'] }}" class="ktx-op-card__cta">{{ $item['cta'] }}</a>
+            </article>
+            @endforeach
+        </div>
+    </section>
+    @endif
+
+    {{-- FOOTER --}}
+    <footer class="ktx-footer">
+        <div>Kende &copy; {{ date('Y') }} · Brazzaville · Congo</div>
+        <div class="ktx-footer-links">
+            <a href="{{ $taxiUrl }}">Taxi</a>
+            <a href="{{ $carpoolUrl }}">Covoiturage</a>
+            <a href="{{ $rentalUrl }}">Location</a>
+            <a href="{{ $busUrl }}">Bus</a>
+            <a href="{{ $faqUrl }}">Aide</a>
+            <a href="{{ $privacyUrl }}">Confidentialite</a>
         </div>
     </footer>
+
 </div>
 @endsection
 
 @section('scripts')
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+        integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script>
-    let map, pickupMarker, dropoffMarker, routeLayer;
-    let pickupSearchTimeout = null, dropoffSearchTimeout = null;
-    let lastPickupQuery = '', lastDropoffQuery = '';
-    let activePinTarget = 'pickup';
-    let currentEstimate = { distance: 0, duration: 0, basePrice: 0, finalPrice: 0 };
+    const TAXI_CONFIG = {
+        pricing:         @json($pricingData),
+        rideOptions:     @json($rideOptions),
+        estimateUrl:     @json(route('transport.xhr.estimate')),
+        geocodeUrl:      @json(route('transport.xhr.geocode')),
+        reverseUrl:      @json(route('transport.xhr.reverse')),
+        routeUrl:        @json(route('transport.xhr.route')),
+        bookingUrl:      @json(route('transport.xhr.bookings.store')),
+        isAuthenticated: @json(auth()->check()),
+        loginUrl:        @json(route('user.login', ['redirect' => url()->current()])),
+        defaultCity:     { lat: -4.2767, lng: 15.2832, label: 'Brazzaville, Republique du Congo' },
+        csrf:            @json(csrf_token())
+    };
 
-    const MAPBOX_TOKEN = @json(mapbox_public_token());
-    const DEFAULT_CITY = { lat: -4.2767, lng: 15.2832, label: 'Brazzaville, Republique du Congo' };
-    const RIDE_OPTIONS = @json($rideOptions);
-    const PRICING = @json($pricingData);
-    const TRANSPORT_AUTHENTICATED = @json(auth()->check());
-    const LOGIN_URL = @json(route('user.login', ['redirect' => url()->current()]));
+    let map;
+    let pickupMarker     = null;
+    let dropoffMarker    = null;
+    let routeLayer       = null;
+    let activePinTarget  = 'pickup';
+    let currentEstimate  = { distance: 0, duration: 0, basePrice: 0, finalPrice: 0 };
+    let pickupSearchTimeout  = null;
+    let dropoffSearchTimeout = null;
+    let selectedAddressDetails = { pickup: null, dropoff: null };
+    let pinConfirmationState = { pickup: false, dropoff: false };
 
     document.addEventListener('DOMContentLoaded', () => {
-        const dot = document.getElementById('taxiCursorDot');
-        const ring = document.getElementById('taxiCursorRing');
-        let mx = 0, my = 0, rx = 0, ry = 0;
-
-        if (dot && ring && window.matchMedia('(min-width: 901px)').matches) {
-            document.addEventListener('mousemove', (e) => {
-                mx = e.clientX; my = e.clientY;
-                dot.style.transform = `translate(${mx}px,${my}px) translate(-50%,-50%)`;
-            });
-            (function animCursor() {
-                rx += (mx - rx) * 0.16;
-                ry += (my - ry) * 0.16;
-                ring.style.transform = `translate(${rx}px,${ry}px) translate(-50%,-50%)`;
-                requestAnimationFrame(animCursor);
-            }());
-        }
-
-        const nav = document.getElementById('taxiNav');
-        window.addEventListener('scroll', () => {
-            if (!nav) return;
-            nav.classList.toggle('is-compact', scrollY > 60);
-        });
-
-        bindHeroFormula();
-        initTaxiMap();
+        initMap();
+        bindSearchInput('pickup');
+        bindSearchInput('dropoff');
+        bindRideOptions();
+        bindModeChips();
+        bindMapControls();
+        bindLocateMe();
+        bindEstimateButton();
+        bindConfirmButton();
     });
 
-    function bindHeroFormula() {
-        document.querySelectorAll('[data-hero-formula]').forEach((button) => {
-            button.addEventListener('click', () => {
-                const key = button.dataset.heroFormula;
-                document.querySelectorAll('[data-hero-formula]').forEach((item) => item.classList.remove('is-active'));
-                button.classList.add('is-active');
-                const mapped = key === 'comfort' ? 'comfort' : key;
-                const matchingRideButton = document.querySelector(`[data-ride-option][data-option-key="${mapped}"]`);
-                if (matchingRideButton) matchingRideButton.click();
-            });
-        });
-    }
+    function initMap() {
+        const canvas = document.getElementById('taxiMap');
+        if (!canvas) return;
 
-    function initTaxiMap() {
-        const mapBox = document.getElementById('taxiMap');
-        if (!mapBox) return;
+        map = L.map('taxiMap', { zoomControl: true }).setView([TAXI_CONFIG.defaultCity.lat, TAXI_CONFIG.defaultCity.lng], 13);
 
-        bindRideOptions();
-        bindTimingControls();
-        bindPaymentCards();
-        bindSummaryPrefill();
-        bindHeroSearchButton();
-
-        if (!MAPBOX_TOKEN) {
-            mapBox.innerHTML = '<div style="padding:2rem;color:#64748b;">Mapbox non configure. Ajoutez MAPBOX_PUBLIC_TOKEN pour activer la carte taxi.</div>';
-            updateGeoState('error', 'Mapbox absent');
-            return;
-        }
-
-        map = L.map('taxiMap', { zoomControl: true }).setView([DEFAULT_CITY.lat, DEFAULT_CITY.lng], 13);
-
-        L.tileLayer('https://api.mapbox.com/styles/v1/mapbox/streets-v12/tiles/{z}/{x}/{y}?access_token=' + MAPBOX_TOKEN, {
-            tileSize: 512,
-            zoomOffset: -1,
-            attribution: '&copy; OpenStreetMap contributors &copy; Mapbox',
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; OpenStreetMap contributors',
             maxZoom: 19
         }).addTo(map);
 
-        wireAddressSearch('pickup');
-        wireAddressSearch('dropoff');
-        wirePinHelpers();
-        detectGeoPermission();
-        requestCurrentPosition();
-
-        const locateBtn = document.getElementById('locateMeBtn');
-        if (locateBtn) locateBtn.addEventListener('click', () => requestCurrentPosition(true));
-
         map.on('click', async (event) => {
-            const target = activePinTarget || 'pickup';
             const details = await reverseGeocode({ lat: event.latlng.lat, lng: event.latlng.lng });
-            applySelectedAddress(target, details);
+            applySelectedAddress(activePinTarget, details, { source: 'map' });
         });
+    }
 
-        document.addEventListener('click', (event) => {
-            if (!event.target.closest('.taxi-book-panel') && !event.target.closest('.taxi-howto__visual')) {
-                hideSuggestions('pickup');
-                hideSuggestions('dropoff');
-            }
+    function bindSearchInput(type) {
+        const input = document.getElementById(type === 'pickup' ? 'pickupInput' : 'dropoffInput');
+        if (!input) return;
+
+        input.addEventListener('input', () => {
+            const query = input.value.trim();
+            updateSummary(type, query || (type === 'pickup' ? 'Non defini' : 'A definir'));
+            clearTimeout(type === 'pickup' ? pickupSearchTimeout : dropoffSearchTimeout);
+
+            if (query.length < 3) { hideSuggestions(type); return; }
+
+            const timeoutId = setTimeout(async () => {
+                const suggestions = await geocodeAddressList(query);
+                renderSuggestions(type, suggestions);
+            }, 280);
+
+            if (type === 'pickup') pickupSearchTimeout = timeoutId;
+            else dropoffSearchTimeout = timeoutId;
         });
     }
 
@@ -1163,252 +1461,192 @@
         document.querySelectorAll('[data-ride-option]').forEach((button) => {
             button.addEventListener('click', () => {
                 document.querySelectorAll('[data-ride-option]').forEach((item) => item.classList.remove('is-active'));
-                document.querySelectorAll('[data-hero-formula]').forEach((item) => item.classList.toggle('is-active', item.dataset.heroFormula === button.dataset.optionKey));
                 button.classList.add('is-active');
                 document.getElementById('selectedRideOption').value = button.dataset.optionKey;
-                const heroFormula = document.getElementById('heroSelectedFormula');
-                if (heroFormula) heroFormula.textContent = button.dataset.optionName || 'Eco';
-                refreshEstimatePrice();
+                document.getElementById('heroSelectedFormula').textContent = button.dataset.optionName || 'Eco';
+                if (currentEstimate.basePrice > 0) refreshEstimatePrice();
             });
         });
     }
 
-    function bindTimingControls() {
-        const timingInputs = document.querySelectorAll('input[name="ride_timing"]');
-        const scheduledField = document.getElementById('scheduledAtInput');
-        timingInputs.forEach((input) => {
+    function bindModeChips() {
+        document.querySelectorAll('.kende-chip').forEach((chip) => {
+            const input = chip.querySelector('input');
+            if (!input) return;
             input.addEventListener('change', () => {
-                const isLater = document.querySelector('input[name="ride_timing"]:checked')?.value === 'later';
-                if (scheduledField) {
-                    scheduledField.disabled = !isLater;
-                    if (!isLater) scheduledField.value = '';
+                document.querySelectorAll(`input[name="${input.name}"]`).forEach((radio) => {
+                    const label = radio.closest('.kende-chip');
+                    if (label) label.classList.toggle('is-selected', radio.checked);
+                });
+
+                if (input.name === 'ride_timing') {
+                    const scheduledAtInput = document.getElementById('scheduledAtInput');
+                    const isLater = document.querySelector('input[name="ride_timing"]:checked')?.value === 'later';
+                    scheduledAtInput.disabled = !isLater;
+                    if (!isLater) scheduledAtInput.value = '';
                 }
-                document.querySelectorAll('.taxi-mode-row .taxi-mode-card').forEach((card) => {
-                    const radio = card.querySelector('input');
-                    card.classList.toggle('is-selected', radio?.checked);
-                });
             });
         });
     }
 
-    function bindPaymentCards() {
-        document.querySelectorAll('.taxi-pay-row .taxi-mode-card input[name="payment_method"]').forEach((input) => {
-            input.addEventListener('change', () => {
-                document.querySelectorAll('.taxi-pay-row .taxi-mode-card').forEach((card) => {
-                    const radio = card.querySelector('input');
-                    card.classList.toggle('is-selected', radio?.checked);
-                });
-            });
-        });
+    function bindMapControls() {
+        document.getElementById('setPickupPinBtn')?.addEventListener('click', () => setActivePinTarget('pickup'));
+        document.getElementById('setDropoffPinBtn')?.addEventListener('click', () => setActivePinTarget('dropoff'));
+        document.getElementById('centerRouteBtn')?.addEventListener('click', centerRoute);
+        document.getElementById('clearRouteBtn')?.addEventListener('click', clearRoute);
     }
 
-    function bindSummaryPrefill() {
-        const pickupInput = document.getElementById('pickupInput');
-        const dropoffInput = document.getElementById('dropoffInput');
-
-        if (pickupInput) {
-            pickupInput.addEventListener('input', () => {
-                document.getElementById('summaryPickup').textContent = pickupInput.value.trim() || 'Non defini pour l instant';
-                updateProgressiveFormState();
-            });
-        }
-
-        if (dropoffInput) {
-            dropoffInput.addEventListener('input', () => {
-                document.getElementById('summaryDropoff').textContent = dropoffInput.value.trim() || 'Ajoutez une destination';
-                updateProgressiveFormState();
-            });
-        }
-
-        updateProgressiveFormState();
+    function bindLocateMe() {
+        document.getElementById('locateMeBtn')?.addEventListener('click', () => requestCurrentPosition(true));
     }
 
-    function bindHeroSearchButton() {
-        const heroSearchBtn = document.getElementById('heroSearchBtn');
-        if (!heroSearchBtn) return;
-
-        heroSearchBtn.addEventListener('click', async () => {
-            const pickupInput = document.getElementById('pickupInput');
+    function bindEstimateButton() {
+        document.getElementById('heroSearchBtn')?.addEventListener('click', async () => {
+            const pickupInput  = document.getElementById('pickupInput');
             const dropoffInput = document.getElementById('dropoffInput');
-            const pickupValue = pickupInput?.value.trim() || '';
-            const dropoffValue = dropoffInput?.value.trim() || '';
+            const pickupValue  = pickupInput.value.trim();
+            const dropoffValue = dropoffInput.value.trim();
 
-            if (!pickupValue) {
-                pickupInput?.focus();
+            if (!pickupValue)  { pickupInput.focus();  updatePickupStatus('Ajoutez un depart avant de continuer.', true);       return; }
+            if (!dropoffValue) { dropoffInput.focus(); updateDropoffStatus('Ajoutez une destination avant de continuer.', true); return; }
+
+            await ensureCoordinatesForInput('pickup',  pickupValue);
+            await ensureCoordinatesForInput('dropoff', dropoffValue);
+
+            if (!hasCoordinates('pickup') || !hasCoordinates('dropoff')) {
+                updateDropoffStatus('Impossible de calculer le trajet. Precisez mieux les adresses.', true);
                 return;
             }
 
-            if (!dropoffValue) {
-                dropoffInput?.focus();
-                updateProgressiveFormState();
+            await calculateRoute();
+        });
+    }
+
+    function bindConfirmButton() {
+        document.getElementById('confirmBtn')?.addEventListener('click', async () => {
+            if (!TAXI_CONFIG.isAuthenticated) { window.location.href = TAXI_CONFIG.loginUrl; return; }
+
+            const pickupInput  = document.getElementById('pickupInput').value.trim();
+            const dropoffInput = document.getElementById('dropoffInput').value.trim();
+            const pickupLat    = document.getElementById('p_lat').value;
+            const pickupLng    = document.getElementById('p_lng').value;
+            const dropoffLat   = document.getElementById('d_lat').value;
+            const dropoffLng   = document.getElementById('d_lng').value;
+            const rideTiming   = document.querySelector('input[name="ride_timing"]:checked')?.value || 'now';
+            const scheduledAt  = document.getElementById('scheduledAtInput').value;
+
+            if (!pickupInput || !dropoffInput || !pickupLat || !pickupLng || !dropoffLat || !dropoffLng) {
+                alert('Definissez le depart et la destination avant de confirmer.');
                 return;
             }
 
-            if (!pickupMarker && pickupValue.length >= 3) {
-                const pickupResult = await geocodeAddress(pickupValue);
-                if (pickupResult) applySelectedAddress('pickup', pickupResult);
-            }
-
-            if (!dropoffMarker && dropoffValue.length >= 3) {
-                const dropoffResult = await geocodeAddress(dropoffValue);
-                if (dropoffResult) applySelectedAddress('dropoff', dropoffResult);
-            }
-
-            updateProgressiveFormState();
-
-            if (pickupMarker && dropoffMarker) {
-                await calculateRoute();
-            }
-        });
-    }
-
-    function detectGeoPermission() {
-        if (!navigator.permissions || !navigator.permissions.query) {
-            updateGeoState('idle', 'GPS navigateur');
-            return;
-        }
-
-        navigator.permissions.query({ name: 'geolocation' }).then((result) => {
-            if (result.state === 'granted') updateGeoState('success', 'GPS autorise');
-            else if (result.state === 'denied') updateGeoState('error', 'GPS bloque');
-            else updateGeoState('idle', 'GPS a autoriser');
-            result.onchange = () => detectGeoPermission();
-        }).catch(() => updateGeoState('idle', 'GPS navigateur'));
-    }
-
-    function updateGeoState(state, label) {
-        const chip = document.getElementById('geoState');
-        if (!chip) return;
-        chip.dataset.state = state;
-        chip.innerHTML = `<i class="fas fa-crosshairs"></i> ${label}`;
-    }
-
-    function wireAddressSearch(type) {
-        const input = document.getElementById(type === 'pickup' ? 'pickupInput' : 'dropoffInput');
-        if (!input) return;
-
-        input.addEventListener('focus', () => setActivePinTarget(type));
-
-        input.addEventListener('input', () => {
-            const query = input.value.trim();
-            if (type === 'pickup') {
-                lastPickupQuery = query;
-                if (pickupSearchTimeout) clearTimeout(pickupSearchTimeout);
-                if (query.length < 3) { hideSuggestions(type); return; }
-                pickupSearchTimeout = setTimeout(() => searchAddressSuggestions(type, query), 250);
-                return;
-            }
-
-            lastDropoffQuery = query;
-            if (dropoffSearchTimeout) clearTimeout(dropoffSearchTimeout);
-            if (query.length < 3) { hideSuggestions(type); return; }
-            dropoffSearchTimeout = setTimeout(() => searchAddressSuggestions(type, query), 250);
-        });
-
-        input.addEventListener('keydown', async (event) => {
-            if (event.key !== 'Enter') return;
-            event.preventDefault();
-            const query = input.value.trim();
-            if (query.length < 3) return;
-            const result = await geocodeAddress(query);
-            if (result) applySelectedAddress(type, result);
-        });
-
-        input.addEventListener('focus', () => {
-            const suggestions = document.getElementById(type + 'Suggestions');
-            if (suggestions && suggestions.children.length) suggestions.classList.add('is-visible');
-        });
-    }
-
-    function wirePinHelpers() {
-        const pickupBtn = document.getElementById('setPickupPinBtn');
-        const dropoffBtn = document.getElementById('setDropoffPinBtn');
-        const clearRouteBtn = document.getElementById('clearRouteBtn');
-        const centerRouteBtn = document.getElementById('centerRouteBtn');
-
-        if (pickupBtn) pickupBtn.addEventListener('click', () => setActivePinTarget('pickup'));
-        if (dropoffBtn) dropoffBtn.addEventListener('click', () => setActivePinTarget('dropoff'));
-
-        if (centerRouteBtn) {
-            centerRouteBtn.addEventListener('click', () => {
-                if (!map) return;
-                if (routeLayer) { map.fitBounds(routeLayer.getBounds(), { padding: [30, 30] }); return; }
-                if (pickupMarker) { map.setView(pickupMarker.getLatLng(), 15); return; }
-                map.setView([DEFAULT_CITY.lat, DEFAULT_CITY.lng], 13);
-            });
-        }
-
-        if (clearRouteBtn) {
-            clearRouteBtn.addEventListener('click', () => {
-                if (pickupMarker) map.removeLayer(pickupMarker);
-                if (dropoffMarker) map.removeLayer(dropoffMarker);
-                if (routeLayer) map.removeLayer(routeLayer);
-                pickupMarker = null; dropoffMarker = null; routeLayer = null;
-                ['pickupInput', 'dropoffInput', 'pickupNote', 'dropoffNote', 'p_lat', 'p_lng', 'd_lat', 'd_lng', 'estimatedDistance', 'estimatedDuration', 'estimatedPriceValue'].forEach((id) => {
-                    const field = document.getElementById(id);
-                    if (field) field.value = '';
-                });
-                updatePickupStatus('Depart a repositionner.');
-                updateDropoffStatus('Arrivee a repositionner.');
-                document.getElementById('estimateSection').classList.remove('is-visible');
-                document.getElementById('confirmBtn').disabled = true;
-                document.getElementById('summaryPickup').textContent = 'Non defini pour l instant';
-                document.getElementById('summaryDropoff').textContent = 'Ajoutez une destination';
-                document.getElementById('estDistance').textContent = '-- km';
-                document.getElementById('estDuration').textContent = '-- min';
-                document.getElementById('heroSelectedFormula').textContent = 'Eco';
-                document.getElementById('estPrice').textContent = '-- FCFA';
-                document.getElementById('estDistanceMap').textContent = '-- km';
-                document.getElementById('estDurationMap').textContent = '-- min';
-                document.getElementById('estPriceMap').textContent = '-- FCFA';
-                document.getElementById('heroConfirmPrice').textContent = '{{ number_format((float) ($pricingData['minimum_fare'] ?? 0), 0, ',', ' ') }} F';
-                map.setView([DEFAULT_CITY.lat, DEFAULT_CITY.lng], 13);
+            if (requiresPinConfirmation('pickup')) {
+                updatePickupStatus('Confirmez precisement le depart sur la carte avant de reserver.', true);
                 setActivePinTarget('pickup');
-                updateProgressiveFormState();
-            });
-        }
+                alert('Confirmez precisement le depart sur la carte.');
+                return;
+            }
+
+            if (requiresPinConfirmation('dropoff')) {
+                updateDropoffStatus('Confirmez precisement la destination sur la carte avant de reserver.', true);
+                setActivePinTarget('dropoff');
+                alert('Confirmez precisement la destination sur la carte.');
+                return;
+            }
+
+            if (rideTiming === 'later' && !scheduledAt) {
+                alert('Choisissez une date et une heure pour une course programmee.');
+                return;
+            }
+
+            const button = document.getElementById('confirmBtn');
+            button.disabled = true;
+            button.querySelector('span').textContent = 'Creation de la course...';
+
+            const payload = {
+                type:               'taxi',
+                pickup_address:     formatAddressWithNote('pickupInput',  'pickupNote'),
+                pickup_lat:         pickupLat,
+                pickup_lng:         pickupLng,
+                pickup_precision_level: selectedAddressDetails.pickup?.precision?.level || null,
+                pickup_pin_confirmed: !!pinConfirmationState.pickup,
+                pickup_accuracy_meters: selectedAddressDetails.pickup?.gpsAccuracyMeters || null,
+                dropoff_address:    formatAddressWithNote('dropoffInput', 'dropoffNote'),
+                dropoff_lat:        dropoffLat,
+                dropoff_lng:        dropoffLng,
+                dropoff_precision_level: selectedAddressDetails.dropoff?.precision?.level || null,
+                dropoff_pin_confirmed: !!pinConfirmationState.dropoff,
+                dropoff_accuracy_meters: selectedAddressDetails.dropoff?.gpsAccuracyMeters || null,
+                estimated_distance: document.getElementById('estimatedDistance').value  || null,
+                estimated_duration: document.getElementById('estimatedDuration').value  || null,
+                estimated_price:    document.getElementById('estimatedPriceValue').value || null,
+                total_price:        document.getElementById('estimatedPriceValue').value || null,
+                scheduled_at:       rideTiming === 'later' ? scheduledAt : null,
+                payment_method:     document.querySelector('input[name="payment_method"]:checked')?.value || 'cash',
+                notes: JSON.stringify({
+                    pickup_note:      document.getElementById('pickupNote').value.trim(),
+                    dropoff_note:     document.getElementById('dropoffNote').value.trim(),
+                    passenger_count:  document.getElementById('passengerCount').value,
+                    ride_option:      document.getElementById('selectedRideOption').value || 'eco',
+                    timing:           rideTiming
+                })
+            };
+
+            try {
+                const response = await fetch(TAXI_CONFIG.bookingUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': TAXI_CONFIG.csrf },
+                    body: JSON.stringify(payload)
+                });
+
+                const data = await readTaxiJson(response);
+
+                if (response.ok && data?.booking?.uuid) {
+                    window.location.href = `/transport/booking/${data.booking.uuid}`;
+                    return;
+                }
+
+                if (data?.address_confirmation?.pickup_requires_pin_confirmation) {
+                    updatePickupStatus('Confirmez precisement le depart sur la carte avant de reserver.', true);
+                    setActivePinTarget('pickup');
+                } else if (data?.address_confirmation?.dropoff_requires_pin_confirmation) {
+                    updateDropoffStatus('Confirmez precisement la destination sur la carte avant de reserver.', true);
+                    setActivePinTarget('dropoff');
+                }
+
+                alert(data?.message || 'Reservation impossible pour le moment.');
+            } catch (error) {
+                console.error(error);
+                alert('Erreur reseau pendant la reservation.');
+            }
+
+            button.disabled = false;
+            button.querySelector('span').textContent = 'Confirmer la course';
+        });
+    }
+
+    function formatAddressWithNote(addressId, noteId) {
+        const address = document.getElementById(addressId).value.trim();
+        const note    = document.getElementById(noteId).value.trim();
+        return note ? `${address} | Repere: ${note}` : address;
     }
 
     function setActivePinTarget(type) {
         activePinTarget = type;
-        const pickupBtn = document.getElementById('setPickupPinBtn');
-        const dropoffBtn = document.getElementById('setDropoffPinBtn');
-        if (pickupBtn) pickupBtn.classList.toggle('is-active', type === 'pickup');
-        if (dropoffBtn) dropoffBtn.classList.toggle('is-active', type === 'dropoff');
+        document.getElementById('setPickupPinBtn')?.classList.toggle('is-active', type === 'pickup');
+        document.getElementById('setDropoffPinBtn')?.classList.toggle('is-active', type === 'dropoff');
     }
 
-    function hasRouteInputs() {
-        const pickupValue = document.getElementById('pickupInput')?.value.trim() || '';
-        const dropoffValue = document.getElementById('dropoffInput')?.value.trim() || '';
-        return Boolean(pickupValue && dropoffValue);
+    function hasCoordinates(type) {
+        const lat = document.getElementById(type === 'pickup' ? 'p_lat' : 'd_lat').value;
+        const lng = document.getElementById(type === 'pickup' ? 'p_lng' : 'd_lng').value;
+        return Boolean(lat && lng);
     }
 
-    function updateProgressiveFormState() {
-        const pickupValue = document.getElementById('pickupInput')?.value.trim() || '';
-        const isDestinationVisible = Boolean(pickupValue);
-        const isVisible = hasRouteInputs();
-
-        document.querySelectorAll('[data-destination-stage]').forEach((node) => {
-            node.classList.toggle('is-visible', isDestinationVisible);
-        });
-
-        document.querySelectorAll('[data-map-placeholder]').forEach((node) => {
-            node.classList.toggle('is-hidden', isVisible);
-        });
-
-        document.querySelectorAll('[data-progressive-section]').forEach((node) => {
-            node.classList.toggle('is-visible', isVisible);
-        });
-        document.querySelectorAll('[data-progressive-grid]').forEach((node) => {
-            node.classList.toggle('is-visible', isVisible);
-        });
-    }
-
-    async function searchAddressSuggestions(type, query) {
-        const currentQuery = type === 'pickup' ? lastPickupQuery : lastDropoffQuery;
-        if (query !== currentQuery) return;
-        const suggestions = await geocodeAddressList(query);
-        renderSuggestions(type, suggestions);
+    async function ensureCoordinatesForInput(type, query) {
+        if (hasCoordinates(type)) return;
+        const match = await geocodeAddress(query);
+        if (match) applySelectedAddress(type, match);
     }
 
     async function geocodeAddress(query) {
@@ -1416,34 +1654,145 @@
         return items[0] || null;
     }
 
-    async function geocodeAddressList(query, limit = 5) {
+    async function readTaxiJson(response) {
         try {
-            const proximity = getPickupCoordinates();
-            let url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(query)}.json?access_token=${MAPBOX_TOKEN}&autocomplete=true&limit=${limit}&language=fr&country=cg&types=address,poi,neighborhood,locality,place`;
-            if (proximity) url += `&proximity=${proximity.lng},${proximity.lat}`;
-            const res = await fetch(url);
-            const data = await res.json();
-            if (!data.features) return [];
-            return data.features.map((feature) => {
-                const [lng, lat] = feature.center;
-                return buildAddressDetails(lat, lng, feature);
+            return await response.json();
+        } catch (error) {
+            return null;
+        }
+    }
+
+    async function geocodeAddressList(query, limit = 5) {
+        if (!query) return [];
+        try {
+            const response = await fetch(`${TAXI_CONFIG.geocodeUrl}?q=${encodeURIComponent(query)}&limit=${encodeURIComponent(limit)}`, {
+                headers: { 'Accept': 'application/json' }
             });
-        } catch (e) {
-            console.error('Geocoding Mapbox error:', e);
+            const data = await readTaxiJson(response);
+            if (!response.ok) return [];
+            const items = (data.data || []).map((item) => buildAddressDetails({
+                lat: parseFloat(item.lat),
+                lng: parseFloat(item.lng),
+                label: item.label,
+                shortText: item.address_line || item.label,
+                components: item.components || {},
+                precision: item.precision || {},
+                kind: item.kind || 'area',
+                searchScore: item.search_score || null,
+            }));
+
+            if (items.length > 0) {
+                return items;
+            }
+
+            const hints = (data.meta?.clarification_suggestions || []).map((item) => buildAddressDetails({
+                lat: parseFloat(item.lat),
+                lng: parseFloat(item.lng),
+                label: item.label,
+                shortText: item.address_line || item.label,
+                components: item.components || {},
+                precision: item.precision || {},
+                kind: item.kind || 'district',
+                searchScore: item.search_score || null,
+                isClarificationHint: true,
+            }));
+
+            return hints;
+        } catch (error) {
+            console.error(error);
             return [];
         }
     }
 
+    async function reverseGeocode(position) {
+        try {
+            const response = await fetch(`${TAXI_CONFIG.reverseUrl}?lat=${encodeURIComponent(position.lat)}&lng=${encodeURIComponent(position.lng)}`, {
+                headers: { 'Accept': 'application/json' }
+            });
+            const data = await readTaxiJson(response);
+            if (response.ok) {
+                if (data && data.data && data.data.label) {
+                    return buildAddressDetails({
+                        lat: position.lat,
+                        lng: position.lng,
+                        label: data.data.label,
+                        shortText: data.data.address_line || data.data.label,
+                        components: data.data.components || {},
+                        precision: data.data.precision || {},
+                        gpsAccuracyMeters: position.accuracy || null,
+                    });
+                }
+            }
+        } catch (error) {
+            console.error(error);
+        }
+        return buildAddressDetails({
+            lat: position.lat,
+            lng: position.lng,
+            label: `${position.lat.toFixed(6)}, ${position.lng.toFixed(6)}`,
+            shortText: 'Position',
+            precision: { source: 'gps', level: 'area', house_number_confirmed: false, road_confirmed: false, district_confirmed: false },
+            gpsAccuracyMeters: position.accuracy || null,
+        });
+    }
+
+    function buildAddressDetails({
+        lat,
+        lng,
+        label,
+        shortText,
+        components = {},
+        precision = {},
+        gpsAccuracyMeters = null,
+        kind = 'area',
+        searchScore = null,
+        isClarificationHint = false,
+    }) {
+        return {
+            lat,
+            lng,
+            label,
+            addressLine: shortText || label,
+            components,
+            precision,
+            gpsAccuracyMeters: typeof gpsAccuracyMeters === 'number' ? gpsAccuracyMeters : null,
+            kind,
+            searchScore,
+            isClarificationHint,
+        };
+    }
+
+    function formatAddressPrecision(details) {
+        const parts = [];
+        if (details.gpsAccuracyMeters && Number.isFinite(details.gpsAccuracyMeters)) {
+            parts.push(`GPS ±${Math.round(details.gpsAccuracyMeters)} m`);
+        }
+
+        const level = details.precision?.level || 'area';
+        if (level === 'door') {
+            parts.push('numero et rue identifies');
+        } else if (level === 'street') {
+            parts.push('rue detectee');
+            if (!details.precision?.house_number_confirmed) parts.push('numero non confirme');
+        } else if (level === 'district') {
+            parts.push('quartier detecte');
+        } else {
+            parts.push('position approximative');
+        }
+
+        return parts.join(' · ');
+    }
+
     function renderSuggestions(type, suggestions) {
-        const box = document.getElementById(type + 'Suggestions');
+        const box = document.getElementById(type === 'pickup' ? 'pickupSuggestions' : 'dropoffSuggestions');
         if (!box) return;
         box.innerHTML = '';
         if (!suggestions.length) { box.classList.remove('is-visible'); return; }
         suggestions.forEach((item) => {
             const button = document.createElement('button');
             button.type = 'button';
-            button.className = 'taxi-suggestion-item';
-            button.textContent = item.label;
+            button.className = 'kende-suggestion';
+            button.textContent = item.isClarificationHint ? `Suggestion locale · ${item.label}` : item.label;
             button.addEventListener('click', () => applySelectedAddress(type, item));
             box.appendChild(button);
         });
@@ -1451,155 +1800,171 @@
     }
 
     function hideSuggestions(type) {
-        const box = document.getElementById(type + 'Suggestions');
+        const box = document.getElementById(type === 'pickup' ? 'pickupSuggestions' : 'dropoffSuggestions');
         if (!box) return;
         box.classList.remove('is-visible');
     }
 
-    function applySelectedAddress(type, item) {
+    function applySelectedAddress(type, item, options = {}) {
+        const source = options.source || 'search';
         const input = document.getElementById(type === 'pickup' ? 'pickupInput' : 'dropoffInput');
-        if (input) input.value = item.label || item.addressLine || '';
-
-        const noteField = document.getElementById(type === 'pickup' ? 'pickupNote' : 'dropoffNote');
-        if (noteField && !noteField.value && (item.landmark || item.district)) {
-            noteField.value = [item.landmark, item.district].filter(Boolean).join(' | ');
-        }
-
-        setMarker(type, item);
-        hideSuggestions(type);
+        if (input) input.value = item.label || '';
+        selectedAddressDetails[type] = item;
+        pinConfirmationState[type] = source === 'map' || source === 'gps';
 
         if (type === 'pickup') {
-            updatePickupStatus(item.district ? `Depart confirme: ${item.district}` : 'Position de depart definie.');
-            document.getElementById('summaryPickup').textContent = input?.value || item.label || 'Depart defini';
-            map.setView([item.lat, item.lng], 15);
-            updateProgressiveFormState();
-            return;
+            setMarker('pickup', item);
+            updatePickupStatus(buildAddressStatusMessage(type, item));
+            updateSummary('pickup', item.label || 'Depart defini');
+            setActivePinTarget('dropoff');
+        } else {
+            setMarker('dropoff', item);
+            updateDropoffStatus(buildAddressStatusMessage(type, item));
+            updateSummary('dropoff', item.label || 'Arrivee definie');
         }
 
-        updateDropoffStatus(item.district ? `Arrivee confirmee: ${item.district}` : 'Destination positionnee.');
-        document.getElementById('summaryDropoff').textContent = input?.value || item.label || 'Destination definie';
-        updateProgressiveFormState();
+        hideSuggestions(type);
+        toggleMapEmpty();
+        refreshConfirmEligibility();
+
+        if (pickupMarker && dropoffMarker) calculateRoute();
+        else if (map) map.setView([item.lat, item.lng], 15);
+    }
+
+    function buildAddressStatusMessage(type, details) {
+        const base = formatAddressPrecision(details);
+        if (!requiresPinConfirmation(type)) return base;
+
+        return `${base} · confirmez le point exact sur la carte`;
+    }
+
+    function requiresPinConfirmation(type) {
+        const details = selectedAddressDetails[type];
+        if (!details) return false;
+
+        return ['district', 'area', 'blind'].includes(details.precision?.level || 'blind')
+            && !pinConfirmationState[type];
     }
 
     function updatePickupStatus(message, isError = false) {
-        const status = document.getElementById('pickupStatus');
-        if (!status) return;
-        status.textContent = message;
-        status.style.color = isError ? '#16a34a' : '#6f786d';
+        const node = document.getElementById('pickupStatus');
+        if (!node) return;
+        node.textContent = message;
+        node.style.color = isError ? 'var(--k-red)' : 'var(--k-t3)';
     }
 
     function updateDropoffStatus(message, isError = false) {
-        const status = document.getElementById('dropoffStatus');
-        if (!status) return;
-        status.textContent = message;
-        status.style.color = isError ? '#16a34a' : '#6f786d';
+        const node = document.getElementById('dropoffStatus');
+        if (!node) return;
+        node.textContent = message;
+        node.style.color = isError ? 'var(--k-red)' : 'var(--k-t3)';
+    }
+
+    function updateSummary(type, value) {
+        if (type === 'pickup') document.getElementById('summaryPickup').textContent  = value || 'Non defini';
+        else                   document.getElementById('summaryDropoff').textContent = value || 'A definir';
+    }
+
+    function updateGeoState(state, label) {
+        const node = document.getElementById('geoState');
+        if (!node) return;
+        node.dataset.state = state;
+        node.querySelector('span:last-child').textContent = label;
     }
 
     function requestCurrentPosition(showErrors = false) {
         if (!navigator.geolocation) {
-            updatePickupStatus('Geolocalisation non supportee sur cet appareil.', true);
             updateGeoState('error', 'GPS indisponible');
+            updatePickupStatus('Votre appareil ne prend pas en charge la geolocalisation.', true);
             return;
         }
-
-        updatePickupStatus('Detection de votre position en cours...');
-        updateGeoState('idle', 'Recherche GPS');
-
-        navigator.geolocation.getCurrentPosition(async (pos) => {
-            const myPos = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-            const details = await reverseGeocode(myPos);
-            setMarker('pickup', details);
-            map.setView([myPos.lat, myPos.lng], 15);
-            const input = document.getElementById('pickupInput');
-            if (input && details.label) input.value = details.label;
-            document.getElementById('summaryPickup').textContent = details.label || 'Position detectee';
-            updatePickupStatus(details.district ? `Position detectee: ${details.district}` : 'Position detectee automatiquement.');
-            updateGeoState('success', 'GPS actif');
-            updateProgressiveFormState();
+        updateGeoState('loading', 'Recherche GPS');
+        navigator.geolocation.getCurrentPosition(async (position) => {
+            const current = {
+                lat: position.coords.latitude,
+                lng: position.coords.longitude,
+                accuracy: typeof position.coords.accuracy === 'number' ? position.coords.accuracy : null,
+            };
+            const details = await reverseGeocode(current);
+            applySelectedAddress('pickup', details, { source: 'gps' });
+            if (map) map.setView([current.lat, current.lng], 15);
+            const geoLabel = current.accuracy ? `GPS ±${Math.round(current.accuracy)} m` : 'GPS actif';
+            updateGeoState('ready', geoLabel);
         }, () => {
-            updatePickupStatus("Position non recuperee. Autorisez la localisation ou saisissez l'adresse.", true);
             updateGeoState('error', 'GPS refuse');
-            if (showErrors) alert("Impossible d'obtenir la position. Autorisez la localisation dans le navigateur.");
-        }, {
-            enableHighAccuracy: true,
-            timeout: 12000,
-            maximumAge: 0
-        });
+            updatePickupStatus('Impossible de recuperer votre position.', true);
+            if (showErrors) alert('Autorisez la localisation dans votre navigateur ou saisissez le depart.');
+        }, { enableHighAccuracy: true, timeout: 12000, maximumAge: 0 });
     }
 
-    async function reverseGeocode(pos) {
-        try {
-            const url = `https://api.mapbox.com/geocoding/v5/mapbox.places/${pos.lng},${pos.lat}.json?access_token=${MAPBOX_TOKEN}&limit=1&language=fr&types=address,poi,neighborhood,locality,place`;
-            const res = await fetch(url);
-            const data = await res.json();
-            if (data.features && data.features[0]) return buildAddressDetails(pos.lat, pos.lng, data.features[0]);
-        } catch (e) {
-            console.error('Reverse geocode error:', e);
-        }
-
-        return {
-            lat: pos.lat,
-            lng: pos.lng,
-            label: `${pos.lat.toFixed(6)}, ${pos.lng.toFixed(6)}`,
-            district: 'Brazzaville',
-            addressLine: `${pos.lat.toFixed(6)}, ${pos.lng.toFixed(6)}`,
-            landmark: ''
-        };
-    }
-
-    function buildAddressDetails(lat, lng, feature) {
-        const district = extractContextText(feature, ['neighborhood', 'locality', 'place', 'district']) || 'Brazzaville';
-        const landmark = extractContextText(feature, ['poi', 'address']) || '';
-        return {
-            lat, lng,
-            label: feature.place_name || `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
-            district,
-            addressLine: feature.text || feature.place_name || `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
-            landmark
-        };
-    }
-
-    function extractContextText(feature, preferredTypes) {
-        if (!feature) return '';
-        const context = Array.isArray(feature.context) ? feature.context : [];
-        for (const type of preferredTypes) {
-            if ((feature.place_type || []).includes(type) && feature.text) return feature.text;
-            const hit = context.find((entry) => (entry.id || '').startsWith(type + '.'));
-            if (hit && hit.text) return hit.text;
-        }
-        return '';
-    }
-
-    function getPickupCoordinates() {
-        const lat = parseFloat(document.getElementById('p_lat').value || '0');
-        const lng = parseFloat(document.getElementById('p_lng').value || '0');
-        if (!lat || !lng) return null;
-        return { lat, lng };
-    }
-
-    function setMarker(type, pos) {
+    function setMarker(type, position) {
+        const marker = L.marker([position.lat, position.lng]);
         if (type === 'pickup') {
             if (pickupMarker) map.removeLayer(pickupMarker);
-            pickupMarker = L.marker([pos.lat, pos.lng]).addTo(map);
-            document.getElementById('p_lat').value = pos.lat;
-            document.getElementById('p_lng').value = pos.lng;
+            pickupMarker = marker.addTo(map);
+            document.getElementById('p_lat').value = position.lat;
+            document.getElementById('p_lng').value = position.lng;
         } else {
             if (dropoffMarker) map.removeLayer(dropoffMarker);
-            dropoffMarker = L.marker([pos.lat, pos.lng]).addTo(map);
-            document.getElementById('d_lat').value = pos.lat;
-            document.getElementById('d_lng').value = pos.lng;
+            dropoffMarker = marker.addTo(map);
+            document.getElementById('d_lat').value = position.lat;
+            document.getElementById('d_lng').value = position.lng;
         }
-
-        if (pickupMarker && dropoffMarker) calculateRoute();
     }
 
-    function haversineKm(lat1, lon1, lat2, lon2) {
-        const R = 6371;
+    function toggleMapEmpty() {
+        const empty = document.getElementById('txMapEmpty');
+        if (!empty) return;
+        empty.style.display = pickupMarker && dropoffMarker ? 'none' : 'flex';
+    }
+
+    function centerRoute() {
+        if (routeLayer) { map.fitBounds(routeLayer.getBounds(), { padding: [40, 40] }); return; }
+        if (pickupMarker && dropoffMarker) {
+            map.fitBounds(L.latLngBounds([pickupMarker.getLatLng(), dropoffMarker.getLatLng()]), { padding: [40, 40] });
+        }
+    }
+
+    function clearRoute() {
+        if (pickupMarker)  { map.removeLayer(pickupMarker);  pickupMarker  = null; }
+        if (dropoffMarker) { map.removeLayer(dropoffMarker); dropoffMarker = null; }
+        if (routeLayer)    { map.removeLayer(routeLayer);    routeLayer    = null; }
+
+        ['pickupInput','dropoffInput','pickupNote','dropoffNote','p_lat','p_lng','d_lat','d_lng',
+         'estimatedDistance','estimatedDuration','estimatedPriceValue'].forEach((id) => {
+            const f = document.getElementById(id);
+            if (f) f.value = '';
+        });
+
+        currentEstimate = { distance: 0, duration: 0, basePrice: 0, finalPrice: 0 };
+
+        document.getElementById('summaryPickup').textContent       = 'Non defini';
+        document.getElementById('summaryDropoff').textContent      = 'A definir';
+        document.getElementById('heroSelectedFormula').textContent = 'Eco';
+        document.getElementById('estDistance').textContent         = '-- km';
+        document.getElementById('estDuration').textContent         = '-- min';
+        document.getElementById('estDistanceMap').textContent      = '-- km';
+        document.getElementById('estDurationMap').textContent      = '-- min';
+        document.getElementById('estPrice').textContent            = '-- FCFA';
+        document.getElementById('estPriceMap').textContent         = '-- FCFA';
+        document.getElementById('selectedRideMeta').textContent    = 'Eco · estimation en cours';
+        document.getElementById('estimateSection').hidden          = true;
+        document.getElementById('confirmBtn').disabled             = true;
+        document.getElementById('heroConfirmPrice').textContent    = '--';
+        selectedAddressDetails = { pickup: null, dropoff: null };
+        pinConfirmationState = { pickup: false, dropoff: false };
+        updatePickupStatus('Saisissez votre point de depart ou utilisez votre position.');
+        updateDropoffStatus('Definissez clairement votre destination.');
+        toggleMapEmpty();
+        if (map) map.setView([TAXI_CONFIG.defaultCity.lat, TAXI_CONFIG.defaultCity.lng], 13);
+    }
+
+    function haversineKm(lat1, lng1, lat2, lng2) {
+        const R    = 6371;
         const dLat = (lat2 - lat1) * Math.PI / 180;
-        const dLon = (lon2 - lon1) * Math.PI / 180;
-        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
-        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-        return R * c;
+        const dLng = (lng2 - lng1) * Math.PI / 180;
+        const a    = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+        return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
     }
 
     async function calculateRoute() {
@@ -1609,189 +1974,117 @@
         const dLng = parseFloat(document.getElementById('d_lng').value || '0');
         if (!pLat || !pLng || !dLat || !dLng) return;
 
-        const distance = haversineKm(pLat, pLng, dLat, dLng);
-        const duration = Math.max(5, (distance / 30) * 60);
-
         try {
-            const routeUrl = `https://api.mapbox.com/directions/v5/mapbox/driving/${pLng},${pLat};${dLng},${dLat}?geometries=geojson&overview=full&language=fr&access_token=${MAPBOX_TOKEN}`;
-            const res = await fetch(routeUrl);
-            const data = await res.json();
-            if (data.routes && data.routes[0] && data.routes[0].geometry) {
-                if (routeLayer) map.removeLayer(routeLayer);
-                routeLayer = L.geoJSON(data.routes[0].geometry, { style: { color: '#16a34a', weight: 5, opacity: 0.88 } }).addTo(map);
-                map.fitBounds(routeLayer.getBounds(), { padding: [30, 30] });
+            const response = await fetch(TAXI_CONFIG.routeUrl, {
+                method: 'POST',
+                headers: { 'Accept': 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': TAXI_CONFIG.csrf },
+                body: JSON.stringify({ type: 'taxi', pickup_lat: pLat, pickup_lng: pLng, dropoff_lat: dLat, dropoff_lng: dLng })
+            });
+            const data  = await readTaxiJson(response);
 
-                const distKm = (data.routes[0].distance || 0) / 1000;
-                const durMin = (data.routes[0].duration || 0) / 60;
-                await updateEstimates(distKm || distance, durMin || duration);
-                return;
+            if (response.ok) {
+                const route = data.data;
+                if (route && route.geometry && route.distance_km) {
+                    if (routeLayer) map.removeLayer(routeLayer);
+                    routeLayer = L.geoJSON(route.geometry, {
+                        style: { color: '#FF6B00', weight: 6, opacity: .95 }
+                    }).addTo(map);
+                    map.fitBounds(routeLayer.getBounds(), { padding: [40, 40] });
+                    await updateEstimate(route.distance_km || 0, route.duration_minutes || 0, route.estimated_price || null);
+                    toggleMapEmpty();
+                    refreshConfirmEligibility();
+                    return;
+                }
             }
-        } catch (e) {
-            console.warn('Mapbox directions fallback:', e);
+        } catch (error) {
+            console.error(error);
         }
-
-        const line = { type: 'Feature', geometry: { type: 'LineString', coordinates: [[pLng, pLat], [dLng, dLat]] } };
-        if (routeLayer) map.removeLayer(routeLayer);
-        routeLayer = L.geoJSON(line, { style: { color: '#16a34a', weight: 4, dashArray: '8 6' } }).addTo(map);
-        map.fitBounds(routeLayer.getBounds(), { padding: [30, 30] });
-        await updateEstimates(distance, duration);
+        updateDropoffStatus('Impossible de calculer le trajet pour le moment.', true);
     }
 
-    async function updateEstimates(distance, duration) {
-        try {
-            const response = await fetch('{{ route('transport.xhr.estimate') }}', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                },
-                body: JSON.stringify({
-                    type: 'taxi',
-                    distance: distance,
-                    duration: duration
-                })
-            });
-            const data = await response.json();
-
-            currentEstimate.distance = Number(distance) || 0;
-            currentEstimate.duration = Number(duration) || 0;
-            currentEstimate.basePrice = Number(data.estimated_price || 0);
-            refreshEstimatePrice();
-            document.getElementById('confirmBtn').disabled = false;
-        } catch (error) {
-            console.error('Estimation error:', error);
+    async function updateEstimate(distance, duration, serverEstimatedPrice = null) {
+        if (serverEstimatedPrice !== null) {
+            currentEstimate.distance  = Number(distance)             || 0;
+            currentEstimate.duration  = Number(duration)             || 0;
+            currentEstimate.basePrice = Number(serverEstimatedPrice) || 0;
+        refreshEstimatePrice();
+        document.getElementById('estimateSection').hidden  = false;
+        refreshConfirmEligibility();
+        return;
         }
+
+        try {
+            const response = await fetch(TAXI_CONFIG.estimateUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': TAXI_CONFIG.csrf },
+                body: JSON.stringify({ type: 'taxi', distance, duration })
+            });
+            const data = await readTaxiJson(response);
+            if (!response.ok) {
+                throw new Error(data?.message || 'Estimation indisponible');
+            }
+            currentEstimate.distance  = Number(distance)  || 0;
+            currentEstimate.duration  = Number(duration)  || 0;
+            currentEstimate.basePrice = Number(data.estimated_price || calculateBaseEstimate(distance, duration));
+        } catch (error) {
+            console.error(error);
+            currentEstimate.distance  = Number(distance) || 0;
+            currentEstimate.duration  = Number(duration) || 0;
+            currentEstimate.basePrice = calculateBaseEstimate(distance, duration);
+            updateDropoffStatus('Estimation locale affichee. Vous pouvez continuer.', false);
+        }
+
+        refreshEstimatePrice();
+        document.getElementById('estimateSection').hidden  = false;
+        refreshConfirmEligibility();
+    }
+
+    function refreshConfirmEligibility() {
+        const button = document.getElementById('confirmBtn');
+        if (!button) return;
+
+        const hasEstimate = !document.getElementById('estimateSection').hidden;
+        const ready = hasEstimate && hasCoordinates('pickup') && hasCoordinates('dropoff');
+        button.disabled = !ready || requiresPinConfirmation('pickup') || requiresPinConfirmation('dropoff');
+    }
+
+    function calculateBaseEstimate(distance, duration) {
+        const p  = TAXI_CONFIG.pricing || {};
+        return Math.max(Math.round(
+            (Number(p.base_fare||0) + distance*Number(p.price_per_km||0) + duration*Number(p.price_per_minute||0))
+            * Number(p.surge_multiplier||1)
+        ), 0);
     }
 
     function refreshEstimatePrice() {
-        const selectedKey = document.getElementById('selectedRideOption').value || 'eco';
-        const selectedOption = RIDE_OPTIONS.find((item) => item.key === selectedKey) || RIDE_OPTIONS[0];
-        const multiplier = Number(selectedOption.multiplier || 1);
-        const finalPrice = Math.max(Math.round(currentEstimate.basePrice * multiplier), Math.round(PRICING.minimum_fare || 0));
+        const selectedKey    = document.getElementById('selectedRideOption').value || 'eco';
+        const selectedOption = TAXI_CONFIG.rideOptions.find((o) => o.key === selectedKey) || TAXI_CONFIG.rideOptions[0];
+        const multiplier     = Number(selectedOption.multiplier || 1);
+        const minimumFare    = Number(TAXI_CONFIG.pricing.minimum_fare || 0);
+        const finalPrice     = Math.max(Math.round(currentEstimate.basePrice * multiplier), Math.round(minimumFare));
+
         currentEstimate.finalPrice = finalPrice;
 
-        const estimateSection = document.getElementById('estimateSection');
-        estimateSection.classList.add('is-visible');
-        document.getElementById('estDistance').textContent = `${currentEstimate.distance.toFixed(1)} km`;
-        document.getElementById('estDuration').textContent = `${Math.ceil(currentEstimate.duration)} min`;
-        document.getElementById('estDistanceMap').textContent = `${currentEstimate.distance.toFixed(1)} km`;
-        document.getElementById('estDurationMap').textContent = `${Math.ceil(currentEstimate.duration)} min`;
-        document.getElementById('estBaseFare').textContent = `${Number(PRICING.minimum_fare || 0).toLocaleString('fr-FR')} FCFA`;
-        document.getElementById('estPrice').textContent = `${finalPrice.toLocaleString('fr-FR')} FCFA`;
-        document.getElementById('estPriceMap').textContent = `${finalPrice.toLocaleString('fr-FR')} FCFA`;
-        document.getElementById('heroConfirmPrice').textContent = `${finalPrice.toLocaleString('fr-FR')} F`;
-        document.getElementById('selectedRideMeta').textContent = `${selectedOption.name} x${multiplier.toFixed(2)} · Base ${Number(currentEstimate.basePrice || 0).toLocaleString('fr-FR')} FCFA`;
-        document.getElementById('estimatedDistance').value = currentEstimate.distance.toFixed(2);
-        document.getElementById('estimatedDuration').value = Math.ceil(currentEstimate.duration);
-        document.getElementById('estimatedPriceValue').value = finalPrice;
-        const formulaLabel = document.getElementById('heroSelectedFormula');
-        if (formulaLabel) formulaLabel.textContent = selectedOption.name;
-
-        RIDE_OPTIONS.forEach((option) => {
-            const node = document.getElementById(`ridePrice${option.key.charAt(0).toUpperCase() + option.key.slice(1)}`);
-            if (!node) return;
-            const optionPrice = Math.max(Math.round(currentEstimate.basePrice * Number(option.multiplier || 1)), Math.round(PRICING.minimum_fare || 0));
-            node.textContent = `${optionPrice.toLocaleString('fr-FR')} FCFA`;
-        });
+        document.getElementById('estDistance').textContent      = `${currentEstimate.distance.toFixed(1)} km`;
+        document.getElementById('estDuration').textContent      = `${Math.ceil(currentEstimate.duration)} min`;
+        document.getElementById('estDistanceMap').textContent   = `${currentEstimate.distance.toFixed(1)} km`;
+        document.getElementById('estDurationMap').textContent   = `${Math.ceil(currentEstimate.duration)} min`;
+        document.getElementById('estPrice').textContent         = formatFcfa(finalPrice);
+        document.getElementById('estPriceMap').textContent      = formatFcfa(currentEstimate.basePrice || minimumFare);
+        document.getElementById('heroConfirmPrice').textContent = formatFcfa(finalPrice);
+        document.getElementById('selectedRideMeta').textContent = `${selectedOption.name} · base ${formatFcfa(currentEstimate.basePrice || minimumFare)} · x${multiplier.toFixed(2)}`;
+        document.getElementById('estimatedDistance').value      = currentEstimate.distance.toFixed(2);
+        document.getElementById('estimatedDuration').value      = Math.ceil(currentEstimate.duration);
+        document.getElementById('estimatedPriceValue').value    = finalPrice;
     }
 
-    document.addEventListener('change', (event) => {
-        if (event.target.matches('input[name="payment_method"]')) {
-            document.querySelectorAll('.taxi-pay-row .taxi-mode-card').forEach((card) => card.classList.toggle('is-selected', card.querySelector('input')?.checked));
-        }
-        if (event.target.matches('input[name="ride_timing"]')) {
-            document.querySelectorAll('.taxi-mode-row .taxi-mode-card').forEach((card) => card.classList.toggle('is-selected', card.querySelector('input')?.checked));
-        }
-    });
+    function formatFcfa(value) {
+        return `${Math.round(Number(value||0)).toLocaleString('fr-FR')} FCFA`;
+    }
 
-    document.getElementById('confirmBtn').addEventListener('click', async function() {
-        const btn = this;
-
-        if (!TRANSPORT_AUTHENTICATED) {
-            window.location.href = LOGIN_URL;
-            return;
-        }
-
-        btn.disabled = true;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Creation de la course...';
-
-        const pickupInput = document.getElementById('pickupInput').value.trim();
-        const dropoffInput = document.getElementById('dropoffInput').value.trim();
-        const pickupLat = document.getElementById('p_lat').value;
-        const pickupLng = document.getElementById('p_lng').value;
-        const dropoffLat = document.getElementById('d_lat').value;
-        const dropoffLng = document.getElementById('d_lng').value;
-        const pickupNote = document.getElementById('pickupNote').value.trim();
-        const dropoffNote = document.getElementById('dropoffNote').value.trim();
-        const timing = document.querySelector('input[name="ride_timing"]:checked')?.value || 'now';
-        const scheduledAt = document.getElementById('scheduledAtInput').value;
-        const passengerCount = document.getElementById('passengerCount').value;
-        const rideOption = document.getElementById('selectedRideOption').value || 'eco';
-        const paymentMethod = document.querySelector('input[name="payment_method"]:checked')?.value || 'cash';
-
-        if (!pickupInput || !dropoffInput || !pickupLat || !pickupLng || !dropoffLat || !dropoffLng) {
-            btn.disabled = false;
-            btn.textContent = 'Confirmer la course';
-            alert('Definissez le depart et la destination avec la recherche, le GPS ou les reperes sur la carte.');
-            return;
-        }
-
-        if (timing === 'later' && !scheduledAt) {
-            btn.disabled = false;
-            btn.textContent = 'Confirmer la course';
-            alert('Choisissez une date et une heure si vous programmez la course.');
-            return;
-        }
-
-        const payload = {
-            type: 'taxi',
-            pickup_address: pickupNote ? `${pickupInput} | Repere: ${pickupNote}` : pickupInput,
-            pickup_lat: pickupLat,
-            pickup_lng: pickupLng,
-            dropoff_address: dropoffNote ? `${dropoffInput} | Repere: ${dropoffNote}` : dropoffInput,
-            dropoff_lat: dropoffLat,
-            dropoff_lng: dropoffLng,
-            estimated_distance: document.getElementById('estimatedDistance').value || null,
-            estimated_duration: document.getElementById('estimatedDuration').value || null,
-            estimated_price: document.getElementById('estimatedPriceValue').value || null,
-            total_price: document.getElementById('estimatedPriceValue').value || null,
-            scheduled_at: timing === 'later' ? scheduledAt : null,
-            notes: JSON.stringify({
-                pickup_note: pickupNote,
-                dropoff_note: dropoffNote,
-                ride_option: rideOption,
-                passenger_count: passengerCount,
-                timing: timing
-            }),
-            payment_method: paymentMethod
-        };
-
-        try {
-            const response = await fetch('{{ route('transport.xhr.bookings.store') }}', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
-                },
-                body: JSON.stringify(payload)
-            });
-
-            const data = await response.json();
-
-            if (response.ok && data.booking) {
-                window.location.href = `/transport/booking/${data.booking.uuid}`;
-                return;
-            }
-
-            const message = data.message || data.error?.message || 'Erreur lors de la reservation. Veuillez reessayer.';
-            alert(message);
-        } catch (error) {
-            console.error('Booking error:', error);
-            alert('Erreur reseau lors de la reservation. Veuillez reessayer.');
-        }
-
-        btn.disabled = false;
-        btn.innerHTML = 'Confirmer la course <span class="taxi-confirm__price" id="heroConfirmPrice">' + (currentEstimate.finalPrice ? currentEstimate.finalPrice.toLocaleString('fr-FR') + ' F' : '{{ number_format((float) ($pricingData['minimum_fare'] ?? 0), 0, ',', ' ') }} F') + '</span>';
+    document.addEventListener('click', (event) => {
+        if (!event.target.closest('#pickupSuggestions')  && !event.target.closest('#pickupInput'))  hideSuggestions('pickup');
+        if (!event.target.closest('#dropoffSuggestions') && !event.target.closest('#dropoffInput')) hideSuggestions('dropoff');
     });
 </script>
 @endsection

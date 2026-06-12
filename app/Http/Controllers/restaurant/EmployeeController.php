@@ -47,7 +47,7 @@ class EmployeeController extends Controller
             'email'=>'required|string|unique:employees',
             'phone'=>'required|string|unique:employees',
             'password'=>'required|string|min:6|max:191',
-            'image'=>'nullable|image|mimes:jpeg,png,jpg',
+            'image'=>'nullable|image|mimes:jpeg,png,jpg,webp|max:8192',
             'address'=>'required|string',
         ]);
         $request['password'] = bcrypt($request->password);
@@ -109,7 +109,7 @@ class EmployeeController extends Controller
     {
         $request->validate([
             'name' => 'required|string|max:191',
-            'image'=>'nullable|image|mimes:jpeg,png,jpg',
+            'image'=>'nullable|image|mimes:jpeg,png,jpg,webp|max:8192',
             'address'=>'required|string',
         ]);
         if ($request->phone)

@@ -1,254 +1,223 @@
-@extends('layouts.app')
-@section('title','Ajouter un produit')
-@section('food_nav', 'active')
-@section('style')
-    <link rel="stylesheet"
-          href="{{ asset(env('ASSET_URL') .'plugins/bootstrap-colorpicker/css/bootstrap-colorpicker.min.css')}}">
-    <link rel="stylesheet"
-          href="{{ asset(env('ASSET_URL') .'plugins/bootstrap4-duallistbox/bootstrap-duallistbox.min.css')}}">
-    <link rel="stylesheet" href="{{ asset(env('ASSET_URL') .'plugins/select2/css/select2.min.css')}}">
-    <link rel="stylesheet"
-          href="{{ asset(env('ASSET_URL') .'plugins/select2-bootstrap4-theme/select2-bootstrap4.min.css')}}">
+@extends('layouts.restaurant_app')
+@section('title', 'Ajouter un produit | ' . \App\Services\ConfigService::getCompanyName())
+@section('topbar_title', 'Ajouter un produit')
+@section('product_nav', 'active')
 
-    <style>
-        .note-table, .note-insert {
-            display: none;
-        }
-    </style>
-@endsection
 @section('content')
-    <div class="content-header">
-        <div class="container-fluid">
-            <div class="row mb-2">
-                <div class="col-sm-6">
-                    <h1 class="m-0 text-dark">Products</h1>
-                </div><!-- /.col -->
-                <div class="col-sm-6">
-                    <ol class="breadcrumb float-sm-right">
-                        <li class="breadcrumb-item"><a href="#">Accueil</a></li>
-                        <li class="breadcrumb-item "><a href="{{route('product.index')}}">Products</a></li>
-                        <li class="breadcrumb-item active">Ajouter</li>
-                    </ol>
-                </div><!-- /.col -->
-            </div><!-- /.row -->
-        </div><!-- /.container-fluid -->
-    </div>
-    <section class="content">
-        <div class="container-fluid">
-            <!-- Small boxes (Stat box) -->
-            <div class="row justify-content-center">
-                <div class="col-md-11">
-                    <div class="card shadow">
-                        <div class="card-header">
-                            <h3 class="card-title">Ajouter un produit</h3>
+<div style="max-width:800px;">
 
-                            <div class="card-tools">
-                                <button type="button" class="btn btn-tool" data-card-widget="collapse"><i
-                                        class="fas fa-minus"></i></button>
-                            </div>
-                        </div>
-                        <!-- /.card-header -->
-                        <form role="form" method="post" action="{{ route('product.store') }}"
-                              enctype="multipart/form-data">
-                            @csrf
-                            <div class="card-body">
-                                <div class="row">
-                                    <div class="col-md-6">
-                                        <div class="form-group">
-                                            <label for="name">Nom</label>
-                                            <input type="text"
-                                                   class="form-control {{ $errors->has('name') ? ' is-invalid' : '' }}"
-                                                   name="name" id="name" value="{{old('name')}}"
-                                                   placeholder="Name"/>
-                                            @if($errors->has('name'))
-                                                <span class="invalid-feedback" role="alert">
-                                            <strong>{{ $errors->first('name') }}</strong>
-                                        </span>
-                                            @endif
-                                        </div>
-                                        <div class="row">
-                                            <div class="form-group col-md-6">
-                                                <label for="price">Prix</label>
-                                                <input type="text" value="{{old('price')}}"
-                                                       class="form-control{{ $errors->has('price') ? ' is-invalid' : '' }} "
-                                                       name="price" id="price"
-                                                       placeholder="price"/>
-                                                @if($errors->has('price'))
-                                                    <span class="invalid-feedback" role="alert">
-                                            <strong>{{ $errors->first('price') }}</strong>
-                                        </span>
-                                                @endif
-                                            </div>
-                                            <div class="form-group col-md-6">
-                                                <label for="discount_price">Discount Price</label>
-                                                <input type="text" value="{{old('discount_price')}}"
-                                                       class="form-control {{ $errors->has('discount_price') ? ' is-invalid' : '' }} "
-                                                       name="discount_price"
-                                                       id="discount_price"/>
-                                                @if($errors->has('discount_price'))
-                                                    <span class="invalid-feedback" role="alert">
-                                            <strong>{{ $errors->first('discount_price') }}</strong>
-                                        </span>
-                                                @endif
-                                            </div>
-                                        </div>
-                                        <div class="form-group ">
-                                            <label for="select">Category</label>
-                                            <select id="select" name="category_id"
-                                                    class="form-control">
-                                                <option value="">Choisir...</option>
-                                                @foreach(\App\Category::where('restaurant_id',auth()->user()->restaurant->id)->get() as $category)
-                                                    <option
-                                                        value="{{$category->id}}"{{old('category_id') == $category->id ? 'selected' : ''}}>{{$category->name}}</option>
-                                                @endforeach
-                                            </select>
-                                        </div>
-{{--                                        <div class="form-group">--}}
-{{--                                            <label for="tax">Tax</label>--}}
-{{--                                            <input type="text" value="{{old('tax')}}"--}}
-{{--                                                   class="form-control {{ $errors->has('tax') ? ' is-invalid' : '' }}"--}}
-{{--                                                   name="tax" id="tax"/>--}}
-{{--                                            @if($errors->has('tax'))--}}
-{{--                                                <span class="invalid-feedback" role="alert">--}}
-{{--                                            <strong>{{ $errors->first('tax') }}</strong>--}}
-{{--                                        </span>--}}
-{{--                                            @endif--}}
-{{--                                        </div>--}}
-                                        <!-- /.form-group -->
-                                    </div>
-                                    <!-- /.col -->
-                                    <div class="col-md-6" data-select2-id="40">
-                                        <div class="form-group ">
-                                            <div class="qr-el qr-el-3"
-                                                 style="min-height: auto;  box-shadow: 2px 0px 30px 5px rgba(0, 0, 0, 0.03); padding:25px; margin:0px 20px;">
-                                                <label for="file-input" class="hoviringdell uploadBox"
-                                                       id="uploadTrigger"
-                                                       style="height: 60px; text-align:center; width:100%; border:dotted 2px #cccccc;">
-                                                    <img src="" style="width: 90px;" id="logo" alt="image">
-                                                    <div class="uploadText" style="font-size: 12px;">
-                                                        <span style="color:#F69518;">Upload Image</span><br>
-                                                        Size 90x90
-                                                    </div>
-                                                </label>
-                                                <input type="file" id="file-input"
-                                                       class="form-control {{ $errors->has('image') ? ' is-invalid' : ''}}"
-                                                       name="image" onchange="logo1(this);">
-                                                @if($errors->has('image'))
-                                                    <span class="invalid-feedback" role="alert">
-                                            <strong>{{ $errors->first('image') }}</strong>
-                                        </span>
-                                                @endif
+    @if(session()->has('alert'))
+        <div class="alert alert-{{ session()->get('alert.type') }} alert-dismissible" role="alert">
+            {{ session()->get('alert.message') }}
+            <button type="button" class="close" data-dismiss="alert"><span>&times;</span></button>
+        </div>
+    @endif
 
-                                                <div class="mt-3">
-                                                    <label for="image_url" class="mb-1" style="font-weight:600;">Ou Image via URL (optionnel)</label>
-                                                    <input type="url"
-                                                           class="form-control {{ $errors->has('image_url') ? ' is-invalid' : ''}}"
-                                                           name="image_url" id="image_url"
-                                                           value="{{ old('image_url') }}"
-                                                           placeholder="https://... (Unsplash, Pinterest, etc.)"
-                                                           oninput="previewImageUrl(this.value);">
-                                                    @if($errors->has('image_url'))
-                                                        <span class="invalid-feedback" role="alert">
-                                                            <strong>{{ $errors->first('image_url') }}</strong>
-                                                        </span>
-                                                    @endif
-                                                    <small class="text-muted">Vous pouvez soit uploader un fichier, soit coller une URL.</small>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <div class="form-group">
-                                            <label for="size">Weight</label>
-                                            <input type="text" value="{{old('size')}}"
-                                                   class="form-control {{ $errors->has('size') ? ' is-invalid' : '' }} "
-                                                   name="size" id="size"/>
-                                            @if($errors->has('size'))
-                                                <span class="invalid-feedback" role="alert">
-                                            <strong>{{ $errors->first('size') }}</strong>
-                                        </span>
-                                            @endif
-                                        </div>
-                                        <!-- /.form-group -->
-                                    </div>
-                                    <!-- /.col -->
-                                </div>
-                                <!-- /.row -->
-                                <div class="row">
+    <div style="background:var(--bd-surface);border:1px solid var(--bd-border);border-radius:var(--bd-radius);overflow:hidden;">
+        <div style="padding:16px 20px;border-bottom:1px solid var(--bd-border-2);display:flex;align-items:center;justify-content:space-between;gap:12px;">
+            <div>
+                <div style="font-size:13px;font-weight:700;color:var(--bd-text);">Ajouter un produit</div>
+                <div style="font-size:11px;color:var(--bd-text-3);margin-top:2px;">Renseignez les informations du plat ou de l'article</div>
+            </div>
+            <a href="{{ route('product.index') }}"
+               style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:var(--bd-radius);border:1px solid var(--bd-border);background:var(--bd-surface);color:var(--bd-text-2);font-size:12px;font-weight:600;text-decoration:none;transition:.12s;"
+               onmouseover="this.style.borderColor='var(--bd-green)';this.style.color='var(--bd-green)';"
+               onmouseout="this.style.borderColor='var(--bd-border)';this.style.color='var(--bd-text-2)';">
+                <i class="fas fa-arrow-left"></i> Retour
+            </a>
+        </div>
 
-                                    <div class="form-group col-12">
-                                        <label for="description">Description</label>
-                                        <div class="card-body px-0">
-                                            <div class="mb-3">
-                            <textarea
-                                class="textarea form-control {{ $errors->has('description') ? ' is-invalid' : ''}}"
-                                placeholder="Place some text here"
-                                style="width: 100%; height: 200px; font-size: 14px; line-height: 18px; border: 1px solid #dddddd; padding: 10px;"
-                                id="description" name="description"></textarea>
-                                                @if($errors->has('description'))
-                                                    <span class="invalid-feedback" role="alert">
-                                      <strong>{{ $errors->first('description') }}</strong>
-                                  </span>
-                                                @endif
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <!-- /.row -->
-                            </div>
-                            <!-- /.card-body -->
-                            <div class="card-footer">
-                                <a style="float:right; margin:0 5px;" href="{{ route('product.index') }}"
-                                   class="btn btn-danger btn-sm">Annuler</a>
-                                <button type="submit" class="btn btn-outline-success btn-sm"
-                                        style="float:right; ">Add
-                                </button>
-                            </div>
-                            @csrf
-                        </form>
+        <form method="post" action="{{ route('product.store') }}" enctype="multipart/form-data">
+            @csrf
+            <div style="padding:24px 20px;display:flex;flex-direction:column;gap:20px;">
+
+                {{-- ── Ligne 1 : Nom + Catégorie --}}
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+                    <div>
+                        <label for="name" style="display:block;font-size:12px;font-weight:600;color:var(--bd-text);margin-bottom:6px;">
+                            Nom du produit <span style="color:#dc2626;">*</span>
+                        </label>
+                        <input required type="text" name="name" id="name"
+                               value="{{ old('name') }}" placeholder="Ex : Poulet braisé, Attiéké…"
+                               style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid {{ $errors->has('name') ? '#dc2626' : 'var(--bd-border)' }};border-radius:var(--bd-radius);font-size:13px;font-family:var(--bd-font);background:var(--bd-surface);color:var(--bd-text);outline:none;transition:border-color .12s;"
+                               onfocus="this.style.borderColor='var(--bd-green)';"
+                               onblur="this.style.borderColor='{{ $errors->has('name') ? '#dc2626' : 'var(--bd-border)' }}';" />
+                        @error('name')
+                            <div style="font-size:11px;color:#dc2626;margin-top:4px;">{{ $message }}</div>
+                        @enderror
+                    </div>
+                    <div>
+                        <label for="category_id" style="display:block;font-size:12px;font-weight:600;color:var(--bd-text);margin-bottom:6px;">
+                            Catégorie
+                        </label>
+                        <select name="category_id" id="category_id"
+                                style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid var(--bd-border);border-radius:var(--bd-radius);font-size:13px;font-family:var(--bd-font);background:var(--bd-surface);color:var(--bd-text);outline:none;appearance:auto;">
+                            <option value="">Sans catégorie</option>
+                            @foreach(\App\Category::where('restaurant_id', auth()->user()->restaurant->id)->orderBy('name')->get() as $cat)
+                                <option value="{{ $cat->id }}" {{ old('category_id') == $cat->id ? 'selected' : '' }}>{{ $cat->name }}</option>
+                            @endforeach
+                        </select>
                     </div>
                 </div>
+
+                {{-- ── Ligne 2 : Prix + Prix remisé + Poids --}}
+                <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;">
+                    <div>
+                        <label for="price" style="display:block;font-size:12px;font-weight:600;color:var(--bd-text);margin-bottom:6px;">
+                            Prix (FCFA) <span style="color:#dc2626;">*</span>
+                        </label>
+                        <input required type="number" name="price" id="price"
+                               value="{{ old('price') }}" min="0" placeholder="0"
+                               style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid {{ $errors->has('price') ? '#dc2626' : 'var(--bd-border)' }};border-radius:var(--bd-radius);font-size:13px;font-family:var(--bd-font);background:var(--bd-surface);color:var(--bd-text);outline:none;transition:border-color .12s;"
+                               onfocus="this.style.borderColor='var(--bd-green)';"
+                               onblur="this.style.borderColor='{{ $errors->has('price') ? '#dc2626' : 'var(--bd-border)' }}';" />
+                        @error('price')
+                            <div style="font-size:11px;color:#dc2626;margin-top:4px;">{{ $message }}</div>
+                        @enderror
+                    </div>
+                    <div>
+                        <label for="discount_price" style="display:block;font-size:12px;font-weight:600;color:var(--bd-text);margin-bottom:6px;">
+                            Prix remisé (FCFA)
+                        </label>
+                        <input type="number" name="discount_price" id="discount_price"
+                               value="{{ old('discount_price') }}" min="0" placeholder="Optionnel"
+                               style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid var(--bd-border);border-radius:var(--bd-radius);font-size:13px;font-family:var(--bd-font);background:var(--bd-surface);color:var(--bd-text);outline:none;transition:border-color .12s;"
+                               onfocus="this.style.borderColor='var(--bd-green)';"
+                               onblur="this.style.borderColor='var(--bd-border)';" />
+                    </div>
+                    <div>
+                        <label for="size" style="display:block;font-size:12px;font-weight:600;color:var(--bd-text);margin-bottom:6px;">
+                            Poids / Taille
+                        </label>
+                        <input type="text" name="size" id="size"
+                               value="{{ old('size') }}" placeholder="Ex : 300g, 1 portion…"
+                               style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid var(--bd-border);border-radius:var(--bd-radius);font-size:13px;font-family:var(--bd-font);background:var(--bd-surface);color:var(--bd-text);outline:none;transition:border-color .12s;"
+                               onfocus="this.style.borderColor='var(--bd-green)';"
+                               onblur="this.style.borderColor='var(--bd-border)';" />
+                    </div>
+                </div>
+
+                {{-- ── Description --}}
+                <div>
+                    <label for="description" style="display:block;font-size:12px;font-weight:600;color:var(--bd-text);margin-bottom:6px;">
+                        Description
+                    </label>
+                    <textarea name="description" id="description" rows="4"
+                              placeholder="Décrivez le produit : ingrédients, allergènes, particularités…"
+                              style="width:100%;box-sizing:border-box;padding:9px 12px;border:1px solid {{ $errors->has('description') ? '#dc2626' : 'var(--bd-border)' }};border-radius:var(--bd-radius);font-size:13px;font-family:var(--bd-font);background:var(--bd-surface);color:var(--bd-text);outline:none;resize:vertical;transition:border-color .12s;"
+                              onfocus="this.style.borderColor='var(--bd-green)';"
+                              onblur="this.style.borderColor='{{ $errors->has('description') ? '#dc2626' : 'var(--bd-border)' }}';">{{ old('description') }}</textarea>
+                    @error('description')
+                        <div style="font-size:11px;color:#dc2626;margin-top:4px;">{{ $message }}</div>
+                    @enderror
+                </div>
+
+                {{-- ── Image --}}
+                <div style="background:var(--bd-surface-2);border:1px solid var(--bd-border-2);border-radius:var(--bd-radius);padding:16px 18px;">
+                    <div style="font-size:12px;font-weight:700;color:var(--bd-text);margin-bottom:14px;">Image du produit</div>
+
+                    <div style="display:grid;grid-template-columns:auto 1fr;gap:16px;align-items:flex-start;">
+                        <div id="imgPreviewWrap"
+                             style="width:88px;height:88px;border-radius:var(--bd-radius);border:2px dashed var(--bd-border);background:var(--bd-surface);overflow:hidden;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+                            <img id="logo" src="" alt="Aperçu"
+                                 style="display:none;width:100%;height:100%;object-fit:cover;">
+                            <i class="fas fa-image" style="font-size:22px;color:var(--bd-border);"></i>
+                        </div>
+                        <div style="display:flex;flex-direction:column;gap:12px;">
+                            <div>
+                                <label for="file-input"
+                                       style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:var(--bd-radius);border:1px solid var(--bd-border);background:var(--bd-surface);color:var(--bd-text-2);font-size:12px;font-weight:600;cursor:pointer;transition:.12s;"
+                                       onmouseover="this.style.borderColor='var(--bd-green)';this.style.color='var(--bd-green)';"
+                                       onmouseout="this.style.borderColor='var(--bd-border)';this.style.color='var(--bd-text-2)';">
+                                    <i class="fas fa-upload"></i> Uploader un fichier
+                                </label>
+                                <input type="file" id="file-input" name="image" accept="image/*"
+                                       style="display:none;" onchange="logo1(this)">
+                                <div style="font-size:11px;color:var(--bd-text-3);margin-top:4px;">JPG, PNG, WebP — format conseillé : 90×90 px</div>
+                                @error('image')
+                                    <div style="font-size:11px;color:#dc2626;margin-top:4px;">{{ $message }}</div>
+                                @enderror
+                            </div>
+                            <div>
+                                <label for="image_url" style="display:block;font-size:12px;font-weight:600;color:var(--bd-text);margin-bottom:5px;">
+                                    Ou URL d'image
+                                </label>
+                                <input type="url" name="image_url" id="image_url"
+                                       value="{{ old('image_url') }}"
+                                       placeholder="https://… (Unsplash, Pinterest…)"
+                                       style="width:100%;box-sizing:border-box;padding:8px 11px;border:1px solid var(--bd-border);border-radius:var(--bd-radius);font-size:12px;font-family:var(--bd-font);background:var(--bd-surface);color:var(--bd-text);outline:none;"
+                                       oninput="previewImageUrl(this.value)">
+                                @error('image_url')
+                                    <div style="font-size:11px;color:#dc2626;margin-top:4px;">{{ $message }}</div>
+                                @enderror
+                            </div>
+                            @if(!empty($mediaLibraryOptions))
+                            <div>
+                                @include('partials.unified_media_select', [
+                                    'name' => 'image_media_path',
+                                    'label' => 'Ou médiathèque CMS',
+                                    'selected' => old('image_media_path'),
+                                    'options' => $mediaLibraryOptions ?? [],
+                                    'previewTarget' => 'logo',
+                                ])
+                                @error('image_media_path')
+                                    <div style="font-size:11px;color:#dc2626;margin-top:4px;">{{ $message }}</div>
+                                @enderror
+                            </div>
+                            @endif
+                        </div>
+                    </div>
+                </div>
+
             </div>
-        </div>
-    </section>
-@endsection
-@section('script')
-    <script src="{{ asset(env('ASSET_URL') .'plugins/select2/js/select2.full.min.js')}}"></script>
-    <script src="{{ asset(env('ASSET_URL') .'plugins/inputmask/min/jquery.inputmask.bundle.min.js')}}"></script>
-    <script
-        src="{{ asset(env('ASSET_URL') .'plugins/bootstrap-colorpicker/js/bootstrap-colorpicker.min.js')}}"></script>
-    <script
-        src="{{ asset(env('ASSET_URL') .'plugins/bootstrap4-duallistbox/jquery.bootstrap-duallistbox.min.js')}}"></script>
-    <script src="{{ asset(env('ASSET_URL') .'plugins/bootstrap-switch/js/bootstrap-switch.min.js')}}"></script>
 
-    <script>
-        function cover1(input) {
-            if (input.files && input.files[0]) {
-                var reader = new FileReader();
+            <div style="padding:14px 20px;border-top:1px solid var(--bd-border-2);background:var(--bd-surface-2);display:flex;align-items:center;justify-content:flex-end;gap:8px;">
+                <a href="{{ route('product.index') }}"
+                   style="display:inline-flex;align-items:center;gap:5px;padding:8px 16px;border-radius:var(--bd-radius);border:1px solid var(--bd-border);background:var(--bd-surface);color:var(--bd-text-2);font-size:12px;font-weight:600;text-decoration:none;transition:.12s;"
+                   onmouseover="this.style.borderColor='var(--bd-green)';this.style.color='var(--bd-green)';"
+                   onmouseout="this.style.borderColor='var(--bd-border)';this.style.color='var(--bd-text-2)';">
+                    Annuler
+                </a>
+                <button type="submit"
+                        style="display:inline-flex;align-items:center;gap:6px;padding:8px 18px;border-radius:var(--bd-radius);background:var(--bd-green);color:#fff;font-size:12px;font-weight:700;border:none;cursor:pointer;font-family:var(--bd-font);transition:.12s;"
+                        onmouseover="this.style.background='var(--bd-green-dark,#007836)';"
+                        onmouseout="this.style.background='var(--bd-green)';">
+                    <i class="fas fa-plus"></i> Ajouter le produit
+                </button>
+            </div>
+        </form>
+    </div>
 
-                reader.onload = function (e) {
-                    $('#cover')
-                        .attr('src', e.target.result);
-                };
+</div>
 
-                reader.readAsDataURL(input.files[0]);
-            }
-        }
-
-        function logo1(input) {
-            if (input.files && input.files[0]) {
-                var reader = new FileReader();
-
-                reader.onload = function (e) {
-                    $('#logo')
-                        .attr('src', e.target.result);
-                };
-
-                reader.readAsDataURL(input.files[0]);
-            }
-        }
-
-        function previewImageUrl(url) {
-            if (!url) return;
-            $('#logo').attr('src', url);
-        }
-    </script>
+<script>
+function logo1(input) {
+    if (!input.files || !input.files[0]) return;
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const img = document.getElementById('logo');
+        const wrap = document.getElementById('imgPreviewWrap');
+        img.src = e.target.result;
+        img.style.display = 'block';
+        wrap.querySelector('i') && (wrap.querySelector('i').style.display = 'none');
+    };
+    reader.readAsDataURL(input.files[0]);
+}
+function previewImageUrl(url) {
+    if (!url) return;
+    const img = document.getElementById('logo');
+    const wrap = document.getElementById('imgPreviewWrap');
+    img.src = url;
+    img.style.display = 'block';
+    const icon = wrap.querySelector('i');
+    if (icon) icon.style.display = 'none';
+}
+document.querySelectorAll('.js-unified-media-select').forEach(function(select) {
+    select.addEventListener('change', function() {
+        const option = this.options[this.selectedIndex];
+        const previewUrl = option ? option.dataset.preview : '';
+        if (previewUrl) previewImageUrl(previewUrl);
+    });
+});
+</script>
 @endsection

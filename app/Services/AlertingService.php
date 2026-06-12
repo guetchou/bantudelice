@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use App\Services\ConfigService;
@@ -77,7 +78,7 @@ class AlertingService
      */
     protected function sendEmailAlert(string $type, string $message, array $context): void
     {
-        $adminEmail = ConfigService::getContactEmail();
+        $adminEmail = $this->resolveAlertRecipient();
         
         if (!$adminEmail) {
             Log::warning('Email admin non configuré, alerte non envoyée');
@@ -85,7 +86,7 @@ class AlertingService
         }
 
         try {
-            $subject = "[BantuDelice Alert] {$type}: " . substr($message, 0, 50);
+            $subject = "[Platform Alert] {$type}: " . substr($message, 0, 50);
             
             Mail::raw($this->formatAlertEmail($type, $message, $context), function ($mail) use ($adminEmail, $subject) {
                 $mail->to($adminEmail)
@@ -97,6 +98,34 @@ class AlertingService
                 'alert_message' => $message
             ]);
         }
+    }
+
+    protected function resolveAlertRecipient(): ?string
+    {
+        $candidates = array_filter([
+            config('app.alert_email'),
+            ConfigService::getAdminEmail(),
+            ConfigService::getContactEmail(),
+            Config::get('mail.from.address'),
+            config('mail.from.address'),
+            config('mail.username'),
+        ]);
+
+        foreach ($candidates as $candidate) {
+            $email = strtolower(trim((string) $candidate));
+
+            if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+                continue;
+            }
+
+            if (in_array($email, ['admin@bantudelice.cg', 'contact@bantudelice.cg', 'noreply@bantudelice.cg'], true)) {
+                continue;
+            }
+
+            return $email;
+        }
+
+        return null;
     }
 
     /**
@@ -112,7 +141,7 @@ class AlertingService
         $severity = $context['severity'] ?? 'medium';
         $timestamp = now()->format('Y-m-d H:i:s');
         
-        $email = "Alerte BantuDelice\n";
+        $email = "Alerte plateforme\n";
         $email .= "==================\n\n";
         $email .= "Type: {$type}\n";
         $email .= "Sévérité: {$severity}\n";
@@ -163,4 +192,3 @@ class AlertingService
         return $sentAlerts;
     }
 }
-

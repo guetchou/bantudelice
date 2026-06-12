@@ -1,176 +1,224 @@
 @extends('frontend.layouts.app-modern')
-@section('title', 'Devenir Livreur | BantuDelice')
-@section('description', 'Rejoignez l\'équipe BantuDelice en tant que livreur. Gagnez de l\'argent en livrant des commandes.')
+@php
+    $foodBrandName = \App\Services\ConfigService::getCompanyName();
+@endphp
+@section('title', 'Devenir Livreur | ' . $foodBrandName)
+@section('description', 'Rejoignez l\'équipe ' . $foodBrandName . ' en tant que livreur. Gagnez de l\'argent en livrant des commandes.')
+@section('body_class', 'bd-driver-page')
 
 @section('content')
-<!-- Hero Section -->
-<section style="background: linear-gradient(135deg, var(--secondary) 0%, var(--accent) 100%); padding: 150px 0 80px; text-align: center;">
+<section class="driver-hero">
     <div class="container">
-        <span class="section-badge" style="background: rgba(255,255,255,0.1); color: white;">
+        <span class="section-badge driver-hero-badge">
             <i class="fas fa-motorcycle"></i> Livreur
         </span>
-        <h1 style="color: white; font-size: clamp(2rem, 5vw, 3rem); margin-top: 1rem;">
-            Devenez Livreur BantuDelice
-        </h1>
-        <p style="color: rgba(255,255,255,0.8); max-width: 600px; margin: 1rem auto 0; font-size: 1.125rem;">
+        <h1 class="driver-hero-title">Devenez Livreur {{ $foodBrandName }}</h1>
+        <p class="driver-hero-copy">
             Rejoignez notre équipe de livreurs et gagnez de l'argent en toute flexibilité.
         </p>
     </div>
 </section>
 
-<!-- Registration Form -->
 <section class="section">
     <div class="container">
-        <div style="max-width: 700px; margin: 0 auto;">
-            <!-- Alert Messages -->
+        <div class="driver-shell">
             @if(session()->has('alert'))
-                <div style="background: {{ session()->get('alert.type') == 'success' ? 'var(--success)' : 'var(--error)' }}; color: white; padding: 1rem; border-radius: var(--radius-lg); margin-bottom: 1.5rem; text-align: center;">
+                <div class="driver-alert {{ session()->get('alert.type') == 'success' ? 'is-success' : 'is-error' }}">
                     <strong>{{ session()->get('alert.message') }}</strong>
                 </div>
             @endif
-            
-            <!-- Form Card -->
-            <div style="background: white; padding: 2rem; border-radius: var(--radius-2xl); box-shadow: var(--shadow-lg);">
-                <h2 style="font-size: 1.5rem; margin-bottom: 0.5rem; text-align: center;">Inscription Livreur</h2>
-                <p style="color: var(--gray-500); text-align: center; margin-bottom: 2rem;">Remplissez le formulaire pour rejoindre notre équipe</p>
-                
-                <form action="{{ route('driver.register') }}" method="post" enctype="multipart/form-data">
+
+            <div class="driver-card">
+                <div class="driver-head">
+                    <h2 class="driver-head-title">Inscription Livreur</h2>
+                    <p class="driver-head-copy">Remplissez le formulaire pour rejoindre notre équipe</p>
+                </div>
+
+                <form action="{{ route('driver.register') }}" method="post" enctype="multipart/form-data" class="driver-form">
                     @csrf
-                    
-                    <!-- Personal Info -->
-                    <h4 style="font-size: 1rem; color: var(--primary); margin-bottom: 1rem; padding-bottom: 0.5rem; border-bottom: 2px solid var(--gray-100);">
-                        <i class="fas fa-user"></i> Informations personnelles
-                    </h4>
-                    
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
-                        <div>
-                            <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: var(--gray-700);">Nom complet *</label>
-                            <input type="text" name="name" value="{{ old('name') }}" placeholder="Votre nom complet"
-                                   style="width: 100%; padding: 0.875rem 1rem; border: 2px solid var(--gray-200); border-radius: var(--radius-lg); font-size: 1rem;" required>
-                        </div>
-                        <div>
-                            <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: var(--gray-700);">Téléphone *</label>
-                            <input type="tel" name="phone" value="{{ old('phone') }}" placeholder="+242 06 XXX XX XX"
-                                   style="width: 100%; padding: 0.875rem 1rem; border: 2px solid var(--gray-200); border-radius: var(--radius-lg); font-size: 1rem;" required>
-                        </div>
-                    </div>
-                    
-                    <div style="margin-bottom: 1.5rem;">
-                        <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: var(--gray-700);">Email *</label>
-                        <input type="email" name="email" value="{{ old('email') }}" placeholder="votre@email.com"
-                               style="width: 100%; padding: 0.875rem 1rem; border: 2px solid var(--gray-200); border-radius: var(--radius-lg); font-size: 1rem;" required>
-                    </div>
-                    
-                    <div style="margin-bottom: 1.5rem;">
-                        <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: var(--gray-700);">Adresse *</label>
-                        <input type="text" name="address" value="{{ old('address') }}" placeholder="Votre adresse complète"
-                               style="width: 100%; padding: 0.875rem 1rem; border: 2px solid var(--gray-200); border-radius: var(--radius-lg); font-size: 1rem;" required>
-                    </div>
-                    
-                    <!-- Photos -->
-                    <h4 style="font-size: 1rem; color: var(--primary); margin: 2rem 0 1rem; padding-bottom: 0.5rem; border-bottom: 2px solid var(--gray-100);">
-                        <i class="fas fa-camera"></i> Photos
-                    </h4>
-                    
-                    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-bottom: 1.5rem;">
-                        <!-- Profile Image -->
-                        <div>
-                            <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: var(--gray-700);">Photo de profil</label>
-                            <div style="border: 2px dashed var(--gray-300); border-radius: var(--radius-lg); padding: 1.5rem; text-align: center; cursor: pointer;"
-                                 onclick="document.getElementById('upload_file').click()">
-                                <img src="{{ url('images/placeholder.png') }}" id="proflie_image" alt="Photo" 
-                                     style="width: 80px; height: 80px; border-radius: 50%; object-fit: cover; margin: 0 auto 0.5rem;">
-                                <p style="color: var(--gray-500); font-size: 0.8rem; margin: 0;">Photo de profil<br>90x90 pixels</p>
+
+                    <section class="driver-form-section">
+                        <h4 class="driver-section-title">
+                            <i class="fas fa-user"></i> Informations personnelles
+                        </h4>
+
+                        <div class="driver-grid driver-grid--two">
+                            <div class="driver-field">
+                                <label class="driver-label" for="driverName">Nom complet *</label>
+                                <input
+                                    id="driverName"
+                                    class="driver-input"
+                                    type="text"
+                                    name="name"
+                                    value="{{ old('name') }}"
+                                    placeholder="Votre nom complet"
+                                    required
+                                >
                             </div>
-                            <input type="file" id="upload_file" name="image" accept="image/*" style="display: none;" onchange="profile(this);">
-                        </div>
-                        
-                        <!-- License Image -->
-                        <div>
-                            <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: var(--gray-700);">Permis de conduire</label>
-                            <div style="border: 2px dashed var(--gray-300); border-radius: var(--radius-lg); padding: 1.5rem; text-align: center; cursor: pointer;"
-                                 onclick="document.getElementById('file-input').click()">
-                                <img src="{{ url('images/placeholder.png') }}" id="licence_image" alt="Permis" 
-                                     style="width: 80px; height: 80px; border-radius: var(--radius-lg); object-fit: cover; margin: 0 auto 0.5rem;">
-                                <p style="color: var(--gray-500); font-size: 0.8rem; margin: 0;">Photo du permis<br>90x90 pixels</p>
+                            <div class="driver-field">
+                                <label class="driver-label" for="driverPhone">Téléphone *</label>
+                                <input
+                                    id="driverPhone"
+                                    class="driver-input"
+                                    type="tel"
+                                    name="phone"
+                                    value="{{ old('phone') }}"
+                                    placeholder="+242 06 XXX XX XX"
+                                    required
+                                >
                             </div>
-                            <input type="file" id="file-input" name="licence_image" accept="image/*" style="display: none;" onchange="licenceimage(this);">
                         </div>
-                    </div>
-                    
-                    <!-- Bank Info -->
-                    <h4 style="font-size: 1rem; color: var(--primary); margin: 2rem 0 1rem; padding-bottom: 0.5rem; border-bottom: 2px solid var(--gray-100);">
-                        <i class="fas fa-university"></i> Informations bancaires
-                    </h4>
-                    
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
-                        <div>
-                            <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: var(--gray-700);">Nom du titulaire *</label>
-                            <input type="text" name="account_name" value="{{ old('account_name') }}" placeholder="Nom sur le compte"
-                                   style="width: 100%; padding: 0.875rem 1rem; border: 2px solid var(--gray-200); border-radius: var(--radius-lg); font-size: 1rem;" required>
+
+                        <div class="driver-field">
+                            <label class="driver-label" for="driverEmail">Email *</label>
+                            <input
+                                id="driverEmail"
+                                class="driver-input"
+                                type="email"
+                                name="email"
+                                value="{{ old('email') }}"
+                                placeholder="votre@email.com"
+                                required
+                            >
                         </div>
-                        <div>
-                            <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: var(--gray-700);">Numéro de compte *</label>
-                            <input type="text" name="account_number" value="{{ old('account_number') }}" placeholder="Numéro de compte"
-                                   style="width: 100%; padding: 0.875rem 1rem; border: 2px solid var(--gray-200); border-radius: var(--radius-lg); font-size: 1rem;" required>
+
+                        <div class="driver-field">
+                            <label class="driver-label" for="driverAddress">Adresse *</label>
+                            <input
+                                id="driverAddress"
+                                class="driver-input"
+                                type="text"
+                                name="address"
+                                value="{{ old('address') }}"
+                                placeholder="Votre adresse complète"
+                                required
+                            >
                         </div>
-                    </div>
-                    
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
-                        <div>
-                            <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: var(--gray-700);">Nom de la banque *</label>
-                            <input type="text" name="bank_name" value="{{ old('bank_name') }}" placeholder="Ex: BGFI, UBA, etc."
-                                   style="width: 100%; padding: 0.875rem 1rem; border: 2px solid var(--gray-200); border-radius: var(--radius-lg); font-size: 1rem;" required>
+                    </section>
+
+                    <section class="driver-form-section">
+                        <h4 class="driver-section-title">
+                            <i class="fas fa-camera"></i> Photos
+                        </h4>
+
+                        <div class="driver-grid driver-grid--two driver-grid--uploads">
+                            <div class="driver-upload-field">
+                                <label class="driver-label" for="upload_file">Photo de profil</label>
+                                <button type="button" class="driver-upload-card" onclick="document.getElementById('upload_file').click()">
+                                    <img src="{{ url('images/placeholder.png') }}" id="proflie_image" alt="Photo de profil" class="driver-upload-image driver-upload-image--round">
+                                    <span class="driver-upload-copy">Photo de profil<br>90x90 pixels</span>
+                                </button>
+                                <input class="driver-file-input" type="file" id="upload_file" name="image" accept="image/*" onchange="profile(this);">
+                            </div>
+
+                            <div class="driver-upload-field">
+                                <label class="driver-label" for="file-input">Permis de conduire</label>
+                                <button type="button" class="driver-upload-card" onclick="document.getElementById('file-input').click()">
+                                    <img src="{{ url('images/placeholder.png') }}" id="licence_image" alt="Permis de conduire" class="driver-upload-image">
+                                    <span class="driver-upload-copy">Photo du permis<br>90x90 pixels</span>
+                                </button>
+                                <input class="driver-file-input" type="file" id="file-input" name="licence_image" accept="image/*" onchange="licenceimage(this);">
+                            </div>
                         </div>
-                        <div>
-                            <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: var(--gray-700);">Nom de l'agence *</label>
-                            <input type="text" name="branch_name" value="{{ old('branch_name') }}" placeholder="Agence"
-                                   style="width: 100%; padding: 0.875rem 1rem; border: 2px solid var(--gray-200); border-radius: var(--radius-lg); font-size: 1rem;" required>
+                    </section>
+
+                    {{-- Mobile Money — principal au Congo --}}
+                    <section class="driver-form-section">
+                        <h4 class="driver-section-title">
+                            <i class="fas fa-mobile-screen-button"></i> Mobile Money <span style="font-size:.75rem;font-weight:400;color:#6b7280;">(MTN / Airtel)</span>
+                        </h4>
+
+                        <div class="driver-field">
+                            <label class="driver-label" for="driverMobileMoney">Numéro Mobile Money *</label>
+                            <input
+                                id="driverMobileMoney"
+                                class="driver-input"
+                                type="tel"
+                                name="paypal_account_no"
+                                value="{{ old('paypal_account_no') }}"
+                                placeholder="Ex : +242 06 XXX XX XX"
+                                inputmode="tel"
+                                required
+                            >
+                            @error('paypal_account_no')
+                                <span class="driver-error">{{ $message }}</span>
+                            @enderror
                         </div>
-                    </div>
-                    
-                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
-                        <div>
-                            <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: var(--gray-700);">Adresse de l'agence *</label>
-                            <input type="text" name="branch_address" value="{{ old('branch_address') }}" placeholder="Adresse de l'agence"
-                                   style="width: 100%; padding: 0.875rem 1rem; border: 2px solid var(--gray-200); border-radius: var(--radius-lg); font-size: 1rem;" required>
+                    </section>
+
+                    {{-- Banque — optionnel --}}
+                    <section class="driver-form-section">
+                        <h4 class="driver-section-title" style="cursor:pointer;" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
+                            <i class="fas fa-university"></i> Coordonnées bancaires
+                            <span style="font-size:.75rem;font-weight:400;color:#6b7280;margin-left:6px;">(optionnel) <i class="fas fa-chevron-down" style="font-size:.65rem;"></i></span>
+                        </h4>
+                        <div style="display:none;">
+                            <div class="driver-grid driver-grid--two">
+                                <div class="driver-field">
+                                    <label class="driver-label" for="driverAccountName">Nom du titulaire</label>
+                                    <input id="driverAccountName" class="driver-input" type="text" name="account_name"
+                                        value="{{ old('account_name') }}" placeholder="Nom sur le compte">
+                                </div>
+                                <div class="driver-field">
+                                    <label class="driver-label" for="driverAccountNumber">Numéro de compte</label>
+                                    <input id="driverAccountNumber" class="driver-input" type="text" name="account_number"
+                                        value="{{ old('account_number') }}" placeholder="Numéro de compte">
+                                </div>
+                            </div>
+                            <div class="driver-grid driver-grid--two">
+                                <div class="driver-field">
+                                    <label class="driver-label" for="driverBankName">Nom de la banque</label>
+                                    <input id="driverBankName" class="driver-input" type="text" name="bank_name"
+                                        value="{{ old('bank_name') }}" placeholder="Ex: BGFI, UBA, etc.">
+                                </div>
+                                <div class="driver-field">
+                                    <label class="driver-label" for="driverBranchName">Nom de l'agence</label>
+                                    <input id="driverBranchName" class="driver-input" type="text" name="branch_name"
+                                        value="{{ old('branch_name') }}" placeholder="Agence">
+                                </div>
+                            </div>
+                            <div class="driver-field">
+                                <label class="driver-label" for="driverBranchAddress">Adresse de l'agence</label>
+                                <input id="driverBranchAddress" class="driver-input" type="text" name="branch_address"
+                                    value="{{ old('branch_address') }}" placeholder="Adresse de l'agence">
+                            </div>
                         </div>
-                        <div>
-                            <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: var(--gray-700);">Compte Mobile Money</label>
-                            <input type="text" name="paypal_account_no" value="{{ old('paypal_account_no') }}" placeholder="Numéro Mobile Money"
-                                   style="width: 100%; padding: 0.875rem 1rem; border: 2px solid var(--gray-200); border-radius: var(--radius-lg); font-size: 1rem;">
+                    </section>
+
+                    <section class="driver-form-section">
+                        <h4 class="driver-section-title">
+                            <i class="fas fa-lock"></i> Sécurité
+                        </h4>
+
+                        <div class="driver-field">
+                            <label class="driver-label" for="driverPassword">Mot de passe *</label>
+                            <input
+                                id="driverPassword"
+                                class="driver-input"
+                                type="password"
+                                name="password"
+                                placeholder="Créez un mot de passe sécurisé"
+                                autocomplete="new-password"
+                                required
+                            >
                         </div>
-                    </div>
-                    
-                    <!-- Password -->
-                    <h4 style="font-size: 1rem; color: var(--primary); margin: 2rem 0 1rem; padding-bottom: 0.5rem; border-bottom: 2px solid var(--gray-100);">
-                        <i class="fas fa-lock"></i> Sécurité
-                    </h4>
-                    
-                    <div style="margin-bottom: 1.5rem;">
-                        <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: var(--gray-700);">Mot de passe *</label>
-                        <input type="password" name="password" placeholder="Créez un mot de passe sécurisé"
-                               style="width: 100%; padding: 0.875rem 1rem; border: 2px solid var(--gray-200); border-radius: var(--radius-lg); font-size: 1rem;" required>
-                    </div>
-                    
-                    <!-- Terms -->
-                    <div style="margin-bottom: 1.5rem;">
-                        <label style="display: flex; align-items: flex-start; gap: 0.5rem; cursor: pointer; font-size: 0.9375rem; color: var(--gray-600);">
-                            <input type="checkbox" name="terms" style="width: 18px; height: 18px; accent-color: var(--primary); margin-top: 2px;" required>
-                            <span>J'accepte les <a href="{{ route('terms.conditions') }}" style="color: var(--primary);">conditions générales</a> de BantuDelice</span>
+                    </section>
+
+                    <div class="driver-terms">
+                        <label class="driver-terms-label">
+                            <input class="driver-terms-input" type="checkbox" name="terms" required>
+                            <span>J'accepte les <a href="{{ route('terms.conditions') }}" class="driver-inline-link">conditions générales</a> de {{ $foodBrandName }}</span>
                         </label>
                     </div>
-                    
-                    <!-- Submit -->
-                    <button type="submit" class="btn btn-primary btn-lg" style="width: 100%;">
+
+                    <button type="submit" class="driver-submit">
                         <i class="fas fa-paper-plane"></i> Soumettre ma candidature
                     </button>
                 </form>
-                
-                <!-- Login Link -->
-                <p style="text-align: center; color: var(--gray-600); margin-top: 1.5rem;">
-                    Déjà inscrit ? 
-                    <a href="{{ route('login') }}" style="color: var(--primary); font-weight: 600;">Connectez-vous</a>
+
+                <p class="driver-login-copy">
+                    Déjà inscrit ?
+                    <a href="{{ route('login') }}" class="driver-inline-link driver-inline-link--strong">Connectez-vous</a>
                 </p>
             </div>
         </div>

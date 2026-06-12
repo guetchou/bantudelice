@@ -31,7 +31,7 @@ class RegisterEmail extends Mailable
     {
         $fromAddress = ConfigService::getNoreplyEmail();
         $fromName = ConfigService::getCompanyName();
-        $subject = ConfigService::getRegistrationEmailSubject();
+        $subject = 'Bienvenue sur BantuDelice — Compte activé';
         
         return $this->from($fromAddress, $fromName)
                     ->subject($subject)

@@ -13,7 +13,6 @@ Voir les détails
 
 Vous pouvez suivre votre colis en temps réel sur notre plateforme.
 
-Merci de faire confiance à **BantuDelice**,  
-L'équipe de livraison.
+Merci de faire confiance à **Mema**,  
+L'équipe logistique.
 @endcomponent
-

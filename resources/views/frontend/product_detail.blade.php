@@ -1,427 +1,19 @@
 @extends('frontend.layouts.app-modern')
-@section('title', $proDetail->name . ' | BantuDelice')
+@php
+    $foodBrandName = \App\Services\ConfigService::getCompanyName();
+@endphp
+@section('title', $proDetail->name . ' | ' . $foodBrandName)
 @section('description', 'Commandez ' . $proDetail->name . ' chez ' . $restaurant->name . ' - Livraison rapide à domicile')
-
-@section('styles')
-<style>
-    .product-page {
-        padding: 120px 0 60px;
-        background: linear-gradient(135deg, #FAFAFA 0%, #FFFFFF 100%);
-        min-height: calc(100vh - 80px);
-    }
-    
-    /* Breadcrumb */
-    .breadcrumb-modern {
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        font-size: 0.9rem;
-        margin-bottom: 2rem;
-        flex-wrap: wrap;
-    }
-    
-    .breadcrumb-modern a {
-        color: var(--gray-500);
-        text-decoration: none;
-        transition: color 0.3s ease;
-        display: flex;
-        align-items: center;
-        gap: 0.25rem;
-    }
-    
-    .breadcrumb-modern a:hover {
-        color: var(--primary);
-    }
-    
-    .breadcrumb-modern .separator {
-        color: var(--gray-300);
-    }
-    
-    .breadcrumb-modern .current {
-        color: var(--gray-900);
-        font-weight: 600;
-    }
-    
-    /* Product Detail Card */
-    .product-detail-card {
-        background: white;
-        border-radius: 24px;
-        overflow: hidden;
-        box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
-        display: grid;
-        grid-template-columns: 1fr 1.2fr;
-        gap: 0;
-    }
-    
-    .product-image-section {
-        position: relative;
-        background: var(--gray-100);
-        min-height: 400px;
-    }
-    
-    .product-image {
-        width: 100%;
-        height: 100%;
-        object-fit: cover;
-    }
-    
-    .product-badge {
-        position: absolute;
-        top: 1rem;
-        left: 1rem;
-        background: var(--primary);
-        color: white;
-        padding: 0.5rem 1rem;
-        border-radius: 20px;
-        font-size: 0.8rem;
-        font-weight: 600;
-    }
-    
-    .product-info-section {
-        padding: 2.5rem;
-        display: flex;
-        flex-direction: column;
-    }
-    
-    .restaurant-tag {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.5rem;
-        background: var(--gray-100);
-        padding: 0.5rem 1rem;
-        border-radius: 20px;
-        font-size: 0.85rem;
-        color: var(--gray-600);
-        margin-bottom: 1rem;
-        width: fit-content;
-    }
-    
-    .restaurant-tag i {
-        color: var(--primary);
-    }
-    
-    .product-title {
-        font-size: 2rem;
-        font-weight: 800;
-        color: var(--gray-900);
-        margin-bottom: 1rem;
-        line-height: 1.2;
-    }
-    
-    .product-price-section {
-        display: flex;
-        align-items: baseline;
-        gap: 1rem;
-        margin-bottom: 1.5rem;
-    }
-    
-    .current-price {
-        font-size: 2rem;
-        font-weight: 700;
-        color: var(--primary);
-    }
-    
-    .original-price {
-        font-size: 1.25rem;
-        color: var(--gray-400);
-        text-decoration: line-through;
-    }
-    
-    .discount-badge {
-        background: #FEE2E2;
-        color: #DC2626;
-        padding: 0.25rem 0.75rem;
-        border-radius: 12px;
-        font-size: 0.8rem;
-        font-weight: 600;
-    }
-    
-    .product-description {
-        color: var(--gray-600);
-        line-height: 1.7;
-        margin-bottom: 2rem;
-        font-size: 1rem;
-    }
-    
-    /* Form Styling */
-    .order-form {
-        margin-top: auto;
-    }
-    
-    .form-group {
-        margin-bottom: 1.5rem;
-    }
-    
-    .form-label {
-        display: block;
-        font-size: 0.9rem;
-        font-weight: 600;
-        color: var(--gray-700);
-        margin-bottom: 0.5rem;
-    }
-    
-    .quantity-selector {
-        display: flex;
-        align-items: center;
-        gap: 0;
-        border: 2px solid var(--gray-200);
-        border-radius: 12px;
-        width: fit-content;
-        overflow: hidden;
-    }
-    
-    .qty-btn {
-        width: 48px;
-        height: 48px;
-        border: none;
-        background: var(--gray-100);
-        color: var(--gray-700);
-        font-size: 1.25rem;
-        cursor: pointer;
-        transition: all 0.3s ease;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-    }
-    
-    .qty-btn:hover {
-        background: var(--primary);
-        color: white;
-    }
-    
-    .qty-input {
-        width: 60px;
-        height: 48px;
-        border: none;
-        text-align: center;
-        font-size: 1.1rem;
-        font-weight: 600;
-        color: var(--gray-900);
-        background: white;
-    }
-    
-    .qty-input:focus {
-        outline: none;
-    }
-    
-    .instructions-input {
-        width: 100%;
-        padding: 1rem;
-        border: 2px solid var(--gray-200);
-        border-radius: 12px;
-        font-family: inherit;
-        font-size: 1rem;
-        color: var(--gray-900);
-        resize: vertical;
-        min-height: 100px;
-        transition: all 0.3s ease;
-    }
-    
-    .instructions-input:focus {
-        outline: none;
-        border-color: var(--primary);
-        box-shadow: 0 0 0 4px rgba(232, 90, 36, 0.1);
-    }
-    
-    .instructions-input::placeholder {
-        color: var(--gray-400);
-    }
-    
-    .btn-add-cart {
-        width: 100%;
-        padding: 1rem 2rem;
-        background: linear-gradient(135deg, var(--primary), #FF7A44);
-        border: none;
-        border-radius: 12px;
-        color: white;
-        font-family: inherit;
-        font-size: 1.1rem;
-        font-weight: 600;
-        cursor: pointer;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 0.75rem;
-        transition: all 0.3s ease;
-        position: relative;
-        overflow: hidden;
-    }
-    
-    .btn-add-cart::before {
-        content: '';
-        position: absolute;
-        top: 0;
-        left: -100%;
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-        transition: left 0.5s ease;
-    }
-    
-    .btn-add-cart:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 10px 30px rgba(232, 90, 36, 0.35);
-    }
-    
-    .btn-add-cart:hover::before {
-        left: 100%;
-    }
-    
-    /* Related Products Section */
-    .related-section {
-        margin-top: 4rem;
-    }
-    
-    .section-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 2rem;
-    }
-    
-    .section-title {
-        font-size: 1.75rem;
-        font-weight: 700;
-        color: var(--gray-900);
-    }
-    
-    .see-all-link {
-        color: var(--primary);
-        text-decoration: none;
-        font-weight: 600;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
-        transition: gap 0.3s ease;
-    }
-    
-    .see-all-link:hover {
-        gap: 0.75rem;
-    }
-    
-    .products-grid {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 1.5rem;
-    }
-    
-    .product-card {
-        background: white;
-        border-radius: 16px;
-        overflow: hidden;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
-        transition: all 0.3s ease;
-        text-decoration: none;
-    }
-    
-    .product-card:hover {
-        transform: translateY(-8px);
-        box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
-    }
-    
-    .product-card-image {
-        width: 100%;
-        height: 160px;
-        object-fit: cover;
-    }
-    
-    .product-card-content {
-        padding: 1rem;
-    }
-    
-    .product-card-name {
-        font-size: 1rem;
-        font-weight: 600;
-        color: var(--gray-900);
-        margin-bottom: 0.5rem;
-        display: -webkit-box;
-        -webkit-line-clamp: 2;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
-    }
-    
-    .product-card-price {
-        font-size: 1.1rem;
-        font-weight: 700;
-        color: var(--primary);
-    }
-    
-    /* Alert Styles */
-    .alert-modern {
-        padding: 1rem 1.5rem;
-        border-radius: 12px;
-        margin-bottom: 1.5rem;
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        animation: slideIn 0.3s ease;
-    }
-    
-    @keyframes slideIn {
-        from { opacity: 0; transform: translateY(-10px); }
-        to { opacity: 1; transform: translateY(0); }
-    }
-    
-    .alert-success {
-        background: #D1FAE5;
-        color: #065F46;
-        border: 1px solid #A7F3D0;
-    }
-    
-    .alert-success i {
-        color: #10B981;
-        font-size: 1.25rem;
-    }
-    
-    /* Responsive */
-    @media (max-width: 992px) {
-        .product-detail-card {
-            grid-template-columns: 1fr;
-        }
-        
-        .product-image-section {
-            min-height: 300px;
-        }
-        
-        .products-grid {
-            grid-template-columns: repeat(2, 1fr);
-        }
-    }
-    
-    @media (max-width: 576px) {
-        .product-page {
-            padding: 100px 0 40px;
-        }
-        
-        .product-info-section {
-            padding: 1.5rem;
-        }
-        
-        .product-title {
-            font-size: 1.5rem;
-        }
-        
-        .current-price {
-            font-size: 1.5rem;
-        }
-        
-        .products-grid {
-            grid-template-columns: 1fr;
-        }
-    }
-</style>
-@endsection
+@section('body_class', 'bd-product-detail-page')
 
 @section('content')
 <section class="product-page">
     <div class="container">
         <!-- Breadcrumb -->
-        <nav class="breadcrumb-modern">
-            <a href="{{ route('home') }}">
-                <i class="fas fa-home"></i> Accueil
-            </a>
+        <nav class="breadcrumb-modern premium-breadcrumb">
+            <a href="{{ route('home') }}">Accueil</a>
             <span class="separator">/</span>
-            <a href="{{ route('resturant.detail', $restaurant->id) }}">
+            <a href="{{ route('restaurant.detail', $restaurant->id) }}">
                 {{ $restaurant->name }}
             </a>
             <span class="separator">/</span>
@@ -429,10 +21,7 @@
         </nav>
         
         @if(Session::has('message'))
-            <div class="alert-modern alert-success">
-                <i class="fas fa-check-circle"></i>
-                <span>{{ Session::get('message') }}</span>
-            </div>
+            <div class="alert-modern alert-success"><span>{{ Session::get('message') }}</span></div>
         @endif
         
         <!-- Product Detail Card -->
@@ -443,27 +32,24 @@
                         -{{ round((($proDetail->price - $proDetail->discount_price) / $proDetail->price) * 100) }}%
                     </span>
                 @endif
-                <img src="{{ $proDetail->image ? (strpos($proDetail->image, 'http') === 0 ? $proDetail->image : asset('images/product_images/' . $proDetail->image)) : asset('images/placeholder.png') }}" 
+                <img src="{{ method_exists($proDetail, 'publicImageUrl') ? $proDetail->publicImageUrl() : ($proDetail->image ? (strpos($proDetail->image, 'http') === 0 ? $proDetail->image : asset('images/product_images/' . $proDetail->image)) : asset('images/product_images/default-food.jpg')) }}" 
                      alt="{{ $proDetail->name }}" 
                      class="product-image"
-                     onerror="this.src='{{ asset('images/placeholder.png') }}'">
+                     onerror="this.src='{{ asset('images/product_images/default-food.jpg') }}'">
             </div>
             
             <div class="product-info-section">
-                <a href="{{ route('resturant.detail', $restaurant->id) }}" class="restaurant-tag">
-                    <i class="fas fa-store"></i>
-                    {{ $restaurant->name }}
-                </a>
+                <a href="{{ route('restaurant.detail', $restaurant->id) }}" class="restaurant-tag">{{ $restaurant->name }}</a>
                 
                 <h1 class="product-title">{{ $proDetail->name }}</h1>
                 
-                <div class="product-price-section">
-                    <span class="current-price">{{ number_format($proDetail->price, 0, ',', ' ') }} FCFA</span>
-                    @if($proDetail->discount_price && $proDetail->discount_price < $proDetail->price)
-                        <span class="original-price">{{ number_format($proDetail->discount_price, 0, ',', ' ') }} FCFA</span>
+            <div class="product-price-section">
+                <span class="current-price">{{ number_format(($proDetail->discount_price && $proDetail->discount_price < $proDetail->price) ? $proDetail->discount_price : $proDetail->price, 0, ',', ' ') }} FCFA</span>
+                @if($proDetail->discount_price && $proDetail->discount_price < $proDetail->price)
+                    <span class="original-price">{{ number_format($proDetail->price, 0, ',', ' ') }} FCFA</span>
                         <span class="discount-badge">Promo</span>
-                    @endif
-                </div>
+                @endif
+            </div>
                 
                 <p class="product-description">
                     @if($proDetail->description)
@@ -485,13 +71,9 @@
                     <div class="form-group">
                         <label class="form-label">Quantité</label>
                         <div class="quantity-selector">
-                            <button type="button" class="qty-btn" onclick="changeQty(-1)" {{ (isset($proDetail->is_available) && !$proDetail->is_available) ? 'disabled' : '' }}>
-                                <i class="fas fa-minus"></i>
-                            </button>
+                            <button type="button" class="qty-btn" onclick="changeQty(-1)" {{ (isset($proDetail->is_available) && !$proDetail->is_available) ? 'disabled' : '' }}>-</button>
                             <input type="number" name="qty" id="qty" value="1" min="1" max="20" class="qty-input" readonly {{ (isset($proDetail->is_available) && !$proDetail->is_available) ? 'disabled' : '' }}>
-                            <button type="button" class="qty-btn" onclick="changeQty(1)" {{ (isset($proDetail->is_available) && !$proDetail->is_available) ? 'disabled' : '' }}>
-                                <i class="fas fa-plus"></i>
-                            </button>
+                            <button type="button" class="qty-btn" onclick="changeQty(1)" {{ (isset($proDetail->is_available) && !$proDetail->is_available) ? 'disabled' : '' }}>+</button>
                         </div>
                     </div>
                     
@@ -504,18 +86,12 @@
                     </div>
                     
                     @if(isset($proDetail->is_available) && !$proDetail->is_available)
-                        <button type="button" class="btn-add-cart" id="submitCartBtn" disabled style="opacity:0.7; cursor:not-allowed;">
-                            <i class="fas fa-ban"></i>
-                            <span id="submitCartText">Indisponible</span>
-                        </button>
-                        <div style="margin-top: 10px; color: #b45309; font-weight: 600;">
+                        <button type="button" class="btn-add-cart is-disabled" id="submitCartBtn" disabled><span id="submitCartText">Indisponible</span></button>
+                        <div class="product-availability-note">
                             Ce plat est temporairement indisponible.
                         </div>
                     @else
-                    <button type="submit" class="btn-add-cart" id="submitCartBtn">
-                        <i class="fas fa-shopping-cart"></i>
-                        <span id="submitCartText">Ajouter au panier</span>
-                    </button>
+                    <button type="submit" class="btn-add-cart" id="submitCartBtn"><span id="submitCartText">Ajouter au panier</span></button>
                     @endif
                 </form>
                 
@@ -725,14 +301,14 @@
         <div class="related-section">
             <div class="section-header">
                 <h2 class="section-title">Découvrez aussi</h2>
-                <a href="{{ route('resturant.detail', $restaurant->id) }}" class="see-all-link">
-                    Voir tout le menu <i class="fas fa-arrow-right"></i>
+                <a href="{{ route('restaurant.detail', $restaurant->id) }}" class="see-all-link">
+                    Voir tout le menu
                 </a>
             </div>
             
             <div class="products-grid">
                 @foreach($products->take(4) as $product)
-                <a href="{{ route('pro.detail', $product->id) }}" class="product-card">
+                <a href="{{ route('frontend.product.show', ['id' => $product->id, 'slug' => \Illuminate\Support\Str::slug($product->name)]) }}" class="product-card">
                     <img src="{{ $product->image ? (strpos($product->image, 'http') === 0 ? $product->image : asset('images/product_images/' . $product->image)) : asset('images/placeholder.png') }}" 
                          alt="{{ $product->name }}" 
                          class="product-card-image"

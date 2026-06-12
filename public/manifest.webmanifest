@@ -1,0 +1,42 @@
+{
+  "name": "BantuDelice — Livraison de repas",
+  "short_name": "BantuDelice",
+  "description": "Commandez vos repas préférés à Brazzaville et Pointe-Noire",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#e85d04",
+  "lang": "fr",
+  "icons": [
+    {
+      "src": "/images/5-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64",
+      "type": "image/x-icon"
+    }
+  ],
+  "categories": ["food", "shopping"],
+  "shortcuts": [
+    {
+      "name": "Commander",
+      "short_name": "Commander",
+      "description": "Choisir un restaurant",
+      "url": "/restaurants",
+      "icons": [{ "src": "/images/5-512.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Mes commandes",
+      "short_name": "Commandes",
+      "description": "Suivre mes commandes",
+      "url": "/profile/orders",
+      "icons": [{ "src": "/images/5-512.png", "sizes": "192x192" }]
+    }
+  ]
+}

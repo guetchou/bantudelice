@@ -1,5 +1,15 @@
 <?php
 
+$momoEnvironment = env('MOMO_ENVIRONMENT', 'sandbox');
+$momoTargetEnvironment = env('MOMO_TARGET_ENVIRONMENT', $momoEnvironment === 'sandbox' ? 'sandbox' : 'mtncongo');
+$resolveMomoSubscriptionKey = static function (string $prefix): ?string {
+    return env("{$prefix}_SUBSCRIPTION_KEY")
+        ?: env("{$prefix}_PRIMARY_KEY")
+        ?: env("{$prefix}_SECONDARY_KEY");
+};
+$collectionsSubscriptionKey = $resolveMomoSubscriptionKey('MOMO_COLLECTIONS');
+$disbursementsSubscriptionKey = $resolveMomoSubscriptionKey('MOMO_DISBURSEMENTS');
+
 return [
 
     /*
@@ -9,18 +19,49 @@ return [
     */
 
     'payments' => [
-        // Mobile Money - MTN
+        // Mobile Money - MTN MoMo
         'mtn_momo' => [
-            'enabled' => env('MTN_MOMO_ENABLED', false),
-            'api_key' => env('MTN_MOMO_API_KEY'),
-            'api_user' => env('MTN_MOMO_API_USER'),
-            'api_secret' => env('MTN_MOMO_API_SECRET'),
-            'subscription_key' => env('MTN_MOMO_SUBSCRIPTION_KEY'),
-            'environment' => env('MTN_MOMO_ENVIRONMENT', 'sandbox'), // sandbox | production
-            'callback_url' => env('MTN_MOMO_CALLBACK_URL'),
+            'enabled' => !empty($collectionsSubscriptionKey)
+                && !empty(env('MOMO_COLLECTIONS_API_USER'))
+                && !empty(env('MOMO_COLLECTIONS_API_KEY')),
+            'collections' => [
+                'primary_key' => env('MOMO_COLLECTIONS_PRIMARY_KEY'),
+                'secondary_key' => env('MOMO_COLLECTIONS_SECONDARY_KEY'),
+                'subscription_key' => $collectionsSubscriptionKey,
+                'api_user' => env('MOMO_COLLECTIONS_API_USER'),
+                'api_key' => env('MOMO_COLLECTIONS_API_KEY'),
+                'configured' => !empty($collectionsSubscriptionKey)
+                    && !empty(env('MOMO_COLLECTIONS_API_USER'))
+                    && !empty(env('MOMO_COLLECTIONS_API_KEY')),
+            ],
+            'disbursements' => [
+                'primary_key' => env('MOMO_DISBURSEMENTS_PRIMARY_KEY'),
+                'secondary_key' => env('MOMO_DISBURSEMENTS_SECONDARY_KEY'),
+                'subscription_key' => $disbursementsSubscriptionKey,
+                'api_user' => env('MOMO_DISBURSEMENTS_API_USER'),
+                'api_key' => env('MOMO_DISBURSEMENTS_API_KEY'),
+                'configured' => !empty($disbursementsSubscriptionKey)
+                    && !empty(env('MOMO_DISBURSEMENTS_API_USER'))
+                    && !empty(env('MOMO_DISBURSEMENTS_API_KEY')),
+            ],
+            'disbursement_proxy' => [
+                'enabled' => filter_var(env('MOMO_DISBURSEMENT_PROXY_ENABLED', false), FILTER_VALIDATE_BOOLEAN),
+                'url' => env('MOMO_DISBURSEMENT_PROXY_URL'),
+                'status_url' => env('MOMO_DISBURSEMENT_PROXY_STATUS_URL'),
+                'token' => env('MOMO_DISBURSEMENT_PROXY_TOKEN'),
+                'timeout' => (int) env('MOMO_DISBURSEMENT_PROXY_TIMEOUT', 90),
+                'source_ip' => env('MOMO_DISBURSEMENT_PROXY_SOURCE_IP'),
+            ],
+            'environment' => $momoEnvironment, // sandbox | production
+            'target_environment' => $momoTargetEnvironment,
+            'callback_url' => env('MOMO_CALLBACK_URL'),
+            'use_callback_header' => filter_var(
+                env('MOMO_USE_CALLBACK_HEADER', true),
+                FILTER_VALIDATE_BOOLEAN
+            ),
             'base_url' => [
                 'sandbox' => 'https://sandbox.momodeveloper.mtn.com',
-                'production' => 'https://momodeveloper.mtn.com',
+                'production' => 'https://proxy.momoapi.mtn.com',
             ],
             'currency' => 'XAF',
         ],
@@ -71,7 +112,8 @@ return [
             'enabled' => env('FCM_ENABLED', true),
             'server_key' => env('FCM_SERVER_KEY'),
             'sender_id' => env('FCM_SENDER_ID'),
-            'project_id' => env('FCM_PROJECT_ID'),
+            'project_id' => env('FIREBASE_PROJECT_ID', env('FCM_PROJECT_ID')),
+            'credentials_path' => env('FIREBASE_CREDENTIALS'),
             // Clés par type d'utilisateur (optionnel, pour apps séparées)
             'user_key' => env('FCM_USER_KEY'),
             'restaurant_key' => env('FCM_RESTAURANT_KEY'),
@@ -80,11 +122,25 @@ return [
 
         // SMS via Twilio
         'twilio' => [
-            'enabled' => env('TWILIO_ENABLED', false),
-            'sid' => env('TWILIO_SID'),
-            'token' => env('TWILIO_TOKEN'),
-            'from' => env('TWILIO_FROM'),
-            'verify_sid' => env('TWILIO_VERIFY_SID'), // Pour OTP
+            'enabled'        => env('TWILIO_ENABLED', false),
+            'sid'            => env('TWILIO_SID'),
+            'token'          => env('TWILIO_TOKEN'),
+            'from'           => env('TWILIO_FROM'),
+            'verify_sid'     => env('TWILIO_VERIFY_SID'),
+            'whatsapp_from'  => env('TWILIO_WHATSAPP_FROM', 'whatsapp:+14155238886'),
+        ],
+
+        // SMS via MTN Congo (SMS v3 API)
+        'mtn_sms' => [
+            'enabled'         => env('MTN_SMS_ENABLED', false),
+            'consumer_key'    => env('MTN_SMS_CONSUMER_KEY'),
+            'consumer_secret' => env('MTN_SMS_CONSUMER_SECRET'),
+            'subscription_key'=> env('MTN_SMS_SUBSCRIPTION_KEY'),
+            'sender_id'       => env('MTN_SMS_SENDER_ID', 'BantuDelice'),
+            'environment'     => env('MTN_SMS_ENVIRONMENT', 'production'),
+            'base_url'        => env('MTN_SMS_BASE_URL', 'https://api.mtn.com'),
+            'token_url'       => env('MTN_SMS_TOKEN_URL', 'https://api.mtn.com/v1/oauth/access_token'),
+            'send_url'        => env('MTN_SMS_SEND_URL', 'https://api.mtn.com/v3/sms/messages/sms/outbound'),
         ],
 
         // SMS via Africa's Talking
@@ -228,4 +284,3 @@ return [
     ],
 
 ];
-

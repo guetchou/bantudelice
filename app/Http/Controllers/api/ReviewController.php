@@ -21,9 +21,21 @@ class ReviewController extends Controller
     public function driverReviews($driver)
     {
         $reviews=Driver::find($driver);
+        if (!$reviews) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Livreur introuvable',
+                'data' => null,
+                'rating' => null,
+                'trips' => 0,
+                'BASE_URL_PROFILE' => BASE_URL_PROFILE,
+            ], 404);
+        }
+
          $reviews['reviews']=DB::table('reviews')
             ->join('users', 'users.id', '=', 'reviews.user_id')
             ->select('users.image', 'users.name', 'reviews.rating', 'reviews.reviews')
+            ->where('reviews.driver_id', $driver)
             ->get();
             $avgStar = Review::where('driver_id',$driver)->avg('rating');
             $count = DB::table('completed_orders')

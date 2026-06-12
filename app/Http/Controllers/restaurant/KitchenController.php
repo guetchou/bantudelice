@@ -4,11 +4,16 @@ namespace App\Http\Controllers\restaurant;
 
 use App\Http\Controllers\Controller;
 use App\Order;
+use App\Services\FoodOrderStateMachineService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 
 class KitchenController extends Controller
 {
+    public function __construct(
+        protected FoodOrderStateMachineService $foodOrderStateMachine
+    ) {}
+
     public function index()
     {
         $restaurant = auth()->user()->restaurant;
@@ -29,24 +34,30 @@ class KitchenController extends Controller
             return response()->json(['message' => "Aucun restaurant n'est associé à votre compte."], 422);
         }
 
-        $allowedStatuses = ['pending', 'prepairing', 'assign', 'completed', 'cancelled', 'scheduled'];
-        $statuses = $request->get('status', ['pending', 'prepairing', 'assign']);
+        $allowedStatuses = ['pending', 'prepairing', 'assign', 'completed', 'cancelled', 'scheduled', 'accepted', 'in_kitchen', 'ready_for_pickup', 'dispatching', 'driver_assigned', 'picked_up', 'out_for_delivery', 'customer_arrived', 'picked_up_by_customer', 'no_show'];
+        $statuses = $request->get('status', ['pending', 'prepairing', 'assign', 'customer_arrived']);
         if (!is_array($statuses)) {
             $statuses = [$statuses];
         }
         $statuses = array_values(array_intersect($statuses, $allowedStatuses));
         if (empty($statuses)) {
-            $statuses = ['pending', 'prepairing', 'assign'];
+            $statuses = ['pending', 'prepairing', 'assign', 'customer_arrived'];
         }
 
         $q = Order::query()
             ->where('restaurant_id', $restaurant->id)
-            ->whereIn('status', $statuses)
             ->with([
                 'user:id,name,phone',
                 'product:id,name,image',
             ])
             ->orderBy('created_at', 'desc');
+
+        $q->where(function ($query) use ($statuses) {
+            $query->whereIn('status', $statuses);
+            if (\Illuminate\Support\Facades\Schema::hasColumn('orders', 'business_status')) {
+                $query->orWhereIn('business_status', $statuses);
+            }
+        });
 
         if ($request->filled('updated_after')) {
             try {
@@ -85,6 +96,8 @@ class KitchenController extends Controller
             return [
                 'order_no' => $orderNo,
                 'status' => $first->status,
+                'business_status' => $this->foodOrderStateMachine->resolveCurrentBusinessStatus($first),
+                'technical_status' => $first->technical_status,
                 'created_at' => optional($first->created_at)->toIso8601String(),
                 'updated_at' => optional($rows->max('updated_at'))->toIso8601String(),
                 'customer' => [
@@ -93,6 +106,8 @@ class KitchenController extends Controller
                     'phone' => $first->user->phone ?? null,
                 ],
                 'delivery_address' => $first->delivery_address ?? null,
+                'fulfillment_mode' => $first->fulfillment_mode ?? 'delivery',
+                'pickup_code' => $first->pickup_code ?? null,
                 'items' => $items,
                 'items_count' => $items->count(),
                 'total' => (float)$total,
@@ -114,32 +129,36 @@ class KitchenController extends Controller
         }
 
         $request->validate([
-            'status' => ['required', 'in:pending,prepairing,assign,completed,cancelled'],
+            'status' => ['required', 'in:pending,accepted,prepairing,in_kitchen,assign,ready_for_pickup,dispatching,completed,delivered,cancelled,customer_arrived,picked_up_by_customer,no_show'],
+            'pickup_code' => ['nullable', 'string', 'max:12'],
         ]);
 
-        $payload = [
-            'status' => $request->status,
-            'updated_at' => now(),
-        ];
-        // delivered_time est NOT NULL sur ce projet: on ne le touche que lors de "completed"
-        if ($request->status === 'completed') {
-            $payload['delivered_time'] = now();
-        }
-
-        $updated = Order::where('restaurant_id', $restaurant->id)
+        $orders = Order::where('restaurant_id', $restaurant->id)
             ->where('order_no', $orderNo)
-            ->update($payload);
+            ->get();
 
-        if ($updated <= 0) {
+        if ($orders->isEmpty()) {
             return response()->json(['message' => 'Commande introuvable'], 404);
         }
+
+        $firstOrder = $orders->first();
+        if (($firstOrder->fulfillment_mode ?? 'delivery') === 'pickup' && $request->status === 'picked_up_by_customer' && !empty($firstOrder->pickup_code)) {
+            if (trim((string) $request->input('pickup_code')) !== (string) $firstOrder->pickup_code) {
+                return response()->json(['message' => 'Code de retrait invalide'], 422);
+            }
+        }
+
+        $updatedOrders = $this->foodOrderStateMachine->transitionOrders($orders, $request->status, [
+            'actor_type' => 'restaurant_kitchen',
+            'actor_id' => auth()->id(),
+            'notes' => $request->input('notes'),
+        ]);
 
         return response()->json([
             'message' => 'Statut mis à jour',
             'order_no' => $orderNo,
-            'status' => $request->status,
+            'status' => $updatedOrders->first()->status,
+            'business_status' => $updatedOrders->first()->business_status,
         ]);
     }
 }
-
-

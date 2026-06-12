@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use App\RestaurantPayment;
+use App\Services\PartnerFinancialDashboardService;
 
 
 class PaymentHistoryController extends Controller
@@ -18,15 +19,17 @@ class PaymentHistoryController extends Controller
     public function index()
     {
         $pre=20/100;
-        $restaurant_id = auth()->user()->restaurant()->first()->id;
+        $restaurant = auth()->user()->restaurant()->first();
+        $restaurant_id = $restaurant->id;
         $withdrwan=DB::table('restaurant_payments')->where('restaurant_id',$restaurant_id)->where('status','paid')->sum('payout_amount');
         $Total_Earning = DB::table('completed_orders')->where('restaurant_id',$restaurant_id)->sum('total');
         $total=$Total_Earning-$pre * $Total_Earning;
-        $today_earning = DB::table('completed_orders')->where('restaurant_id',$restaurant_id)->where('created_at',Now()->day)->sum('total');
-        $this_week_earning = DB::table('completed_orders')->where('restaurant_id',$restaurant_id)->where('created_at','>', Now()->day-7)->sum('total');
+        $today_earning = DB::table('completed_orders')->where('restaurant_id',$restaurant_id)->whereDate('created_at', now()->toDateString())->sum('total');
+        $this_week_earning = DB::table('completed_orders')->where('restaurant_id',$restaurant_id)->whereBetween('created_at', [now()->startOfWeek(), now()->endOfWeek()])->sum('total');
         $history=RestaurantPayment::where('restaurant_id',$restaurant_id)->get();
+        $financialDashboard = app(PartnerFinancialDashboardService::class)->forRestaurant($restaurant);
         //dd($this_week_earning);
-        return view('restaurant.payment_history.index',compact('history','Total_Earning','pre','total','this_week_earning','today_earning', 'withdrwan'));
+        return view('restaurant.payment_history.index',compact('history','Total_Earning','pre','total','this_week_earning','today_earning', 'withdrwan', 'financialDashboard'));
     }
 
     /**
@@ -38,8 +41,8 @@ class PaymentHistoryController extends Controller
     {
         $restaurant_id = auth()->user()->restaurant()->first()->id;
         $Total_Earning = DB::table('orders')->where('restaurant_id',$restaurant_id)->sum('total');
-        $today_earning = DB::table('orders')->where('restaurant_id',$restaurant_id)->where('created_at',Now()->day)->sum('total');
-        $this_week_earning = DB::table('orders')->where('restaurant_id',$restaurant_id)->where('created_at','>', Now()->day-7)->sum('total');
+        $today_earning = DB::table('orders')->where('restaurant_id',$restaurant_id)->whereDate('created_at', now()->toDateString())->sum('total');
+        $this_week_earning = DB::table('orders')->where('restaurant_id',$restaurant_id)->whereBetween('created_at', [now()->startOfWeek(), now()->endOfWeek()])->sum('total');
         //dd($this_week_earning);
         return view('restaurant.payment_history.history',compact('Total_Earning','this_week_earning','today_earning'));
     }

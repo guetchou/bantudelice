@@ -12,7 +12,14 @@ use Illuminate\Contracts\Auth\Authenticatable as AuthenticatableContract;
 class Driver extends Model implements AuthenticatableContract
 {
      use Notifiable,HasApiTokens,HasFactory,\Illuminate\Auth\Authenticatable;
-    protected $fillable=['restaurant_id','name','hourly_pay','email','cnic','password','phone','image','address','latitude','longitude','status','account_name','account_number','bank_name','branch_name','branch_address','licence_image','hours','vehicle','days', 'active_transport_vehicle_id'];
+    protected $fillable=['restaurant_id','name','user_name','hourly_pay','email','cnic','password','phone','image','address','latitude','longitude','status','account_name','account_number','bank_name','branch_name','branch_address','licence_image','hours','vehicle','days', 'active_transport_vehicle_id', 'avg_rating', 'rating_count', 'approved', 'password_must_change', 'password_changed_at', 'password_temp_issued_at', 'provisioned_by_admin_id'];
+    protected $hidden = ['password'];
+    protected $casts = [
+        'approved' => 'boolean',
+        'password_must_change' => 'boolean',
+        'password_changed_at' => 'datetime',
+        'password_temp_issued_at' => 'datetime',
+    ];
     
     public function restaurant()
     {
@@ -72,5 +79,10 @@ class Driver extends Model implements AuthenticatableContract
     public function transportBookings()
     {
         return $this->hasMany(\App\Domain\Transport\Models\TransportBooking::class, 'driver_id');
+    }
+
+    public function reviews()
+    {
+        return $this->hasMany(Review::class);
     }
 }

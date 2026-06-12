@@ -23,6 +23,13 @@ class DataSyncService
      */
     const ENABLE_LOGGING = true;
 
+    protected static function activeRestaurantsCacheKey($limit = null, $featured = false, $filters = [])
+    {
+        $filtersKey = md5(json_encode($filters));
+
+        return 'restaurants_active_' . ($featured ? 'featured' : 'all') . '_' . ($limit ?? 'all') . '_' . $filtersKey;
+    }
+
     /**
      * Récupérer les restaurants actifs avec leurs relations
      * 
@@ -33,8 +40,7 @@ class DataSyncService
      */
     public static function getActiveRestaurants($limit = null, $featured = false, $filters = [])
     {
-        $filtersKey = md5(json_encode($filters));
-        $cacheKey = 'restaurants_active_' . ($featured ? 'featured' : 'all') . '_' . ($limit ?? 'all') . '_' . $filtersKey;
+        $cacheKey = self::activeRestaurantsCacheKey($limit, $featured, $filters);
         
         $startTime = microtime(true);
         
@@ -303,10 +309,13 @@ class DataSyncService
         Cache::forget('restaurant_full_' . $restaurantId);
         Cache::forget('products_restaurant_' . $restaurantId . '_all');
         Cache::forget('products_restaurant_' . $restaurantId . '_featured');
-        
-        // Invalider les caches généraux
-        Cache::forget('restaurants_active_all_all');
-        Cache::forget('restaurants_active_featured_all');
+
+        // Invalider les caches généraux réellement utilisés par la home et les listings.
+        foreach ([null, 8, 12, 20] as $limit) {
+            Cache::forget(self::activeRestaurantsCacheKey($limit, false, []));
+            Cache::forget(self::activeRestaurantsCacheKey($limit, true, []));
+        }
+
         Cache::forget('products_featured_12');
         Cache::forget('cuisines_restaurants_all');
     }
@@ -496,4 +505,3 @@ class DataSyncService
         }
     }
 }
-

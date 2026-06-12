@@ -429,7 +429,7 @@ class CongoTestDataSeeder extends Seeder
                     'user_id' => $testUserId,
                     'restaurant_id' => $restoId,
                     'rating' => rand(3, 5),
-                    'review' => ['Excellent service !', 'Très bon restaurant', 'Livraison rapide', 'Plats délicieux', 'Je recommande !'][rand(0, 4)],
+                    'reviews' => ['Excellent service !', 'Très bon restaurant', 'Livraison rapide', 'Plats délicieux', 'Je recommande !'][rand(0, 4)],
                     'created_at' => $now->copy()->subDays(rand(1, 30)),
                     'updated_at' => $now,
                 ]);

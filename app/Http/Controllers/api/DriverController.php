@@ -11,6 +11,8 @@ use App\Restaurant;
 use App\Product;
 use App\DriverHistory;
 use App\UserToken;
+use App\Services\MissionPresenceBroadcastService;
+use App\Services\NotificationService;
 use Carbon\Carbon;
 use App\CompletedOrder;
 use Illuminate\Support\Facades\Mail;
@@ -19,6 +21,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Facades\Validator;
 use Symfony\Component\Console\Input\Input;
@@ -27,79 +30,20 @@ if (!defined('BASE_URL_PROFILE')) define('BASE_URL_PROFILE',URL::to('/').'/image
 
 class DriverController extends Controller
 {
+    protected ?MissionPresenceBroadcastService $missionPresenceBroadcastService = null;
     
     public function notification( $body,$title,$device_token,$key,$user_id)
     {
-       
-        $fcmUrl = 'https://fcm.googleapis.com/fcm/send';
-        $token = $device_token;
-        $notification = [
-            'title' => $title,
-            'body' => $body,
-            'sound' => true,
-        ];
-        $extraNotificationData = ["key" => $key, "user_id" =>$user_id];
-        $fcmNotification = [
-            //'registration_ids' => $tokenList, //multiple token array
-            'to' => $token, //single token
-            'notification' => $notification,
-            'data' => $extraNotificationData
-        ];
+        $result = NotificationService::sendToDevice($device_token, $title, $body, $key, $user_id, 'user');
 
-        $headers = [
-            'Authorization: key= AAAAU6vnK2I:APA91bH9FiIKziwh9o2eyWAb9sMmERkNpZWMqC1jMSD3dXQOdS45Fu7_x74N3ryYmv0U3fvOnlnXYYdLncGautnTziZFAbWB79rDHbdZVkHNOdkequvbPiey8u27b99-3NUtE_7LTzSu',
-            'Content-Type: application/json'
-        ];
-
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, $fcmUrl);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($fcmNotification));
-        $result = curl_exec($ch);
-        curl_close($ch);
-
-        return response()->json(['data' => 'notification sent', 'action' => $result], 200);
+        return response()->json(['data' => !empty($result['success']) ? 'notification sent' : 'notification failed', 'action' => $result['action'] ?? null], 200);
     }
     
     public function userNotification( $body,$title,$device_token,$key,$user_id)
     {
-       
-        $fcmUrl = 'https://fcm.googleapis.com/fcm/send';
-        $tokenList = $device_token;
-        $notification = [
-            'title' => $title,
-            'body' => $body,
-            'sound' => true,
-        ];
-        $extraNotificationData = ["key" => $key, "user_id" =>$user_id];
-        $fcmNotification = [
-            'registration_ids' => $tokenList, //multiple token array
-            //'to' => $token, //single token
-            'notification' => $notification,
-            'data' => $extraNotificationData
-        ];
+        $result = NotificationService::sendToMultipleDevices($device_token, $title, $body, $key, $user_id, 'user');
 
-        $headers = [
-            'Authorization: key= AAAAU6vnK2I:APA91bH9FiIKziwh9o2eyWAb9sMmERkNpZWMqC1jMSD3dXQOdS45Fu7_x74N3ryYmv0U3fvOnlnXYYdLncGautnTziZFAbWB79rDHbdZVkHNOdkequvbPiey8u27b99-3NUtE_7LTzSu',
-            'Content-Type: application/json'
-        ];
-
-        $ch = curl_init();
-        curl_setopt($ch, CURLOPT_URL, $fcmUrl);
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 0);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($fcmNotification));
-        $result = curl_exec($ch);
-        curl_close($ch);
-
-        return response()->json(['data' => 'notification sent', 'action' => $result], 200);
+        return response()->json(['data' => !empty($result['success']) ? 'notification sent' : 'notification failed', 'action' => $result['action'] ?? null], 200);
     }
     
     public function register(Request $request)
@@ -112,7 +56,7 @@ class DriverController extends Controller
                 'password' => 'required',
                 'phone'=>'required|unique:users',
                 'address'=>'nullable',
-                'image' => 'nullable|image|mimes:jpeg,png,jpg',
+                'image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:8192',
                 'account_name'=>'nullable',
                 'account_address' => 'required',
                 'account_number' => 'required',
@@ -120,12 +64,16 @@ class DriverController extends Controller
                 'branch_name'=>'required',
                 'branch_address'=>'required',
                 'paypal_account_no'=>'required',
-                'licence_image' => 'required|image|mimes:jpeg,png,jpg',
+                'licence_image' => 'required|image|mimes:jpeg,png,jpg,webp|max:8192',
             ));
 
         if ($validator->fails()) {
             $error_messages = implode(',', $validator->messages()->all());
-            $response_array = array('status' => false, 'error_code' => 101, 'message' => $error_messages);
+            return response()->json([
+                'status' => false,
+                'error_code' => 101,
+                'message' => $error_messages,
+            ], 422);
         } else {
             $request['password'] = bcrypt($request->password);
             DB::beginTransaction();
@@ -145,7 +93,7 @@ class DriverController extends Controller
                         );
                         $image->move($destination, $filename);
                         str_replace(" ", "-", $filename);
-                        $driver->image = $filename;
+                        $driver->licence_image = $filename;
                         $driver->save();
                     }
 
@@ -182,11 +130,23 @@ class DriverController extends Controller
                 }
                 $response_array = array('status' => true, 'driver_id' =>$driver->id ,'status_code' => 200, 'data' => $data);
             }
-        $response = response()->json($response_array, 200);
-        return $response;
+        return response()->json($response_array, 200);
     }
     public function login(Request $request)
     {
+        $validator = Validator::make($request->all(), [
+            'phone' => 'required',
+            'password' => 'required',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'error_code' => 101,
+                'message' => implode(',', $validator->messages()->all()),
+            ], 422);
+        }
+
         $phone = $request->input('phone');
         $password = $request->input('password');
 
@@ -220,6 +180,7 @@ class DriverController extends Controller
         $response_array = array('user_id'=>$request->driver_id,
                 'name'=>$request->name,'email'=>$request->email,
                 'image'=>$request->image,
+                'password_change_required' => (bool) ($driver->password_must_change ?? false),
                 'status' => true,'status_code'=>200,'message' => 'Connexion réussie',
                 'data'=>$data);
 
@@ -237,7 +198,11 @@ class DriverController extends Controller
         
         if ($validator->fails()) {
             $error_messages = implode(',', $validator->messages()->all());
-            $response_array = array('status' => false, 'error_code' => 101, 'message' => $error_messages);
+            return response()->json([
+                'status' => false,
+                'error_code' => 101,
+                'message' => $error_messages,
+            ], 422);
         }
         else{
 
@@ -246,7 +211,11 @@ class DriverController extends Controller
             $password=bcrypt($request->password);
             if($check_password)
             { 
-            Driver::where('phone',$request->phone)->update(['password'=>$password]);
+            Driver::where('phone',$request->phone)->update([
+                'password'=>$password,
+                'password_must_change' => false,
+                'password_changed_at' => now(),
+            ]);
             return response()->json([
                 'status' => true,
                 'message' => 'Mis à jour avec succès !',
@@ -255,18 +224,77 @@ class DriverController extends Controller
         else{
             return response()->json([
                 'status' => false,
-                'message' => 'Failed!',
-            ]);
+                'message' => 'Livreur introuvable',
+            ], 404);
         }
 
         }
     }
+
+    public function changePassword(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'phone' => 'required',
+            'current_password' => 'required',
+            'password' => 'required|min:8|different:current_password',
+        ]);
+
+        if ($validator->fails()) {
+            $error_messages = implode(',', $validator->messages()->all());
+
+            return response()->json([
+                'status' => false,
+                'error_code' => 101,
+                'message' => $error_messages,
+            ], 422);
+        }
+
+        $driver = Driver::where('phone', $request->phone)->first();
+        if (!$driver) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Livreur introuvable',
+            ], 404);
+        }
+
+        if (!Hash::check($request->current_password, $driver->password)) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Mot de passe actuel incorrect',
+            ], 403);
+        }
+
+        $driver->password = bcrypt($request->password);
+        $driver->password_must_change = false;
+        $driver->password_changed_at = now();
+        $driver->save();
+
+        return response()->json([
+            'status' => true,
+            'message' => 'Mot de passe mis à jour avec succès',
+            'password_change_required' => false,
+        ]);
+    }
     public function profile($user)
     {
-        $getUser=Driver::select('id','name','email','image','phone', 'paypal_account_no', 'created_at')->where('id',$user)->first();
+        $getUser=Driver::select('id','name','email','image','phone', 'created_at')->where('id',$user)->first();
+
+        if (!$getUser) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Livreur introuvable',
+                'data' => null,
+                'years' => 0,
+                'BASE_URL_PROFILE' => BASE_URL_PROFILE,
+            ], 404);
+        }
+
+        $getUser->image_url = !empty($getUser->image)
+            ? (filter_var($getUser->image, FILTER_VALIDATE_URL) ? $getUser->image : URL::to('/') . '/images/profile_images/' . $getUser->image)
+            : null;
         
- $from = \Carbon\Carbon::createFromFormat('Y-m-d H:s:i', $getUser->created_at);
- $to = \Carbon\Carbon::createFromFormat('Y-m-d H:s:i', now());
+ $from = \Carbon\Carbon::parse($getUser->created_at);
+ $to = now();
 
    $diff_in_years = $to->diffInYears($from);
         return response()->json([
@@ -288,13 +316,23 @@ $validator = Validator::make(
                 'driver_id'=>'required',
                 'name'=>'nullable',
                 'paypal_account_no'=>'required',
-                'image' => 'nullable|image|mimes:jpeg,png,jpg',
+                'image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:8192',
             ));
             $driver=Driver::find($request->driver_id); 
         if ($validator->fails()) {
             $error_messages = implode(',', $validator->messages()->all());
-            $response_array = array('status' => false, 'error_code' => 101, 'message' => $error_messages);
-        } 
+            return response()->json([
+                'status' => false,
+                'error_code' => 101,
+                'message' => $error_messages,
+            ], 422);
+        }
+        elseif (!$driver) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Livreur introuvable',
+            ], 404);
+        }
         else {
                   $driver->name = $request->name;
                   $driver->email = $request->email;
@@ -337,9 +375,6 @@ $validator = Validator::make(
     
     public function SetDriverOnline(Request $request , $driver)
     {
-        
-        
-        
         $validator = Validator::make(
             $request->all(),
             array(
@@ -350,10 +385,20 @@ $validator = Validator::make(
 
         if ($validator->fails()) {
             $error_messages = implode(',', $validator->messages()->all());
-            $response_array = array('status' => false, 'error_code' => 101, 'message' => $error_messages);
-        } 
+            return response()->json([
+                'status' => false,
+                'error_code' => 101,
+                'message' => $error_messages,
+            ], 422);
+        }
         else {
-         $update=Driver::find($driver);   
+        $update=Driver::find($driver);
+        if (!$update) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Livreur introuvable',
+            ], 404);
+        }
         $update->status='online';
         $update->latitude=$request->latitude;
         $update->longitude=$request->longitude;
@@ -380,25 +425,37 @@ $validator = Validator::make(
 
         if ($validator->fails()) {
             $error_messages = implode(',', $validator->messages()->all());
-            $response_array = array('status' => false, 'error_code' => 101, 'message' => $error_messages);
-        } 
-        else {
-           
-           
-           $book = DriverHistory::create($request->all());
+            return response()->json([
+                'status' => false,
+                'error_code' => 101,
+                'message' => $error_messages,
+            ], 422);
         }
-        
-             return response()->json([
+
+        if (!Driver::where('id', $request->driver_id)->exists()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Livreur introuvable',
+            ], 404);
+        }
+
+        DriverHistory::create($request->all());
+
+        return response()->json([
             'status' => true,
-            
-        ]);  
-        
-       
+        ]);
     }
     
     public function SetDriverOffline($user)
     {
         $getUser=Driver::where('id',$user)->first();
+
+        if (!$getUser) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Livreur introuvable',
+            ], 404);
+        }
         
         $getUser->status='offline';
         $getUser->save();
@@ -413,9 +470,26 @@ $validator = Validator::make(
     //Assign Orders 
      public function orderRequests($driver)
     {
-        
+        $driverModel = Driver::find($driver);
+
+        if (!$driverModel) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Livreur introuvable',
+                'data' => null,
+            ], 404);
+        }
+
         $getRestId=Order::where('driver_id',$driver)->first();
         $getRestIds=Order::where('driver_id',$driver)->get();
+        if (!$getRestId) {
+            $driverModel['orders'] = collect();
+
+            return response()->json([
+                'status' => true,
+                'data' => $driverModel
+            ]);
+        }
         $cartProIDs=$getRestIds->pluck('product_id')->toArray();
         $cartOrderNo=$getRestIds->pluck('order_no')->toArray();
         $cartUserIDs=$getRestIds->pluck('user_id')->toArray();
@@ -435,6 +509,15 @@ $validator = Validator::make(
     public function ordersProducts($orderno)
     {
         $getOrders=Order::where('order_no',$orderno)->get();
+
+        if ($getOrders->isEmpty()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Commande introuvable',
+                'products' => [],
+            ], 404);
+        }
+
         $ProIDs=$getOrders->pluck('product_id')->toArray();
         
         $products=Product::whereIn('id', $ProIDs)->get();
@@ -449,7 +532,27 @@ $validator = Validator::make(
     
      public function acceptOrderRequests(Request $request)
     {
+        $validator = Validator::make($request->all(), [
+            'driver_id' => 'required',
+            'status' => 'required|in:1,3',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => false,
+                'error_code' => 101,
+                'message' => implode(',', $validator->messages()->all()),
+            ], 422);
+        }
+
         $driverId=$request->driver_id;
+        if (!Driver::where('id', $driverId)->exists()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Livreur introuvable',
+            ], 404);
+        }
+
         $orders=Order::get()->unique('order_no');
         $users=$orders->pluck('user_id')->toArray();
         $user=UserToken::WhereIn('user_id',$users)->get();
@@ -459,21 +562,19 @@ $validator = Validator::make(
         $body='Your is assign to driver';
         $title='Order Assign';
         $key='assignOrder';
-          $assignOrder=DB::table('orders')
-            ->where('driver_id', $driverId)
-            ->update(['status' => "assign"]);
-            
+          // Les transitions order.status/business_status sont gérées par la state machine
+          // via DeliveryService::assignDriver(). Ce endpoint envoie uniquement la notification.
+          \Illuminate\Support\Facades\Log::info('acceptOrderRequests: notification assign envoyée', ['driver_id' => $driverId]);
             $data=$this->userNotification($body,$title,$tokens,$key,$driverId);
-           dd($data);
           $status=true;
         }
         elseif($request->status==3){
             $body='Your Order is pickup from';
         $title='Order Pickup';
         $key='pickipOrder';
-             $assignOrder=DB::table('orders')
-            ->where('driver_id', $driverId)
-            ->update(['status' => "pickup"]);
+          // Les transitions order.status/business_status sont gérées par la state machine
+          // via DeliveryService::updateStatus('PICKED_UP'). Ce endpoint envoie uniquement la notification.
+          \Illuminate\Support\Facades\Log::info('acceptOrderRequests: notification pickup envoyée', ['driver_id' => $driverId]);
           $status=true;
           $data=$this->userNotification($body,$title,$tokens,$key,$driverId);
         }
@@ -489,22 +590,50 @@ $validator = Validator::make(
     
     public function deliverySummary($driver)
     {
+        $driverModel = Driver::find($driver);
+
+        if (!$driverModel) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Livreur introuvable',
+                'derlieries' => 0,
+                'total' => 0,
+            ], 404);
+        }
        
         $records = DB::table('completed_orders')
         ->select(DB::raw('*'))
         ->whereRaw('Date(created_at) = CURDATE()')
         ->count();
-                  
+
+       if (!Schema::hasTable('driver_histories')) {
+            return response()->json([
+                'status' => true,
+                'derlieries' => $records,
+                'total' => 0,
+                'starttime' => null,
+                'to' => 0,
+            ]);
+       }
+
        $driverHistory=DriverHistory::where('driver_id',$driver)
        ->latest()->first();
-  
-  $to = \Carbon\Carbon::createFromFormat('Y-m-d H:s:i', $driverHistory->start_date);
- 
-  $from = \Carbon\Carbon::createFromFormat('Y-m-d H:s:i', $driverHistory->end_date);
-  
-  $diff_in_hours = $to->diffInHours($from);
-   $driver=Driver::find($driver);
-  $finalEarnings=$driver->hourly_pay * $diff_in_hours;
+
+       if (!$driverHistory) {
+            return response()->json([
+                'status' => true,
+                'derlieries' => $records,
+                'total' => 0,
+                'starttime' => null,
+                'to' => 0,
+            ]);
+       }
+
+  $start = Carbon::parse($driverHistory->start_date);
+  $end = $driverHistory->end_date ? Carbon::parse($driverHistory->end_date) : now();
+
+  $diff_in_hours = $start->diffInHours($end);
+  $finalEarnings=$driverModel->hourly_pay * $diff_in_hours;
   
                  return response()->json([
                 'status' =>true,
@@ -519,6 +648,14 @@ $validator = Validator::make(
     
     public function driverEarningHistory(Request $request, $driver)
     {
+        if (!Driver::whereKey($driver)->exists()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Livreur introuvable',
+                'totalEarning' => 0,
+                'weeks' => [],
+            ], 404);
+        }
         
         // currentEarning = TotalEarning - WithdrawEarning
         
@@ -623,6 +760,8 @@ $validator = Validator::make(
             } catch (\Exception $e) {
                 // Ignorer si la table n'existe pas
             }
+
+            $this->missionPresenceBroadcasts()->broadcastForDriver($driver->fresh());
             
             return response()->json([
                 'status' => true,
@@ -642,5 +781,10 @@ $validator = Validator::make(
                 'error' => $e->getMessage()
             ], 500);
         }
+    }
+
+    protected function missionPresenceBroadcasts(): MissionPresenceBroadcastService
+    {
+        return $this->missionPresenceBroadcastService ??= app(MissionPresenceBroadcastService::class);
     }
 }

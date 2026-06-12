@@ -304,25 +304,33 @@ class DispatchService
      * Assigner automatiquement un livreur à une livraison
      * 
      * @param Delivery $delivery
-     * @return bool True si assignation réussie
+     * @return array{status:string,reason?:string,error?:string,driver_id?:int}
      */
-    public function autoAssign(Delivery $delivery): bool
+    public function autoAssignResult(Delivery $delivery): array
     {
         if ($delivery->status !== 'PENDING') {
             Log::warning('Tentative d\'assignation auto sur livraison non-PENDING', [
                 'delivery_id' => $delivery->id,
-                'status' => $delivery->status
+                'status' => $delivery->status,
             ]);
-            return false;
+
+            return [
+                'status' => 'ignored',
+                'reason' => 'delivery_not_pending',
+            ];
         }
 
         $bestDriver = $this->findBestDriver($delivery);
 
         if (!$bestDriver) {
             Log::info('Aucun livreur trouvé pour assignation auto', [
-                'delivery_id' => $delivery->id
+                'delivery_id' => $delivery->id,
             ]);
-            return false;
+
+            return [
+                'status' => 'no_driver',
+                'reason' => 'no_driver_available',
+            ];
         }
 
         try {
@@ -332,18 +340,76 @@ class DispatchService
             Log::info('Livreur assigné automatiquement', [
                 'delivery_id' => $delivery->id,
                 'driver_id' => $bestDriver->id,
-                'driver_name' => $bestDriver->name
+                'driver_name' => $bestDriver->name,
             ]);
 
-            return true;
-        } catch (\Exception $e) {
+            return [
+                'status' => 'assigned',
+                'driver_id' => $bestDriver->id,
+            ];
+        } catch (\Throwable $e) {
             Log::error('Erreur lors de l\'assignation automatique', [
                 'delivery_id' => $delivery->id,
                 'driver_id' => $bestDriver->id,
-                'error' => $e->getMessage()
+                'error' => $e->getMessage(),
             ]);
-            return false;
+
+            return [
+                'status' => 'error',
+                'reason' => 'assignment_failed',
+                'error' => $e->getMessage(),
+                'driver_id' => $bestDriver->id,
+            ];
         }
+    }
+
+    /**
+     * Retourne les N meilleurs livreurs scorés pour une livraison (offer broadcast).
+     * Exclut les livreurs déjà sollicités.
+     *
+     * @return \Illuminate\Support\Collection<int, array{driver: Driver, score: float, distance_km: float|null}>
+     */
+    public function findTopDrivers(Delivery $delivery, int $limit = 3, array $excludeDriverIds = []): \Illuminate\Support\Collection
+    {
+        $order = $delivery->order;
+        if (!$order?->restaurant) return collect();
+
+        $restaurant  = $order->restaurant;
+        $restaurantLat = (float) ($restaurant->latitude  ?? 0);
+        $restaurantLng = (float) ($restaurant->longitude ?? 0);
+        $deliveryLat   = (float) ($order->d_lat ?? $order->latitude  ?? 0);
+        $deliveryLng   = (float) ($order->d_lng ?? $order->longitude ?? 0);
+
+        if (!$restaurantLat || !$restaurantLng) return collect();
+
+        return $this->getAvailableDrivers($restaurant)
+            ->filter(fn($d) => !in_array($d->id, $excludeDriverIds, true))
+            ->map(function ($driver) use ($restaurantLat, $restaurantLng, $deliveryLat, $deliveryLng, $restaurant) {
+                $dLat = (float) ($driver->latitude  ?? 0);
+                $dLng = (float) ($driver->longitude ?? 0);
+                $distKm = ($dLat && $dLng)
+                    ? $this->calculateDistance($restaurantLat, $restaurantLng, $dLat, $dLng)
+                    : null;
+                return [
+                    'driver'      => $driver,
+                    'score'       => $this->calculateDriverScore($driver, $restaurantLat, $restaurantLng, $deliveryLat ?: null, $deliveryLng ?: null, $restaurant),
+                    'distance_km' => $distKm,
+                ];
+            })
+            ->sortByDesc('score')
+            ->take($limit)
+            ->values();
+    }
+
+    /**
+     * Assigner automatiquement un livreur à une livraison
+     *
+     * @param Delivery $delivery
+     * @return bool True si assignation réussie
+     */
+    public function autoAssign(Delivery $delivery): bool
+    {
+        return ($this->autoAssignResult($delivery)['status'] ?? null) === 'assigned';
     }
 
     /**
@@ -354,7 +420,15 @@ class DispatchService
      */
     public function processPendingDeliveries(int $limit = 10): array
     {
+        // Only dispatch when the linked order is ready for driver assignment.
+        // Attempting to dispatch before restaurant acceptance triggers an invalid
+        // state machine transition (pending_restaurant_acceptance → driver_assigned).
+        $dispatchableStatuses = ['in_kitchen', 'accepted', 'ready_for_pickup'];
+
         $pendingDeliveries = Delivery::where('status', 'PENDING')
+            ->whereHas('order', function ($q) use ($dispatchableStatuses) {
+                $q->whereIn('business_status', $dispatchableStatuses);
+            })
             ->orderBy('created_at', 'asc')
             ->limit($limit)
             ->get();
@@ -379,4 +453,3 @@ class DispatchService
         ];
     }
 }
-

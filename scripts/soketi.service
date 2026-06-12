@@ -1,0 +1,18 @@
+[Unit]
+Description=Soketi WebSocket Server - BantuDelice
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/opt/bantudelice
+ExecStart=/usr/local/bin/soketi start --config=/opt/bantudelice/soketi.json
+Restart=on-failure
+RestartSec=5
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=soketi-bantudelice
+Environment=NODE_ENV=production
+
+[Install]
+WantedBy=multi-user.target

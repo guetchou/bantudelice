@@ -28,16 +28,13 @@ class ProcessPendingDeliveries extends Command
 
     /**
      * Execute the console command.
-     *
-     * @return int
      */
-    public function handle()
+    public function handle(DispatchService $dispatchService): int
     {
         $limit = (int) $this->option('limit');
-        
+
         $this->info("Traitement de {$limit} livraisons en attente...");
-        
-        $dispatchService = new DispatchService();
+
         $result = $dispatchService->processPendingDeliveries($limit);
         
         $this->info("✅ Traitées: {$result['processed']}");
