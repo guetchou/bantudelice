@@ -33,8 +33,6 @@ class User extends Authenticatable
     'social_avatar',
     'api_token',
     'email_verified_at',
-    'two_factor_secret',
-    'two_factor_enabled',
     ];
 
     /**

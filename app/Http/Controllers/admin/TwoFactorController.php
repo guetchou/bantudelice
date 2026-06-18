@@ -110,10 +110,10 @@ class TwoFactorController extends Controller
             return back()->withErrors(['code' => 'Code invalide. Vérifiez que l\'heure de votre téléphone est synchronisée.']);
         }
 
-        auth()->user()->update([
-            'two_factor_secret'  => $secret,
-            'two_factor_enabled' => true,
-        ]);
+        $currentUser = auth()->user();
+        $currentUser->two_factor_secret  = $secret;
+        $currentUser->two_factor_enabled = true;
+        $currentUser->save();
 
         $request->session()->forget('2fa_setup_secret');
         $request->session()->put('admin_2fa_verified', true);
@@ -132,10 +132,9 @@ class TwoFactorController extends Controller
             return back()->withErrors(['code' => 'Code incorrect. Entrez le code actuel de votre application.']);
         }
 
-        $user->update([
-            'two_factor_secret'  => null,
-            'two_factor_enabled' => false,
-        ]);
+        $user->two_factor_secret  = null;
+        $user->two_factor_enabled = false;
+        $user->save();
 
         $request->session()->forget('admin_2fa_verified');
 
