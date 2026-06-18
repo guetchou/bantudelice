@@ -659,7 +659,8 @@
 <style>
     .modern-header,
     .modern-footer { display: none !important; }
-    body.bd-future-shell.bd-colis-landing { background: #f0f5f0; font-family: 'Manrope', sans-serif; cursor: none; }
+    body.bd-future-shell.bd-colis-landing { background: #f0f5f0; font-family: 'Manrope', sans-serif; }
+    body.bd-colis-cursor-ready { cursor: none; }
     body.bd-future-shell main { overflow: visible; }
     .bd-colis-page { --bg:#f0f5f0; --bg2:#f8faf8; --bg3:#eaf0ea; --bg4:#dfe8df; --green:#1b6e42; --green-dark:#134f2e; --green-mid:#22894f; --green-pale:rgba(27,110,66,.07); --green-glow:rgba(27,110,66,.18); --colis-primary:#009543; --colis-secondary:#22c55e; --colis-pale:rgba(0,149,67,.08); --colis-glow:rgba(0,149,67,.22); --colis-dark:#007836; --gold:#c08a10; --gold-light:#d4a020; --gold-pale:rgba(192,138,16,.08); --text:#181a16; --text2:#4a5046; --text3:#8a9086; --blue:#2563b8; --blue-pale:rgba(37,99,184,.07); --red:#c0392b; --border:rgba(24,26,22,.08); --border2:rgba(24,26,22,.15); --sh:0 2px 14px rgba(24,26,22,.06); --sh-md:0 6px 28px rgba(24,26,22,.09); --sh-lg:0 20px 60px rgba(24,26,22,.11); --r-s:6px; --r-m:12px; --r-l:20px; --r-xl:28px; background:var(--bg); color:var(--text); overflow-x:hidden; -webkit-font-smoothing:antialiased; }
     .bd-colis-page * { box-sizing:border-box; }
@@ -971,7 +972,9 @@ document.addEventListener('DOMContentLoaded', function () {
     let mx = 0, my = 0, rx = 0, ry = 0;
 
     if (dot && ring && window.matchMedia('(min-width: 901px)').matches) {
+        let cursorReady = false;
         document.addEventListener('mousemove', function (e) {
+            if (!cursorReady) { cursorReady = true; document.body.classList.add('bd-colis-cursor-ready'); }
             mx = e.clientX;
             my = e.clientY;
             dot.style.transform = 'translate(' + mx + 'px,' + my + 'px) translate(-50%,-50%)';
