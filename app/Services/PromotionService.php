@@ -203,6 +203,7 @@ class PromotionService
         $perUserLimit = (int) ($voucher->per_user_limit ?? 0);
         $userRedemptions = 0;
         if ($user && Schema::hasTable('voucher_redemptions') && $perUserLimit > 0) {
+            // Vérification par user_id
             $userRedemptions = VoucherRedemption::where('voucher_id', $voucher->id)
                 ->where('user_id', $user->id)
                 ->where('status', 'redeemed')
@@ -210,6 +211,20 @@ class PromotionService
 
             if ($userRedemptions >= $perUserLimit) {
                 return $this->invalidVoucherResult('Vous avez déjà utilisé ce code promo');
+            }
+
+            // Cross-check par téléphone : empêche l'abus via comptes multiples (HAUTE-5)
+            if (!empty($user->phone) && Schema::hasColumn('users', 'phone')) {
+                $phoneRedemptions = VoucherRedemption::where('voucher_id', $voucher->id)
+                    ->where('status', 'redeemed')
+                    ->whereNotNull('user_id')
+                    ->join('users', 'users.id', '=', 'voucher_redemptions.user_id')
+                    ->where('users.phone', $user->phone)
+                    ->count();
+
+                if ($phoneRedemptions >= $perUserLimit) {
+                    return $this->invalidVoucherResult('Ce code promo a déjà été utilisé avec ce numéro de téléphone');
+                }
             }
         }
 

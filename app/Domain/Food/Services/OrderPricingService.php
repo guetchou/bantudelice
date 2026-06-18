@@ -152,7 +152,7 @@ class OrderPricingService
             return 0.0;
         }
 
-        return ((float) $voucher->discount / 100) * $subTotal;
+        return app(\App\Services\PromotionService::class)->calculateDiscount($voucher, $subTotal);
     }
 
     private function normalizeFulfillmentMode(mixed $fulfillmentMode): string
