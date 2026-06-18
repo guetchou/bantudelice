@@ -19,16 +19,19 @@ class DriverPageController extends Controller
         $user = auth()->user();
         if (!$user) return null;
 
-        if (true) {
-            $d = Driver::where('user_id', $user->id)->first();
-            if ($d) return $d;
-        }
+        $d = Driver::where('user_id', $user->id)->first();
+        if ($d) return $d;
+
+        // email ET téléphone doivent correspondre tous les deux (l'orWhere et le
+        // fallback par nom permettaient un IDOR par correspondance partielle/faible).
         $d = Driver::where('email', $user->email)
-                   ->orWhere('phone', $user->phone)
+                   ->where('phone', $user->phone)
                    ->first();
-        if (!$d && $user->type === 'driver') {
-            $d = Driver::where('name', $user->name)->first();
+
+        if ($d && !$d->user_id) {
+            $d->update(['user_id' => $user->id]);
         }
+
         return $d;
     }
 
@@ -53,6 +56,45 @@ class DriverPageController extends Controller
         $financialDashboard = app(PartnerFinancialDashboardService::class)->forDeliveryDriver($driver);
 
         return view('driver.gains', compact('driver', 'financialDashboard'));
+    }
+
+    public function requestPayout(\Illuminate\Http\Request $request)
+    {
+        $driver = $this->driverOrRedirect();
+        if (!($driver instanceof Driver)) {
+            return response()->json(['success' => false, 'message' => 'Non authentifié'], 401);
+        }
+
+        $dashboard     = app(PartnerFinancialDashboardService::class)->forDeliveryDriver($driver);
+        $availableCard = collect($dashboard['cards'])->firstWhere('label', 'Disponible au retrait');
+        $available     = (float) ($availableCard['amount'] ?? 0);
+
+        if ($available < 500) {
+            return response()->json(['success' => false, 'message' => 'Montant minimum de versement : 500 FCFA.']);
+        }
+
+        $alreadyPending = \App\DriverPayment::where('driver_id', $driver->id)
+            ->where('status', 'pending')->exists();
+        if ($alreadyPending) {
+            return response()->json(['success' => false, 'message' => 'Une demande de versement est déjà en cours de traitement.']);
+        }
+
+        \App\DriverPayment::create([
+            'driver_id'      => $driver->id,
+            'payout_amount'  => (int) round($available),
+            'transaction_id' => 'REQ-' . $driver->id . '-' . time(),
+        ]);
+
+        \Illuminate\Support\Facades\Log::info('Driver payout request', [
+            'driver_id' => $driver->id,
+            'amount'    => $available,
+        ]);
+
+        return response()->json([
+            'success' => true,
+            'amount'  => $available,
+            'message' => number_format($available, 0, ',', ' ') . ' FCFA — demande envoyée. L\'équipe vous contactera sous 48h.',
+        ]);
     }
 
     /**

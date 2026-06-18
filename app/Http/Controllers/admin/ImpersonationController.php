@@ -9,6 +9,7 @@ use App\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 class ImpersonationController extends Controller
@@ -84,16 +85,30 @@ class ImpersonationController extends Controller
 
     protected function beginImpersonation(User $targetUser, string $redirectTo, string $message): RedirectResponse
     {
+        $adminId = auth()->id();
+
+        Log::warning('Admin impersonation démarrée', [
+            'admin_id'       => $adminId,
+            'admin_email'    => auth()->user()?->email,
+            'target_user_id' => $targetUser->id,
+            'target_type'    => $targetUser->type,
+            'target_email'   => $targetUser->email,
+            'ip'             => request()->ip(),
+            'user_agent'     => request()->userAgent(),
+        ]);
+
         session([
-            'admin_impersonator_id' => auth()->id(),
+            'admin_impersonator_id' => $adminId,
             'admin_impersonation_context' => [
                 'target_user_id' => $targetUser->id,
-                'target_name' => $targetUser->name,
-                'target_type' => $targetUser->type,
+                'target_name'    => $targetUser->name,
+                'target_type'    => $targetUser->type,
+                'started_at'     => now()->toIso8601String(),
             ],
         ]);
 
         auth()->login($targetUser);
+        session()->regenerateToken();
 
         return redirect($redirectTo)->with('alert', [
             'type' => 'success',

@@ -27,13 +27,20 @@ class DriverOfferController extends Controller
         $user = auth()->user();
         if (!$user) return null;
 
-        if (true) {
-            $d = Driver::where('user_id', $user->id)->first();
-            if ($d) return $d;
-        }
-        return Driver::where('email', $user->email)
-            ->orWhere('phone', $user->phone)
+        $d = Driver::where('user_id', $user->id)->first();
+        if ($d) return $d;
+
+        // email ET téléphone doivent correspondre tous les deux (l'orWhere
+        // permettait un IDOR par correspondance partielle).
+        $d = Driver::where('email', $user->email)
+            ->where('phone', $user->phone)
             ->first();
+
+        if ($d && !$d->user_id) {
+            $d->update(['user_id' => $user->id]);
+        }
+
+        return $d;
     }
 
     /**

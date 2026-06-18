@@ -416,7 +416,11 @@ class OrderController extends Controller
     }
     public function show_order($id)
     {
-        $order    = Order::with(['driver', 'delivery.driver', 'restaurant', 'user'])->where('order_no', $id)->first();
+        $restaurantId = \App\Restaurant::where('user_id', auth()->id())->value('id');
+        $order = Order::with(['driver', 'delivery.driver', 'restaurant', 'user'])
+            ->where('order_no', $id)
+            ->where('restaurant_id', $restaurantId)
+            ->firstOrFail();
         $products = Order::with('product')->where('order_no', $id)->get();
         $chatData = app(OrderChatService::class)->viewDataForOrder($order, auth()->user());
         return view('restaurant.order.show_orders', compact('order', 'products', 'chatData'));

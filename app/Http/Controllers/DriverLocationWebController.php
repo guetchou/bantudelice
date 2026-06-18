@@ -64,13 +64,19 @@ class DriverLocationWebController extends Controller
     private function resolveDriver($user): ?Driver
     {
         // S3.4 — si user_id est présent sur drivers, liaison directe
-        if (true) {
-            $driver = Driver::where('user_id', $user->id)->first();
-            if ($driver) return $driver;
-        }
-        // Fallback : lookup par email ou phone
-        return Driver::where('email', $user->email)
-            ->orWhere('phone', $user->phone)
+        $driver = Driver::where('user_id', $user->id)->first();
+        if ($driver) return $driver;
+
+        // Fallback : email ET téléphone doivent correspondre tous les deux
+        // (l'orWhere permettait un IDOR par correspondance partielle).
+        $driver = Driver::where('email', $user->email)
+            ->where('phone', $user->phone)
             ->first();
+
+        if ($driver && !$driver->user_id) {
+            $driver->update(['user_id' => $user->id]);
+        }
+
+        return $driver;
     }
 }
