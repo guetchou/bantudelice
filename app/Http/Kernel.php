@@ -69,6 +69,8 @@ class Kernel extends HttpKernel
         'verified' => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
         'auth.web_or_api' => \App\Http\Middleware\AuthenticateWebOrApi::class,
         'admin' => AdminMiddleware::class,
+        'admin.2fa' => \App\Http\Middleware\RequireAdmin2FA::class,
+        'admin.audit' => \App\Http\Middleware\AdminAuditLogger::class,
         'restaurant'=>RestaurantMiddleware::class,
         'delivery'=>DeliveryMiddleware::class,
         'user'=>UserMiddleware::class,

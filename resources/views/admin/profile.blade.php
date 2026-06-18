@@ -172,6 +172,59 @@
                 </form>
             </div>
         </div>
+
+        {{-- Section 2FA ──────────────────────────────────────────────────── --}}
+        <div class="prf-form-card" style="margin-top:20px;">
+            <div class="prf-form-head">
+                <h3 style="font-size:1rem;font-weight:700;margin:0;display:flex;align-items:center;gap:8px;">
+                    <i class="fas fa-shield-halved" style="color:#007836;"></i>
+                    Double authentification (2FA)
+                </h3>
+            </div>
+            <div class="prf-form-body">
+                @if(session('success'))
+                    <div style="background:#dcfce7;color:#166534;border:1px solid #bbf7d0;border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:.85rem;">
+                        <i class="fas fa-circle-check"></i> {{ session('success') }}
+                    </div>
+                @endif
+
+                @if(auth()->user()->two_factor_enabled)
+                    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px;">
+                        <span style="background:#dcfce7;color:#166534;border-radius:20px;padding:4px 12px;font-size:.8rem;font-weight:700;">
+                            <i class="fas fa-check-circle"></i> 2FA activé
+                        </span>
+                        <span style="font-size:.84rem;color:#6b7280;">Votre compte est protégé par une application d'authentification.</span>
+                    </div>
+                    <form method="POST" action="{{ route('admin.2fa.disable') }}" style="max-width:420px;">
+                        @csrf
+                        <label style="display:block;font-size:.84rem;font-weight:600;color:#374151;margin-bottom:6px;">
+                            Code de confirmation pour désactiver
+                        </label>
+                        <div style="display:flex;gap:10px;align-items:flex-start;flex-wrap:wrap;">
+                            <input type="text" name="code" placeholder="000000" maxlength="6" inputmode="numeric"
+                                required
+                                style="flex:1;min-width:120px;padding:9px 12px;border:2px solid {{ $errors->has('code') ? '#dc2626' : '#e5e7eb' }};border-radius:10px;font-size:1rem;font-weight:700;letter-spacing:.25em;text-align:center;outline:none;">
+                            <button type="submit"
+                                style="padding:9px 16px;background:#dc2626;color:#fff;border:none;border-radius:10px;font-size:.85rem;font-weight:600;cursor:pointer;white-space:nowrap;">
+                                <i class="fas fa-lock-open"></i> Désactiver
+                            </button>
+                        </div>
+                        @error('code')
+                            <p style="color:#dc2626;font-size:.78rem;margin-top:4px;">{{ $message }}</p>
+                        @enderror
+                    </form>
+                @else
+                    <p style="font-size:.84rem;color:#6b7280;margin-bottom:14px;">
+                        Le 2FA ajoute une couche de sécurité supplémentaire à votre compte admin.
+                        Une fois activé, vous devrez entrer un code depuis votre téléphone à chaque connexion.
+                    </p>
+                    <a href="{{ route('admin.2fa.setup') }}"
+                        style="display:inline-flex;align-items:center;gap:8px;padding:10px 20px;background:#007836;color:#fff;border-radius:10px;font-size:.88rem;font-weight:600;text-decoration:none;">
+                        <i class="fas fa-shield-halved"></i> Activer le 2FA
+                    </a>
+                @endif
+            </div>
+        </div>
     </div>
 </div>
 </div>
