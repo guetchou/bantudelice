@@ -120,10 +120,6 @@
                                 </button>
                             </form>
                         @endauth
-                        <a href="{{ route('cart.detail') }}" class="restaurant-hero-action restaurant-hero-action--cart">
-                            <i class="fas fa-shopping-bag"></i>
-                            Voir le panier
-                        </a>
                     </div>
                 </div>
             </div>
@@ -164,6 +160,19 @@
             </div>
             @endif
             
+            {{-- Recherche inline [C9] --}}
+            <div class="menu-search-bar">
+                <div class="menu-search-wrap">
+                    <i class="fas fa-magnifying-glass menu-search-icon"></i>
+                    <input type="search" id="menuSearch" class="menu-search-input"
+                        placeholder="Rechercher dans le menu…" autocomplete="off" spellcheck="false">
+                    <button class="menu-search-clear" id="menuSearchClear" aria-label="Effacer">
+                        <i class="fas fa-xmark"></i>
+                    </button>
+                </div>
+                <div class="menu-search-count" id="menuSearchCount"></div>
+            </div>
+
             @if($abc->count() > 1)
             <nav class="menu-catnav" id="menuCatNav">
                 <div class="menu-catnav__inner">
@@ -313,6 +322,41 @@
     <span class="floating-cart__badge" id="floatingCartBadge" style="display:none">0</span>
 </a>
 @endif
+
+{{-- Modale multi-restaurant [C6] --}}
+<div id="bdConflictOverlay" onclick="closeConflictModal()"
+    style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1040;transition:opacity .3s;"></div>
+<div id="bdConflictModal"
+    style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:1050;background:#fff;border-radius:20px 20px 0 0;padding:24px 20px 32px;box-shadow:0 -8px 32px rgba(0,0,0,.15);transform:translateY(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);">
+    <style>
+        #bdConflictModal.active { transform:translateY(0) !important; }
+        #bdConflictOverlay.active { opacity:1; }
+        #bdConflictOverlay { opacity:0; }
+    </style>
+    <div style="width:40px;height:4px;background:#e2e8f0;border-radius:2px;margin:0 auto 18px;"></div>
+    <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:16px;">
+        <div style="width:44px;height:44px;border-radius:50%;background:#fff7ed;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:1.2rem;color:#ea580c;">
+            <i class="fas fa-basket-shopping"></i>
+        </div>
+        <div>
+            <div style="font-weight:700;font-size:.98rem;color:#111827;margin-bottom:4px;">Votre panier contient déjà des articles</div>
+            <div style="font-size:.84rem;color:#6b7280;line-height:1.45;">
+                Vous avez des articles de <strong id="bdConflictRestName">ce restaurant</strong> dans votre panier.
+                Voulez-vous vider votre panier et commander ici ?
+            </div>
+        </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;">
+        <button id="bdConflictConfirm"
+            style="width:100%;padding:13px;background:#007836;color:#fff;border:none;border-radius:12px;font-size:.95rem;font-weight:700;cursor:pointer;">
+            <i class="fas fa-trash-can"></i> Vider le panier et commander ici
+        </button>
+        <button id="bdConflictCancel"
+            style="width:100%;padding:12px;background:none;border:2px solid #e5e7eb;border-radius:12px;font-size:.9rem;font-weight:600;color:#374151;cursor:pointer;">
+            Garder mon panier actuel
+        </button>
+    </div>
+</div>
 @endsection
 
 @section('style')
@@ -323,6 +367,18 @@
 .menu-catnav__inner::-webkit-scrollbar{display:none}
 .menu-catnav__pill{flex-shrink:0;padding:.35rem .85rem;border-radius:20px;font-size:.8rem;font-weight:600;color:#555;background:#f4f4f4;text-decoration:none;transition:background .18s,color .18s;white-space:nowrap;}
 .menu-catnav__pill:hover,.menu-catnav__pill.is-active{background:#007836;color:#fff;}
+
+/* ── Recherche inline [C9] ──────────────────────── */
+.menu-search-bar{padding:.55rem 1rem;border-bottom:1px solid #f3f4f6;background:#fff;}
+.menu-search-wrap{position:relative;max-width:480px;}
+.menu-search-input{width:100%;padding:.55rem .9rem .55rem 2.2rem;border:1.5px solid #e5e7eb;border-radius:20px;font-size:.84rem;outline:none;background:#f9fafb;transition:border-color .2s,background .2s;}
+.menu-search-input:focus{border-color:#007836;background:#fff;}
+.menu-search-icon{position:absolute;left:.75rem;top:50%;transform:translateY(-50%);color:#9ca3af;font-size:.8rem;pointer-events:none;}
+.menu-search-clear{position:absolute;right:.7rem;top:50%;transform:translateY(-50%);background:none;border:none;color:#9ca3af;cursor:pointer;font-size:.85rem;display:none;padding:0;line-height:1;}
+.menu-search-clear.visible{display:block;}
+.menu-search-count{font-size:.75rem;color:#6b7280;margin-top:4px;padding-left:.5rem;min-height:1em;}
+.product-card.ms-hidden{display:none;}
+.category-section.ms-empty{display:none;}
 
 /* ── Inline qty stepper on product card ─────────── */
 .bd-add-wrap{display:flex;align-items:center;}
@@ -352,11 +408,11 @@
     function badgeEl() { return document.getElementById('floatingCartBadge'); }
 
     function setBadge(count) {
+        if (typeof updateCartBadge === 'function') updateCartBadge(count);
         const el = badgeEl();
         if (!el) return;
         el.textContent = count;
         el.style.display = count > 0 ? 'flex' : 'none';
-        if (typeof updateCartBadge === 'function') updateCartBadge(count);
     }
 
     function renderStepper(wrap, qty) {
@@ -371,13 +427,53 @@
         wrap.querySelector('.bd-stepper').style.display = 'none';
     }
 
-    async function postCart(productId) {
+    async function postCart(productId, forceClear) {
         const res = await fetch(CART_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CSRF, 'Accept': 'application/json' },
-            body: JSON.stringify({ product_id: productId, qty: 1 })
+            body: JSON.stringify({ product_id: productId, qty: 1, force_clear: forceClear ? true : undefined })
         });
+        if (res.status === 409) {
+            const data = await res.json();
+            if (data.restaurant_conflict) {
+                return { __conflict: true, existing_restaurant: data.existing_restaurant, product_id: productId };
+            }
+        }
         return res.json();
+    }
+
+    // ── Modale multi-restaurant ──────────────────────────────────────────────
+    function showRestaurantConflictModal(existingName, productId, addBtn) {
+        document.getElementById('bdConflictRestName').textContent = existingName;
+        const modal = document.getElementById('bdConflictModal');
+        const overlay = document.getElementById('bdConflictOverlay');
+        modal.style.display = 'block';
+        overlay.style.display = 'block';
+        setTimeout(() => { modal.classList.add('active'); overlay.classList.add('active'); }, 10);
+
+        document.getElementById('bdConflictConfirm').onclick = async function() {
+            closeConflictModal();
+            addBtn.disabled = true;
+            try {
+                const data = await postCart(productId, true);
+                if (data.success) {
+                    state[productId] = { cartItemId: data.cart_item_id, qty: 1 };
+                    const wrap = addBtn.closest('.bd-add-wrap');
+                    if (wrap) renderStepper(wrap, 1);
+                    setBadge(data.total_items);
+                    if (typeof showToast === 'function') showToast('Panier vidé — article ajouté', 'success');
+                }
+            } finally { addBtn.disabled = false; }
+        };
+        document.getElementById('bdConflictCancel').onclick = closeConflictModal;
+    }
+
+    function closeConflictModal() {
+        const modal = document.getElementById('bdConflictModal');
+        const overlay = document.getElementById('bdConflictOverlay');
+        modal.classList.remove('active');
+        overlay.classList.remove('active');
+        setTimeout(() => { modal.style.display = 'none'; overlay.style.display = 'none'; }, 300);
     }
 
     async function putCart(cartItemId, qty) {
@@ -386,14 +482,18 @@
         body.append('qty', qty);
         body.append('_token', CSRF);
         const res = await fetch(`${CART_UPDATE}/${cartItemId}`, { method: 'POST', headers: { 'Accept': 'application/json' }, body });
-        return res.ok;
+        if (!res.ok) return null;
+        const data = await res.json().catch(() => null);
+        return data?.total_items ?? null;
     }
 
     async function deleteCartItem(cartItemId) {
         const body = new FormData();
         body.append('_token', CSRF);
         const res = await fetch(`${CART_DELETE}/${cartItemId}`, { method: 'POST', headers: { 'Accept': 'application/json' }, body });
-        return res.ok;
+        if (!res.ok) return null;
+        const data = await res.json().catch(() => null);
+        return data?.total_items ?? null;
     }
 
     document.querySelectorAll('.bd-add-wrap').forEach(function(wrap) {
@@ -405,7 +505,12 @@
         addBtn.addEventListener('click', async function() {
             addBtn.disabled = true;
             try {
-                const data = await postCart(productId);
+                const data = await postCart(productId, false);
+                if (data.__conflict) {
+                    showRestaurantConflictModal(data.existing_restaurant, productId, addBtn);
+                    addBtn.disabled = false;
+                    return;
+                }
                 if (data.success) {
                     state[productId] = { cartItemId: data.cart_item_id, qty: 1 };
                     renderStepper(wrap, 1);
@@ -440,20 +545,18 @@
             try {
                 const { cartItemId, qty } = state[productId];
                 if (qty > 1) {
-                    const ok = await putCart(cartItemId, qty - 1);
-                    if (ok) {
+                    const total = await putCart(cartItemId, qty - 1);
+                    if (total !== null) {
                         state[productId].qty--;
                         wrap.querySelector('.bd-stepper__qty').textContent = state[productId].qty;
-                        const badge = badgeEl();
-                        if (badge && parseInt(badge.textContent) > 0) setBadge(parseInt(badge.textContent) - 1);
+                        setBadge(total);
                     }
                 } else {
-                    const ok = await deleteCartItem(cartItemId);
-                    if (ok) {
+                    const total = await deleteCartItem(cartItemId);
+                    if (total !== null) {
                         delete state[productId];
                         showAddBtn(wrap);
-                        const badge = badgeEl();
-                        if (badge && parseInt(badge.textContent) > 0) setBadge(parseInt(badge.textContent) - 1);
+                        setBadge(total);
                     }
                 }
             } finally { decBtn.disabled = false; }
@@ -484,6 +587,55 @@
         }, { rootMargin: '-40% 0px -55% 0px' });
         sections.forEach(function(s) { io.observe(s); });
     }
+})();
+
+// ── Recherche inline [C9] ─────────────────────────────────────────────────
+(function() {
+    var input    = document.getElementById('menuSearch');
+    var clearBtn = document.getElementById('menuSearchClear');
+    var countEl  = document.getElementById('menuSearchCount');
+    if (!input) return;
+
+    function normalize(str) {
+        return str.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+    }
+
+    function applyFilter(q) {
+        var query    = normalize(q.trim());
+        var cards    = document.querySelectorAll('.product-card');
+        var sections = document.querySelectorAll('.category-section');
+        var total    = 0;
+
+        cards.forEach(function(card) {
+            var name = normalize(card.querySelector('.product-name')?.textContent || '');
+            var desc = normalize(card.querySelector('.product-description')?.textContent || '');
+            var match = !query || name.includes(query) || desc.includes(query);
+            card.classList.toggle('ms-hidden', !match);
+            if (match) total++;
+        });
+
+        sections.forEach(function(sec) {
+            var visible = sec.querySelectorAll('.product-card:not(.ms-hidden)').length > 0;
+            sec.classList.toggle('ms-empty', !visible);
+        });
+
+        clearBtn.classList.toggle('visible', q.length > 0);
+        if (!query) {
+            countEl.textContent = '';
+        } else if (total === 0) {
+            countEl.textContent = 'Aucun résultat pour "' + q.trim() + '"';
+        } else {
+            countEl.textContent = total + ' plat' + (total > 1 ? 's' : '') + ' trouvé' + (total > 1 ? 's' : '');
+        }
+    }
+
+    input.addEventListener('input', function() { applyFilter(this.value); });
+
+    clearBtn.addEventListener('click', function() {
+        input.value = '';
+        applyFilter('');
+        input.focus();
+    });
 })();
 </script>
 @endsection

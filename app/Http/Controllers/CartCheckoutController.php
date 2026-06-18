@@ -130,21 +130,27 @@ class CartCheckoutController extends Controller
         session()->forget('cart');
     }
 
-    public function deleteItem($id=null){
-        if(auth()->check()){
-            // Vérification propriété : seul le propriétaire peut supprimer son article
+    public function deleteItem(Request $request, $id = null)
+    {
+        if (auth()->check()) {
             $delete_item = Cart::where('id', $id)
                 ->where('user_id', auth()->id())
                 ->firstOrFail();
             $delete_item->delete();
+            $totalItems = Cart::where('user_id', auth()->id())->sum('qty');
         } else {
             $cart = session()->get('cart', []);
-            if(isset($cart[$id])){
+            if (isset($cart[$id])) {
                 unset($cart[$id]);
                 session()->put('cart', $cart);
             }
+            $totalItems = array_sum(array_column(session()->get('cart', []), 'qty'));
         }
-        return back()->with('message','Supprime avec succes !');
+
+        if ($request->ajax() || $request->wantsJson()) {
+            return response()->json(['success' => true, 'total_items' => $totalItems]);
+        }
+        return back()->with('message', 'Supprimé avec succès !');
     }
 
     public function updateItem(Request $request, $cart){
@@ -178,15 +184,19 @@ class CartCheckoutController extends Controller
             }
         }
 
-        // Si c'est une requête AJAX, retourner JSON
-        if($request->ajax() || $request->wantsJson()){
+        $totalItems = auth()->check()
+            ? Cart::where('user_id', auth()->id())->sum('qty')
+            : array_sum(array_column(session()->get('cart', []), 'qty'));
+
+        if ($request->ajax() || $request->wantsJson()) {
             return response()->json([
-                'status' => true,
-                'message' => 'Quantité mise à jour'
+                'status'      => true,
+                'message'     => 'Quantité mise à jour',
+                'total_items' => $totalItems,
             ]);
         }
 
-        return back()->with('message','Quantité mise à jour');
+        return back()->with('message', 'Quantité mise à jour');
     }
 
      public function register(Request $request)
@@ -255,15 +265,6 @@ class CartCheckoutController extends Controller
             return redirect()->route('user.login')->with('message', 'Veuillez vous connecter pour finaliser votre commande');
         }
 
-        // Téléphone et adresse requis pour commander (profil social incomplet)
-        $authUser = auth()->user();
-        if (empty($authUser->phone)) {
-            return redirect()->route('user.profile')->with('alert', [
-                'type'    => 'warning',
-                'message' => 'Veuillez renseigner votre numéro de téléphone avant de commander.',
-            ]);
-        }
-
         $id = auth()->user()->id;
 
         // Migrer le panier de session vers la base de donnees
@@ -290,6 +291,13 @@ class CartCheckoutController extends Controller
 
         if ($checkoutData->isEmpty()) {
             return redirect()->route('cart.detail')->with('message', 'Votre panier est vide');
+        }
+
+        // Guard multi-restaurant : un panier ne peut contenir qu'un seul restaurant (HAUTE-4)
+        $uniqueRestaurants = $checkoutData->pluck('restaurant_id')->filter()->unique();
+        if ($uniqueRestaurants->count() > 1) {
+            Cart::where('user_id', $id)->delete();
+            return redirect()->route('cart.detail')->with('message', 'Votre panier contenait des articles de plusieurs restaurants. Il a été vidé — commencez une nouvelle commande.');
         }
 
         $name = $checkoutData->pluck('name')->toArray();
@@ -391,6 +399,38 @@ class CartCheckoutController extends Controller
         // Définir le prix (prix remisé si disponible, sinon prix normal)
         $price = $product->discount_price > 0 ? $product->discount_price : $product->price;
 
+        // [C6] Détection conflit multi-restaurant
+        if (auth()->check()) {
+            $existingRestaurantId = Cart::where('user_id', auth()->id())->value('restaurant_id');
+            if ($existingRestaurantId && (int)$existingRestaurantId !== (int)$product->restaurant_id) {
+                if (!$request->boolean('force_clear')) {
+                    $existingRestaurant = Restaurant::find($existingRestaurantId);
+                    return response()->json([
+                        'success'             => false,
+                        'restaurant_conflict' => true,
+                        'existing_restaurant' => $existingRestaurant?->name ?? 'le restaurant actuel',
+                        'message'             => 'Votre panier contient des articles d\'un autre restaurant.',
+                    ], 409);
+                }
+                Cart::where('user_id', auth()->id())->delete();
+            }
+        } else {
+            $sessionCart = session()->get('cart', []);
+            $existingRestaurantId = collect($sessionCart)->pluck('restaurant_id')->filter()->first();
+            if ($existingRestaurantId && (int)$existingRestaurantId !== (int)$product->restaurant_id) {
+                if (!$request->boolean('force_clear')) {
+                    $existingRestaurant = Restaurant::find($existingRestaurantId);
+                    return response()->json([
+                        'success'             => false,
+                        'restaurant_conflict' => true,
+                        'existing_restaurant' => $existingRestaurant?->name ?? 'le restaurant actuel',
+                        'message'             => 'Votre panier contient des articles d\'un autre restaurant.',
+                    ], 409);
+                }
+                session()->put('cart', []);
+            }
+        }
+
         // Si l'utilisateur est connecté, utiliser la base de données
         if(auth()->check()){
             // restaurant_id : toujours depuis le produit (source de confiance)
@@ -445,7 +485,7 @@ class CartCheckoutController extends Controller
             }
 
             session()->put('cart', $cart);
-            $cartItemId = null;
+            $cartItemId = $productId; // clé session = product_id pour les invités
             $message = 'Produit ajouté au panier';
             $totalItems = array_sum(array_column($cart, 'qty'));
         }

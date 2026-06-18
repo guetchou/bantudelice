@@ -67,18 +67,22 @@ class CartController extends Controller
             ], 404);
         }
          else{
+            // Prix imposé par le serveur — jamais de confiance au client (CRIT-2)
+            $product    = Product::findOrFail($request->product_id);
+            $serverPrice = ($product->discount_price > 0) ? (float)$product->discount_price : (float)$product->price;
+
             $checkUser=Cart::where('user_id',$request->user_id)->first();
             $cart = new Cart;
-            
+
             if($checkUser==NULL){
                 $cart->restaurant_id = $request->restaurant_id;
                 $cart->user_id = $request->user_id;
                 $cart->product_id = $request->product_id;
                 $cart->qty = $request->qty;
                 $cart->description = $request->instructions;
-                $cart->price = $request->price;
-                $cart->sub_total = $request->price * $request->qty;
-        
+                $cart->price = $serverPrice;
+                $cart->sub_total = $serverPrice * $request->qty;
+
                 $cart->save();
 
                 return response()->json([
@@ -92,9 +96,9 @@ class CartController extends Controller
                 $cart->product_id = $request->product_id;
                 $cart->qty = $request->qty;
                 $cart->description = $request->instructions;
-                $cart->price = $request->price;
-                $cart->sub_total = $request->price * $request->qty;
-        
+                $cart->price = $serverPrice;
+                $cart->sub_total = $serverPrice * $request->qty;
+
                 $cart->save();
 
                 return response()->json([

@@ -127,9 +127,13 @@
 
     {{-- Flash message --}}
     @if(session()->has('message'))
-      <div class="co-alert co-alert--warn">
-        <strong>{{ session()->get('message') }}</strong>
-      </div>
+      <script>
+        document.addEventListener('DOMContentLoaded', function () {
+          if (typeof showToast === 'function') {
+            showToast(@json(session('message')), 'warning');
+          }
+        });
+      </script>
     @endif
 
     {{-- Validation errors --}}
@@ -1199,7 +1203,8 @@ document.getElementById('checkoutForm')?.addEventListener('submit', async functi
         voucher_code: voucherCode,
         pickup_note: pickupNote,
         scheduled_date: scheduleEnabled ? scheduledDate : null,
-        phone: apiPaymentMethod === 'momo' ? paymentPhone : null
+        phone: apiPaymentMethod === 'momo' ? paymentPhone : null,
+        use_loyalty_points: document.getElementById('useLoyaltyPoints')?.checked ? 1 : 0
     };
     
     // Appeler l'API via le gestionnaire de checkout

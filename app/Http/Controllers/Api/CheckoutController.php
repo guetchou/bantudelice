@@ -49,6 +49,7 @@ class CheckoutController extends Controller
             'address_id' => 'nullable|integer|exists:user_address,id',
             'pickup_note' => 'nullable|string|max:500',
             'phone' => 'nullable|string|max:30',
+            'use_loyalty_points' => 'nullable|boolean',
         ]);
 
         if ($validator->fails()) {
