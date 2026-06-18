@@ -212,16 +212,11 @@ class OrderRatingController extends Controller
 
     private function resolveUserIdFromRequest(Request $request)
     {
+        // Toujours utiliser l'utilisateur authentifié — ne jamais accepter user_id du client (CRIT-4)
         if (Auth::check()) {
             return Auth::id();
         }
 
-        $userId = $request->input('user_id');
-
-        if (!$userId) {
-            return null;
-        }
-
-        return User::whereKey($userId)->exists() ? (int) $userId : false;
+        return null; // Non authentifié = interdit de noter
     }
 }

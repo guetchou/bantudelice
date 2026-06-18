@@ -549,6 +549,8 @@
         'media'        => trim($__env->yieldContent('media_nav'))        === 'active',
         'add_on'       => trim($__env->yieldContent('add_on_nav'))       === 'active',
         'earnings'     => trim($__env->yieldContent('earnings_nav'))     === 'active',
+        'analytics'    => trim($__env->yieldContent('analytics_nav'))    === 'active',
+        'ratings'      => trim($__env->yieldContent('ratings_nav'))      === 'active',
         'profile'      => trim($__env->yieldContent('profile_nav'))      === 'active',
         'working_hour' => trim($__env->yieldContent('working_hour_nav')) === 'active',
         'vouchers'     => trim($__env->yieldContent('vouchers_nav'))     === 'active',
@@ -589,6 +591,20 @@
                 ['label' => 'Suppléments',      'icon' => 'fas fa-circle-plus',   'route' => route('add-on.index'),              'active' => $navCurrent['add_on']],
                 ['label' => 'Médias',           'icon' => 'fas fa-images',        'route' => route('restaurant.media.index'),    'active' => $navCurrent['media']],
             ],
+        ],
+        [
+            'label'  => 'Analytics',
+            'icon'   => 'fas fa-chart-line',
+            'route'  => route('restaurant.analytics'),
+            'active' => $navCurrent['analytics'],
+            'sub'    => [],
+        ],
+        [
+            'label'  => 'Avis clients',
+            'icon'   => 'fas fa-star',
+            'route'  => route('restaurant.ratings'),
+            'active' => $navCurrent['ratings'],
+            'sub'    => [],
         ],
         [
             'label'  => 'Finances',
@@ -909,6 +925,9 @@ setInterval(get_notification, 5000);
 
         // Actualiser les badges de notification
         get_notification();
+
+        // Propager l'événement aux vues héritantes (ex: KDS)
+        window.dispatchEvent(new CustomEvent('bd:restaurant-order-updated', { detail: data }));
     });
 
     // Demander la permission OS au premier clic

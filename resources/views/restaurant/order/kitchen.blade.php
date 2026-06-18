@@ -166,7 +166,7 @@
     const ordersUrl = '{{ route('restaurant.kitchen.orders') }}';
     const statusUrlBase = '{{ url('/') }}/restaurant/kitchen/orders/';
     const keepaliveUrl = '{{ route('session.keepalive') }}';
-    const pollMs = 10000;
+    const pollMs = 60000; // fallback si WebSocket indisponible
     let lastUpdatedAfter = null;
     let lastPendingCount = 0;
     let sessionLost = false;
@@ -368,5 +368,8 @@
     document.getElementById('btnRefresh').addEventListener('click', () => refresh(true));
     refresh(true);
     setInterval(() => refresh(false), pollMs);
+
+    // Mise à jour immédiate via WebSocket (événement émis par restaurant_app layout)
+    window.addEventListener('bd:restaurant-order-updated', function() { refresh(true); });
 </script>
 @endsection

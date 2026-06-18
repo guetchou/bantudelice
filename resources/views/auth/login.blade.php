@@ -492,7 +492,7 @@
         {{-- Footer --}}
         <div class="bl-footer">
             <p>Pas encore de compte ?
-                <a href="{{ url('/partner/registration') }}">Devenir partenaire</a> —
+                <a href="{{ route('partenaires') }}">Devenir partenaire</a> —
                 <a href="{{ route('user.signup') }}">Créer un compte client</a>
             </p>
             <p><a href="{{ url('/') }}">← Retour au site</a></p>

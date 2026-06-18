@@ -3,6 +3,10 @@
 @section('title', trans('ui.site.name') . ' — ' . trans('ui.site.subtitle'))
 @section('description', trans('ui.home.hero_description'))
 
+@section('styles')
+    <link rel="stylesheet" href="{{ asset('frontend/css/home-modern.css') }}">
+@endsection
+
 @php
     $foodBrandName = \App\Services\ConfigService::getCompanyName();
     $resolveHomeMedia = static function ($path, ?string $fallback = null) {

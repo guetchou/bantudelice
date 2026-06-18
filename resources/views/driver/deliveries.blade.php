@@ -5,7 +5,7 @@
     $driverIsOnline = ($driver->status ?? 'offline') === 'online';
     $driverInitials = strtoupper(substr($driver->name ?? 'L', 0, 2));
     $heroH          = (int) date('H');
-    $greeting       = $heroH < 12 ? 'Bonjour' : ($heroH < 18 ? 'Bon après-midi' : 'Bonsoir');
+    $greeting       = $heroH < 6 ? 'Bonne nuit' : ($heroH < 12 ? 'Bonjour' : ($heroH < 18 ? 'Bon après-midi' : 'Bonne soirée'));
 
     $todayDelivered = \App\Delivery::where('driver_id',$driver->id)->where('status','DELIVERED')->whereDate('delivered_at',today())->count();
     $activeCount    = $deliveries->count();
@@ -518,31 +518,276 @@
     .drv-finance { grid-template-columns: 1fr; }
     .drv-missions { max-width: 100%; }
 }
+
+/* ── ZONE 1: Hero statut ─────────────────────────────── */
+@keyframes fd2-pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(34,197,94,.6); }
+    70%  { box-shadow: 0 0 0 14px rgba(34,197,94,0); }
+    100% { box-shadow: 0 0 0 0 rgba(34,197,94,0); }
+}
+.fd2-hero {
+    position: sticky; top: 0; z-index: 100;
+    padding: 14px 20px 18px;
+    transition: background .4s;
+    display: flex; flex-direction: column; align-items: center;
+    gap: 6px; margin-bottom: 20px;
+    border-radius: 0 0 16px 16px;
+    box-shadow: 0 4px 20px rgba(0,0,0,.12);
+}
+.fd2-hero.online  { background: #007836; }
+.fd2-hero.offline { background: #334155; }
+.fd2-hero-row {
+    display: flex; align-items: center; gap: 8px; justify-content: center;
+}
+.fd2-hero-greeting {
+    font-size: 17px; font-weight: 700; color: rgba(255,255,255,.95);
+    text-align: center;
+}
+.fd2-hero-sub {
+    font-size: 12px; color: rgba(255,255,255,.72);
+    text-align: center; min-height: 16px;
+}
+.fd2-gps-dot {
+    display: inline-block;
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #22c55e; flex-shrink: 0;
+}
+.fd2-hero.online .fd2-gps-dot  { animation: fd2-pulse 2s infinite; }
+.fd2-hero.offline .fd2-gps-dot { display: none !important; }
+.fd2-toggle-hero {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 8px 24px; border-radius: 9px;
+    font-size: 13px; font-weight: 700;
+    border: 2px solid rgba(255,255,255,.35);
+    background: rgba(255,255,255,.12); color: #fff;
+    cursor: pointer; font-family: var(--bd-font);
+    transition: all .2s; margin-top: 6px;
+}
+.fd2-toggle-hero:hover    { background: rgba(255,255,255,.22); }
+.fd2-toggle-hero:disabled { opacity: .5; cursor: wait; }
+@media (max-width: 480px) {
+    .fd2-hero { border-radius: 0 0 12px 12px; padding: 12px 16px 16px; }
+    .fd2-hero-greeting { font-size: 15px; }
+    .fd2-toggle-hero { padding: 7px 18px; font-size: 12px; }
+}
+
+/* ── ZONE 2: Carte mission prioritaire ───────────────── */
+.fd2-zone2 { margin-bottom: 20px; }
+.fd2-z2-card {
+    background: var(--bd-surface);
+    border: 1px solid var(--bd-border);
+    border-radius: var(--bd-radius);
+    overflow: hidden;
+    box-shadow: var(--bd-shadow);
+}
+.fd2-z2-card::before {
+    content: ''; display: block; height: 3px;
+    background: linear-gradient(90deg, #007836, #22c55e);
+}
+.fd2-z2-head {
+    display: flex; align-items: center; gap: 8px;
+    padding: 10px 14px 0;
+}
+.fd2-z2-ref {
+    font-family: 'Courier New', monospace;
+    font-size: 13px; font-weight: 700; color: var(--bd-text);
+}
+.fd2-z2-fee {
+    margin-left: auto;
+    font-size: 13px; font-weight: 700; color: var(--bd-text);
+    white-space: nowrap;
+}
+.fd2-z2-route {
+    display: flex; align-items: center; gap: 4px;
+    padding: 6px 14px; font-size: 12px; color: var(--bd-text-2);
+    white-space: nowrap; overflow: hidden;
+}
+.fd2-z2-steps {
+    display: flex; align-items: center;
+    padding: 8px 14px 10px;
+}
+.fd2-z2-step {
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    flex-shrink: 0;
+}
+.fd2-z2-step-dot {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--bd-border); flex-shrink: 0;
+}
+.fd2-z2-step.done   .fd2-z2-step-dot { background: #22c55e; }
+.fd2-z2-step.active .fd2-z2-step-dot { background: #f59e0b; box-shadow: 0 0 0 4px rgba(245,158,11,.2); }
+.fd2-z2-step-lbl {
+    font-size: 9px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: .04em; color: var(--bd-text-3); white-space: nowrap;
+}
+.fd2-z2-step.done   .fd2-z2-step-lbl { color: var(--bd-green); }
+.fd2-z2-step.active .fd2-z2-step-lbl { color: #d97706; }
+.fd2-z2-step-line {
+    flex: 1; height: 2px; background: var(--bd-border);
+    min-width: 12px; max-width: 36px; margin-bottom: 12px;
+}
+.fd2-z2-step-line.done { background: #22c55e; }
+.fd2-z2-nav-btn {
+    display: flex; align-items: center; justify-content: center; gap: 6px;
+    margin: 0 14px 12px;
+    padding: 8px 20px; border-radius: 8px;
+    background: #007836; color: #fff;
+    font-size: 13px; font-weight: 700;
+    text-decoration: none; transition: background .15s;
+}
+.fd2-z2-nav-btn:hover { background: #005c2a; color: #fff; }
+.fd2-zone2-wait {
+    display: flex; flex-direction: column; align-items: center;
+    gap: 8px; padding: 20px;
+    background: var(--bd-green-pale);
+    border: 1px dashed rgba(0,149,67,.3);
+    border-radius: var(--bd-radius);
+    margin-bottom: 20px; text-align: center;
+}
+.fd2-z2-wait-icon {
+    width: 40px; height: 40px; border-radius: 12px;
+    background: rgba(0,149,67,.1);
+    display: flex; align-items: center; justify-content: center;
+    color: var(--bd-green); font-size: 18px;
+}
+.fd2-z2-wait-text { font-size: 14px; font-weight: 600; color: var(--bd-text); }
+
+/* ── ZONE 3: Panel offre entrante ────────────────────── */
+.fd2-offer-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.4); z-index: 9990;
+}
+.fd2-offer-panel {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    z-index: 9999; width: min(380px,95vw);
+    background: var(--bd-surface);
+    border: 1px solid var(--bd-border);
+    border-radius: var(--bd-radius-lg);
+    box-shadow: 0 12px 40px rgba(0,0,0,.18);
+    padding: 16px; overflow: hidden;
+    font-family: var(--bd-font);
+}
+.fd2-offer-head {
+    display: flex; align-items: center; gap: 10px; margin-bottom: 12px;
+}
+.fd2-offer-icon {
+    width: 36px; height: 36px; border-radius: 8px;
+    background: var(--bd-green);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; color: #fff; font-size: 14px;
+}
+.fd2-offer-title { font-weight: 600; font-size: 14px; color: var(--bd-text); }
+.fd2-offer-sub   { font-size: 12px; color: var(--bd-text-3); margin-top: 1px; }
+.fd2-countdown-wrap {
+    height: 4px; background: var(--bd-border);
+    border-radius: 2px; overflow: hidden; margin-bottom: 10px;
+}
+.fd2-countdown-bar { height: 100%; background: #f59e0b; width: 100%; }
+.fd2-offer-timer-row {
+    background: rgba(245,158,11,.08);
+    border: 1px solid rgba(245,158,11,.25);
+    border-radius: 7px; padding: 7px 10px;
+    margin-bottom: 12px;
+    font-size: 12px; color: #92400e; font-weight: 600;
+    display: flex; align-items: center; gap: 6px;
+}
+.fd2-offer-actions { display: flex; gap: 8px; }
+.fd2-offer-btn {
+    flex: 1; display: inline-flex; align-items: center;
+    justify-content: center; gap: 6px;
+    padding: 9px 14px; border-radius: 8px;
+    font-size: 13px; font-weight: 700;
+    border: none; cursor: pointer; font-family: var(--bd-font);
+    transition: all .15s;
+}
+.fd2-offer-btn.accept  { background: var(--bd-green); color: #fff; }
+.fd2-offer-btn.accept:hover  { background: var(--bd-green-dark); }
+.fd2-offer-btn.decline { background: var(--bd-surface-2); color: var(--bd-text-2); border: 1px solid var(--bd-border); }
+.fd2-offer-btn.decline:hover { background: rgba(239,68,68,.08); border-color: rgba(239,68,68,.3); color: #b91c1c; }
+.fd2-offer-btn:disabled { opacity: .5; cursor: wait; }
 </style>
 @endsection
 
 @section('content')
 
-{{-- ── GPS INDICATOR ── --}}
-<div class="drv-gps-bar {{ $driverIsOnline ? 'active' : 'off' }}" id="gpsBar">
+{{-- ── ZONE 1: HERO STATUT ── --}}
+<div class="fd2-hero {{ $driverIsOnline ? 'online' : 'offline' }}" id="fd2Hero">
+    <div class="fd2-hero-row">
+        <span class="fd2-gps-dot" id="fd2GpsDot"
+              style="{{ !$driverIsOnline ? 'display:none;' : '' }}"></span>
+        <span class="fd2-hero-greeting">{{ $greeting }}, {{ explode(' ', $driver->name ?? 'Livreur')[0] }} !</span>
+    </div>
+    <span class="fd2-hero-sub" id="gpsLabel">
+        {{-- gpsLabel ID is used by the GPS watchPosition script to update this text --}}
+        {{ $driverIsOnline ? 'Localisation GPS en cours...' : 'Passez en ligne pour recevoir des missions' }}
+    </span>
+    <button type="button" class="fd2-toggle-hero" id="fd2HeroBtn"
+            onclick="document.getElementById('driverToggleBtn').click();this.disabled=true;var _b=this;setTimeout(function(){_b.disabled=false;},2500);">
+        <i class="fas fa-circle-{{ $driverIsOnline ? 'pause' : 'play' }}" id="fd2HeroToggleIcon"></i>
+        <span id="fd2HeroToggleLabel">{{ $driverIsOnline ? 'Passer hors ligne' : 'Passer en ligne' }}</span>
+    </button>
+</div>
+{{-- GPS bar preserved hidden — GPS script sets its class via id="gpsBar" --}}
+<div id="gpsBar" class="drv-gps-bar {{ $driverIsOnline ? 'active' : 'off' }}"
+     style="display:none;" aria-hidden="true">
     <span class="drv-gps-dot"></span>
-    <span id="gpsLabel">{{ $driverIsOnline ? 'Localisation GPS en cours...' : 'GPS inactif — passez en ligne pour activer' }}</span>
 </div>
 
-{{-- ── WELCOME BANNER ── --}}
-<div class="drv-welcome">
-    <div class="drv-welcome-avatar">{{ $driverInitials }}</div>
-    <div class="drv-welcome-text">
-        <h2>{{ $greeting }}, {{ explode(' ', $driver->name ?? 'Livreur')[0] }} !</h2>
-        <p>
-            @if($driverIsOnline)
-                Vous êtes en ligne — {{ $activeCount > 0 ? $activeCount . ' mission' . ($activeCount > 1 ? 's' : '') . ' en cours' : 'en attente de missions' }}.
-            @else
-                Passez en ligne pour recevoir des missions.
+{{-- ── ZONE 2: MISSION PRIORITAIRE ── --}}
+@if($driverIsOnline)
+@if($activeCount > 0)
+@php
+    $primD       = $deliveries->first();
+    $z2Steps     = ['ASSIGNED' => 'Assigné', 'PICKED_UP' => 'Récupéré', 'ON_THE_WAY' => 'En route', 'DELIVERED' => 'Livré'];
+    $z2StepKeys  = array_keys($z2Steps);
+    $z2CurIdx    = ($k = array_search($primD->status, $z2StepKeys)) !== false ? $k : 0;
+    $z2Badge     = ['ASSIGNED' => 'assigned', 'PICKED_UP' => 'picked', 'ON_THE_WAY' => 'onway'][$primD->status] ?? 'assigned';
+    $z2RestName  = $primD->restaurant->name ?? '—';
+    $z2Addr      = $primD->order->delivery_address ?? '';
+@endphp
+<div class="fd2-zone2">
+    <div class="fd2-z2-card">
+        <div class="fd2-z2-head">
+            <span class="fd2-z2-ref">#{{ $primD->order->order_no ?? $primD->order_id }}</span>
+            <span class="drv-badge {{ $z2Badge }}">{{ $statusLabels[$primD->status] ?? $primD->status }}</span>
+            <span class="fd2-z2-fee">{{ number_format($primD->delivery_fee ?? 0, 0, ',', ' ') }} <small style="font-size:10px;font-weight:500;color:var(--bd-text-3);">FCFA</small></span>
+        </div>
+        <div class="fd2-z2-route">
+            <i class="fas fa-store" style="color:var(--bd-green);font-size:11px;flex-shrink:0;"></i>
+            <span>{{ Str::limit($z2RestName, 22) }}</span>
+            <i class="fas fa-arrow-right" style="font-size:9px;color:var(--bd-text-3);margin:0 3px;flex-shrink:0;"></i>
+            <i class="fas fa-location-dot" style="color:#ef4444;font-size:11px;flex-shrink:0;"></i>
+            <span>{{ Str::limit($z2Addr, 30) }}</span>
+        </div>
+        <div class="fd2-z2-steps">
+            @foreach($z2Steps as $z2Key => $z2Label)
+            @php $z2Idx = array_search($z2Key, $z2StepKeys); @endphp
+            @if($z2Idx > 0)
+            <div class="fd2-z2-step-line {{ $z2Idx <= $z2CurIdx ? 'done' : '' }}"></div>
             @endif
-        </p>
+            <div class="fd2-z2-step {{ $z2Idx < $z2CurIdx ? 'done' : ($z2Key === $primD->status ? 'active' : '') }}">
+                <div class="fd2-z2-step-dot"></div>
+                <span class="fd2-z2-step-lbl">{{ $z2Label }}</span>
+            </div>
+            @endforeach
+        </div>
+        @if($z2Addr)
+        <a class="fd2-z2-nav-btn"
+           href="https://maps.google.com/?q={{ urlencode($z2Addr) }}"
+           target="_blank" rel="noopener noreferrer">
+            <i class="fas fa-map-location-dot"></i> Naviguer
+        </a>
+        @endif
     </div>
 </div>
+@else
+<div class="fd2-zone2-wait">
+    <div class="fd2-z2-wait-icon"><i class="fas fa-satellite-dish"></i></div>
+    <div class="fd2-z2-wait-text">En attente de mission</div>
+    <div class="drv-wait-dots"><span></span><span></span><span></span></div>
+</div>
+@endif
+@endif
 
 {{-- ── KPIs ── --}}
 <div class="drv-kpis">
@@ -941,6 +1186,33 @@
 </div>
 @endif
 
+{{-- ── ZONE 3: PANEL OFFRE ENTRANTE (statique, show/hide via JS) ── --}}
+<div id="fd2OfferOverlay" class="fd2-offer-overlay" style="display:none;"></div>
+<div id="fd2OfferPanel"   class="fd2-offer-panel"   style="display:none;">
+    <div class="fd2-offer-head">
+        <div class="fd2-offer-icon"><i class="fas fa-motorcycle"></i></div>
+        <div>
+            <div class="fd2-offer-title">Nouvelle mission</div>
+            <div class="fd2-offer-sub" id="fd2OfferSub">—</div>
+        </div>
+    </div>
+    <div class="fd2-countdown-wrap">
+        <div class="fd2-countdown-bar" id="fd2CountdownBar"></div>
+    </div>
+    <div class="fd2-offer-timer-row">
+        <i class="fas fa-clock"></i>
+        Expire dans <strong id="fd2OfferCd">--</strong>s
+    </div>
+    <div class="fd2-offer-actions">
+        <button id="fd2BtnAccept"  class="fd2-offer-btn accept"  onclick="acceptOffer()">
+            <i class="fas fa-check"></i> Accepter
+        </button>
+        <button id="fd2BtnDecline" class="fd2-offer-btn decline" onclick="declineOffer()">
+            <i class="fas fa-xmark"></i> Refuser
+        </button>
+    </div>
+</div>
+
 @endsection
 
 @section('script')
@@ -1040,6 +1312,15 @@ setInterval(function() {
         var label = document.getElementById('sidebarStatusLabel');
         if (badge) badge.className = 'bd-drv-status ' + (online ? 'online' : 'offline');
         if (label) label.textContent = online ? 'En ligne' : 'Hors ligne';
+        // Hero zone 1 sync
+        var hero    = document.getElementById('fd2Hero');
+        var gpsDot  = document.getElementById('fd2GpsDot');
+        var heroLbl = document.getElementById('fd2HeroToggleLabel');
+        var heroIco = document.getElementById('fd2HeroToggleIcon');
+        if (hero)    hero.className = 'fd2-hero ' + (online ? 'online' : 'offline');
+        if (gpsDot)  gpsDot.style.display = online ? '' : 'none';
+        if (heroLbl) heroLbl.textContent = online ? 'Passer hors ligne' : 'Passer en ligne';
+        if (heroIco) heroIco.className = online ? 'fas fa-circle-pause' : 'fas fa-circle-play';
     }
     btn.addEventListener('click', function () {
         var isOnline = btn.getAttribute('data-is-online') === '1';
@@ -1085,7 +1366,8 @@ setInterval(function() {
     var POLL_URL  = "{{ route('driver.deliveries.poll') }}";
     var POLL_MS   = 10000;
     var lastCount = null;
-    var _ctx = null, _unlocked = false, _offerEl = null, _offerTimer = null, _offerId = null;
+    var _ctx = null, _unlocked = false, _offerTimer = null, _offerId = null;
+    var _offerDuration = null, _vibrated = false;
 
     ['click','touchstart'].forEach(function(e){ document.addEventListener(e, function(){ _unlocked = true; }, { once:true, passive:true }); });
 
@@ -1108,39 +1390,59 @@ setInterval(function() {
     function showOffer(offer) {
         if (_offerId === offer.delivery_id) return;
         _offerId = offer.delivery_id;
-        if (_offerEl) _offerEl.remove();
         var exp = new Date(offer.expires_at).getTime();
-        _offerEl = document.createElement('div');
-        _offerEl.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);z-index:99999;width:min(380px,95vw);background:var(--bd-surface);border:1px solid var(--bd-border);border-radius:var(--bd-radius-lg);box-shadow:0 12px 40px rgba(0,0,0,.18);padding:16px;font-family:var(--bd-font);';
-        _offerEl.innerHTML = '<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">'
-            + '<div style="width:36px;height:36px;border-radius:8px;background:var(--bd-green);display:flex;align-items:center;justify-content:center;flex-shrink:0;"><i class="fas fa-motorcycle" style="color:#fff;font-size:14px;"></i></div>'
-            + '<div><div style="font-weight:600;font-size:14px;color:var(--bd-text);">Nouvelle mission</div>'
-            + '<div style="font-size:12px;color:var(--bd-text-3);margin-top:1px;">' + (offer.restaurant_name||'Restaurant') + ' &middot; #' + offer.order_no + '</div></div></div>'
-            + '<div style="background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);border-radius:7px;padding:7px 10px;margin-bottom:12px;font-size:12px;color:#92400e;font-weight:600;">'
-            + '<i class="fas fa-clock"></i> Expire dans <span id="offerCd">--</span>s</div>'
-            + '<button id="offerAccept" style="background:var(--bd-green);color:#fff;border:none;border-radius:7px;padding:8px 20px;font-weight:600;font-size:13px;cursor:pointer;font-family:var(--bd-font);">Accepter la mission</button>';
-        document.body.appendChild(_offerEl);
+        _offerDuration = Math.max(1, (exp - Date.now()) / 1000);
+        _vibrated = false;
+
+        document.getElementById('fd2OfferSub').textContent =
+            (offer.restaurant_name || 'Restaurant') + ' · #' + offer.order_no;
+        document.getElementById('fd2BtnAccept').disabled  = false;
+        document.getElementById('fd2BtnDecline').disabled = false;
+        document.getElementById('fd2BtnAccept').innerHTML = '<i class="fas fa-check"></i> Accepter';
+        document.getElementById('fd2CountdownBar').style.width = '100%';
+        document.getElementById('fd2OfferOverlay').style.display = '';
+        document.getElementById('fd2OfferPanel').style.display   = '';
+
         beep();
         clearInterval(_offerTimer);
-        _offerTimer = setInterval(function(){
-            var r = Math.max(0, Math.round((exp - Date.now()) / 1000));
-            var el = document.getElementById('offerCd'); if (el) el.textContent = r;
-            if (r <= 0) { clearInterval(_offerTimer); hideOffer(); }
-        }, 500);
-        document.getElementById('offerAccept').onclick = function(){
-            this.disabled = true; this.textContent = 'Acceptation...';
-            fetch('{{ url('/driver/deliveries') }}/' + offer.delivery_id + '/offer/accept', {
-                method:'POST', headers:{'X-CSRF-TOKEN':'{{ csrf_token() }}','Accept':'application/json','Content-Type':'application/json'}, credentials:'same-origin'
-            }).then(function(r){return r.json();}).then(function(d){
-                hideOffer();
-                if (d.status) setTimeout(function(){window.location.reload();},600);
-                else alert(d.message || 'Mission non disponible.');
-            }).catch(function(){window.location.reload();});
-        };
+        _offerTimer = setInterval(function() {
+            var remaining = Math.max(0, (exp - Date.now()) / 1000);
+            document.getElementById('fd2OfferCd').textContent = Math.round(remaining);
+            var bar = document.getElementById('fd2CountdownBar');
+            if (bar) bar.style.width = ((remaining / _offerDuration) * 100) + '%';
+            if (!_vibrated && remaining <= 10 && navigator.vibrate) {
+                navigator.vibrate([200, 100, 200]);
+                _vibrated = true;
+            }
+            if (remaining <= 0) { clearInterval(_offerTimer); hideOffer(); }
+        }, 100);
     }
     function hideOffer() {
         clearInterval(_offerTimer); _offerId = null;
-        if (_offerEl) { _offerEl.remove(); _offerEl = null; }
+        document.getElementById('fd2OfferOverlay').style.display = 'none';
+        document.getElementById('fd2OfferPanel').style.display   = 'none';
+    }
+    function acceptOffer() {
+        var btn = document.getElementById('fd2BtnAccept');
+        if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Acceptation...'; }
+        fetch('{{ url("/driver/deliveries") }}/' + _offerId + '/offer/accept', {
+            method: 'POST',
+            headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json', 'Content-Type': 'application/json' },
+            credentials: 'same-origin'
+        }).then(function(r) { return r.json(); }).then(function(d) {
+            hideOffer();
+            if (d.status) setTimeout(function() { window.location.reload(); }, 600);
+            else alert(d.message || 'Mission non disponible.');
+        }).catch(function() { window.location.reload(); });
+    }
+    function declineOffer() {
+        var btn = document.getElementById('fd2BtnDecline');
+        if (btn) btn.disabled = true;
+        fetch('{{ url("/driver/deliveries") }}/' + _offerId + '/offer/decline', {
+            method: 'POST',
+            headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json', 'Content-Type': 'application/json' },
+            credentials: 'same-origin'
+        }).then(function() { hideOffer(); }).catch(function() { hideOffer(); });
     }
 
     function poll() {

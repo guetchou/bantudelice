@@ -135,6 +135,18 @@
     transition: background .15s;
 }
 .ord-btn-receipt:hover { background: #f1f5f9; }
+.ord-btn-rate {
+    padding: 7px 16px;
+    border-radius: 99px;
+    background: #fffbeb;
+    color: #d97706;
+    border: 1px solid #fde68a;
+    font-size: .82rem;
+    font-weight: 700;
+    text-decoration: none;
+    transition: background .15s;
+}
+.ord-btn-rate:hover { background: #fef3c7; color: #b45309; }
 
 /* Empty state */
 .ord-empty {
@@ -260,6 +272,11 @@
             <div class="ord-actions">
                 <a href="{{ route('track.order', $order->order_no) }}" class="ord-btn-track">Suivre</a>
                 <a href="{{ route('order.receipt', $order->order_no) }}" class="ord-btn-receipt">Reçu</a>
+                @if(in_array($rawStatus, ['completed', 'delivered', 'picked_up_by_customer', 'closed']))
+                <a href="{{ route('track.order', $order->order_no) }}?rate=1" class="ord-btn-rate">
+                    <i class="fas fa-star"></i> Avis
+                </a>
+                @endif
             </div>
             @endif
         </div>

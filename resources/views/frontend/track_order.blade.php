@@ -313,6 +313,15 @@
 
 /* ── Global page BG ─────────────────────────────────────────── */
 .bd-track-order-page { background:#f6f7f9; min-height:100vh; }
+
+/* ── Rating bottom-sheet ─────────────────────────────────────── */
+.bd-rating-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:1040;}
+.bd-rating-overlay.active{display:block;}
+.bd-rating-sheet{display:none;position:fixed;bottom:0;left:0;right:0;z-index:1050;background:#fff;border-radius:20px 20px 0 0;padding:24px 20px 32px;max-height:90vh;overflow-y:auto;box-shadow:0 -8px 32px rgba(0,0,0,.15);transform:translateY(100%);transition:transform .35s cubic-bezier(.4,0,.2,1);}
+.bd-rating-sheet.active{display:block;transform:translateY(0);}
+.bd-rating-sheet-handle{width:40px;height:4px;background:#e2e8f0;border-radius:2px;margin:0 auto 16px;}
+.bd-rating-open-btn{display:inline-flex;align-items:center;gap:6px;background:#f59e0b;color:#fff;border:none;border-radius:99px;padding:8px 18px;font-size:.85rem;font-weight:700;cursor:pointer;margin-top:12px;}
+.bd-rating-open-btn:hover{background:#d97706;}
 </style>
 @endsection
 
@@ -781,39 +790,52 @@
 
     {{-- ── Notation ─────────────────────────────────────────────────── --}}
     @if($canRate)
-    <div id="ratingPanel" class="trk-rating">
-        <h3>Votre avis compte</h3>
-        <p>Comment s'est passée votre commande ? Une évaluation aide le restaurant et le livreur.</p>
-        <form id="ratingForm">
-            @csrf
-            <input type="hidden" name="order_id" value="{{ $order->id }}">
-            <div class="trk-rating-group">
-                <label>Restaurant</label>
-                <div class="trk-stars" data-target="rating">
-                    @for($i = 1; $i <= 5; $i++)
-                        <button type="button" class="trk-star to-star" data-value="{{ $i }}">★</button>
-                    @endfor
+    <div style="text-align:center;padding:16px 0 4px;">
+        <button class="bd-rating-open-btn" onclick="bdOpenRating()">
+            <i class="fas fa-star"></i> Laisser un avis
+        </button>
+    </div>
+
+    {{-- Overlay --}}
+    <div class="bd-rating-overlay" id="bdRatingOverlay" onclick="bdCloseRating()"></div>
+
+    {{-- Bottom-sheet --}}
+    <div class="bd-rating-sheet" id="bdRatingSheet">
+        <div class="bd-rating-sheet-handle"></div>
+        <div id="ratingPanel" class="trk-rating" style="border:none;padding:0;margin:0;">
+            <h3>Votre avis compte</h3>
+            <p>Comment s'est passée votre commande ? Une évaluation aide le restaurant et le livreur.</p>
+            <form id="ratingForm">
+                @csrf
+                <input type="hidden" name="order_id" value="{{ $order->id }}">
+                <div class="trk-rating-group">
+                    <label>Restaurant</label>
+                    <div class="trk-stars" data-target="rating">
+                        @for($i = 1; $i <= 5; $i++)
+                            <button type="button" class="trk-star to-star" data-value="{{ $i }}">★</button>
+                        @endfor
+                    </div>
+                    <input type="hidden" name="rating" id="inputRating">
+                    <input type="text" name="comment" placeholder="Votre commentaire (facultatif)" class="trk-input" style="margin-top:10px">
                 </div>
-                <input type="hidden" name="rating" id="inputRating">
-                <input type="text" name="comment" placeholder="Votre commentaire (facultatif)" class="trk-input" style="margin-top:10px">
-            </div>
-            @if($hasDriver)
-            <div class="trk-rating-group">
-                <label>Livreur</label>
-                <div class="trk-stars" data-target="driver_rating">
-                    @for($i = 1; $i <= 5; $i++)
-                        <button type="button" class="trk-star to-star" data-value="{{ $i }}">★</button>
-                    @endfor
+                @if($hasDriver)
+                <div class="trk-rating-group">
+                    <label>Livreur</label>
+                    <div class="trk-stars" data-target="driver_rating">
+                        @for($i = 1; $i <= 5; $i++)
+                            <button type="button" class="trk-star to-star" data-value="{{ $i }}">★</button>
+                        @endfor
+                    </div>
+                    <input type="hidden" name="driver_rating" id="inputDriverRating">
+                    <input type="text" name="driver_comment" placeholder="Votre commentaire livreur (facultatif)" class="trk-input" style="margin-top:10px">
                 </div>
-                <input type="hidden" name="driver_rating" id="inputDriverRating">
-                <input type="text" name="driver_comment" placeholder="Votre commentaire livreur (facultatif)" class="trk-input" style="margin-top:10px">
-            </div>
-            @endif
-            <button type="submit" class="trk-btn-primary" id="ratingSubmitBtn">
-                <i class="fas fa-paper-plane"></i> Envoyer mon avis
-            </button>
-            <div id="ratingFeedback" style="display:none;margin-top:10px;font-weight:700;font-size:.88rem"></div>
-        </form>
+                @endif
+                <button type="submit" class="trk-btn-primary" id="ratingSubmitBtn">
+                    <i class="fas fa-paper-plane"></i> Envoyer mon avis
+                </button>
+                <div id="ratingFeedback" style="display:none;margin-top:10px;font-weight:700;font-size:.88rem"></div>
+            </form>
+        </div>
     </div>
     @elseif($existingRating)
     <div class="trk-rating" style="text-align:center;border-top-color:#f59e0b">
@@ -892,6 +914,7 @@ function toggleCard(id) {
     // ── Notifications audio parcours client ──────────────────────
     let _lastKnownTrackingStatus = INITIAL_TRACKING_STATUS;
     let _lastKnownBusinessStatus = '{{ $businessStatus }}';
+    let _ratingShown = false;
 
     const _statusToastMessages = {
         prepairing:  { text: 'Votre commande est en préparation 🍽️',  sound: 'status' },
@@ -1130,6 +1153,14 @@ function toggleCard(id) {
 
             const data = payload.data;
             _notifyStatusChange(data.tracking_status || INITIAL_TRACKING_STATUS, data.business_status);
+
+            @if($canRate)
+            if (data.tracking_status === 'completed' && !_ratingShown) {
+                _ratingShown = true;
+                setTimeout(function() { bdOpenRating(); }, 1500);
+            }
+            @endif
+
             updateTimeline(data.tracking_status || INITIAL_TRACKING_STATUS, {
                 pending: 0,
                 prepairing: 30,
@@ -1316,6 +1347,7 @@ function toggleCard(id) {
                 feedback.style.display = 'block';
                 form.querySelectorAll('button, input, textarea').forEach(function (el) { el.disabled = true; });
                 btn.style.display = 'none';
+                setTimeout(function() { bdCloseRating(); }, 1800);
             } else {
                 feedback.style.color = '#ef4444';
                 feedback.textContent = data.message || 'Une erreur est survenue.';
@@ -1332,6 +1364,32 @@ function toggleCard(id) {
             btn.innerHTML = '<i class="fas fa-paper-plane"></i> Envoyer mon avis';
         });
     });
+
+    // ── Bottom-sheet rating ────────────────────────────────────────
+    function bdOpenRating() {
+        var overlay = document.getElementById('bdRatingOverlay');
+        var sheet   = document.getElementById('bdRatingSheet');
+        if (!overlay || !sheet) return;
+        overlay.classList.add('active');
+        sheet.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
+    function bdCloseRating() {
+        var overlay = document.getElementById('bdRatingOverlay');
+        var sheet   = document.getElementById('bdRatingSheet');
+        if (overlay) overlay.classList.remove('active');
+        if (sheet)   sheet.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+    window.bdOpenRating  = bdOpenRating;
+    window.bdCloseRating = bdCloseRating;
+
+    @if($canRate)
+    document.addEventListener('DOMContentLoaded', function() {
+        var params = new URLSearchParams(window.location.search);
+        if (params.get('rate') === '1') { bdOpenRating(); }
+    });
+    @endif
 })();
 </script>
 
