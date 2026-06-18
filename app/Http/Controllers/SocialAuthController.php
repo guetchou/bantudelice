@@ -88,6 +88,7 @@ class SocialAuthController extends Controller
 
             auth()->login($user, true);
             $request->session()->regenerate();
+            \App\Services\CartService::migrateSessionCartToDb($user->id);
 
             $isNew    = $result['is_new'] ?? false;
             $provider = ucfirst($provider);

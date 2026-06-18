@@ -36,7 +36,15 @@ class LoginController extends Controller
                 ]);
         }
 
+        // Admin avec 2FA activé → challenge avant de finaliser la session
+        if ($user->type === 'admin' && !empty($user->two_factor_enabled)) {
+            $request->session()->put('2fa_pending_user_id',   $user->id);
+            $request->session()->put('2fa_pending_remember',  $request->boolean('remember'));
+            return redirect()->route('admin.2fa.challenge');
+        }
+
         auth()->login($user, $request->boolean('remember'));
+        \App\Services\CartService::migrateSessionCartToDb($user->id);
 
         return redirect()->intended($this->defaultRedirect($user->type));
     }
