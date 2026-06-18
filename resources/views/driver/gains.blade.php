@@ -131,6 +131,16 @@
             <div class="gn-summary-label">Solde disponible</div>
             <div class="gn-summary-amount">{{ number_format(round($finAvailable),0,',',' ') }} <span style="font-size:1rem;font-weight:600;opacity:.5;">FCFA</span></div>
             <div class="gn-summary-sub">Prêt à retirer</div>
+            @if($finAvailable >= 500)
+            <button id="gnPayoutBtn" onclick="gnRequestPayout()"
+                style="margin-top:12px;padding:8px 18px;background:#fff;color:#007836;border:none;border-radius:20px;font-size:.78rem;font-weight:800;cursor:pointer;letter-spacing:.02em;display:flex;align-items:center;gap:6px;">
+                <i class="fas fa-money-bill-transfer"></i> Demander un versement
+            </button>
+            @else
+            <div style="margin-top:10px;font-size:.72rem;color:rgba(255,255,255,.35);">
+                Minimum 500 FCFA pour demander un versement
+            </div>
+            @endif
         </div>
         <div class="gn-summary-kpis">
             <div class="gn-kpi-cell">
@@ -231,6 +241,39 @@
 
 @section('script')
 <script>
+function gnRequestPayout() {
+    var btn = document.getElementById('gnPayoutBtn');
+    if (!btn || btn.disabled) return;
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Envoi en cours…';
+
+    fetch('{{ route("driver.payout.request") }}', {
+        method: 'POST',
+        headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json', 'Content-Type': 'application/json' },
+        credentials: 'same-origin'
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+        if (d.success) {
+            btn.innerHTML = '<i class="fas fa-check"></i> Demande envoyée';
+            btn.style.background = '#dcfce7';
+            btn.style.color = '#166534';
+            // Toast si disponible
+            if (typeof window.showDriverToast === 'function') window.showDriverToast(d.message, 'success');
+            else alert(d.message);
+        } else {
+            btn.disabled = false;
+            btn.innerHTML = '<i class="fas fa-money-bill-transfer"></i> Demander un versement';
+            if (typeof window.showDriverToast === 'function') window.showDriverToast(d.message, 'error');
+            else alert(d.message);
+        }
+    })
+    .catch(function() {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-money-bill-transfer"></i> Demander un versement';
+    });
+}
+
 (function() {
     function easeOut(t){ return 1-Math.pow(1-t,4); }
     function countUp(el, v, dur) {

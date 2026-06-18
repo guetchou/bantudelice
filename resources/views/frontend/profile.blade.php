@@ -1371,10 +1371,15 @@
                                 </a>
                             </div>
                             @endif
+                            <div style="text-align:center;margin-top:1.5rem;">
+                                <a href="{{ route('profile.loyalty') }}" style="display:inline-flex;align-items:center;gap:6px;background:#f0fdf4;color:#009543;font-weight:700;font-size:.88rem;padding:.65rem 1.25rem;border-radius:99px;border:1px solid #bbf7d0;text-decoration:none;">
+                                    <i class="fas fa-external-link-alt"></i> Voir la page complète fidélité
+                                </a>
+                            </div>
                         </div>
                     </div>
                 </div>
-                
+
                 <!-- Notifications -->
                 <div class="tab-pane" id="notifications">
                     <div class="content-header">

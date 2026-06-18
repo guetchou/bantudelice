@@ -122,88 +122,65 @@
                         </div>
                     </section>
 
+                    {{-- Mobile Money — principal au Congo --}}
                     <section class="driver-form-section">
                         <h4 class="driver-section-title">
-                            <i class="fas fa-university"></i> Informations bancaires
+                            <i class="fas fa-mobile-screen-button"></i> Mobile Money <span style="font-size:.75rem;font-weight:400;color:#6b7280;">(MTN / Airtel)</span>
                         </h4>
 
-                        <div class="driver-grid driver-grid--two">
-                            <div class="driver-field">
-                                <label class="driver-label" for="driverAccountName">Nom du titulaire *</label>
-                                <input
-                                    id="driverAccountName"
-                                    class="driver-input"
-                                    type="text"
-                                    name="account_name"
-                                    value="{{ old('account_name') }}"
-                                    placeholder="Nom sur le compte"
-                                    required
-                                >
-                            </div>
-                            <div class="driver-field">
-                                <label class="driver-label" for="driverAccountNumber">Numéro de compte *</label>
-                                <input
-                                    id="driverAccountNumber"
-                                    class="driver-input"
-                                    type="text"
-                                    name="account_number"
-                                    value="{{ old('account_number') }}"
-                                    placeholder="Numéro de compte"
-                                    required
-                                >
-                            </div>
+                        <div class="driver-field">
+                            <label class="driver-label" for="driverMobileMoney">Numéro Mobile Money *</label>
+                            <input
+                                id="driverMobileMoney"
+                                class="driver-input"
+                                type="tel"
+                                name="paypal_account_no"
+                                value="{{ old('paypal_account_no') }}"
+                                placeholder="Ex : +242 06 XXX XX XX"
+                                inputmode="tel"
+                                required
+                            >
+                            @error('paypal_account_no')
+                                <span class="driver-error">{{ $message }}</span>
+                            @enderror
                         </div>
+                    </section>
 
-                        <div class="driver-grid driver-grid--two">
-                            <div class="driver-field">
-                                <label class="driver-label" for="driverBankName">Nom de la banque *</label>
-                                <input
-                                    id="driverBankName"
-                                    class="driver-input"
-                                    type="text"
-                                    name="bank_name"
-                                    value="{{ old('bank_name') }}"
-                                    placeholder="Ex: BGFI, UBA, etc."
-                                    required
-                                >
+                    {{-- Banque — optionnel --}}
+                    <section class="driver-form-section">
+                        <h4 class="driver-section-title" style="cursor:pointer;" onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
+                            <i class="fas fa-university"></i> Coordonnées bancaires
+                            <span style="font-size:.75rem;font-weight:400;color:#6b7280;margin-left:6px;">(optionnel) <i class="fas fa-chevron-down" style="font-size:.65rem;"></i></span>
+                        </h4>
+                        <div style="display:none;">
+                            <div class="driver-grid driver-grid--two">
+                                <div class="driver-field">
+                                    <label class="driver-label" for="driverAccountName">Nom du titulaire</label>
+                                    <input id="driverAccountName" class="driver-input" type="text" name="account_name"
+                                        value="{{ old('account_name') }}" placeholder="Nom sur le compte">
+                                </div>
+                                <div class="driver-field">
+                                    <label class="driver-label" for="driverAccountNumber">Numéro de compte</label>
+                                    <input id="driverAccountNumber" class="driver-input" type="text" name="account_number"
+                                        value="{{ old('account_number') }}" placeholder="Numéro de compte">
+                                </div>
+                            </div>
+                            <div class="driver-grid driver-grid--two">
+                                <div class="driver-field">
+                                    <label class="driver-label" for="driverBankName">Nom de la banque</label>
+                                    <input id="driverBankName" class="driver-input" type="text" name="bank_name"
+                                        value="{{ old('bank_name') }}" placeholder="Ex: BGFI, UBA, etc.">
+                                </div>
+                                <div class="driver-field">
+                                    <label class="driver-label" for="driverBranchName">Nom de l'agence</label>
+                                    <input id="driverBranchName" class="driver-input" type="text" name="branch_name"
+                                        value="{{ old('branch_name') }}" placeholder="Agence">
+                                </div>
                             </div>
                             <div class="driver-field">
-                                <label class="driver-label" for="driverBranchName">Nom de l'agence *</label>
-                                <input
-                                    id="driverBranchName"
-                                    class="driver-input"
-                                    type="text"
-                                    name="branch_name"
-                                    value="{{ old('branch_name') }}"
-                                    placeholder="Agence"
-                                    required
-                                >
-                            </div>
-                        </div>
-
-                        <div class="driver-grid driver-grid--two">
-                            <div class="driver-field">
-                                <label class="driver-label" for="driverBranchAddress">Adresse de l'agence *</label>
-                                <input
-                                    id="driverBranchAddress"
-                                    class="driver-input"
-                                    type="text"
-                                    name="branch_address"
-                                    value="{{ old('branch_address') }}"
-                                    placeholder="Adresse de l'agence"
-                                    required
-                                >
-                            </div>
-                            <div class="driver-field">
-                                <label class="driver-label" for="driverMobileMoney">Compte Mobile Money</label>
-                                <input
-                                    id="driverMobileMoney"
-                                    class="driver-input"
-                                    type="text"
-                                    name="paypal_account_no"
-                                    value="{{ old('paypal_account_no') }}"
-                                    placeholder="Numéro Mobile Money"
-                                >
+                                <label class="driver-label" for="driverBranchAddress">Adresse de l'agence</label>
+                                <input id="driverBranchAddress" class="driver-input" type="text" name="branch_address"
+                                    value="{{ old('branch_address') }}" placeholder="Adresse de l'agence">
                             </div>
                         </div>
                     </section>

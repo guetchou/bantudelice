@@ -79,6 +79,75 @@ class ProfileController extends Controller
        ));
    }
 
+   public function loyalty(Request $request)
+   {
+       if (!auth()->check()) {
+           return redirect()->route('user.login');
+       }
+       $userId = auth()->id();
+       $loyalty  = \App\Services\LoyaltyService::getOrCreatePoints($userId);
+       $discount = \App\Services\LoyaltyService::calculateDiscount($loyalty->points);
+       $history  = \App\LoyaltyTransaction::where('user_id', $userId)
+           ->with('order')
+           ->orderByDesc('created_at')
+           ->paginate(15);
+       return view('frontend.loyalty', compact('loyalty', 'discount', 'history'));
+   }
+
+   public function notifications(Request $request)
+   {
+       if (!auth()->check()) {
+           return redirect()->route('user.login');
+       }
+       $userId = auth()->id();
+       $notifications = \App\NotificationLog::where('recipient_type', 'user')
+           ->where('recipient_id', $userId)
+           ->orderByDesc('created_at')
+           ->paginate(20);
+       $unreadCount = \App\NotificationLog::where('recipient_type', 'user')
+           ->where('recipient_id', $userId)
+           ->whereNull('read_at')
+           ->count();
+       return view('frontend.notifications', compact('notifications', 'unreadCount'));
+   }
+
+   public function unreadNotificationsCount(Request $request)
+   {
+       if (!auth()->check()) {
+           return response()->json(['count' => 0]);
+       }
+       $count = \App\NotificationLog::where('recipient_type', 'user')
+           ->where('recipient_id', auth()->id())
+           ->whereNull('read_at')
+           ->count();
+       return response()->json(['count' => $count]);
+   }
+
+   public function markNotificationRead(Request $request, $id)
+   {
+       if (!auth()->check()) {
+           return response()->json(['success' => false], 401);
+       }
+       \App\NotificationLog::where('id', $id)
+           ->where('recipient_type', 'user')
+           ->where('recipient_id', auth()->id())
+           ->whereNull('read_at')
+           ->update(['read_at' => now()]);
+       return response()->json(['success' => true]);
+   }
+
+   public function markAllNotificationsRead(Request $request)
+   {
+       if (!auth()->check()) {
+           return response()->json(['success' => false], 401);
+       }
+       \App\NotificationLog::where('recipient_type', 'user')
+           ->where('recipient_id', auth()->id())
+           ->whereNull('read_at')
+           ->update(['read_at' => now()]);
+       return response()->json(['success' => true]);
+   }
+
    protected function resolveProfileDashboardAccess(User $user): array
    {
        $userType = $user->type ?? 'user';
@@ -245,6 +314,8 @@ class ProfileController extends Controller
         ]);
 
         auth()->logout();
+        request()->session()->invalidate();
+        request()->session()->regenerateToken();
         return redirect()->route('home')->with('message', 'Votre compte a été supprimé et vos données personnelles ont été anonymisées.');
     }
 

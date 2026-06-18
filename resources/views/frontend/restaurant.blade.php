@@ -130,37 +130,57 @@
                         </div>
                     </div>
 
+                    {{-- Mobile Money — principal --}}
                     <h4 class="partner-section-title">
-                        <i class="fas fa-university"></i> Informations bancaires
+                        <i class="fas fa-mobile-screen-button"></i> Mobile Money
+                        <span style="font-size:.75rem;font-weight:400;color:#6b7280;margin-left:4px;">(MTN / Airtel)</span>
                     </h4>
 
-                    <div class="partner-grid">
-                        <div class="partner-field">
-                            <label class="partner-label">Nom du titulaire *</label>
-                            <input type="text" name="account_name" value="{{ old('account_name') }}" placeholder="Nom sur le compte"
-                                   class="partner-input" required>
+                    <div class="partner-field">
+                        <label class="partner-label">Numéro Mobile Money *</label>
+                        <input type="tel" name="paypal_account_no" value="{{ old('paypal_account_no') }}"
+                               placeholder="Ex : +242 06 XXX XX XX" inputmode="tel"
+                               class="partner-input" required>
+                        @error('paypal_account_no')
+                            <span style="color:#dc2626;font-size:.78rem;">{{ $message }}</span>
+                        @enderror
+                    </div>
+
+                    {{-- Banque — optionnel --}}
+                    <h4 class="partner-section-title" style="cursor:pointer;margin-top:20px;"
+                        onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'">
+                        <i class="fas fa-university"></i> Coordonnées bancaires
+                        <span style="font-size:.75rem;font-weight:400;color:#6b7280;margin-left:4px;">(optionnel) <i class="fas fa-chevron-down" style="font-size:.65rem;"></i></span>
+                    </h4>
+
+                    <div style="display:none;">
+                        <div class="partner-grid">
+                            <div class="partner-field">
+                                <label class="partner-label">Nom du titulaire</label>
+                                <input type="text" name="account_name" value="{{ old('account_name') }}"
+                                       placeholder="Nom sur le compte" class="partner-input">
+                            </div>
+                            <div class="partner-field">
+                                <label class="partner-label">Numéro de compte</label>
+                                <input type="text" name="account_number" value="{{ old('account_number') }}"
+                                       placeholder="Numéro de compte" class="partner-input">
+                            </div>
                         </div>
-                        <div class="partner-field">
-                            <label class="partner-label">Numéro de compte *</label>
-                            <input type="text" name="account_number" value="{{ old('account_number') }}" placeholder="Numéro de compte"
-                                   class="partner-input" required>
+                        <div class="partner-grid">
+                            <div class="partner-field">
+                                <label class="partner-label">Nom de la banque</label>
+                                <input type="text" name="bank_name" value="{{ old('bank_name') }}"
+                                       placeholder="Ex: BGFI, UBA, etc." class="partner-input">
+                            </div>
+                            <div class="partner-field">
+                                <label class="partner-label">Code agence</label>
+                                <input type="text" name="branch_number" value="{{ old('branch_number') }}"
+                                       placeholder="Code agence" class="partner-input">
+                            </div>
                         </div>
                     </div>
 
-                    <div class="partner-grid">
-                        <div class="partner-field">
-                            <label class="partner-label">Nom de la banque *</label>
-                            <input type="text" name="bank_name" value="{{ old('bank_name') }}" placeholder="Ex: BGFI, UBA, etc."
-                                   class="partner-input" required>
-                        </div>
-                        <div class="partner-field">
-                            <label class="partner-label">Code agence *</label>
-                            <input type="text" name="branch_number" value="{{ old('branch_number') }}" placeholder="Code agence"
-                                   class="partner-input" required>
-                        </div>
-                    </div>
-
-                    <h4 class="partner-section-title">
+                    <h4 class="partner-section-title" style="margin-top:20px;">
                         <i class="fas fa-lock"></i> Sécurité
                     </h4>
 

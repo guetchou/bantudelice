@@ -302,6 +302,9 @@
                                 <a href="{{ route('admin.get_hourly_pay', $driver->id) }}" class="drv-action-btn drv-action-btn--pay" title="Définir le salaire horaire">
                                     <i class="fas fa-money-bill-wave"></i> Salaire
                                 </a>
+                                <a href="{{ route('admin.driver.kyc', $driver->id) }}" class="drv-action-btn" style="background:#eff6ff;color:#2563eb;" title="Vérifier les documents KYC">
+                                    <i class="fas fa-folder-open"></i> KYC
+                                </a>
                                 <a href="{{ route('driver.edit', $driver->id) }}" class="drv-action-btn drv-action-btn--edit" title="Modifier">
                                     <i class="fas fa-edit"></i> Modifier
                                 </a>

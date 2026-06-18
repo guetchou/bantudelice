@@ -432,6 +432,13 @@
 
         <span class="bd-drv-nav-label">Profil</span>
 
+        @if(app('router')->has('driver.documents'))
+        <a href="{{ route('driver.documents') }}" class="bd-drv-nav-item @yield('nav_documents')">
+            <i class="fas fa-folder-open"></i>
+            <span>Mes documents</span>
+        </a>
+        @endif
+
         @if(app('router')->has('driver.note'))
         <a href="{{ route('driver.note') }}" class="bd-drv-nav-item @yield('nav_note')">
             <i class="fas fa-star"></i>

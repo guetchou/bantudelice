@@ -27,11 +27,12 @@ class DriverController extends Controller
                 'phone'=>'required|unique:drivers',
                 'address'=>'nullable',
                 'image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:8192',
+                'paypal_account_no' => 'required|string|max:30',
                 'account_name'=>'nullable',
-                'account_number' => 'required',
-                'bank_name'=>'required',
-                'branch_name'=>'required',
-                'branch_address'=>'required',
+                'account_number' => 'nullable',
+                'bank_name'=>'nullable',
+                'branch_name'=>'nullable',
+                'branch_address'=>'nullable',
                 'licence_image' => 'required|image|mimes:jpeg,png,jpg,webp|max:8192',
 
         ]);
