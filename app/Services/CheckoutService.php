@@ -46,7 +46,20 @@ class CheckoutService implements \App\Domain\Checkout\Contracts\CheckoutOrchestr
 
         // 2. Calculer les totaux
         $totals = $this->calculateTotals($cartItems, $checkoutData);
-        $amount = (int) $totals['total'];
+        $loyaltyDiscount   = 0.0;
+        $loyaltyPointsUsed = 0;
+        if (!empty($checkoutData['use_loyalty_points'])) {
+            $points = \App\Services\LoyaltyService::getBalance($user->id);
+            if ($points > 0) {
+                $baseForCap      = (float) ($totals['total'] ?? 0);
+                $loyaltyDiscount = min(
+                    \App\Services\LoyaltyService::calculateDiscount($points),
+                    $baseForCap * 0.2
+                );
+                $loyaltyPointsUsed = (int) floor(($loyaltyDiscount / 1000) * 100);
+            }
+        }
+        $amount = (int) max(0, ($totals['total'] ?? 0) - $loyaltyDiscount);
 
         $fulfillmentMode = strtolower((string) ($checkoutData['fulfillment_mode'] ?? 'delivery')) === 'pickup' ? 'pickup' : 'delivery';
         $scheduledAt = $this->resolveScheduledAt($checkoutData['scheduled_date'] ?? null);
@@ -89,7 +102,7 @@ class CheckoutService implements \App\Domain\Checkout\Contracts\CheckoutOrchestr
             }
         }
 
-        return DB::transaction(function () use ($user, $paymentMethod, $amount, $cartItems, $checkoutData, $totals, $fulfillmentMode, $scheduledAt, $deliveryServiceability) {
+        return DB::transaction(function () use ($user, $paymentMethod, $amount, $cartItems, $checkoutData, $totals, $fulfillmentMode, $scheduledAt, $deliveryServiceability, $loyaltyPointsUsed) {
             // 3. Créer le paiement
             $payment = Payment::create([
                 'user_id'  => $user->id,
@@ -98,6 +111,9 @@ class CheckoutService implements \App\Domain\Checkout\Contracts\CheckoutOrchestr
                 'status'   => 'PENDING',
                 'provider' => $paymentMethod, // ex: "momo", "cash", "paypal"
             ]);
+            if ($loyaltyPointsUsed > 0) {
+                \App\Services\LoyaltyService::usePoints($user->id, $loyaltyPointsUsed, null);
+            }
 
             // 4. Traiter selon le mode de paiement
             if ($paymentMethod === 'cash') {
