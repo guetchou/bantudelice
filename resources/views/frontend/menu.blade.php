@@ -329,9 +329,18 @@
 <div id="bdConflictModal"
     style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:1050;background:#fff;border-radius:20px 20px 0 0;padding:24px 20px 32px;box-shadow:0 -8px 32px rgba(0,0,0,.15);transform:translateY(100%);transition:transform .3s cubic-bezier(.4,0,.2,1);">
     <style>
-        #bdConflictModal.active { transform:translateY(0) !important; }
-        #bdConflictOverlay.active { opacity:1; }
         #bdConflictOverlay { opacity:0; }
+        #bdConflictOverlay.active { opacity:1; }
+        #bdConflictModal.active { transform:translateY(0) !important; }
+        @media (min-width:768px) {
+            #bdConflictModal {
+                left:50% !important; right:auto !important;
+                width:460px;
+                margin-left:-230px;
+                border-radius:16px !important;
+            }
+            #bdConflictModal.active { transform:translateY(0) !important; }
+        }
     </style>
     <div style="width:40px;height:4px;background:#e2e8f0;border-radius:2px;margin:0 auto 18px;"></div>
     <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:16px;">
