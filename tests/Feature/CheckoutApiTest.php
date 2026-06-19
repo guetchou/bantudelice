@@ -2,6 +2,8 @@
 
 namespace Tests\Feature;
 
+use App\Domain\Food\Services\OrderAcceptanceService;
+use App\Order;
 use App\User;
 use App\Driver;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -291,22 +293,36 @@ class CheckoutApiTest extends TestCase
             $response['delivery_serviceability']['delivery_window_minutes']['min'] ?? 0,
             $response['delivery_serviceability']['delivery_window_minutes']['max'] ?? 0
         );
-        $this->assertSame('assigned', $response['delivery_assignment']['status'] ?? null);
-        $this->assertSame($driver->id, $response['delivery_assignment']['driver_id'] ?? null);
-        $this->assertSame('stable', $response['delivery_assignment']['capacity_state'] ?? null);
+        // Plus de Payment/Delivery créé au checkout : paiement et livraison sont différés
+        // à l'acceptation restaurant (voir OrderAcceptanceService). Le checkout ne fait
+        // qu'évaluer la capacité de livraison de manière informative.
+        $this->assertArrayNotHasKey('delivery_assignment', $response);
         $orderNo = $response['order']['order_no'];
 
-        $this->assertDatabaseHas('deliveries', [
-            'driver_id' => $driver->id,
-            'status' => 'ASSIGNED',
+        $this->assertDatabaseMissing('deliveries', [
+            'restaurant_id' => $restaurantId,
         ]);
 
         $this->assertDatabaseHas('orders', [
             'order_no' => $orderNo,
-            'driver_id' => $driver->id,
-            'status' => 'assign',
+            'driver_id' => null,
             'total_items' => 1,
-            'business_status' => 'driver_assigned',
+            'business_status' => 'pending_restaurant_acceptance',
+        ]);
+
+        // Le restaurant accepte la commande -> déclenchement différé du paiement/livraison.
+        $order = Order::where('order_no', $orderNo)->first();
+        app(OrderAcceptanceService::class)->handleAccepted($order);
+
+        $this->assertDatabaseHas('orders', [
+            'order_no' => $orderNo,
+            'business_status' => 'in_kitchen',
+            'payment_status' => 'paid',
+        ]);
+
+        $this->assertDatabaseHas('deliveries', [
+            'restaurant_id' => $restaurantId,
+            'status' => 'PENDING',
         ]);
     }
 }

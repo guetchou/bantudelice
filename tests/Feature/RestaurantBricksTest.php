@@ -185,6 +185,12 @@ class RestaurantBricksTest extends TestCase
                 'restaurant_commission' => 0,
                 'driver_tip' => 0,
                 'status' => 'pending',
+                // La cuisine ne peut démarrer qu'après acceptation restaurant + paiement réglé
+                // (garde dure FoodOrderStateMachineService::guardInKitchenRequiresConfirmedAndPaid).
+                // Cette commande simule un état déjà accepté/confirmé prêt à passer en cuisine.
+                'business_status' => 'confirmed',
+                'payment_method' => 'cash',
+                'payment_status' => 'paid',
                 'delivery_address' => 'Adresse client',
                 'scheduled_date' => null,
                 'd_lat' => '0',

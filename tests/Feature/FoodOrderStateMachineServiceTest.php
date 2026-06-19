@@ -69,17 +69,17 @@ class FoodOrderStateMachineServiceTest extends TestCase
             'fulfillment_mode' => 'delivery',
         ]);
 
-        $updatedOrders = app(FoodOrderStateMachineService::class)->transitionOrderGroup('FD-SM-001', 'accepted', [
+        $updatedOrders = app(FoodOrderStateMachineService::class)->transitionOrderGroup('FD-SM-001', 'confirmed', [
             'suppress_notifications' => true,
             'suppress_realtime' => true,
         ]);
 
         $this->assertCount(1, $updatedOrders);
-        $this->assertSame('accepted', $updatedOrders->first()->business_status);
+        $this->assertSame('confirmed', $updatedOrders->first()->business_status);
         $this->assertSame('pending', $updatedOrders->first()->status);
         $this->assertDatabaseHas('orders', [
             'order_no' => 'FD-SM-001',
-            'business_status' => 'accepted',
+            'business_status' => 'confirmed',
         ]);
     }
 }

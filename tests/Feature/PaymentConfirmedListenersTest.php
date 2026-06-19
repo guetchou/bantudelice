@@ -191,7 +191,7 @@ class PaymentConfirmedListenersTest extends TestCase
 
         // Si le listener entre dans la logique food, il lèverait une exception
         // car il n'y a pas d'utilisateur. L'absence d'exception est la preuve du court-circuit.
-        $listener = new FoodOrderPaymentConfirmed();
+        $listener = app(FoodOrderPaymentConfirmed::class);
         $listener->handle(new PaymentConfirmed($payment));
         $this->assertTrue(true);
     }
@@ -200,7 +200,7 @@ class PaymentConfirmedListenersTest extends TestCase
     {
         $payment = $this->fakePayment(['shipment_id' => 9001]);
 
-        $listener = new FoodOrderPaymentConfirmed();
+        $listener = app(FoodOrderPaymentConfirmed::class);
         $listener->handle(new PaymentConfirmed($payment));
         $this->assertTrue(true);
     }
@@ -214,7 +214,7 @@ class PaymentConfirmedListenersTest extends TestCase
         ]);
         $payment->setRelation('user', null);
 
-        $listener = new FoodOrderPaymentConfirmed();
+        $listener = app(FoodOrderPaymentConfirmed::class);
         $listener->handle(new PaymentConfirmed($payment));
         $this->assertTrue(true);
     }

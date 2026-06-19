@@ -2,7 +2,11 @@
 
 namespace Tests\Feature\Food;
 
+use App\Delivery;
+use App\Domain\Food\Services\OrderAcceptanceService;
 use App\Driver;
+use App\Order;
+use App\Services\DeliveryService;
 use App\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
@@ -109,19 +113,49 @@ class EndToEndOrderFlowTest extends TestCase
             ->assertOk()
             ->json();
 
-        $this->assertSame('assigned', $checkoutResponse['delivery_assignment']['status'] ?? null);
-        $this->assertSame($driver->id, $checkoutResponse['delivery_assignment']['driver_id'] ?? null);
+        // Plus de Payment/Delivery créé au checkout : différé à l'acceptation restaurant.
+        $this->assertArrayNotHasKey('delivery_assignment', $checkoutResponse);
         $this->assertNotNull($checkoutResponse['order']['order_no'] ?? null);
 
-        $orderNo    = $checkoutResponse['order']['order_no'];
-        $deliveryId = $checkoutResponse['delivery_assignment']['delivery_id'];
+        $orderNo = $checkoutResponse['order']['order_no'];
+
+        $this->assertDatabaseHas('orders', [
+            'order_no'        => $orderNo,
+            'driver_id'       => null,
+            'business_status' => 'pending_restaurant_acceptance',
+            'payment_method'  => 'cash',
+            'payment_status'  => 'pending',
+        ]);
+
+        // ── Étape 1.b : le restaurant accepte -> paiement cash promis + livraison créée ────
+        $order = Order::where('order_no', $orderNo)->first();
+        app(OrderAcceptanceService::class)->handleAccepted($order);
+
+        $this->assertDatabaseHas('orders', [
+            'order_no'        => $orderNo,
+            'business_status' => 'in_kitchen',
+            'payment_status'  => 'paid',
+        ]);
+
+        $delivery = Delivery::where('order_id', $order->id)->first();
+        $this->assertNotNull($delivery);
+        $this->assertSame('PENDING', $delivery->status);
+        $deliveryId = $delivery->id;
+
+        // ── Étape 1.c : la cuisine termine la préparation ───────────────────────
+        app(\App\Services\FoodOrderStateMachineService::class)->transitionOrderGroup($orderNo, 'ready_for_pickup', [
+            'actor_type' => 'restaurant',
+            'actor_id' => $owner->id,
+            'reason_code' => 'kitchen_ready',
+        ]);
+
+        // ── Étape 1.d : le livreur accepte l'offre de livraison ────────────────
+        app(DeliveryService::class)->assignDriver($delivery, $driver);
 
         $this->assertDatabaseHas('orders', [
             'order_no'        => $orderNo,
             'driver_id'       => $driver->id,
             'business_status' => 'driver_assigned',
-            'payment_method'  => 'cash',
-            'payment_status'  => 'pending',
         ]);
 
         $this->assertDatabaseHas('deliveries', [
