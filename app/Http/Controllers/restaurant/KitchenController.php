@@ -34,8 +34,8 @@ class KitchenController extends Controller
             return response()->json(['message' => "Aucun restaurant n'est associé à votre compte."], 422);
         }
 
-        $allowedStatuses = ['pending', 'prepairing', 'assign', 'completed', 'cancelled', 'scheduled', 'accepted', 'in_kitchen', 'ready_for_pickup', 'dispatching', 'driver_assigned', 'picked_up', 'out_for_delivery', 'customer_arrived', 'picked_up_by_customer', 'no_show'];
-        $statuses = $request->get('status', ['pending', 'prepairing', 'assign', 'customer_arrived']);
+        $allowedStatuses = ['pending', 'prepairing', 'assign', 'completed', 'cancelled', 'scheduled', 'accepted', 'accepted_awaiting_payment', 'confirmed', 'in_kitchen', 'ready_for_pickup', 'dispatching', 'driver_assigned', 'picked_up', 'out_for_delivery', 'customer_arrived', 'picked_up_by_customer', 'no_show'];
+        $statuses = $request->get('status', ['pending', 'accepted_awaiting_payment', 'prepairing', 'assign', 'customer_arrived']);
         if (!is_array($statuses)) {
             $statuses = [$statuses];
         }
@@ -129,7 +129,7 @@ class KitchenController extends Controller
         }
 
         $request->validate([
-            'status' => ['required', 'in:pending,accepted,prepairing,in_kitchen,assign,ready_for_pickup,dispatching,completed,delivered,cancelled,customer_arrived,picked_up_by_customer,no_show'],
+            'status' => ['required', 'in:pending,accepted,accepted_awaiting_payment,confirmed,prepairing,in_kitchen,assign,ready_for_pickup,dispatching,completed,delivered,cancelled,customer_arrived,picked_up_by_customer,no_show'],
             'pickup_code' => ['nullable', 'string', 'max:12'],
         ]);
 

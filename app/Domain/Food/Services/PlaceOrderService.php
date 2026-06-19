@@ -123,6 +123,12 @@ class PlaceOrderService
                     $payload['pickup_code'] = $pickupCode;
                 }
 
+                if ($schema['checkout_snapshot'] && array_key_exists('checkout_snapshot', $context)) {
+                    $payload['checkout_snapshot'] = $context['checkout_snapshot'] !== null
+                        ? json_encode($context['checkout_snapshot'])
+                        : null;
+                }
+
                 DB::table('orders')->insert($payload);
             }
         });
@@ -290,6 +296,7 @@ class PlaceOrderService
             'scheduled_date',
             'fulfillment_mode',
             'pickup_code',
+            'checkout_snapshot',
         ];
 
         $this->orderColumnMap = [];

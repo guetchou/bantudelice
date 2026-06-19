@@ -11,6 +11,7 @@ use App\Services\FoodOrderNotificationService;
 use App\Services\NotificationService;
 use App\Services\FoodOrderFinanceService;
 use App\Services\FoodOrderStateMachineService;
+use App\Domain\Food\Services\OrderAcceptanceService;
 use App\Services\CommerceRefundService;
 use App\Services\OrderChatService;
 use Carbon\Carbon;
@@ -29,7 +30,8 @@ class OrderController extends Controller
     public function __construct(
         protected FoodOrderStateMachineService $foodOrderStateMachine,
         protected FoodOrderFinanceService $foodOrderFinanceService,
-        protected CommerceRefundService $refunds
+        protected CommerceRefundService $refunds,
+        protected OrderAcceptanceService $orderAcceptance
     ) {}
 
      public function notification( $body,$title,$device_token,$key,$user_id)
@@ -109,7 +111,9 @@ class OrderController extends Controller
         $query = Order::where('restaurant_id', $restaurant->id);
 
         if (self::HAS_BUSINESS_STATUS) {
-            $query->where('business_status', 'pending_restaurant_acceptance');
+            // pending_restaurant_acceptance = action requise (accepter/refuser)
+            // accepted_awaiting_payment = déjà accepté, attente paiement client (lecture seule côté restaurant)
+            $query->whereIn('business_status', ['pending_restaurant_acceptance', 'accepted_awaiting_payment']);
         } else {
             $query->where('status', 'pending');
         }
@@ -350,42 +354,39 @@ class OrderController extends Controller
             return redirect()->back()->with('alert', $alert);
         }
 
-        $users = DB::table('orders')
-            ->whereIn('order_no', $ids)
-            ->get();
-
-        $Ids = array_values(array_unique($users->pluck('user_id')->filter()->toArray()));
-
-        $device_token = [];
-        if (!empty($Ids)) {
-            $getTokens = UserToken::whereIn('user_id', $Ids)->get();
-            $device_token = $getTokens->pluck('device_tokens')->filter()->toArray();
+        $errors = [];
+        foreach ($ids as $orderNo) {
+            $order = Order::where('order_no', $orderNo)->first();
+            if (! $order) {
+                $errors[] = "Commande #$orderNo introuvable.";
+                continue;
+            }
+            try {
+                // Déclenche paiement (online) ou confirmed→in_kitchen (cash) selon checkout_snapshot.
+                // Aucun Payment, Delivery, ni auto_assign_delivery ne doit être créé avant ce point.
+                $this->orderAcceptance->handleAccepted($order);
+            } catch (\Throwable $e) {
+                \Illuminate\Support\Facades\Log::error('prepaire_order: erreur OrderAcceptanceService', [
+                    'order_no' => $orderNo,
+                    'error'    => $e->getMessage(),
+                ]);
+                $errors[] = "Erreur commande #$orderNo : " . $e->getMessage();
+            }
         }
 
-        $body = 'You Order is Preparing Now!';
-        $title = 'Preparing';
-        $key = 'orderPreparing';
-        $user_id = $Ids;
+        $this->touchRestaurantActivity();
 
-        foreach ($ids as $orderNo) {
-            $this->foodOrderStateMachine->transitionOrderGroup($orderNo, 'in_kitchen', [
-                'actor_type' => 'restaurant',
-                'actor_id' => auth()->id(),
-                'reason_code' => 'kitchen_started',
+        if (! empty($errors)) {
+            return redirect()->back()->with('alert', [
+                'type'    => 'danger',
+                'message' => implode(' | ', $errors),
             ]);
         }
 
-        if (!empty($device_token) && !empty($user_id)) {
-            $this->userNotification($body, $title, $device_token, $key, $user_id);
-        }
-
-        // T1.2 — Mettre à jour last_activity_at (E2C auto-pause)
-        $this->touchRestaurantActivity();
-
-        $alert = [];
-        $alert['type'] = 'success';
-        $alert['message'] = 'Statut de la commande mis à jour avec succès';
-        return redirect()->back()->with('alert', $alert);
+        return redirect()->back()->with('alert', [
+            'type'    => 'success',
+            'message' => 'Commande(s) acceptée(s) avec succès.',
+        ]);
     }
 
     /**

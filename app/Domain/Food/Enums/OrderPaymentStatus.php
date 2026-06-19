@@ -4,18 +4,22 @@ namespace App\Domain\Food\Enums;
 
 enum OrderPaymentStatus: string
 {
+    case NOT_STARTED = 'not_started';
     case PENDING   = 'pending';
     case PAID      = 'paid';
     case FAILED    = 'failed';
+    case EXPIRED   = 'expired';
     case REFUNDED  = 'refunded';
     case CANCELLED = 'cancelled';
 
     public function label(): string
     {
         return match($this) {
+            self::NOT_STARTED => 'Non démarré',
             self::PENDING   => 'En attente',
             self::PAID      => 'Payé',
             self::FAILED    => 'Échoué',
+            self::EXPIRED   => 'Expiré',
             self::REFUNDED  => 'Remboursé',
             self::CANCELLED => 'Annulé',
         };

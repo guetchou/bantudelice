@@ -8,7 +8,6 @@ use App\Domain\Food\Services\OrderPricingService;
 use App\Domain\Food\Services\PlaceOrderService;
 use App\Exceptions\DeliveryCapacityException;
 use App\Order;
-use App\Payment;
 use App\Restaurant;
 use App\Services\DispatchService;
 use Carbon\Carbon;
@@ -102,102 +101,46 @@ class CheckoutService implements \App\Domain\Checkout\Contracts\CheckoutOrchestr
             }
         }
 
-        return DB::transaction(function () use ($user, $paymentMethod, $amount, $cartItems, $checkoutData, $totals, $fulfillmentMode, $scheduledAt, $deliveryServiceability, $loyaltyPointsUsed) {
-            // 3. Créer le paiement
-            $payment = Payment::create([
-                'user_id'  => $user->id,
-                'amount'   => $amount,
-                'currency' => 'XAF',
-                'status'   => 'PENDING',
-                'provider' => $paymentMethod, // ex: "momo", "cash", "paypal"
-            ]);
+        return DB::transaction(function () use ($user, $paymentMethod, $amount, $cartItems, $checkoutData, $totals, $fulfillmentMode, $deliveryServiceability, $loyaltyDiscount, $loyaltyPointsUsed) {
+            // 3. Créer la commande — TOUJOURS en pending_restaurant_acceptance, quel que soit le
+            // mode de paiement. Plus de Payment créé ici, plus de Delivery créée ici : le paiement
+            // (en ligne) et la livraison ne sont déclenchés qu'à l'acceptation restaurant, voir
+            // App\Domain\Food\Services\OrderAcceptanceService::handleAccepted().
+            $checkoutSnapshot = [
+                'checkout_data' => $checkoutData,
+                'totals' => $totals,
+                'amount' => $amount,
+                'payment_method' => $paymentMethod,
+                'loyalty_points_used' => $loyaltyPointsUsed,
+                'loyalty_discount' => $loyaltyDiscount,
+            ];
+
+            $orderNo = $this->createOrderFromCart($user, $cartItems, $checkoutData, $totals, $paymentMethod, $checkoutSnapshot);
+            $orders = Order::where('order_no', $orderNo)->get();
+            $primaryOrder = $orders->first();
+
             if ($loyaltyPointsUsed > 0) {
                 \App\Services\LoyaltyService::usePoints($user->id, $loyaltyPointsUsed, null);
             }
 
-            // 4. Traiter selon le mode de paiement
-            if ($paymentMethod === 'cash') {
-                // Cash à la livraison : créer immédiatement la commande
-                $orderNo = $this->createOrderFromCart($user, $cartItems, $checkoutData, $totals, $payment);
-                $orders = Order::where('order_no', $orderNo)->get();
-                $deliveryAssignment = null;
-                
-                // Créer UNE SEULE livraison (pas une par item) et lancer l'offre broadcast
-                if ($fulfillmentMode !== 'pickup') {
-                    $primaryOrder = $orders->first();
-                    try {
-                        $delivery = $this->deliveryService->createForOrder($primaryOrder);
+            // Notifier le restaurant qu'une nouvelle commande attend son acceptation
+            try {
+                $primaryOrder->loadMissing(['user', 'restaurant']);
+                app(\App\Services\FoodOrderNotificationService::class)
+                    ->notifyStatusChange($primaryOrder, 'pending_restaurant_acceptance', []);
+            } catch (\Exception $e) {
+                Log::warning('Erreur notification commande', ['error' => $e->getMessage()]);
+            }
 
-                        $deliveryAssignment = [
-                            'status' => 'pending',
-                            'delivery_id' => $delivery->id,
-                            'driver_id' => null,
-                            'driver' => null,
-                            'available_drivers_count' => $deliveryServiceability['available_drivers_count'] ?? 0,
-                            'serviceable' => $deliveryServiceability['serviceable'] ?? false,
-                            'capacity_state' => $deliveryServiceability['capacity_state'] ?? null,
-                            'next_capacity_check_minutes' => $deliveryServiceability['next_capacity_check_minutes'] ?? null,
-                        ];
-
-                        enqueue_job('food', 'auto_assign_delivery', [
-                            'delivery' => $delivery,
-                        ]);
-                    } catch (\Exception $e) {
-                        Log::error('Erreur création livraison', [
-                            'order_id' => $primaryOrder->id,
-                            'error' => $e->getMessage()
-                        ]);
-                    }
-                }
-
-                // Notifier le restaurant et le client
-                try {
-                    $primaryOrder = $orders->first();
-                    $primaryOrder->loadMissing(['user', 'restaurant']);
-                    app(\App\Services\FoodOrderNotificationService::class)
-                        ->notifyStatusChange($primaryOrder, 'pending_restaurant_acceptance', []);
-                } catch (\Exception $e) {
-                    Log::warning('Erreur notification commande', ['error' => $e->getMessage()]);
-                }
-
-                // Paiement à la livraison : commande créée, encaissement en attente
-                $payment->update([
-                    'status' => 'PENDING',
-                    'order_id' => $orders->first()->id,
-                    'meta' => [
-                        'cash_on_delivery' => $fulfillmentMode !== 'pickup',
-                        'cash_on_pickup' => $fulfillmentMode === 'pickup',
-                        'fulfillment_mode' => $fulfillmentMode,
-                    ]
-                ]);
-
-                // Vider le panier
-                Cart::where('user_id', $user->id)->delete();
+            // Vider le panier
+            Cart::where('user_id', $user->id)->delete();
 
             return [
-                'payment' => $payment,
-                'order'   => $orders->first(),
+                'payment' => null,
+                'order'   => $primaryOrder,
                 'order_no' => $orderNo,
                 'requires_external_payment' => false,
-                'delivery_serviceability' => $deliveryServiceability,
-                'delivery_assignment' => $deliveryAssignment,
-                'delivery_address_quality' => $checkoutData['delivery_address_quality'] ?? null,
-            ];
-        }
-
-            // 5. Mode paiement en ligne (MoMo, PayPal, etc.)
-            $paymentFlow = $this->paymentService()->prepareExternalPayment(
-                $payment,
-                $cartItems,
-                $checkoutData,
-                ['totals' => $totals]
-            );
-
-            return [
-                'payment' => $paymentFlow['payment'],
-                'order'   => null,
-                'requires_external_payment' => true,
-                'payment_payload' => $paymentFlow['payment_payload'],
+                'awaiting_restaurant_acceptance' => true,
                 'delivery_serviceability' => $deliveryServiceability,
                 'delivery_address_quality' => $checkoutData['delivery_address_quality'] ?? null,
             ];
@@ -206,15 +149,18 @@ class CheckoutService implements \App\Domain\Checkout\Contracts\CheckoutOrchestr
 
     /**
      * Créer une commande depuis le panier
-     * 
+     *
      * @param \App\User $user
      * @param \Illuminate\Database\Eloquent\Collection $cartItems
      * @param array $checkoutData
      * @param array $totals
-     * @param Payment $payment
+     * @param string $paymentMethod
+     * @param array|null $checkoutSnapshot Capture checkoutData/totals/payment_method à rejouer
+     *        plus tard (acceptation restaurant) — le panier sera vidé et aucun Payment n'existe
+     *        encore à ce stade pour porter cette information.
      * @return string Numéro de commande
      */
-    public function createOrderFromCart($user, $cartItems, array $checkoutData, array $totals, Payment $payment): string
+    public function createOrderFromCart($user, $cartItems, array $checkoutData, array $totals, string $paymentMethod, ?array $checkoutSnapshot = null): string
     {
         $fulfillmentMode = strtolower((string) ($checkoutData['fulfillment_mode'] ?? 'delivery')) === 'pickup' ? 'pickup' : 'delivery';
         $scheduledAt = $this->resolveScheduledAt($checkoutData['scheduled_date'] ?? null);
@@ -236,10 +182,13 @@ class CheckoutService implements \App\Domain\Checkout\Contracts\CheckoutOrchestr
             'longitude' => $checkoutData['d_lng'] ?? null,
             'd_lat' => $checkoutData['d_lat'] ?? null,
             'd_lng' => $checkoutData['d_lng'] ?? null,
-            'payment_method' => $payment->provider,
-            'payment_status' => $payment->status === 'PAID' ? OrderPaymentStatus::PAID->value : OrderPaymentStatus::PENDING->value,
+            'payment_method' => $paymentMethod,
+            // Une commande qui vient d'être créée n'a jamais encore été payée — la commande
+            // n'existe désormais TOUJOURS qu'avant tout paiement, quel que soit le mode.
+            'payment_status' => OrderPaymentStatus::PENDING->value,
             'status' => $scheduledAt ? 'scheduled' : 'pending',
             'business_status' => 'pending_restaurant_acceptance',
+            'checkout_snapshot' => $checkoutSnapshot,
             'ordered_time' => now(),
             'delivered_time' => null,
         ]);

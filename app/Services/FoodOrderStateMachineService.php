@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Domain\Food\Enums\OrderPaymentStatus;
 use App\Domain\Food\Events\FoodDriverOrderUpdated;
 use App\Domain\Food\Events\FoodMissionPresenceUpdated;
 use App\Domain\Food\Events\FoodOrderStatusUpdated;
@@ -17,6 +18,9 @@ class FoodOrderStateMachineService
 {
     public const FLOW_DELIVERY = 'food_delivery';
     public const FLOW_PICKUP = 'food_pickup';
+
+    /** Statuts à partir desquels une livraison peut être dispatchée à un livreur — jamais avant acceptation + paiement. */
+    public const DISPATCHABLE_BUSINESS_STATUSES = ['in_kitchen', 'ready_for_pickup'];
 
     public function __construct(
         protected ?NotificationService $notificationService = null,
@@ -45,6 +49,10 @@ class FoodOrderStateMachineService
             throw new RuntimeException("Transition invalide: {$currentBusinessStatus} -> {$targetBusinessStatus}");
         }
 
+        if ($targetBusinessStatus === 'in_kitchen') {
+            $this->guardInKitchenRequiresConfirmedAndPaid($orders->first(), $currentBusinessStatus, $context);
+        }
+
         $transitioned = DB::transaction(function () use ($orders, $orderIds, $currentBusinessStatus, $targetBusinessStatus, $context, $flow) {
             $now = now();
             $legacyStatus = $this->mapBusinessToLegacy($targetBusinessStatus, $orders->first());
@@ -64,7 +72,7 @@ class FoodOrderStateMachineService
                     $payload['technical_status'] = $technicalStatus;
                 }
 
-                if (Schema::hasColumn('orders', 'accepted_at') && $targetBusinessStatus === 'accepted' && empty($order->accepted_at)) {
+                if (Schema::hasColumn('orders', 'accepted_at') && in_array($targetBusinessStatus, ['accepted', 'accepted_awaiting_payment', 'confirmed'], true) && empty($order->accepted_at)) {
                     $payload['accepted_at'] = $now;
                 }
 
@@ -164,6 +172,51 @@ class FoodOrderStateMachineService
         return $transitioned;
     }
 
+    /**
+     * Règle dure : in_kitchen exige business_status=confirmed ET payment_status=paid.
+     * Override possible uniquement via context['force_admin']=true, avec audit log obligatoire
+     * (action distincte 'status_transition_forced_unpaid' pour traçabilité/alerting).
+     */
+    protected function guardInKitchenRequiresConfirmedAndPaid(Order $order, string $currentBusinessStatus, array $context): void
+    {
+        $isConfirmed = $currentBusinessStatus === 'confirmed';
+        $isPaid = ((string) $order->payment_status) === OrderPaymentStatus::PAID->value;
+
+        if ($isConfirmed && $isPaid) {
+            return;
+        }
+
+        if (empty($context['force_admin'])) {
+            throw new RuntimeException(
+                "Transition in_kitchen refusée : business_status doit être 'confirmed' et payment_status 'paid' "
+                . "(actuel: {$currentBusinessStatus}/{$order->payment_status})."
+            );
+        }
+
+        $this->auditLogs()->record([
+            'actor_type' => $context['actor_type'] ?? 'admin',
+            'actor_id' => $context['actor_id'] ?? null,
+            'target_type' => 'food_order',
+            'target_id' => $order->id,
+            'target_ref' => $order->order_no,
+            'action' => 'status_transition_forced_unpaid',
+            'status' => 'in_kitchen',
+            'meta' => [
+                'from' => $currentBusinessStatus,
+                'payment_status' => $order->payment_status,
+                'reason' => $context['force_admin_reason'] ?? null,
+            ],
+        ]);
+
+        Log::warning('FoodOrderStateMachineService: transition in_kitchen forcée sans confirmation/paiement (force_admin)', [
+            'order_id' => $order->id,
+            'order_no' => $order->order_no,
+            'business_status' => $currentBusinessStatus,
+            'payment_status' => $order->payment_status,
+            'actor_id' => $context['actor_id'] ?? null,
+        ]);
+    }
+
     public function resolveCurrentBusinessStatus(Order $order): string
     {
         if (!$order->isPickup() && !empty($order->delivery) && strtoupper((string) $order->delivery->status) !== 'PENDING') {
@@ -187,6 +240,8 @@ class FoodOrderStateMachineService
         $aliases = [
             'pending' => 'pending_restaurant_acceptance',
             'accepted' => 'accepted',
+            'accepted_awaiting_payment' => 'accepted_awaiting_payment',
+            'confirmed' => 'confirmed',
             'prepairing' => 'in_kitchen',
             'preparing' => 'in_kitchen',
             'in_kitchen' => 'in_kitchen',
@@ -270,7 +325,7 @@ class FoodOrderStateMachineService
     {
         if ($this->resolveFlow($order) === self::FLOW_PICKUP) {
             return match ($businessStatus) {
-                'pending_restaurant_acceptance', 'accepted' => 'pending',
+                'pending_restaurant_acceptance', 'accepted_awaiting_payment', 'confirmed', 'accepted' => 'pending',
                 'in_kitchen' => 'prepairing',
                 'ready_for_pickup', 'customer_arrived' => 'assign',
                 'picked_up_by_customer', 'closed' => 'completed',
@@ -280,7 +335,7 @@ class FoodOrderStateMachineService
         }
 
         return match ($businessStatus) {
-            'pending_restaurant_acceptance', 'accepted' => 'pending',
+            'pending_restaurant_acceptance', 'accepted_awaiting_payment', 'confirmed', 'accepted' => 'pending',
             'in_kitchen' => 'prepairing',
             'ready_for_pickup',
             'dispatching',

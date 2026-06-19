@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 class Order extends Model
 {
     use SoftDeletes;
-    protected $fillable=['restaurant_id','user_id','product_id','qty','price','total_items','latitude','longitude','offer_discount','tax','delivery_charges','sub_total','total','admin_commission','restaurant_commission','driver_tip','delivery_address','scheduled_date','ordered_time','delivered_time','order_no','d_lat','d_lng','payment_method','payment_status','status','business_status','technical_status','accepted_at','preparation_started_at','ready_at','cancelled_at','driver_id','fulfillment_mode','pickup_code','customer_arrived_at','customer_picked_up_at'];
+    protected $fillable=['restaurant_id','user_id','product_id','qty','price','total_items','latitude','longitude','offer_discount','tax','delivery_charges','sub_total','total','admin_commission','restaurant_commission','driver_tip','delivery_address','scheduled_date','ordered_time','delivered_time','order_no','d_lat','d_lng','payment_method','payment_status','status','business_status','technical_status','accepted_at','preparation_started_at','ready_at','cancelled_at','driver_id','fulfillment_mode','pickup_code','customer_arrived_at','customer_picked_up_at','checkout_snapshot','cash_collection_status','cash_collected_at','cash_collected_by','cash_collection_confirmed_at','cash_collection_reference'];
 
     protected $casts = [
         'ordered_time' => 'datetime',
@@ -21,6 +21,9 @@ class Order extends Model
         'cancelled_at' => 'datetime',
         'customer_arrived_at' => 'datetime',
         'customer_picked_up_at' => 'datetime',
+        'checkout_snapshot' => 'array',
+        'cash_collected_at' => 'datetime',
+        'cash_collection_confirmed_at' => 'datetime',
     ];
     
    public function restaurant()

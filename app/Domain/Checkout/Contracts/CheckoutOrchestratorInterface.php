@@ -2,9 +2,6 @@
 
 namespace App\Domain\Checkout\Contracts;
 
-use App\Payment;
-use Carbon\Carbon;
-
 /**
  * Couture d'orchestration du checkout food.
  *
@@ -30,12 +27,14 @@ interface CheckoutOrchestratorInterface
     /**
      * Créer une commande depuis le contenu du panier.
      *
-     * @param  mixed      $user
-     * @param  mixed      $cartItems
-     * @param  array      $checkoutData
-     * @param  array      $totals       Résultat de calculateTotals()
-     * @param  Payment    $payment      Enregistrement Payment déjà persisté
-     * @return string                   Numéro de commande (order_no)
+     * @param  mixed       $user
+     * @param  mixed       $cartItems
+     * @param  array       $checkoutData
+     * @param  array       $totals            Résultat de calculateTotals()
+     * @param  string      $paymentMethod      cash, momo, paypal...
+     * @param  array|null  $checkoutSnapshot   Capture checkoutData/totals/payment_method à rejouer
+     *                                         plus tard, à l'acceptation restaurant.
+     * @return string                          Numéro de commande (order_no)
      */
-    public function createOrderFromCart($user, $cartItems, array $checkoutData, array $totals, Payment $payment): string;
+    public function createOrderFromCart($user, $cartItems, array $checkoutData, array $totals, string $paymentMethod, ?array $checkoutSnapshot = null): string;
 }

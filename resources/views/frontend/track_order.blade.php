@@ -14,6 +14,8 @@
     $trackingProgress = $order->tracking_progress ?? $order->resolveTrackingProgress();
     $statusText = $isPickup ? [
         'pending_restaurant_acceptance' => ['label' => 'En attente du restaurant', 'description' => 'Le restaurant doit encore accepter votre commande retrait.'],
+        'accepted_awaiting_payment' => ['label' => 'En attente de paiement', 'description' => 'Le restaurant a accepté votre commande retrait. Finalisez votre paiement pour confirmer.'],
+        'confirmed' => ['label' => 'Commande confirmée', 'description' => 'Paiement reçu. Le restaurant prépare votre commande retrait.'],
         'accepted' => ['label' => 'Commande acceptée', 'description' => 'Le restaurant confirme votre commande retrait.'],
         'in_kitchen' => ['label' => 'En préparation', 'description' => 'La cuisine prépare votre commande.'],
         'ready_for_pickup' => ['label' => 'Prête au retrait', 'description' => 'Votre commande est prête. Présentez votre code au restaurant.'],
@@ -24,6 +26,8 @@
         'cancelled' => ['label' => 'Annulée', 'description' => 'La commande a été annulée.'],
     ] : [
         'pending_restaurant_acceptance' => ['label' => 'En attente du restaurant', 'description' => 'Le restaurant doit encore accepter votre commande.'],
+        'accepted_awaiting_payment' => ['label' => 'En attente de paiement', 'description' => 'Le restaurant a accepté votre commande. Finalisez votre paiement pour confirmer.'],
+        'confirmed' => ['label' => 'Commande confirmée', 'description' => 'Paiement reçu. Le restaurant prépare votre commande.'],
         'accepted' => ['label' => 'Commande acceptée', 'description' => 'Le restaurant confirme la prise en charge.'],
         'in_kitchen' => ['label' => 'En préparation', 'description' => 'La cuisine prépare votre commande.'],
         'ready_for_pickup' => ['label' => 'Prête au départ', 'description' => 'La commande est prête au restaurant.'],
@@ -341,8 +345,16 @@
     </div>
 
     {{-- ── Carte interactive (livraison active uniquement) ─────────── --}}
-    @php $isCancelled = in_array($businessStatus, ['cancelled', 'no_show']); @endphp
-    @if(!$isPickup && !$isCancelled)
+    @php
+        $isCancelled = in_array($businessStatus, ['cancelled', 'no_show']);
+        $trackingAllowed = ! in_array($businessStatus, [
+            'cancelled', 'no_show',
+            'pending_restaurant_acceptance',
+            'accepted_awaiting_payment',
+            'confirmed',
+        ]);
+    @endphp
+    @if(!$isPickup && $trackingAllowed)
     <div class="trk-map-wrap">
         <div id="trackingMap"></div>
         <div class="trk-map-overlay">
@@ -379,7 +391,7 @@
     @if(!$isCancelled)
     @php
         $showEtaHero = !$isPickup && $remainingMinutes > 0
-            && in_array($businessStatus, ['driver_assigned','picked_up','out_for_delivery','accepted','in_kitchen','ready_for_pickup','pending_restaurant_acceptance']);
+            && in_array($businessStatus, ['driver_assigned','picked_up','out_for_delivery','in_kitchen','ready_for_pickup']);
         $floatCard = !$isPickup;
     @endphp
     <div class="{{ $floatCard ? 'trk-section--float' : 'trk-section' }}">
@@ -444,6 +456,38 @@
         </div>
     </div>
     @endif {{-- !$isCancelled status card --}}
+
+    {{-- ── Bloc paiement différé (accepted_awaiting_payment) ──────────── --}}
+    @if($businessStatus === 'accepted_awaiting_payment')
+    @php
+        $paymentFailed = in_array($order->payment_status ?? '', ['failed', 'expired']);
+    @endphp
+    <div class="trk-section" style="margin-top:12px;">
+        <div class="trk-payment-pending-card" style="background:#fffbeb;border:1.5px solid #f59e0b;border-radius:14px;padding:18px 20px;">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;">
+                <i class="fas fa-clock" style="color:#d97706;font-size:1.3rem;"></i>
+                <strong style="color:#92400e;font-size:.95rem;">Finalisez votre paiement</strong>
+            </div>
+            <p style="margin:0 0 12px;color:#78350f;font-size:.85rem;line-height:1.5;">
+                Le restaurant a accepté votre commande #{{ $order->order_no }}.
+                Votre paiement est requis pour que la préparation commence.
+            </p>
+            @if($paymentFailed)
+            <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:10px 14px;margin-bottom:12px;color:#991b1b;font-size:.82rem;">
+                <i class="fas fa-exclamation-circle" style="margin-right:6px;"></i>
+                Le paiement a échoué ou a expiré. Veuillez réessayer pour confirmer votre commande.
+            </div>
+            @endif
+            {{-- Le bouton redirige vers la page de paiement avec l'order_no en paramètre --}}
+            <a href="{{ route('checkout.retry-payment', ['orderNo' => $order->order_no]) }}"
+               class="trk-btn-call"
+               style="display:inline-flex;align-items:center;gap:8px;background:#d97706;color:#fff;padding:10px 20px;border-radius:8px;font-weight:700;font-size:.85rem;text-decoration:none;">
+                <i class="fas fa-credit-card"></i>
+                {{ $paymentFailed ? 'Réessayer le paiement' : 'Finaliser le paiement' }}
+            </a>
+        </div>
+    </div>
+    @endif
 
     {{-- ── Timeline horizontale ────────────────────────────────────── --}}
     @if(!$isCancelled)

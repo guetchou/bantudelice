@@ -123,6 +123,8 @@ Route::middleware([ResolveSiteContext::class])->group(function () {
         Route::post('api', [\App\Http\Controllers\Api\CheckoutController::class, '__invoke'])->name('checkout.api');
         Route::get('payments/{payment}', [\App\Http\Controllers\Api\PaymentController::class, 'show'])->name('checkout.payments.show');
         Route::post('payments/{payment}/confirm', [\App\Http\Controllers\Api\PaymentController::class, 'confirm'])->name('checkout.payments.confirm');
+        // Relance paiement pour commandes en accepted_awaiting_payment (paiement différé à l'acceptation restaurant)
+        Route::get('retry-payment/{orderNo}', [\App\Http\Controllers\Api\CheckoutController::class, 'retryPayment'])->name('checkout.retry-payment');
     });
     Route::get('/cart/count', 'PublicCatalogController@getCartCount')->name('cart.count');
     // Stripe non implémenté — routes conservées pour ne pas casser les liens existants.

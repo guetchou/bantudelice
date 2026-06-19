@@ -90,6 +90,12 @@ class Kernel extends ConsoleKernel
             ->everyFiveMinutes()
             ->name('dispatch-process-pending')
             ->withoutOverlapping();
+
+        // Expire les commandes en accepted_awaiting_payment dont le paiement n'est pas arrivé à temps
+        $schedule->command('food:expire-unpaid-accepted')
+            ->everyTwoMinutes()
+            ->name('food-expire-unpaid-accepted')
+            ->withoutOverlapping();
     }
 
     /**

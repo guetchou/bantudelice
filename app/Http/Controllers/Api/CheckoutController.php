@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Address;
 use App\Exceptions\DeliveryCapacityException;
 use App\Http\Controllers\Controller;
+use App\Order;
 use App\Services\AddressQualityService;
 use App\Services\CheckoutService;
 use App\Services\PaymentExperienceService;
@@ -179,28 +180,19 @@ class CheckoutController extends Controller
                 $checkoutData
             );
 
-            // Formater la réponse
+            // Formater la réponse — la commande est toujours créée en attente d'acceptation
+            // restaurant désormais ; aucun Payment n'existe encore à ce stade (déclenché plus
+            // tard par OrderAcceptanceService, après acceptation), quel que soit le mode de paiement.
             $response = [
                 'status' => true,
-                'payment' => [
-                    'id' => $result['payment']->id,
-                    'status' => $result['payment']->status,
-                    'amount' => $result['payment']->amount,
-                    'currency' => $result['payment']->currency,
-                    'provider' => $result['payment']->provider,
-                ],
-                'payment_experience' => $this->paymentExperienceService->describe($result['payment']),
-                'requires_external_payment' => $result['requires_external_payment'],
-            ];
-
-            if ($result['requires_external_payment']) {
-                $response['payment_payload'] = $result['payment_payload'];
-            } else {
-                $response['order'] = [
+                'payment' => null,
+                'requires_external_payment' => false,
+                'awaiting_restaurant_acceptance' => true,
+                'order' => [
                     'id' => $result['order']->id ?? null,
                     'order_no' => $result['order_no'] ?? null,
-                ];
-            }
+                ],
+            ];
 
             if (isset($result['delivery_serviceability'])) {
                 $response['delivery_serviceability'] = $result['delivery_serviceability'];
@@ -245,5 +237,38 @@ class CheckoutController extends Controller
                 'message' => 'Erreur lors du checkout. Veuillez réessayer.'
             ], 500);
         }
+    }
+
+    /**
+     * Relancer le paiement d'une commande en accepted_awaiting_payment.
+     * Redirige vers la page de suivi avec un message contextuel ; l'implémentation
+     * du formulaire de retry paiement (via PaymentService::prepareExternalPayment)
+     * sera ajoutée dans une prochaine itération.
+     */
+    public function retryPayment(string $orderNo, Request $request)
+    {
+        $user = $request->user();
+        if (! $user) {
+            return redirect()->route('login');
+        }
+
+        $order = Order::where('order_no', $orderNo)
+            ->where('user_id', $user->id)
+            ->where('business_status', 'accepted_awaiting_payment')
+            ->first();
+
+        if (! $order) {
+            return redirect()->route('home')->with('alert', [
+                'type'    => 'danger',
+                'message' => 'Commande introuvable ou déjà traitée.',
+            ]);
+        }
+
+        // TODO: implémenter le formulaire de saisie/confirmation du paiement (MoMo, PayPal…)
+        // Pour l'instant, on redirige vers la page de suivi avec un message d'information.
+        return redirect()->route('track.order', ['id' => $orderNo])->with('alert', [
+            'type'    => 'info',
+            'message' => 'Contactez le support pour finaliser votre paiement sur la commande #' . $orderNo . '.',
+        ]);
     }
 }

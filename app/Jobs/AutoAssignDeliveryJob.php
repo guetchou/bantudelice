@@ -4,7 +4,9 @@ namespace App\Jobs;
 
 use App\Delivery;
 use App\Jobs\BroadcastDeliveryOfferJob;
+use App\Order;
 use App\Services\DispatchService;
+use App\Services\FoodOrderStateMachineService;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -52,6 +54,19 @@ class AutoAssignDeliveryJob implements ShouldQueue
         if ($delivery->status !== 'PENDING') {
             Log::info('Livraison déjà assignée, job ignoré', ['delivery_id' => $delivery->id, 'status' => $delivery->status]);
             return;
+        }
+
+        // Garde-fou : ne jamais dispatcher si la commande n'est pas encore en cuisine.
+        // Protège contre tout chemin legacy ou régression qui enqueuerait ce job prématurément.
+        $order = Order::find($delivery->order_id);
+        $dispatchableStatuses = FoodOrderStateMachineService::DISPATCHABLE_BUSINESS_STATUSES;
+        if (! $order || ! in_array($order->business_status, $dispatchableStatuses, true)) {
+            Log::warning('AutoAssignDeliveryJob: order pas en in_kitchen/ready_for_pickup, job ignoré', [
+                'delivery_id'     => $delivery->id,
+                'order_id'        => $delivery->order_id,
+                'business_status' => $order?->business_status,
+            ]);
+            return; // pas de retry — ce n'est pas transitoire
         }
 
         // Lancer le broadcast offer (round 1) — les livreurs ont OFFER_WINDOW secondes pour accepter
