@@ -103,6 +103,7 @@ class DriverDeliveriesController extends Controller
             'pickup_longitude' => 'nullable|numeric',
             'delivery_latitude' => 'nullable|numeric',
             'delivery_longitude' => 'nullable|numeric',
+            'cash_collection_outcome' => 'nullable|string|in:collected,collection_failed',
         ]);
         
         $driver = $this->authenticatedDriverResolver->current();
@@ -141,6 +142,7 @@ class DriverDeliveriesController extends Controller
                 'pickup_longitude' => $request->input('pickup_longitude'),
                 'delivery_latitude' => $request->input('delivery_latitude'),
                 'delivery_longitude' => $request->input('delivery_longitude'),
+                'cash_collection_outcome' => $request->input('cash_collection_outcome'),
             ]);
             
             return response()->json([

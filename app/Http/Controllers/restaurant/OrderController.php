@@ -389,6 +389,41 @@ class OrderController extends Controller
         ]);
     }
 
+    public function disputeCashCollection(string $orderNo, Request $request)
+    {
+        $request->validate([
+            'notes' => 'nullable|string|max:500',
+        ]);
+
+        $restaurantId = Restaurant::where('user_id', auth()->id())->value('id');
+        $order = Order::where('order_no', $orderNo)->where('restaurant_id', $restaurantId)->first();
+
+        if (! $order) {
+            return redirect()->back()->with('alert', [
+                'type'    => 'danger',
+                'message' => 'Commande introuvable pour ce restaurant.',
+            ]);
+        }
+
+        try {
+            app(\App\Services\DeliveryService::class)->disputeCashCollection($order, [
+                'actor_type' => 'restaurant',
+                'actor_id'   => auth()->id(),
+                'notes'      => $request->input('notes'),
+            ]);
+        } catch (\Throwable $e) {
+            return redirect()->back()->with('alert', [
+                'type'    => 'danger',
+                'message' => $e->getMessage(),
+            ]);
+        }
+
+        return redirect()->back()->with('alert', [
+            'type'    => 'success',
+            'message' => 'Litige signalé avec succès. Notre équipe va investiguer.',
+        ]);
+    }
+
     /**
      * T1.2 — Mettre à jour last_activity_at du restaurant connecté.
      * Appelé à chaque action restaurant (préparation, annulation, livraison).

@@ -12,6 +12,7 @@ use App\Services\CommerceSignalService;
 use App\Services\DeliveryDispatchService;
 use App\Services\DeliveryProofService;
 use App\Services\FinancialLedgerService;
+use App\Services\AuditLogService;
 use App\Services\RiskService;
 use App\Services\SupportTicketService;
 use App\Domain\Food\Enums\OrderPaymentStatus;
@@ -238,7 +239,8 @@ class DeliveryService
                 if (Schema::hasColumn('deliveries', 'delivery_confirmation_method')) {
                     $data['delivery_confirmation_method'] = $this->proof()->resolveConfirmationMethod($context);
                 }
-                if (Schema::hasColumn('deliveries', 'cash_collected_at') && $this->shouldMarkCashCollected($delivery->order)) {
+                $cashCollectionOutcome = $context['cash_collection_outcome'] ?? 'collected';
+                if (Schema::hasColumn('deliveries', 'cash_collected_at') && $this->shouldMarkCashCollected($delivery->order) && $cashCollectionOutcome !== 'collection_failed') {
                     $data['cash_collected_at'] = $now;
                 }
 
@@ -248,6 +250,7 @@ class DeliveryService
                     'actor_id'   => $delivery->driver_id,
                     'delivery_notes' => $context['delivery_notes'] ?? null,
                     'customer_confirmed' => !empty($context['customer_confirmed']),
+                    'cash_collection_outcome' => $cashCollectionOutcome,
                 ]);
                 $delivery->order->update([
                     'payment_status' => $this->resolveOrderPaymentStatus($delivery->order),
@@ -396,6 +399,72 @@ class DeliveryService
             }
 
             return $delivery->fresh();
+        });
+    }
+
+    // ── Encaissement cash ───────────────────────────────────────────────────
+
+    public function disputeCashCollection(Order $order, array $context = []): Order
+    {
+        if ($order->payment_method !== 'cash') {
+            throw new \RuntimeException('Cette commande n\'est pas en paiement cash.');
+        }
+
+        if ($order->cash_collection_status !== 'collected') {
+            throw new \RuntimeException("Impossible de contester : statut actuel '{$order->cash_collection_status}', seul 'collected' peut être contesté.");
+        }
+
+        return DB::transaction(function () use ($order, $context) {
+            $order->update([
+                'cash_collection_status' => 'disputed',
+                'cash_collection_reference' => $context['notes'] ?? null,
+            ]);
+
+            app(AuditLogService::class)->record([
+                'actor_type' => $context['actor_type'] ?? 'restaurant',
+                'actor_id' => $context['actor_id'] ?? null,
+                'target_type' => 'food_order',
+                'target_id' => $order->id,
+                'target_ref' => $order->order_no,
+                'action' => 'cash_collection_disputed',
+                'meta' => ['notes' => $context['notes'] ?? null],
+            ]);
+
+            app(RiskService::class)->assessOrder($order, [
+                'module' => 'food',
+                'cash_dispute' => true,
+            ], 'cash_collection_disputed');
+
+            return $order->fresh();
+        });
+    }
+
+    public function resolveCashDispute(Order $order, string $resolution, array $context = []): Order
+    {
+        if (!in_array($order->cash_collection_status, ['disputed', 'collection_failed'], true)) {
+            throw new \RuntimeException("Aucun litige actif sur cette commande (statut actuel : '{$order->cash_collection_status}').");
+        }
+
+        $targetStatus = match ($resolution) {
+            'confirmed_collected' => 'collected',
+            'confirmed_not_collected' => 'collection_failed',
+            default => throw new \RuntimeException("Résolution invalide : {$resolution}"),
+        };
+
+        return DB::transaction(function () use ($order, $targetStatus, $context) {
+            $order->update(['cash_collection_status' => $targetStatus]);
+
+            app(AuditLogService::class)->record([
+                'actor_type' => $context['actor_type'] ?? 'admin',
+                'actor_id' => $context['actor_id'] ?? null,
+                'target_type' => 'food_order',
+                'target_id' => $order->id,
+                'target_ref' => $order->order_no,
+                'action' => 'cash_dispute_resolved',
+                'meta' => ['resolution' => $targetStatus],
+            ]);
+
+            return $order->fresh();
         });
     }
 

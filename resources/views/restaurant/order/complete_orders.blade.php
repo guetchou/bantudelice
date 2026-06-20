@@ -78,6 +78,16 @@
                                     <a href="{{ route('restaurant.show_order', $order->order_no) }}" class="ord-action-btn" title="Voir">
                                         <i class="fas fa-eye"></i>
                                     </a>
+                                    @if($order->payment_method === 'cash' && $order->cash_collection_status === 'collected')
+                                        <form method="POST" action="{{ route('restaurant.orders.cash_dispute', $order->order_no) }}" style="display:inline;" onsubmit="return confirm('Confirmer : vous n\'avez pas reçu les espèces pour cette commande ?');">
+                                            @csrf
+                                            <button type="submit" class="ord-action-btn" title="Signaler espèces non reçues">
+                                                <i class="fas fa-exclamation-triangle"></i>
+                                            </button>
+                                        </form>
+                                    @elseif($order->payment_method === 'cash' && $order->cash_collection_status === 'disputed')
+                                        <span class="ord-badge ord-badge--new" title="Litige en cours d'investigation">Litige signalé</span>
+                                    @endif
                                 </td>
                             </tr>
                         @endforeach

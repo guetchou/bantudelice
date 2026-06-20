@@ -449,4 +449,40 @@ class OrderController extends Controller
             ]);
         }
     }
+
+    public function cashDisputes(Request $request)
+    {
+        $query = Order::with(['restaurant', 'user'])
+            ->whereIn('cash_collection_status', ['disputed', 'collection_failed']);
+
+        $orders = $query->latest()->get()->unique('order_no');
+
+        return view('admin.order.cash_disputes', compact('orders'));
+    }
+
+    public function resolveCashDispute(Request $request, $orderNo)
+    {
+        $request->validate([
+            'resolution' => 'required|in:confirmed_collected,confirmed_not_collected',
+        ]);
+
+        $order = Order::where('order_no', $orderNo)->firstOrFail();
+
+        try {
+            $this->deliveryService->resolveCashDispute($order, $request->input('resolution'), [
+                'actor_type' => 'admin',
+                'actor_id' => auth()->id(),
+            ]);
+
+            return redirect()->back()->with('alert', [
+                'type' => 'success',
+                'message' => 'Litige résolu avec succès',
+            ]);
+        } catch (\Throwable $e) {
+            return redirect()->back()->with('alert', [
+                'type' => 'danger',
+                'message' => $e->getMessage(),
+            ]);
+        }
+    }
 }
