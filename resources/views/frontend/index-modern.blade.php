@@ -908,6 +908,9 @@
       </div>
     </div>
   </div>
+
+  @include('frontend.partials.footer-badges')
+
   <div class="ft2__bot">
     <span class="ft2__copy">&copy; {{ date('Y') }} {{ $foodBrandName }}. Tous droits réservés.</span>
     <span class="ft2__pays">
