@@ -126,16 +126,16 @@ class OrderIncidentFlowTest extends TestCase
         $this->actingAs($customer)
             ->from(route('track.order', ['orderNo' => $delivery->order->order_no]))
             ->post(route('track.order.incident', ['orderNo' => $delivery->order->order_no]), [
-                'reason' => 'customer_absent',
-                'notes' => 'Client absent au point de livraison',
+                'reason' => 'missing_items',
+                'notes' => 'Article manquant dans la commande',
             ])
             ->assertRedirect(route('track.order', ['orderNo' => $delivery->order->order_no]));
 
         $delivery->refresh();
 
         $this->assertSame('open', $delivery->incident_status);
-        $this->assertSame('customer_absent', $delivery->incident_reason);
-        $this->assertSame('delivery_attempt_failed', $delivery->order->fresh()->business_status);
+        $this->assertSame('missing_items', $delivery->incident_reason);
+        $this->assertSame('incident_open', $delivery->order->fresh()->business_status);
 
         $this->assertDatabaseHas('support_tickets', [
             'module' => 'food',
@@ -179,10 +179,11 @@ class OrderIncidentFlowTest extends TestCase
     {
         [$customer, , $delivery] = $this->createDeliveryOrderFixture('ORD-INC-103');
         $admin = User::factory()->create(['type' => 'admin']);
+        $this->grantAdminWorkspace($admin);
 
         $this->actingAs($customer)
             ->post(route('track.order.incident', ['orderNo' => $delivery->order->order_no]), [
-                'reason' => 'missing_item',
+                'reason' => 'missing_items',
                 'notes' => 'Incident signale par le client',
             ]);
 

@@ -96,7 +96,11 @@ class TransportApiTest extends TestCase
 
     public function test_user_can_create_booking()
     {
-        Event::fake([TransportRequestBroadcasted::class]);
+        Event::fake([
+            TransportRequestBroadcasted::class,
+            TransportRequestCreated::class,
+            TransportBookingStatusUpdated::class,
+        ]);
 
         $user = User::factory()->create();
         [$driver] = $this->provisionOperationalTransportDriver('create', -4.2705, 15.2805);
@@ -139,6 +143,12 @@ class TransportApiTest extends TestCase
 
     public function test_driver_can_accept_booking()
     {
+        Event::fake([
+            TransportBookingStatusUpdated::class,
+            BookingAssigned::class,
+            TransportMissionPresenceUpdated::class,
+        ]);
+
         $user = User::factory()->create();
         $restaurantOwner = User::factory()->create(['type' => 'restaurant']);
         
@@ -306,6 +316,12 @@ class TransportApiTest extends TestCase
 
     public function test_first_driver_accepting_wins_the_broadcast_request(): void
     {
+        Event::fake([
+            TransportBookingStatusUpdated::class,
+            BookingAssigned::class,
+            TransportMissionPresenceUpdated::class,
+        ]);
+
         $user = User::factory()->create();
         [$driverOne] = $this->provisionOperationalTransportDriver('win1', -4.2705, 15.2805);
         [$driverTwo] = $this->provisionOperationalTransportDriver('win2', -4.2707, 15.2807);
@@ -342,6 +358,14 @@ class TransportApiTest extends TestCase
 
     public function test_full_e2e_flow_with_logs()
     {
+        Event::fake([
+            TransportRequestBroadcasted::class,
+            TransportRequestCreated::class,
+            TransportBookingStatusUpdated::class,
+            BookingAssigned::class,
+            TransportMissionPresenceUpdated::class,
+        ]);
+
         // 1. Setup
         $user = User::factory()->create();
         [$driver] = $this->provisionOperationalTransportDriver('22', -4.2705, 15.2805);

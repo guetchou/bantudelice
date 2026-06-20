@@ -29,28 +29,29 @@ class OrderRatingApiTest extends TestCase
 
     public function test_order_rating_endpoints_reject_unknown_user_id(): void
     {
+        // CRIT-4: user_id param is ignored; unauthenticated requests always get 401
         $this->getJson('/api/orders/1/rating/check?user_id=999999')
-            ->assertStatus(404)
+            ->assertStatus(401)
             ->assertJson([
                 'status' => false,
-                'message' => 'Utilisateur introuvable.',
+                'message' => 'Utilisateur non authentifié.',
             ]);
 
         $this->getJson('/api/orders/1/rating?user_id=999999')
-            ->assertStatus(404)
+            ->assertStatus(401)
             ->assertJson([
                 'status' => false,
-                'message' => 'Utilisateur introuvable.',
+                'message' => 'Utilisateur non authentifié.',
             ]);
 
         $this->postJson('/api/orders/1/rating', [
             'user_id' => 999999,
             'rating' => 5,
         ])
-            ->assertStatus(404)
+            ->assertStatus(401)
             ->assertJson([
                 'status' => false,
-                'message' => 'Utilisateur introuvable.',
+                'message' => 'Utilisateur non authentifié.',
             ]);
     }
 

@@ -67,6 +67,7 @@ class RestaurantPauseTest extends TestCase
     public function test_admin_force_pause_updates_db(): void
     {
         $admin = User::factory()->create(['type' => 'admin']);
+        $this->grantAdminWorkspace($admin);
         [, $restaurant] = $this->createRestaurantAccount();
 
         $this->withoutExceptionHandling()
@@ -86,6 +87,7 @@ class RestaurantPauseTest extends TestCase
     public function test_admin_force_resume_clears_pause(): void
     {
         $admin = User::factory()->create(['type' => 'admin']);
+        $this->grantAdminWorkspace($admin);
         [, $restaurant] = $this->createRestaurantAccount();
 
         DB::table('restaurants')->where('id', $restaurant->id)->update(['is_paused' => 1]);
