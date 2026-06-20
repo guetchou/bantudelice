@@ -100,6 +100,24 @@ class FoodOrderStateMachineService
                     $payload['delivered_time'] = $now;
                 }
 
+                if (
+                    $order->payment_method === 'cash'
+                    && Schema::hasColumn('orders', 'cash_collection_status')
+                    && ($targetBusinessStatus === 'delivered'
+                        || ($flow === self::FLOW_PICKUP && in_array($targetBusinessStatus, ['picked_up_by_customer', 'closed'], true)))
+                ) {
+                    if (($context['cash_collection_outcome'] ?? 'collected') === 'collection_failed') {
+                        $payload['cash_collection_status'] = 'collection_failed';
+                    } else {
+                        $payload['cash_collection_status'] = 'collected';
+                        $payload['cash_collected_at'] = $now;
+                        $payload['cash_collected_by'] = $flow === self::FLOW_PICKUP
+                            ? optional($order->restaurant)->user_id
+                            : ($context['actor_id'] ?? $order->driver_id);
+                        $payload['cash_collection_confirmed_at'] = $now;
+                    }
+                }
+
                 if ($targetBusinessStatus === 'cancelled') {
                     $payload['payment_status'] = $context['payment_status'] ?? $order->payment_status;
                 }

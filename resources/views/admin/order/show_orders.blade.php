@@ -347,6 +347,25 @@
                 <div class="osh-status-box__label">Date de commande</div>
                 <div class="osh-status-box__value" style="font-size:12px;">{{ $order->created_at }}</div>
             </div>
+            @if($order->payment_method === 'cash' && !empty($order->cash_collection_status))
+                <div class="osh-status-box">
+                    <div class="osh-status-box__label">Encaissement cash</div>
+                    <div class="osh-status-box__value" style="font-size:12px;">
+                        @php
+                            $cashLabels = [
+                                'pending_collection' => 'En attente de collecte',
+                                'collected' => 'Encaissé',
+                                'disputed' => 'Litige déclaré',
+                                'collection_failed' => 'Collecte échouée',
+                            ];
+                        @endphp
+                        {{ $cashLabels[$order->cash_collection_status] ?? $order->cash_collection_status }}
+                        @if($order->cash_collected_at)
+                            <br><span style="color:#9ca3af;">{{ \Carbon\Carbon::parse($order->cash_collected_at)->format('d/m/Y H:i') }}</span>
+                        @endif
+                    </div>
+                </div>
+            @endif
         </div>
     </div>
 

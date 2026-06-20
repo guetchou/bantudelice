@@ -383,6 +383,8 @@ Route::group(['prefix' => 'admin', 'namespace' => 'admin', 'middleware' => ['aut
         Route::get('show_completed_order/{order}', 'OrderController@show_completed_order')->name('admin.show_completed_order');
         Route::post('deliver_order/{order}', 'OrderController@deliver_order')->name('admin.deliver_order');
         Route::post('resolve_incident/{order}', 'OrderController@resolveIncident')->name('admin.resolve_incident');
+        Route::get('cash-disputes', 'OrderController@cashDisputes')->name('admin.cash_disputes');
+        Route::post('cash-disputes/{orderNo}/resolve', 'OrderController@resolveCashDispute')->name('admin.cash_disputes.resolve');
         Route::post('assign_driver', 'OrderController@assign_driver')->name('admin.assign_driver');
         Route::post('prepaire_order', 'OrderController@prepaire_order')->name('admin.prepaire_order');
         Route::get('restaurant_payout', 'PayoutController@restaurant_payout')->name('restaurant_payout');
@@ -476,6 +478,7 @@ Route::group(['prefix' => 'restaurant', 'namespace' => 'restaurant', 'middleware
     Route::get('prepaire_order/{order}', 'OrderController@prepaire_order')->name('restaurant.prepaire_order');
     Route::post('deliver_order/{order}', 'OrderController@deliver_order')->name('restaurant.deliver_order');
     Route::post('assign_driver', 'OrderController@assign_driver')->name('restaurant.assign_driver');
+    Route::post('orders/{orderNo}/cash-dispute', 'OrderController@disputeCashCollection')->name('restaurant.orders.cash_dispute');
     //payment
     Route::resource('r_earnings', 'PaymentHistoryController');
     //employee

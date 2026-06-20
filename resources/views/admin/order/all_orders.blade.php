@@ -20,6 +20,7 @@
     $ordersWithoutRestaurant = $uniqueOrders->filter(fn ($order) => empty(optional($order->restaurant)->name))->count();
     $ordersWithoutDriver = $uniqueOrders->filter(fn ($order) => empty(optional($order->driver)->name) && empty(optional(optional($order->delivery)->driver)->name))->count();
     $ordersWithUnreadChat = $uniqueOrders->filter(fn ($order) => !empty($order->chatBadge['has_unread']))->count();
+    $cashDisputesCount = \App\Order::whereIn('cash_collection_status', ['disputed', 'collection_failed'])->distinct('order_no')->count('order_no');
     $recentOrders = $uniqueOrders->take(5)->values();
     $queueItems = [
         [
@@ -146,6 +147,14 @@
                                     <p>{{ $cancelledOrders }} commandes requierent une revue de cause ou un retour support.</p>
                                 </div>
                                 <a href="{{ route('admin.cancel_orders') }}">Revoir</a>
+                            </div>
+                            <div class="ops-queue-item">
+                                <span class="ops-queue-dot {{ $cashDisputesCount > 0 ? 'ops-queue-dot--danger' : 'ops-queue-dot--ok' }}"></span>
+                                <div>
+                                    <h3>Litiges encaissement cash</h3>
+                                    <p>{{ $cashDisputesCount }} commande(s) avec un litige ou un echec de collecte a trancher.</p>
+                                </div>
+                                <a href="{{ route('admin.cash_disputes') }}">Traiter</a>
                             </div>
                         </div>
                     </div>

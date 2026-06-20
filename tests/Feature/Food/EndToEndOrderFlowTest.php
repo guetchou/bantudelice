@@ -3,6 +3,10 @@
 namespace Tests\Feature\Food;
 
 use App\Delivery;
+use App\Domain\Food\Events\FoodDriverOrderUpdated;
+use App\Domain\Food\Events\FoodMissionPresenceUpdated;
+use App\Domain\Food\Events\FoodOrderStatusUpdated;
+use App\Domain\Food\Events\FoodRestaurantOrderUpdated;
 use App\Domain\Food\Services\OrderAcceptanceService;
 use App\Driver;
 use App\Order;
@@ -10,11 +14,25 @@ use App\Services\DeliveryService;
 use App\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Event;
 use Tests\TestCase;
 
 class EndToEndOrderFlowTest extends TestCase
 {
     use RefreshDatabase;
+
+    protected function setUp(): void
+    {
+        parent::setUp();
+        // Pas de serveur Pusher/websocket disponible en environnement de test —
+        // évite les échecs de diffusion temps réel sans rapport avec le flux testé ici.
+        Event::fake([
+            FoodOrderStatusUpdated::class,
+            FoodRestaurantOrderUpdated::class,
+            FoodDriverOrderUpdated::class,
+            FoodMissionPresenceUpdated::class,
+        ]);
+    }
 
     public function test_full_cash_delivery_flow_from_checkout_to_delivered(): void
     {
@@ -218,5 +236,12 @@ class EndToEndOrderFlowTest extends TestCase
         $delivery = \App\Delivery::find($deliveryId);
         $this->assertNotNull($delivery->delivered_at);
         $this->assertNotNull($delivery->customer_confirmed_at);
+
+        // ── cash_collection_status (issue #3 / lacune L1) ──────────────────────
+        $finalOrder = Order::where('order_no', $orderNo)->first();
+        $this->assertSame('collected', $finalOrder->cash_collection_status);
+        $this->assertSame($driver->id, $finalOrder->cash_collected_by);
+        $this->assertNotNull($finalOrder->cash_collected_at);
+        $this->assertNotNull($finalOrder->cash_collection_confirmed_at);
     }
 }
