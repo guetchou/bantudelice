@@ -6,6 +6,7 @@ use App\Cart;
 use App\Domain\Food\Enums\OrderPaymentStatus;
 use App\Domain\Food\Services\OrderPricingService;
 use App\Domain\Food\Services\PlaceOrderService;
+use App\Exceptions\RestaurantClosedException;
 use App\Http\Controllers\Controller;
 use App\Order;
 use App\Services\NotificationService;
@@ -62,24 +63,32 @@ class OrderController extends Controller
             'voucher_code' => $validated['voucher_code'] ?? null,
         ]);
 
-        $orderNo = app(PlaceOrderService::class)->placeFromCart($user, $cartItems, [
-            'order_no' => 'D-' . rand(1000000, 9999999),
-            'fulfillment_mode' => $validated['fulfillment_mode'] ?? null,
-            'offer_discount' => (float) ($totals['discount'] ?? 0),
-            'tax' => (float) ($totals['tax'] ?? 0),
-            'delivery_charges' => (float) ($totals['delivery_fee'] ?? 0),
-            'sub_total' => (float) ($totals['sub_total'] ?? 0),
-            'total' => (float) ($totals['total'] ?? 0),
-            'driver_tip' => (float) ($totals['driver_tip'] ?? 0),
-            'delivery_address' => $validated['delivery_address'],
-            'd_lat' => $validated['d_lat'],
-            'd_lng' => $validated['d_lng'],
-            'payment_method' => $validated['payment_method'] ?? 'cash',
-            'payment_status' => OrderPaymentStatus::PENDING->value,
-            'status' => 'pending',
-            'ordered_time' => now(),
-            'delivered_time' => null,
-        ]);
+        try {
+            $orderNo = app(PlaceOrderService::class)->placeFromCart($user, $cartItems, [
+                'order_no' => 'D-' . rand(1000000, 9999999),
+                'fulfillment_mode' => $validated['fulfillment_mode'] ?? null,
+                'offer_discount' => (float) ($totals['discount'] ?? 0),
+                'tax' => (float) ($totals['tax'] ?? 0),
+                'delivery_charges' => (float) ($totals['delivery_fee'] ?? 0),
+                'sub_total' => (float) ($totals['sub_total'] ?? 0),
+                'total' => (float) ($totals['total'] ?? 0),
+                'driver_tip' => (float) ($totals['driver_tip'] ?? 0),
+                'delivery_address' => $validated['delivery_address'],
+                'd_lat' => $validated['d_lat'],
+                'd_lng' => $validated['d_lng'],
+                'payment_method' => $validated['payment_method'] ?? 'cash',
+                'payment_status' => OrderPaymentStatus::PENDING->value,
+                'status' => 'pending',
+                'ordered_time' => now(),
+                'delivered_time' => null,
+            ]);
+        } catch (RestaurantClosedException $e) {
+            $msg = $e->getMessage();
+            if ($e->nextOpening) {
+                $msg .= ' Prochaine ouverture : ' . $e->nextOpening . '.';
+            }
+            return response()->json(['status' => false, 'message' => $msg], 422);
+        }
 
         Cart::where('user_id', $user->id)->delete();
 

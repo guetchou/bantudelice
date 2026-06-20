@@ -67,6 +67,9 @@ class CheckoutService implements \App\Domain\Checkout\Contracts\CheckoutOrchestr
             : null;
         $deliveryServiceability = null;
 
+        // Vérification horaires avant disponibilité livreurs : si fermé, inutile d'aller plus loin
+        app(\App\Domain\Food\Services\PlaceOrderService::class)->guardRestaurantOpenForOrdering($restaurant);
+
         if ($fulfillmentMode !== 'pickup' && $scheduledAt === null && $restaurant) {
             $availableDrivers = $this->deliveryService->countOperationalDriversForRestaurant(
                 $restaurant,

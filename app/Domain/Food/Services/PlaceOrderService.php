@@ -9,6 +9,7 @@ use App\User;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
 class PlaceOrderService
@@ -34,6 +35,11 @@ class PlaceOrderService
         }
 
         $restaurant = $context['restaurant'] ?? $this->resolveRestaurant($cartItems);
+
+        if (empty($context['skip_hours_check'])) {
+            $this->guardRestaurantOpenForOrdering($restaurant);
+        }
+
         $fulfillmentMode = $this->normalizeFulfillmentMode($context['fulfillment_mode'] ?? null);
         $scheduledAt = $this->resolveScheduledAt($context['scheduled_at'] ?? ($context['scheduled_date'] ?? null));
         $orderNo = $this->resolveOrderNo($context['order_no'] ?? null);
@@ -305,5 +311,49 @@ class PlaceOrderService
         }
 
         return $this->orderColumnMap;
+    }
+
+    /**
+     * Vérifie que le restaurant est ouvert pour accepter des commandes.
+     * Règles : special_closure active > working_hours fermé > pas d'horaires = 24/7.
+     *
+     * @throws \App\Exceptions\RestaurantClosedException
+     */
+    public function guardRestaurantOpenForOrdering(?Restaurant $restaurant): void
+    {
+        if (! $restaurant) {
+            return;
+        }
+
+        $restaurant->loadMissing(['working_hours', 'special_closures']);
+
+        $today = now()->toDateString();
+        $activeClosure = $restaurant->special_closures
+            ->first(fn ($c) => $c->starts_on->format('Y-m-d') <= $today
+                && $c->ends_on->format('Y-m-d') >= $today);
+
+        if ($activeClosure) {
+            throw new \App\Exceptions\RestaurantClosedException(
+                'Ce restaurant est temporairement fermé : ' . $activeClosure->label,
+                $activeClosure->ends_on
+                    ? Carbon::parse($activeClosure->ends_on)->addDay()->format('d/m/Y')
+                    : null,
+                $restaurant->id
+            );
+        }
+
+        if ($restaurant->working_hours->isEmpty()) {
+            Log::info('restaurant_no_schedule_24x7', ['restaurant_id' => $restaurant->id]);
+            return;
+        }
+
+        $status = \App\Services\RestaurantStatusService::getStatus($restaurant);
+        if (! ($status['is_open'] ?? false)) {
+            throw new \App\Exceptions\RestaurantClosedException(
+                'Ce restaurant est actuellement fermé.',
+                $status['next_opening'] ?? null,
+                $restaurant->id
+            );
+        }
     }
 }

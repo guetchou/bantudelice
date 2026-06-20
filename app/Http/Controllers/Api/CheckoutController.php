@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Address;
 use App\Exceptions\DeliveryCapacityException;
+use App\Exceptions\RestaurantClosedException;
 use App\Http\Controllers\Controller;
 use App\Order;
 use App\Services\AddressQualityService;
@@ -220,6 +221,12 @@ class CheckoutController extends Controller
             }
 
             return response()->json($response, 422);
+        } catch (RestaurantClosedException $e) {
+            $msg = $e->getMessage();
+            if ($e->nextOpening) {
+                $msg .= ' Prochaine ouverture : ' . $e->nextOpening . '.';
+            }
+            return response()->json(['status' => false, 'message' => $msg], 422);
         } catch (\RuntimeException $e) {
             return response()->json([
                 'status' => false,
