@@ -22,8 +22,8 @@ on:
         type: boolean
 
 env:
-  PROJECT_NAME: bantudelice242
-  PROJECT_PATH: /opt/bantudelice242
+  PROJECT_NAME: bantudelice
+  PROJECT_PATH: /opt/bantudelice
 
 jobs:
   test:
@@ -38,14 +38,14 @@ jobs:
       - name: 📦 Setup PHP
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.1'
-          extensions: pdo, pdo_pgsql, pgsql, mbstring, xml, ctype, json, tokenizer, bcmath, openssl, fileinfo
+          php-version: '8.3'
+          extensions: pdo, pdo_mysql, mysqli, mbstring, xml, ctype, json, tokenizer, bcmath, openssl, fileinfo
           coverage: none
 
       - name: 📦 Setup Composer
         uses: php-actions/composer@v6
         with:
-          php_version: '8.1'
+          php_version: '8.3'
 
       - name: 📥 Install dependencies
         run: composer install --no-interaction --prefer-dist --optimize-autoloader --no-dev
@@ -67,7 +67,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: [test]
     if: github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master' || github.event_name == 'workflow_dispatch'
-    
+    environment: production
+
     steps:
       - name: 📥 Checkout code
         uses: actions/checkout@v4
@@ -85,41 +86,51 @@ jobs:
         run: |
           ssh ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} << 'DEPLOY_SCRIPT'
             set -e
-            
-            PROJECT_PATH="/opt/bantudelice242"
-            PROJECT_NAME="bantudelice242"
-            
+
+            PROJECT_PATH="/opt/bantudelice"
+            PROJECT_NAME="bantudelice"
+            DB_CONTAINER="bantudelice-db-new"
+
             echo "🚀 Starting deployment of $PROJECT_NAME..."
-            
+
             # Backup current state
             echo "📦 Creating backup..."
-            BACKUP_DIR="/opt/backups/bantudelice242/$(date +%Y%m%d_%H%M%S)"
+            BACKUP_DIR="/opt/backups/bantudelice/$(date +%Y%m%d_%H%M%S)"
             mkdir -p "$BACKUP_DIR"
-            
+
             if [ -d "$PROJECT_PATH" ]; then
               cd "$PROJECT_PATH"
-              
+
               # Backup .env
               [ -f .env ] && cp .env "$BACKUP_DIR/.env.backup"
-              
-              # Backup database
-              if docker ps | grep -q bantudelice.*postgres; then
+
+              # Backup database (MySQL, conteneur bantudelice-db-new)
+              if docker ps --format '{{.Names}}' | grep -qx "$DB_CONTAINER"; then
                 echo "💾 Backing up database..."
-                DB_CONTAINER=$(docker ps | grep bantudelice.*postgres | awk '{print $1}' | head -1)
-                if [ -n "$DB_CONTAINER" ]; then
-                  docker exec "$DB_CONTAINER" pg_dump -U bantudelice bantudelice > "$BACKUP_DIR/database.sql" 2>/dev/null || \
-                  echo "⚠️  Could not backup database"
-                fi
+                DB_NAME=$(grep -E '^DB_DATABASE=' .env | cut -d= -f2-)
+                DB_USER=$(grep -E '^DB_USERNAME=' .env | cut -d= -f2-)
+                DB_PASS=$(grep -E '^DB_PASSWORD=' .env | cut -d= -f2-)
+                docker exec -e MYSQL_PWD="$DB_PASS" "$DB_CONTAINER" mysqldump -u "$DB_USER" "$DB_NAME" > "$BACKUP_DIR/database.sql" 2>/dev/null || \
+                echo "⚠️  Could not backup database"
+              else
+                echo "⚠️  Conteneur $DB_CONTAINER introuvable — backup DB ignoré"
               fi
             fi
-            
+
             # Pull latest code
             echo "📥 Pulling latest code..."
             if [ -d "$PROJECT_PATH" ]; then
               cd "$PROJECT_PATH"
-              
-              # Check if git repo
+
               if [ -d .git ]; then
+                # Garde-fou : ne jamais écraser des modifications serveur non commitées
+                if [ -n "$(git status --porcelain)" ]; then
+                  echo "❌ Arbre git non propre sur le serveur — fichiers modifiés/non commités détectés :"
+                  git status --short
+                  echo "❌ Déploiement annulé pour éviter une perte de données. Investiguer manuellement avant de relancer."
+                  exit 1
+                fi
+
                 git fetch origin
                 CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "main")
                 git reset --hard "origin/$CURRENT_BRANCH" || git reset --hard origin/main || git reset --hard origin/master
@@ -130,7 +141,7 @@ jobs:
               echo "❌ Project directory not found: $PROJECT_PATH"
               exit 1
             fi
-            
+
             # Verify .env exists
             if [ ! -f "$PROJECT_PATH/.env" ]; then
               echo "⚠️  .env file not found. Please create it manually."
@@ -140,19 +151,12 @@ jobs:
                 echo "⚠️  Please update .env with your configuration"
               fi
             fi
-            
+
             # Install/Update dependencies
             echo "📦 Installing dependencies..."
             cd "$PROJECT_PATH"
             composer install --no-interaction --prefer-dist --optimize-autoloader --no-dev
-            
-            # Clear and cache config
-            echo "🧹 Clearing cache..."
-            php artisan config:clear || true
-            php artisan cache:clear || true
-            php artisan route:clear || true
-            php artisan view:clear || true
-            
+
             # Run migrations (if not skipped)
             if [ "${{ github.event.inputs.skip_migrations }}" != "true" ]; then
               echo "🔄 Running migrations..."
@@ -163,24 +167,23 @@ jobs:
             else
               echo "⏭️  Skipping migrations (requested)"
             fi
-            
-            # Optimize Laravel
-            echo "⚡ Optimizing Laravel..."
-            php artisan config:cache || true
-            php artisan route:cache || true
-            php artisan view:cache || true
-            
-            # Restart PHP-FPM (if using TheDrop247 PHP container)
-            echo "🔄 Restarting PHP-FPM..."
-            if docker ps | grep -q thedrop247_php; then
-              docker restart thedrop247_php || true
-            fi
-            
-            # Verify compliance
-            echo "🛡️  Verifying compliance..."
-            /usr/local/bin/policy-check-ports.sh --strict || true
-            /usr/local/bin/policy-check-proxy-net.sh --strict || true
-            
+
+            # Vider les caches (RG projet : ne jamais reconstruire config:cache/route:cache
+            # après déploiement — incompatibilité connue avec ce HTTP/PHP-FPM, cause d'un 500 le 2026-06-19)
+            echo "🧹 Clearing cache..."
+            php artisan config:clear || true
+            php artisan cache:clear || true
+            php artisan route:clear || true
+            php artisan view:clear || true
+
+            # Recharger PHP-FPM 8.3 (natif, pas de conteneur Docker pour l'app)
+            echo "🔄 Reloading PHP-FPM 8.3..."
+            systemctl reload php8.3-fpm || sudo systemctl reload php8.3-fpm || echo "⚠️  Could not reload php8.3-fpm"
+
+            # Redémarrer les workers de queue (gérés par Supervisor)
+            echo "🔄 Restarting queue workers..."
+            supervisorctl restart bantudelice-worker:* || sudo supervisorctl restart bantudelice-worker:* || echo "⚠️  Could not restart queue workers"
+
             echo "✅ Deployment completed successfully!"
           DEPLOY_SCRIPT
 
@@ -190,11 +193,14 @@ jobs:
             echo "🔍 Checking application status..."
             
             # Check if PHP-FPM is running
-            if docker ps | grep -q thedrop247_php; then
-              echo "✅ PHP-FPM container is running"
+            if systemctl is-active --quiet php8.3-fpm; then
+              echo "✅ php8.3-fpm is running"
             else
-              echo "⚠️  PHP-FPM container not found"
+              echo "⚠️  php8.3-fpm is not active"
             fi
+
+            # Check queue workers
+            supervisorctl status bantudelice-worker:* || echo "⚠️  Could not check queue workers status"
             
             # Test application endpoint
             echo "🌐 Testing application endpoint..."
@@ -206,35 +212,43 @@ jobs:
         run: |
           echo "✅ BantuDelice deployed successfully!"
           echo "🌐 Application: https://bantudelice.cg"
-          echo "📊 Check logs: ssh ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} 'tail -f /opt/bantudelice242/storage/logs/laravel.log'"
+          echo "📊 Check logs: ssh ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} 'tail -f /opt/bantudelice/storage/logs/laravel.log'"
 
       - name: ❌ Rollback on Failure
         if: failure()
         run: |
           ssh ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} << 'ROLLBACK_SCRIPT'
             echo "❌ Deployment failed. Attempting rollback..."
-            
-            PROJECT_PATH="/opt/bantudelice242"
-            LATEST_BACKUP=$(ls -td /opt/backups/bantudelice242/*/ 2>/dev/null | head -1)
-            
+
+            PROJECT_PATH="/opt/bantudelice"
+            DB_CONTAINER="bantudelice-db-new"
+            LATEST_BACKUP=$(ls -td /opt/backups/bantudelice/*/ 2>/dev/null | head -1)
+
             if [ -n "$LATEST_BACKUP" ] && [ -f "$LATEST_BACKUP/.env.backup" ]; then
               echo "📦 Restoring from backup: $LATEST_BACKUP"
               cd "$PROJECT_PATH"
               cp "$LATEST_BACKUP/.env.backup" .env
-              
-              # Restore database if backup exists
+
+              # Restore database if backup exists (MySQL, conteneur bantudelice-db-new)
               if [ -f "$LATEST_BACKUP/database.sql" ]; then
                 echo "💾 Restoring database..."
-                DB_CONTAINER=$(docker ps | grep bantudelice.*postgres | awk '{print $1}' | head -1)
-                if [ -n "$DB_CONTAINER" ]; then
-                  docker exec -i "$DB_CONTAINER" psql -U bantudelice bantudelice < "$LATEST_BACKUP/database.sql" || true
+                if docker ps --format '{{.Names}}' | grep -qx "$DB_CONTAINER"; then
+                  DB_NAME=$(grep -E '^DB_DATABASE=' .env | cut -d= -f2-)
+                  DB_USER=$(grep -E '^DB_USERNAME=' .env | cut -d= -f2-)
+                  DB_PASS=$(grep -E '^DB_PASSWORD=' .env | cut -d= -f2-)
+                  docker exec -i -e MYSQL_PWD="$DB_PASS" "$DB_CONTAINER" mysql -u "$DB_USER" "$DB_NAME" < "$LATEST_BACKUP/database.sql" || true
+                else
+                  echo "⚠️  Conteneur $DB_CONTAINER introuvable — restauration DB ignorée"
                 fi
               fi
-              
-              # Clear cache
-              php artisan config:clear
-              php artisan cache:clear
-              
+
+              # Clear cache (jamais de config:cache/route:cache — voir RG projet)
+              php artisan config:clear || true
+              php artisan cache:clear || true
+
+              systemctl reload php8.3-fpm || sudo systemctl reload php8.3-fpm || true
+              supervisorctl restart bantudelice-worker:* || sudo supervisorctl restart bantudelice-worker:* || true
+
               echo "✅ Rollback completed"
             else
               echo "⚠️  No backup found. Manual intervention required."
