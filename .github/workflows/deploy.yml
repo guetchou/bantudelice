@@ -317,6 +317,10 @@ jobs:
             php artisan route:clear || true
             php artisan view:clear || true
             php artisan cache:clear || true
+            # cache:clear peut créer des sous-dossiers cache en root (processus SSH = root).
+            # PHP-FPM tourne en www-data — sans ce chown il ne peut pas écrire dans ces dossiers
+            # et la première requête post-deploy retourne 500.
+            chown -R www-data:www-data /opt/bantudelice/storage/ || true
 
             echo "🔄 Reloading PHP-FPM 8.3..."
             systemctl reload php8.3-fpm || sudo systemctl reload php8.3-fpm || echo "⚠️  Could not reload php8.3-fpm"
@@ -442,6 +446,7 @@ jobs:
             php artisan route:clear || true
             php artisan view:clear || true
             php artisan cache:clear || true
+            chown -R www-data:www-data /opt/bantudelice/storage/ || true
 
             systemctl reload php8.3-fpm || sudo systemctl reload php8.3-fpm || true
             php artisan queue:restart || true
