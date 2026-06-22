@@ -27,6 +27,19 @@ jobs:
   quality_gate:
     name: 🛡️ Quality Gate
     runs-on: ubuntu-latest
+    # RealtimeBroadcastEventsTest a besoin d'un vrai Redis (le driver array/log
+    # ne couvre pas tous les events diffusés) — service jetable, détruit avec
+    # le job, aucun lien avec un Redis de production.
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
     steps:
       - name: 📥 Checkout code
         uses: actions/checkout@v4
@@ -74,6 +87,8 @@ jobs:
           QUEUE_CONNECTION=sync
           MAIL_MAILER=array
           BROADCAST_DRIVER=log
+          REDIS_HOST=127.0.0.1
+          REDIS_PORT=6379
           ENVEOF
 
       # Installation AVEC dépendances dev : nécessaire pour exécuter PHPUnit
@@ -84,6 +99,14 @@ jobs:
 
       - name: 🔑 Generate application key
         run: php artisan key:generate --ansi
+
+      # laravel/passport ^12 est utilisé par plusieurs routes API testées
+      # (OrderTrackingApiTest, PaymentApiTest, TransportApiTest...). Sans ces
+      # clés, le serveur OAuth2 plante avec "Invalid key supplied". Clés
+      # jetables générées dans ce job CI uniquement, sans rapport avec celles
+      # de production.
+      - name: 🔑 Générer les clés Passport (CI uniquement)
+        run: php artisan passport:keys --force
 
       - name: 🔍 PHP lint (php -l)
         run: |
