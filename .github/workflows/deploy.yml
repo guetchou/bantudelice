@@ -332,7 +332,19 @@ jobs:
     name: 🔥 Smoke Tests
     needs: [deploy]
     runs-on: ubuntu-latest
+    # environment requis : les secrets DEPLOY_USER / DEPLOY_HOST / DEPLOY_SSH_KEY
+    # sont scopés à l'environnement "production" — sans cette ligne les secrets
+    # sont vides et le step SSH log échoue silencieusement.
+    environment: production
     steps:
+      - name: 🔐 Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
+
+      - name: 🔑 Add server to known hosts
+        run: ssh-keyscan -H ${{ secrets.DEPLOY_HOST }} >> ~/.ssh/known_hosts
+
       - name: 🌐 Page d'accueil (200 attendu)
         run: |
           CODE=$(curl -s -o /dev/null -w '%{http_code}' "$APP_URL/")
