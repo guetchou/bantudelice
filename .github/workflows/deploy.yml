@@ -125,19 +125,33 @@ jobs:
           php artisan config:cache
           php artisan config:clear
 
-      - name: 📦 Setup Node
-        if: hashFiles('package-lock.json') != ''
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      - name: 📥 npm ci
-        if: hashFiles('package-lock.json') != ''
-        run: npm ci
-
-      - name: 🏗️ npm run production (build assets)
-        if: hashFiles('package-lock.json') != ''
-        run: npm run production
+      # Build npm DÉSACTIVÉ TEMPORAIREMENT : assets compilés (public/css/app.css,
+      # public/js/app.js, mix-manifest.json) déjà commités et à jour. La chaîne
+      # Laravel Mix/Webpack est actuellement incompatible (babel-loader@10 et
+      # style-loader@4 exigent webpack 5, laravel-mix@5 génère une config au
+      # format webpack4 que webpack5 rejette) — un build non-bloquant ne serait
+      # pas un vrai contrôle qualité. Chantier séparé : voir issue dédiée
+      # "chore(frontend): réparer la chaîne build npm Laravel Mix/Webpack".
+      #
+      # Garde-fou : si ce push modifie des sources frontend, le build doit être
+      # réparé avant de pouvoir merger sans risque — on bloque explicitement
+      # plutôt que de laisser passer un changement non vérifié.
+      - name: 🚧 Bloquer si des sources frontend ont changé (build npm désactivé)
+        run: |
+          BEFORE="${{ github.event.before }}"
+          if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
+            RANGE="${{ github.sha }}~1..${{ github.sha }}"
+          else
+            RANGE="$BEFORE..${{ github.sha }}"
+          fi
+          CHANGED=$(git diff --name-only "$RANGE" -- resources/js resources/sass webpack.mix.js package.json package-lock.json)
+          if [ -n "$CHANGED" ]; then
+            echo "❌ Ce push modifie des sources frontend, mais le build npm est désactivé (chaîne Laravel Mix/Webpack cassée) :"
+            echo "$CHANGED"
+            echo "❌ Réparer la chaîne build (voir issue dédiée) avant de merger ce changement."
+            exit 1
+          fi
+          echo "✅ Aucune source frontend modifiée — build npm désactivé sans risque pour ce push."
 
       - name: 🔒 Vérifier que .env n'est pas commité
         run: |
@@ -263,11 +277,11 @@ jobs:
             echo "📦 Installing dependencies (no-dev)..."
             composer install --no-interaction --prefer-dist --optimize-autoloader --no-dev
 
-            if [ -f package-lock.json ]; then
-              echo "📦 npm ci + build assets..."
-              npm ci
-              npm run production
-            fi
+            # Build npm DÉSACTIVÉ TEMPORAIREMENT sur le serveur : assets compilés
+            # déjà commités et à jour (chaîne Laravel Mix/Webpack incompatible,
+            # voir commentaire équivalent dans quality_gate et issue dédiée).
+            # Le garde-fou de quality_gate bloque déjà tout push qui modifierait
+            # les sources frontend tant que ce chantier n'est pas réparé.
 
             # Migrations — fenêtre de maintenance la plus courte possible,
             # uniquement si des migrations sont réellement en attente.
