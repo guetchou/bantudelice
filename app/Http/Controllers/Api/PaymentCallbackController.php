@@ -34,8 +34,8 @@ class PaymentCallbackController extends Controller
         $payment = null;
 
         try {
-            // 1. Vérifier la signature (déjà fait dans PaymentService)
-            // 2. Retrouver le paiement
+            // 1. Retrouver le paiement (la signature est vérifiée plus bas,
+            // une fois le paiement et son provider identifiés)
             $providerRef = $request->get('reference') ?? $request->get('transaction_id') ?? $request->get('id') ?? null;
             
             if (!$providerRef) {
@@ -48,6 +48,41 @@ class PaymentCallbackController extends Controller
 
             if (!$payment) {
                 throw new \RuntimeException('Paiement non trouvé pour la référence: ' . $providerRef);
+            }
+
+            // Injecter les headers HTTP pour la vérif de signature PayPal — construit
+            // ici (avant le routage transport/colis) pour que la vérification de
+            // signature ci-dessous dispose des mêmes données que handleCallback().
+            $paypalHeaders = [];
+            if (strtolower($provider) === 'paypal') {
+                foreach (['PAYPAL-TRANSMISSION-ID','PAYPAL-TRANSMISSION-TIME','PAYPAL-CERT-URL','PAYPAL-TRANSMISSION-SIG','PAYPAL-AUTH-ALGO'] as $h) {
+                    $val = $request->header($h);
+                    if ($val !== null) {
+                        $paypalHeaders[$h] = $val;
+                    }
+                }
+            }
+            $callbackPayload = array_merge($request->all(), [
+                '_headers'  => $paypalHeaders,
+                '_raw_body' => $request->getContent(),
+            ]);
+
+            // Vérifier la signature AVANT tout traitement, y compris pour les
+            // branches transport/colis ci-dessous qui retournent avant
+            // d'atteindre paymentService->handleCallback() (seul endroit où
+            // la signature était vérifiée jusqu'ici) — sans ce contrôle,
+            // un callback forgé pouvait confirmer un paiement transport/colis
+            // sans vérification du PSP.
+            if (!$this->paymentService->verifyCallbackSignature($provider, $callbackPayload)) {
+                Log::warning('Signature callback invalide — rejeté avant traitement', [
+                    'provider' => $provider,
+                    'payment_id' => $payment->id,
+                ]);
+
+                return response()->json([
+                    'status' => 'error',
+                    'message' => 'Signature de callback invalide',
+                ], 401);
             }
 
             if ($payment->transport_booking_id) {
@@ -117,20 +152,8 @@ class PaymentCallbackController extends Controller
                 }
             }
 
-            // 4. Traiter le callback — injecter les headers HTTP pour la vérif de signature PayPal
-            $paypalHeaders = [];
-            if (strtolower($provider) === 'paypal') {
-                foreach (['PAYPAL-TRANSMISSION-ID','PAYPAL-TRANSMISSION-TIME','PAYPAL-CERT-URL','PAYPAL-TRANSMISSION-SIG','PAYPAL-AUTH-ALGO'] as $h) {
-                    $val = $request->header($h);
-                    if ($val !== null) {
-                        $paypalHeaders[$h] = $val;
-                    }
-                }
-            }
-            $callbackPayload = array_merge($request->all(), [
-                '_headers'  => $paypalHeaders,
-                '_raw_body' => $request->getContent(),
-            ]);
+            // 4. Traiter le callback ($callbackPayload déjà construit ci-dessus,
+            // avant la vérification de signature)
             $this->paymentService->handleCallback($provider, $callbackPayload);
 
             // La réponse exacte dépend du PSP

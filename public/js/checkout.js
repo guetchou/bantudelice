@@ -697,13 +697,15 @@ class CheckoutManager {
             z-index: 10000;
             max-width: 400px;
         `;
-        errorDiv.innerHTML = `
-            <div style="display: flex; align-items: center; gap: 0.5rem;">
-                <i class="fas fa-exclamation-circle"></i>
-                <span>${message}</span>
-            </div>
-        `;
-        
+        const errorWrap = document.createElement('div');
+        errorWrap.style.cssText = 'display: flex; align-items: center; gap: 0.5rem;';
+        const errorIcon = document.createElement('i');
+        errorIcon.className = 'fas fa-exclamation-circle';
+        const errorText = document.createElement('span');
+        errorText.textContent = String(message ?? '');
+        errorWrap.append(errorIcon, errorText);
+        errorDiv.appendChild(errorWrap);
+
         document.body.appendChild(errorDiv);
         
         setTimeout(() => {

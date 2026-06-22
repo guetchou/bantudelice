@@ -30,6 +30,31 @@ class PaymentService
     }
 
     /**
+     * Vérifie la signature d'un callback PSP, indépendamment du traitement
+     * métier qui suit (handleCallback()). À appeler explicitement par tout
+     * appelant qui retourne avant d'atteindre handleCallback() — ex: les
+     * branches de routage transport/colis dans PaymentCallbackController —
+     * pour ne jamais traiter un callback non authentifié.
+     */
+    public function verifyCallbackSignature(string $provider, array $payload): bool
+    {
+        $normalizedProvider = $provider === 'mtn_momo' ? 'momo' : $provider;
+
+        try {
+            $adapter = $this->gateway()->for($normalizedProvider);
+        } catch (\Throwable $e) {
+            Log::error('Adapter introuvable pour la vérification de signature callback', [
+                'provider' => $normalizedProvider,
+                'error' => $e->getMessage(),
+            ]);
+
+            return false;
+        }
+
+        return $adapter->verifySignature($payload);
+    }
+
+    /**
      * Initier un paiement externe via le gateway adapter approprié.
      */
     public function initiateExternalPayment($payment, $cartItems, array $checkoutData = []): array
