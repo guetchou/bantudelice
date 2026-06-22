@@ -43,11 +43,38 @@ jobs:
       - name: ✅ composer validate
         run: composer validate --strict
 
-      # .env DOIT exister avant composer install : le hook post-autoload-dump
-      # de Laravel (`artisan package:discover`) démarre l'application et
-      # plante sans configuration (ex: cache path de la vue) si .env est absent.
-      - name: 🔍 Copy .env for tests
-        run: cp .env.example .env
+      # storage/ n'a AUCUN fichier suivi par git dans ce repo (vérifié :
+      # git ls-files | grep '^storage/' est vide) — l'arborescence n'existe
+      # donc pas du tout après un checkout frais. Sans elle, le View Compiler
+      # de Laravel plante immédiatement ("Please provide a valid cache path").
+      - name: 📁 Créer l'arborescence storage/ (absente du checkout, voir .gitignore)
+        run: |
+          mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/framework/testing storage/logs
+          chmod -R 775 storage
+
+      # Il n'existe pas de .env.example dans ce repo — généré ici directement,
+      # uniquement pour ce job CI jetable (aucun lien avec le .env de production
+      # sur vps-ovh, jamais transmis ni écrasé par cette étape). .env DOIT
+      # exister avant composer install : le hook post-autoload-dump
+      # (`artisan package:discover`) démarre l'application et plante sans
+      # configuration si .env est absent.
+      - name: 🔍 Générer un .env minimal pour les tests (CI uniquement)
+        run: |
+          cat > .env <<'ENVEOF'
+          APP_NAME=BantuDelice
+          APP_ENV=testing
+          APP_KEY=
+          APP_DEBUG=false
+          APP_URL=http://localhost
+          LOG_CHANNEL=stack
+          DB_CONNECTION=sqlite
+          DB_DATABASE=:memory:
+          CACHE_DRIVER=array
+          SESSION_DRIVER=array
+          QUEUE_CONNECTION=sync
+          MAIL_MAILER=array
+          BROADCAST_DRIVER=log
+          ENVEOF
 
       # Installation AVEC dépendances dev : nécessaire pour exécuter PHPUnit
       # dans ce job. L'installation de production (--no-dev) a lieu séparément
