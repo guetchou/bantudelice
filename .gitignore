@@ -63,21 +63,13 @@ upgrade-php.sh
 bantudelice-thedrop247.conf
 composer.phar
 routes.json
-ui.php
-web.php
-checkout.js
 reconcile_payments.php
-release.php
 smoke_payments.php
 test_*.php
 MobileMoneyService.php
-PaymentCallbackController.php
-PaymentController.php
-PaymentService.php
 notification.mp3
 favicon.ico
 robots.txt
-bantudelice_state_machine.php
 
 # Librairies tierces compilées dans public (ne pas versionner)
 /public/dist/
