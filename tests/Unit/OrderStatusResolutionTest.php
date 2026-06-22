@@ -100,13 +100,13 @@ class OrderStatusResolutionTest extends TestCase
         $this->assertSame('pending', $order->resolveTrackingStatus());
     }
 
-    public function test_tracking_status_pending_when_accepted()
+    public function test_tracking_status_prepairing_when_accepted()
     {
-        // 'accepted' n'est pas encore en préparation — la préparation commence à
-        // 'in_kitchen' seulement (cf. correction tracking_status).
+        // 'accepted' signifie que le restaurant a accepté et commence la préparation
+        // — on affiche 'prepairing' dès ce stade (hotfix VPS 2026-06-22).
         $order = $this->makeOrder(['business_status' => 'accepted']);
 
-        $this->assertSame('pending', $order->resolveTrackingStatus());
+        $this->assertSame('prepairing', $order->resolveTrackingStatus());
     }
 
     public function test_tracking_status_prepairing_when_in_kitchen()
