@@ -236,11 +236,14 @@ jobs:
             echo "🚀 Starting deployment of $PROJECT_NAME (target: $DEPLOY_SHA)..."
             cd "$PROJECT_PATH"
 
-            # Garde-fou : ne jamais écraser des modifications serveur non commitées
-            if [ -n "$(git status --porcelain)" ]; then
-              echo "❌ Arbre git non propre sur le serveur — fichiers modifiés/non commités :"
-              git status --short
-              echo "❌ Déploiement annulé pour éviter une perte de données."
+            # Garde-fou : ne jamais écraser des modifications serveur non commitées.
+            # On filtre les fichiers non-trackés (??) : git reset --hard ne les touche
+            # jamais (images uploadées, logs, backups locaux restent intacts).
+            # Seuls les fichiers trackés modifiés/supprimés justifient un arrêt.
+            if [ -n "$(git status --porcelain | grep -v '^??')" ]; then
+              echo "❌ Fichiers trackés modifiés sur le serveur — déploiement annulé :"
+              git status --porcelain | grep -v '^??'
+              echo "❌ Committer ou reverter ces fichiers avant de déployer."
               exit 1
             fi
 
