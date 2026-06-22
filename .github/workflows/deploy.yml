@@ -43,23 +43,26 @@ jobs:
       - name: ✅ composer validate
         run: composer validate --strict
 
+      # .env DOIT exister avant composer install : le hook post-autoload-dump
+      # de Laravel (`artisan package:discover`) démarre l'application et
+      # plante sans configuration (ex: cache path de la vue) si .env est absent.
+      - name: 🔍 Copy .env for tests
+        run: cp .env.example .env
+
       # Installation AVEC dépendances dev : nécessaire pour exécuter PHPUnit
       # dans ce job. L'installation de production (--no-dev) a lieu séparément
       # sur le serveur pendant le déploiement réel (job deploy ci-dessous).
       - name: 📥 Install dependencies (with dev, pour les tests)
         run: composer install --no-interaction --prefer-dist --optimize-autoloader
 
+      - name: 🔑 Generate application key
+        run: php artisan key:generate --ansi
+
       - name: 🔍 PHP lint (php -l)
         run: |
           set -e
           find app config database routes tests -name '*.php' -print0 \
             | xargs -0 -n1 php -l
-
-      - name: 🔍 Copy .env for tests
-        run: cp .env.example .env
-
-      - name: 🔑 Generate application key
-        run: php artisan key:generate --ansi
 
       - name: 🧪 php artisan test
         run: php artisan test
@@ -314,8 +317,13 @@ jobs:
   rollback:
     name: ⏪ Rollback (code uniquement — DB manuelle)
     needs: [deploy, smoke_test]
-    if: failure()
+    # IMPORTANT : failure() remonte toute la chaîne d'ancêtres (donc aussi
+    # quality_gate). On ne veut PAS rollback si quality_gate a simplement
+    # échoué sans qu'aucun déploiement n'ait eu lieu — on vérifie donc
+    # explicitement le résultat direct de deploy/smoke_test.
+    if: needs.deploy.result == 'failure' || needs.smoke_test.result == 'failure'
     runs-on: ubuntu-latest
+    environment: production
     steps:
       - name: 🔐 Setup SSH
         uses: webfactory/ssh-agent@v0.9.0
