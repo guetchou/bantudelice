@@ -101,7 +101,7 @@ Route::middleware([ResolveSiteContext::class])->group(function () {
     Route::post('profile/update', 'ProfileController@updateProfile')->middleware('throttle:20,1')->name('profile.update');
     Route::post('profile/password', 'ProfileController@updatePassword')->middleware('throttle:5,1')->name('profile.password');
     Route::post('profile/avatar', 'ProfileController@updateAvatar')->middleware('throttle:10,1')->name('profile.update.avatar');
-    Route::get('track-order/{orderNo?}', 'CustomerOrderController@trackOrder')->middleware('module:food')->name('track.order');
+    Route::get('track-order/{orderNo?}', 'CustomerOrderController@trackOrder')->middleware(['auth', 'module:food'])->name('track.order');
     // Polling statut commande — utilisé par la page thanks (session web requise pour contrôle invité)
     Route::get('order/{orderNo}/status', [\App\Http\Controllers\IndexController::class, 'getOrderStatus'])->middleware('module:food')->name('order.status');
     Route::post('track-order/{orderNo}/confirm', 'CustomerOrderController@confirmOrderReceipt')->middleware('module:food')->name('track.order.confirm');

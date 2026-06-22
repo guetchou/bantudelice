@@ -802,6 +802,131 @@ img.m9order-img {
     color: #f44336;
 }
 /*-- //footer --*/
+
+/* ============================================
+   FOOTER — TÉLÉCHARGEMENT APP & MOYENS DE PAIEMENT
+   ============================================ */
+.bd-footer-extra {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 2rem;
+    padding: 2rem 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.bd-footer-extra__title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: #fff;
+    margin-bottom: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.bd-app-badges,
+.bd-payment-badges {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.bd-app-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    height: 44px;
+    padding: 0 1rem;
+    border-radius: 0.5rem;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    color: #fff;
+    text-decoration: none;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.bd-app-badge:hover,
+.bd-app-badge:focus-visible {
+    background: rgba(255, 255, 255, 0.14);
+    border-color: rgba(255, 255, 255, 0.28);
+}
+
+.bd-app-badge[aria-disabled="true"] {
+    cursor: default;
+}
+
+.bd-app-badge i {
+    font-size: 1.35rem;
+    width: 22px;
+    text-align: center;
+    flex-shrink: 0;
+}
+
+.bd-app-badge__copy {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.2;
+}
+
+.bd-app-badge__copy small {
+    font-size: 0.6875rem;
+    color: rgba(255, 255, 255, 0.6);
+}
+
+.bd-app-badge__copy strong {
+    font-size: 0.9375rem;
+    font-weight: 700;
+    color: #fff;
+}
+
+.bd-payment-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    height: 38px;
+    padding: 0 0.9rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    color: #fff;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.bd-payment-badge i {
+    font-size: 0.95rem;
+}
+
+.bd-payment-badge--mtn i { color: #ffcc00; }
+.bd-payment-badge--airtel i { color: #ff1f1f; }
+.bd-payment-badge--cash i { color: #4ade80; }
+
+.bd-payment-note {
+    margin-top: 0.5rem;
+    font-size: 0.8125rem;
+    color: rgba(255, 255, 255, 0.55);
+}
+
+@media (max-width: 767px) {
+    .bd-footer-extra {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .bd-app-badges,
+    .bd-payment-badges {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .bd-app-badge,
+    .bd-payment-badge {
+        width: 100%;
+        justify-content: center;
+    }
+}
 /*-- slider-up-arrow --*/
 #toTop {
 	display: none;

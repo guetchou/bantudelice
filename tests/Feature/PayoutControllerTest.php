@@ -80,6 +80,7 @@ class PayoutControllerTest extends TestCase
     public function test_admin_can_pay_pending_restaurant_payout(): void
     {
         $admin = User::factory()->create(['type' => 'admin']);
+        $this->grantAdminWorkspace($admin);
         [, $restaurantId] = $this->createRestaurantUserWithRestaurant();
 
         $requestId = DB::table('restaurant_payments')->insertGetId([
@@ -111,6 +112,7 @@ class PayoutControllerTest extends TestCase
         Cache::flush();
 
         $admin = User::factory()->create(['type' => 'admin']);
+        $this->grantAdminWorkspace($admin);
         [, $restaurantId] = $this->createRestaurantUserWithRestaurant();
 
         $requestId = DB::table('restaurant_payments')->insertGetId([
@@ -170,6 +172,7 @@ class PayoutControllerTest extends TestCase
         Cache::flush();
 
         $admin = User::factory()->create(['type' => 'admin']);
+        $this->grantAdminWorkspace($admin);
         [, $restaurantId] = $this->createRestaurantUserWithRestaurant();
 
         $requestId = DB::table('restaurant_payments')->insertGetId([
@@ -225,6 +228,7 @@ class PayoutControllerTest extends TestCase
     public function test_admin_cannot_repay_already_paid_driver_request(): void
     {
         $admin = User::factory()->create(['type' => 'admin']);
+        $this->grantAdminWorkspace($admin);
         [, $driverId] = $this->createDriverWithRestaurant();
 
         $requestId = DB::table('driver_payments')->insertGetId([
@@ -258,6 +262,7 @@ class PayoutControllerTest extends TestCase
     public function test_restaurant_pay_requires_valid_payload(): void
     {
         $admin = User::factory()->create(['type' => 'admin']);
+        $this->grantAdminWorkspace($admin);
 
         $response = $this->actingAs($admin)
             ->from(route('restaurant_payout'))
@@ -273,6 +278,7 @@ class PayoutControllerTest extends TestCase
     public function test_admin_can_export_pending_restaurant_payouts_as_bulk_csv(): void
     {
         $admin = User::factory()->create(['type' => 'admin']);
+        $this->grantAdminWorkspace($admin);
         [, $restaurantId] = $this->createRestaurantUserWithRestaurant();
 
         DB::table('restaurant_payments')->insert([
@@ -311,6 +317,7 @@ class PayoutControllerTest extends TestCase
     public function test_admin_can_export_pending_driver_payouts_as_bulk_csv(): void
     {
         $admin = User::factory()->create(['type' => 'admin']);
+        $this->grantAdminWorkspace($admin);
         [, $driverId] = $this->createDriverWithRestaurant();
 
         DB::table('driver_payments')->insert([

@@ -88,18 +88,18 @@ class Order extends Model
     {
         if ($this->isPickup()) {
             return match ($this->resolveEffectiveBusinessStatus()) {
-                'pending_restaurant_acceptance' => 'pending',
-                'accepted', 'in_kitchen' => 'prepairing',
+                'pending_restaurant_acceptance', 'accepted_awaiting_payment', 'confirmed', 'accepted' => 'pending',
+                'in_kitchen' => 'prepairing',
                 'ready_for_pickup', 'customer_arrived' => 'assign',
                 'picked_up_by_customer', 'closed' => 'completed',
-                'no_show', 'cancelled' => 'cancelled',
+                'no_show', 'cancelled', 'refunded' => 'cancelled',
                 default => 'pending',
             };
         }
 
         return match ($this->resolveEffectiveBusinessStatus()) {
-            'pending_restaurant_acceptance' => 'pending',
-            'accepted', 'in_kitchen' => 'prepairing',
+            'pending_restaurant_acceptance', 'accepted_awaiting_payment', 'confirmed', 'accepted' => 'pending',
+            'in_kitchen' => 'prepairing',
             'ready_for_pickup', 'dispatching', 'driver_assigned', 'driver_arrived_at_restaurant' => 'assign',
             'picked_up' => 'pickup',
             'out_for_delivery', 'delivery_attempt_failed', 'incident_open' => 'onway',

@@ -332,12 +332,29 @@ class CustomerOrderController extends Controller
             }
         }
 
-        // Calculer le temps écoulé depuis la commande
-        $elapsedMinutes = now()->diffInMinutes($order->created_at);
-        $remainingMinutes = max(0, $estimatedTime - $elapsedMinutes);
-
-        // Récupérer les informations de livraison
+        // Calculer le temps restant à partir d'un point de départ métier — l'horodatage
+        // created_at seul ne reflète pas le temps réel de préparation/livraison.
+        $businessStatus = $order->effective_business_status;
         $delivery = $order->delivery;
+
+        if (in_array($businessStatus, ['pending_restaurant_acceptance', 'accepted_awaiting_payment', 'confirmed'], true)) {
+            // Pas encore accepté/en préparation — aucune ETA pertinente à afficher.
+            $remainingMinutes = 0;
+        } elseif (in_array($businessStatus, ['in_kitchen', 'ready_for_pickup'], true)) {
+            $etaStartedAt = $order->preparation_started_at ?? $order->accepted_at ?? $order->created_at;
+            $remainingMinutes = max(0, $estimatedTime - now()->diffInMinutes($etaStartedAt));
+        } elseif (in_array($businessStatus, ['driver_assigned', 'dispatching', 'driver_arrived_at_restaurant'], true)) {
+            $etaStartedAt = $delivery?->assigned_at ?? $order->ready_at ?? $order->preparation_started_at ?? $order->created_at;
+            $remainingMinutes = max(0, $estimatedTime - now()->diffInMinutes($etaStartedAt));
+        } elseif (in_array($businessStatus, ['picked_up', 'out_for_delivery', 'delivery_attempt_failed', 'incident_open'], true)) {
+            $etaStartedAt = $delivery?->picked_up_at ?? $delivery?->assigned_at ?? $order->created_at;
+            $remainingMinutes = max(0, $estimatedTime - now()->diffInMinutes($etaStartedAt));
+        } else {
+            // États terminaux (livré, retrait effectué, annulé...) — plus d'ETA à afficher.
+            $remainingMinutes = 0;
+        }
+
+        // Informations de livraison déjà résolues plus haut (variable $delivery, utilisée pour l'ETA).
         $chatData = app(OrderChatService::class)->viewDataForOrder($order, auth()->user());
         $paymentExperience = app(\App\Services\PaymentExperienceService::class)->describe($order->payment);
 

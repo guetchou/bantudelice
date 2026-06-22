@@ -2321,6 +2321,13 @@ body.bd-home-modern .btn-outline:hover { background: var(--g); color: #fff; }
 }
 .ft2__legal a:hover { color: rgba(255,255,255,.7); }
 
+/* Aligne le bloc téléchargement app / paiement sur la largeur du footer ft2 */
+.ft2 .bd-footer-extra {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 24px 28px;
+}
+
 /* ── HIDDEN SECTION (trust — doublon) ── */
 #trust { display: none !important; }
 

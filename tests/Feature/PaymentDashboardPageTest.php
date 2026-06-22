@@ -16,12 +16,13 @@ class PaymentDashboardPageTest extends TestCase
             'type' => 'admin',
             'phone' => '0600050001',
         ]);
+        $this->grantAdminWorkspace($admin);
 
         $response = $this->actingAs($admin)->get(route('admin.payments.dashboard'));
 
         $response->assertOk();
         $response->assertSee('Cockpit Paiements');
-        $response->assertSee('Encaissements, anomalies et réconciliation');
+        $response->assertSee('Anomalies paiement');
         $response->assertSee('Initialisation + attente + traitement');
         $response->assertSee('Initialisation');
         $response->assertSee('En attente');

@@ -11,6 +11,10 @@ use App\Domain\Transport\Models\TransportVehicle;
 use App\Domain\Transport\Enums\TransportType;
 use App\Domain\Transport\Enums\TransportStatus;
 use App\Domain\Transport\Events\TransportRequestBroadcasted;
+use App\Domain\Transport\Events\TransportRequestCreated;
+use App\Domain\Transport\Events\TransportBookingStatusUpdated;
+use App\Domain\Transport\Events\BookingAssigned;
+use App\Domain\Transport\Events\TransportMissionPresenceUpdated;
 use App\Services\PaymentService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Event;
@@ -92,7 +96,11 @@ class TransportApiTest extends TestCase
 
     public function test_user_can_create_booking()
     {
-        Event::fake([TransportRequestBroadcasted::class]);
+        Event::fake([
+            TransportRequestBroadcasted::class,
+            TransportRequestCreated::class,
+            TransportBookingStatusUpdated::class,
+        ]);
 
         $user = User::factory()->create();
         [$driver] = $this->provisionOperationalTransportDriver('create', -4.2705, 15.2805);
@@ -135,6 +143,12 @@ class TransportApiTest extends TestCase
 
     public function test_driver_can_accept_booking()
     {
+        Event::fake([
+            TransportBookingStatusUpdated::class,
+            BookingAssigned::class,
+            TransportMissionPresenceUpdated::class,
+        ]);
+
         $user = User::factory()->create();
         $restaurantOwner = User::factory()->create(['type' => 'restaurant']);
         
@@ -302,6 +316,12 @@ class TransportApiTest extends TestCase
 
     public function test_first_driver_accepting_wins_the_broadcast_request(): void
     {
+        Event::fake([
+            TransportBookingStatusUpdated::class,
+            BookingAssigned::class,
+            TransportMissionPresenceUpdated::class,
+        ]);
+
         $user = User::factory()->create();
         [$driverOne] = $this->provisionOperationalTransportDriver('win1', -4.2705, 15.2805);
         [$driverTwo] = $this->provisionOperationalTransportDriver('win2', -4.2707, 15.2807);
@@ -338,6 +358,14 @@ class TransportApiTest extends TestCase
 
     public function test_full_e2e_flow_with_logs()
     {
+        Event::fake([
+            TransportRequestBroadcasted::class,
+            TransportRequestCreated::class,
+            TransportBookingStatusUpdated::class,
+            BookingAssigned::class,
+            TransportMissionPresenceUpdated::class,
+        ]);
+
         // 1. Setup
         $user = User::factory()->create();
         [$driver] = $this->provisionOperationalTransportDriver('22', -4.2705, 15.2805);
@@ -399,5 +427,81 @@ class TransportApiTest extends TestCase
             ->assertStatus(200);
 
         $this->assertTrue(true);
+    }
+
+    public function test_pay_with_airtel_provider()
+    {
+        Event::fake([
+            TransportRequestBroadcasted::class,
+            TransportRequestCreated::class,
+            TransportBookingStatusUpdated::class,
+            BookingAssigned::class,
+            TransportMissionPresenceUpdated::class,
+        ]);
+
+        $user = User::factory()->create();
+        [$driver] = $this->provisionOperationalTransportDriver('airtel', -4.2705, 15.2805);
+
+        $res = $this->actingAs($user, 'api')->postJson('/api/v1/transport/bookings', [
+            'type' => 'taxi', 'pickup_address' => 'A', 'pickup_lat' => -4.27, 'pickup_lng' => 15.28,
+            'dropoff_address' => 'B', 'dropoff_lat' => -4.28, 'dropoff_lng' => 15.29, 'payment_method' => 'airtel'
+        ]);
+        $res->assertStatus(201);
+        $bookingUuid = $res->json('booking.uuid');
+
+        $booking = TransportBooking::where('uuid', $bookingUuid)->firstOrFail();
+        $payment = Payment::create([
+            'user_id' => $user->id,
+            'transport_booking_id' => $booking->id,
+            'provider' => 'airtel',
+            'provider_reference' => 'TEST-TRANSPORT-AIRTEL-001',
+            'status' => 'PENDING',
+            'amount' => (int) round((float) ($booking->total_price ?? $booking->estimated_price ?? 0)),
+            'currency' => 'XAF',
+            'meta' => [],
+        ]);
+
+        $this->mock(PaymentService::class, function ($mock) use ($payment) {
+            $mock->shouldReceive('startManagedPayment')
+                ->once()
+                ->andReturn([
+                    'payment' => $payment,
+                    'payment_payload' => [
+                        'redirect_url' => null,
+                    ],
+                ]);
+        });
+
+        $this->actingAs($user, 'api')
+            ->postJson("/api/v1/transport/bookings/{$bookingUuid}/pay", ['provider' => 'airtel', 'phone' => '050000000'])
+            ->assertStatus(200)
+            ->assertJsonPath('payment.provider', 'airtel');
+
+        $this->assertSame('airtel', $booking->fresh()->payment_method);
+    }
+
+    public function test_pay_rejects_unsupported_provider()
+    {
+        Event::fake([
+            TransportRequestBroadcasted::class,
+            TransportRequestCreated::class,
+            TransportBookingStatusUpdated::class,
+            BookingAssigned::class,
+            TransportMissionPresenceUpdated::class,
+        ]);
+
+        $user = User::factory()->create();
+        [$driver] = $this->provisionOperationalTransportDriver('unsupported', -4.2705, 15.2805);
+
+        $res = $this->actingAs($user, 'api')->postJson('/api/v1/transport/bookings', [
+            'type' => 'taxi', 'pickup_address' => 'A', 'pickup_lat' => -4.27, 'pickup_lng' => 15.28,
+            'dropoff_address' => 'B', 'dropoff_lat' => -4.28, 'dropoff_lng' => 15.29, 'payment_method' => 'cash'
+        ]);
+        $res->assertStatus(201);
+        $bookingUuid = $res->json('booking.uuid');
+
+        $this->actingAs($user, 'api')
+            ->postJson("/api/v1/transport/bookings/{$bookingUuid}/pay", ['provider' => 'stripe', 'phone' => '060000000'])
+            ->assertStatus(422);
     }
 }

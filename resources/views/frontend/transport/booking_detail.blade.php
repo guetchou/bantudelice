@@ -413,6 +413,39 @@
         font-weight: 700;
     }
 
+    .trip-operator-group {
+        display: flex;
+        gap: 8px;
+        margin-top: 14px;
+    }
+
+    .trip-operator-chip {
+        flex: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        min-height: 44px;
+        padding: 0 10px;
+        border-radius: 14px;
+        border: 1px solid rgba(15,23,42,0.12);
+        background: #ffffff;
+        color: #475569;
+        font-weight: 700;
+        font-size: 0.9rem;
+        cursor: pointer;
+    }
+
+    .trip-operator-chip input {
+        margin: 0;
+    }
+
+    .trip-operator-chip.is-selected {
+        border-color: #111827;
+        background: #111827;
+        color: #ffffff;
+    }
+
     @media (max-width: 1180px) {
         .trip-layout {
             grid-template-columns: 1fr;
@@ -602,11 +635,21 @@
                     </div>
 
                     @if($booking->payment_status === 'pending' && $booking->payment_method !== 'cash')
+                        <div class="trip-operator-group" id="transportOperatorGroup">
+                            <label class="trip-operator-chip is-selected" data-operator="momo">
+                                <input type="radio" name="transport_payment_provider" value="momo" checked>
+                                MTN MoMo
+                            </label>
+                            <label class="trip-operator-chip" data-operator="airtel">
+                                <input type="radio" name="transport_payment_provider" value="airtel">
+                                Airtel Money
+                            </label>
+                        </div>
                         <input
                             type="tel"
                             id="transportMomoPhone"
                             class="trip-pay-phone"
-                            placeholder="Numero MoMo a debiter"
+                            placeholder="Numero Mobile Money a debiter"
                             value="{{ auth()->check() ? preg_replace('/\s+/', '', (string) auth()->user()->phone) : '' }}"
                         >
                         <button id="transportPayNowBtn" class="trip-pay-btn" onclick="payNow(event)">Payer maintenant</button>
@@ -933,10 +976,54 @@
         btn.textContent = 'Payer maintenant';
     }
 
+    function detectOperatorFromPhone(phone) {
+        const digits = phone.replace(/\D/g, '');
+        const local = digits.replace(/^242/, '');
+        if (local.startsWith('05')) return 'airtel';
+        if (local.startsWith('06')) return 'momo';
+        return null;
+    }
+
+    function selectOperatorChip(operator) {
+        document.querySelectorAll('#transportOperatorGroup .trip-operator-chip').forEach((chip) => {
+            const input = chip.querySelector('input');
+            const isMatch = chip.dataset.operator === operator;
+            chip.classList.toggle('is-selected', isMatch);
+            if (input) input.checked = isMatch;
+        });
+    }
+
+    function getSelectedProvider() {
+        const checked = document.querySelector('#transportOperatorGroup input[name="transport_payment_provider"]:checked');
+        return checked ? checked.value : 'momo';
+    }
+
+    function initOperatorSelector() {
+        const group = document.getElementById('transportOperatorGroup');
+        const phoneField = document.getElementById('transportMomoPhone');
+        if (!group) return;
+
+        group.querySelectorAll('.trip-operator-chip').forEach((chip) => {
+            chip.addEventListener('click', () => selectOperatorChip(chip.dataset.operator));
+        });
+
+        if (phoneField) {
+            const autoDetect = () => {
+                const detected = detectOperatorFromPhone(phoneField.value || '');
+                if (detected) selectOperatorChip(detected);
+            };
+            phoneField.addEventListener('input', autoDetect);
+            autoDetect();
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', initOperatorSelector);
+
     function payNow(event) {
         const btn = event.currentTarget;
         const phoneField = document.getElementById('transportMomoPhone');
         const phone = phoneField ? phoneField.value.trim() : '';
+        const provider = getSelectedProvider();
 
         if (!phone) {
             alert('Renseignez le numero Mobile Money a debiter.');
@@ -952,7 +1039,7 @@
                 'Content-Type': 'application/json',
                 'X-CSRF-TOKEN': '{{ csrf_token() }}'
             },
-            body: JSON.stringify({ provider: 'momo', phone: phone })
+            body: JSON.stringify({ provider: provider, phone: phone })
         })
         .then(async (res) => ({ ok: res.ok, data: await readBookingJson(res) }))
         .then(({ ok, data }) => {

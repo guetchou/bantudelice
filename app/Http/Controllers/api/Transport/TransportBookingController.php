@@ -194,7 +194,7 @@ class TransportBookingController extends Controller
             'estimated_duration' => 'nullable|numeric',
             'estimated_price' => 'nullable|numeric',
             'total_price' => 'nullable|numeric',
-            'payment_method' => 'sometimes|string|in:cash,momo,paypal',
+            'payment_method' => 'sometimes|string|in:cash,momo,airtel',
         ]);
 
         if ($validator->fails()) {
@@ -384,7 +384,7 @@ class TransportBookingController extends Controller
         $booking = TransportBooking::where('uuid', $id)->firstOrFail();
 
         $request->validate([
-            'provider' => 'required|string|in:momo,paypal,stripe',
+            'provider' => 'required|string|in:momo,airtel',
             'phone' => 'nullable|string|max:30',
         ]);
 

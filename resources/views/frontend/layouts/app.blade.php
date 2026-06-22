@@ -292,6 +292,7 @@ img, video, iframe, canvas, svg {
 				</div>
 				<div class="clearfix"> </div>
 			</div>
+			@include('frontend.partials.footer-badges')
 		</div>
 	</div>
 	<div class="copym9-agile">

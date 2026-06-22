@@ -81,6 +81,7 @@ class CmsContentCrudTest extends TestCase
     {
         [$type, $imageField] = $this->createContentTypeWithImageField();
         $admin = User::factory()->create(['type' => 'admin']);
+        $this->grantAdminWorkspace($admin);
         $content = $this->createCmsContent($type, $imageField, $admin);
 
         File::ensureDirectoryExists(public_path('images/cms'));

@@ -65,9 +65,6 @@ composer.phar
 routes.json
 ui.php
 web.php
-app-modern.blade.php
-cms_page.blade.php
-site_switcher.blade.php
 checkout.js
 reconcile_payments.php
 release.php

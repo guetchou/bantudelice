@@ -116,8 +116,7 @@ class DriverDeliveriesDashboardTest extends TestCase
         $response = $this->actingAs($driverUser)->get(route('driver.deliveries'));
 
         $response->assertOk();
-        $response->assertSee('Cash à encaisser');
-        $response->assertSee('Cash à encaisser à la remise');
-        $response->assertSee('Encaisse 4 000 FCFA avant de confirmer.');
+        $response->assertSee('Cash &mdash; à encaisser', false);
+        $response->assertSee('Encaisser 4 000 FCFA avant de confirmer.', false);
     }
 }
