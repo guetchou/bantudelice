@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Services\PaymentDashboardService;
 use App\User;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
 use Tests\TestCase;
@@ -14,6 +15,11 @@ class PaymentDashboardServiceTest extends TestCase
 
     public function test_payment_dashboard_keeps_success_turnover_pending_and_provider_breakdown_strict(): void
     {
+        // Horloge figée à midi pour éviter que les now()->subMinutes() ci-dessous
+        // ne retombent la veille si le test s'exécute dans les minutes suivant minuit
+        // (le dashboard filtre "aujourd'hui" sur created_at >= startOfDay).
+        Carbon::setTestNow(Carbon::create(2026, 1, 1, 12, 0, 0));
+
         $user = User::factory()->create([
             'type' => 'user',
             'phone' => '0600080001',
@@ -45,6 +51,12 @@ class PaymentDashboardServiceTest extends TestCase
         $this->assertSame('Payé', $dashboard['filterOptions']['statuses'][4]['label']);
         $this->assertContains('Réussi', $dashboard['tablePayments']->pluck('status_label')->all());
         $this->assertContains('Échoué', $dashboard['tablePayments']->pluck('status_label')->all());
+    }
+
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow();
+        parent::tearDown();
     }
 
     private function paymentPayload(
