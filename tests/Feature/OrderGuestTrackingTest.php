@@ -88,7 +88,7 @@ class OrderGuestTrackingTest extends TestCase
             'driver_id' => $driverId,
             'status' => 'ON_THE_WAY',
             'delivery_fee' => 500,
-            'delivery_otp_code' => '9999',
+            'delivery_otp_code' => '4173',
             'delivery_otp_expires_at' => now()->addHour(),
             'assigned_at' => now()->subMinutes(30),
             'picked_up_at' => now()->subMinutes(15),
@@ -108,7 +108,7 @@ class OrderGuestTrackingTest extends TestCase
         $response->assertSee('TD-GUEST-0001');
         $response->assertDontSee('Adresse client confidentielle', false);
         $response->assertDontSee('0600044444', false);
-        $response->assertDontSee('9999', false);
+        $response->assertDontSee('4173', false);
     }
 
     public function test_invalid_guest_key_is_not_found(): void
