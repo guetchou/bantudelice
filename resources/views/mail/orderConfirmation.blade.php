@@ -50,7 +50,7 @@
     </div>
 
     <div class="status-band">
-        <div class="icon">✅</div>
+        <div class="icon">OK</div>
         <h2>Votre commande est en cours de préparation</h2>
         <p>Nous avons bien reçu votre commande et le restaurant prépare vos plats.</p>
     </div>
@@ -104,11 +104,10 @@
         @endif
 
         <div class="cta-wrap">
-            <a href="{{ route('track.order', ['orderNo' => $order->order_no]) }}" class="cta">Suivre ma commande</a>
+            <a href="{{ $trackingUrl }}" class="cta">Suivre ma commande</a>
         </div>
 
         <p class="msg">Délai estimé : <strong>30 à 45 minutes</strong>. Vous recevrez une notification à chaque étape.</p>
-        <p class="msg">Un problème ? Contactez-nous via <a href="{{ url('/contact-us') }}" style="color:#009543">notre formulaire</a> ou <a href="https://wa.me/242064000000" style="color:#009543">WhatsApp</a>.</p>
         <p class="msg">Merci de votre confiance,<br><strong>L'équipe BantuDelice</strong></p>
     </div>
 
