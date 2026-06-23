@@ -1,6 +1,6 @@
 # Roadmap des lacunes L1–L9 — BantuDelice
 
-**Date** : 2026-06-19 (mise à jour 2026-06-23 : L1 close, L9 clarifié)
+**Date** : 2026-06-19 (mise à jour 2026-06-23 : L1 close, L5 close, L9 clarifié)
 **Source** : `docs/benchmark-github-bantudelice.md` (synthèse L1-L9, non modifié par ce document)
 **Méthode** : chaque lacune a été re-vérifiée dans le code actuel (`/opt/bantudelice/projects/bantudelice-prod-audit`) avant d'être détaillée ci-dessous — certaines descriptions du benchmark se sont révélées **partiellement obsolètes** ; les corrections sont signalées explicitement.
 
@@ -164,44 +164,53 @@ Aucune technique, mais **nécessite une décision produit** sur le calendrier de
 
 ## L5 — Pas d'horaires d'ouverture restaurant
 
-**Priorité : Haute — correction majeure du constat benchmark**
+**Statut : FERMÉ (2026-06-23) — issue GitHub #6 close `completed`, PR #7 mergée**
 
-### Problème constaté (corrigé par rapport au benchmark)
-Le benchmark affirme l'absence totale d'un module horaires d'ouverture, en proposant d'ajouter une table `opening_hours`. **Vérification du code : cette affirmation est fausse.** Le modèle de données existe déjà intégralement :
+**Priorité : Haute**
+
+### Résolution
+
+La PR #7 (`feat(food): appliquer les horaires restaurant au checkout`) a livré le guard horaires restaurant au moment de la création de commande.
+
+Résolution confirmée :
+- `PlaceOrderService::guardRestaurantOpenForOrdering()` centralise la décision d'ouverture avant création de commande ;
+- `special_closures` a priorité absolue, même si aucun horaire récurrent n'est configuré ;
+- un restaurant sans `working_hours` reste autorisé par compatibilité ascendante (`24/7`) avec log `restaurant_no_schedule_24x7` ;
+- les restaurants avec horaires configurés sont bloqués hors créneau avec `RestaurantClosedException` ;
+- les appelants checkout/API retournent une erreur propre HTTP 422 avec message de fermeture ;
+- `RestaurantHoursCheckoutTest` couvre les cas ouvert, fermé, sans horaires, fermeture exceptionnelle active et fermeture expirée.
+
+Aucune migration n'a été nécessaire : `working_hours` et `special_closures` existaient déjà. Le workflow paiement différé n'a pas été modifié.
+
+### Problème constaté (historique, avant correctif — conservé pour traçabilité)
+Le benchmark affirme l'absence totale d'un module horaires d'ouverture, en proposant d'ajouter une table `opening_hours`. **Vérification du code : cette affirmation était fausse.** Le modèle de données existait déjà intégralement :
 - Table `working_hours` (migration `2020_02_28_043219_create_working_hours_table.php`)
 - Relation `Restaurant::working_hours()` (`app/Restaurant.php` ligne 63) et `Restaurant::special_closures()` (ligne 67)
 - `app/WorkingHour.php` (modèle)
 - `app/Http/Controllers/restaurant/WorkingHourController.php` — CRUD complet déjà fonctionnel côté dashboard restaurant (`index`, `create`, `store`, `edit`, `update`, `destroy`)
 
-**La vraie lacune** : ces horaires configurés ne sont **jamais consultés** au moment du checkout ou de l'affichage du menu. Vérifié par grep : aucune référence à `working_hours`/`special_closures`/`isOpenNow` dans `CartCheckoutController`, `CheckoutService`, ou `OrderAcceptanceService`. Un restaurant peut donc recevoir et faire accepter des commandes en dehors de ses horaires déclarés, malgré une configuration correcte en base.
+**La vraie lacune historique** : ces horaires configurés n'étaient pas consultés au moment du checkout ou de l'affichage du menu. Un restaurant pouvait donc recevoir et faire accepter des commandes en dehors de ses horaires déclarés, malgré une configuration correcte en base.
 
 ### Impact métier
-Commandes reçues hors horaires → restaurant surpris, refus tardif, mauvaise expérience client. Le module existe mais ne protège personne.
+Avant correctif : commandes reçues hors horaires, restaurant surpris, refus tardif, mauvaise expérience client.
 
-### Fichiers probablement concernés
-- `app/Restaurant.php` (ajouter une méthode `isOpenNow(): bool` consultant `working_hours` + `special_closures`)
-- `app/Services/CheckoutService.php` (vérification avant `startCheckout()`)
-- `app/Http/Controllers/CartCheckoutController.php` (blocage UI/API si fermé)
-- Vues menu restaurant (affichage badge "Fermé" si applicable)
-- **Aucune nouvelle migration nécessaire** — contrairement à ce que suggère le benchmark.
+Après correctif : le checkout est bloqué avant création de commande si le restaurant est fermé ou en fermeture exceptionnelle active, tout en conservant la compatibilité 24/7 pour les restaurants sans horaires configurés.
 
-### Critères d'acceptation
-- Une méthode centralisée `Restaurant::isOpenNow()` fait foi pour toute décision d'ouverture (pas de logique dupliquée dans chaque contrôleur).
-- Checkout bloqué (message explicite) si le restaurant est fermé au moment de la tentative — pas seulement à l'affichage du menu (cohérence entre lecture et écriture).
-- `special_closures` (fermetures exceptionnelles) prioritaires sur `working_hours` (horaires récurrents) dans la logique de décision.
-- Pas de changement de la garde dure paiement/livraison déjà validée — ce contrôle se situe strictement **avant** `pending_restaurant_acceptance`, à la création de commande.
+### Critères d'acceptation — réalisés
+- Une méthode centralisée fait foi pour la décision d'ouverture.
+- Checkout bloqué si le restaurant est fermé au moment de la tentative.
+- `special_closures` prioritaire sur `working_hours`.
+- Restaurants sans horaires non bloqués par surprise : règle 24/7 + log.
+- Pas de nouvelle table `opening_hours`.
+- Tests dédiés ajoutés.
 
-### Tests requis
-- Feature test : checkout tenté sur un restaurant avec `working_hours` ne couvrant pas l'heure courante → rejeté avec message clair.
-- Feature test : `special_closures` actif aujourd'hui → checkout rejeté même si `working_hours` couvrirait l'heure.
-- Test de non-régression sur les restaurants sans aucune `working_hours` configurée (comportement par défaut à définir explicitement : ouvert 24/7 par défaut, ou fermé par défaut ? **Décision produit à valider avant codage** — un restaurant existant sans configuration ne doit pas se retrouver bloqué par surprise).
-
-### Dépendances
-Aucune dépendance technique avec les autres items. Nécessite une **décision produit explicite sur le comportement par défaut** (cf. ci-dessus) avant tout chantier.
+### Suivi éventuel hors L5
+Si un futur besoin UX apparaît autour de l'affichage des horaires dans le panier, le menu ou les notifications, il doit être traité dans une issue séparée. L5 ne doit pas être rouvert pour ce reliquat UX.
 
 ### Interdictions spécifiques
-- Ne pas créer de nouvelle table `opening_hours` — le module `working_hours` existe déjà, le dupliquer serait une dette technique immédiate.
-- Ne pas modifier le CRUD `WorkingHourController` existant (fonctionnel, hors scope).
+- Ne pas recréer de table `opening_hours`.
+- Ne pas modifier le CRUD `WorkingHourController` existant sans chantier dédié.
+- Ne pas mélanger ce sujet avec le tracking public L9-B ou les timestamps L2.
 
 ---
 
@@ -364,7 +373,7 @@ Décision produit nécessaire sur la forme du token : URL signée Laravel tempor
 |---|---|---|---|---|---|
 | L1 | `cash_collection_status` non mis à jour | **FERMÉ (2026-06-23)** — commits `b31d682` + `65d4d8f`, issue #3 close `completed` | Haute | Confirmé conforme au benchmark | Aucune. Suivi UI résiduel → issue #12 |
 | L9 | Tracking public sécurisé | **PARTIELLEMENT FERMÉ** — L9-A auth obligatoire corrigé ; L9-B token signé ouvert via issue #9 | **Haute (sécurité + UX)** | Reclassé : faille directe corrigée ; feature tokenisée encore à concevoir | Décision produit sur token signé |
-| L5 | Horaires d'ouverture jamais appliqués au checkout | Ouvert | Haute | Reclassé : le module `working_hours` existe déjà, seule l'application au checkout manque | Décision produit (comportement par défaut) |
+| L5 | Horaires d'ouverture appliqués au checkout | **FERMÉ (2026-06-23)** — PR #7 mergée, issue #6 close `completed` | Haute | Reclassé : module `working_hours` existait déjà ; guard checkout livré | Aucune. UX horaires future → issue séparée si besoin |
 | L2 | Pas de timestamps visibles côté client | Ouvert | Moyenne | Confirmé conforme | Aucune |
 | L3 | Pas de badge cash dans l'app livreur | Ouvert — débloqué | Moyenne | Confirmé conforme | Dépendait de L1 (fermé) — **débloqué**, non commencé |
 | L4 | Versioning API incohérent (food hors `v1`) | Ouvert | Moyenne | Reclassé : versioning partiellement existant (colis/courier), pas absent | Décision produit (calendrier dépréciation) |
