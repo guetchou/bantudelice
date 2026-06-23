@@ -103,6 +103,7 @@ class FoodOrderStateMachineService
                 if (
                     $order->payment_method === 'cash'
                     && Schema::hasColumn('orders', 'cash_collection_status')
+                    && !in_array($order->cash_collection_status, ['disputed', 'collection_failed'], true)
                     && ($targetBusinessStatus === 'delivered'
                         || ($flow === self::FLOW_PICKUP && in_array($targetBusinessStatus, ['picked_up_by_customer', 'closed'], true)))
                 ) {

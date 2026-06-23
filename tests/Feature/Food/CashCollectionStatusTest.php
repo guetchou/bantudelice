@@ -202,6 +202,126 @@ class CashCollectionStatusTest extends TestCase
         $this->assertNull($order->cash_collection_status);
     }
 
+    public function test_paypal_order_delivered_does_not_set_cash_collection_status(): void
+    {
+        [, $restaurantId] = $this->createRestaurant();
+        $driver = Driver::create([
+            'restaurant_id' => $restaurantId,
+            'name' => 'Livreur PayPal Test',
+            'user_name' => 'livreur-paypal-test-' . uniqid(),
+            'hourly_pay' => 0,
+            'email' => 'livreur-paypal-' . uniqid() . '@example.com',
+            'cnic' => 'CNIC-PAYPAL-' . uniqid(),
+            'password' => bcrypt('secret'),
+            'phone' => '0500005000',
+            'address' => 'Brazzaville',
+            'status' => 'online',
+            'approved' => true,
+        ]);
+
+        $order = $this->createOrder($restaurantId, [
+            'driver_id' => $driver->id,
+            'payment_method' => 'paypal',
+            'cash_collection_status' => null,
+        ]);
+
+        $deliveryId = DB::table('deliveries')->insertGetId([
+            'order_id' => $order->id,
+            'restaurant_id' => $restaurantId,
+            'driver_id' => $driver->id,
+            'status' => 'ON_THE_WAY',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->actingAs($driver, 'driver_api')
+            ->patchJson("/api/driver/deliveries/{$deliveryId}/status", [
+                'status' => 'DELIVERED',
+                'customer_confirmed' => true,
+            ])
+            ->assertOk();
+
+        $order->refresh();
+        $this->assertNull($order->cash_collection_status);
+    }
+
+    public function test_delivery_cash_collection_marks_collected_with_driver_as_collector(): void
+    {
+        [, $restaurantId] = $this->createRestaurant();
+        $driver = Driver::create([
+            'restaurant_id' => $restaurantId,
+            'name' => 'Livreur Cash Nominal Test',
+            'user_name' => 'livreur-cash-nominal-' . uniqid(),
+            'hourly_pay' => 0,
+            'email' => 'livreur-cash-nominal-' . uniqid() . '@example.com',
+            'cnic' => 'CNIC-CASH-NOM-' . uniqid(),
+            'password' => bcrypt('secret'),
+            'phone' => '0500006000',
+            'address' => 'Brazzaville',
+            'status' => 'online',
+            'approved' => true,
+        ]);
+
+        $order = $this->createOrder($restaurantId, ['driver_id' => $driver->id]);
+
+        $deliveryId = DB::table('deliveries')->insertGetId([
+            'order_id' => $order->id,
+            'restaurant_id' => $restaurantId,
+            'driver_id' => $driver->id,
+            'status' => 'ON_THE_WAY',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $this->actingAs($driver, 'driver_api')
+            ->patchJson("/api/driver/deliveries/{$deliveryId}/status", [
+                'status' => 'DELIVERED',
+                'customer_confirmed' => true,
+            ])
+            ->assertOk();
+
+        $order->refresh();
+        $this->assertSame('delivered', $order->resolveEffectiveBusinessStatus());
+        $this->assertSame('collected', $order->cash_collection_status);
+        $this->assertSame($driver->id, $order->cash_collected_by);
+        $this->assertNotNull($order->cash_collected_at);
+        $this->assertNotNull($order->cash_collection_confirmed_at);
+    }
+
+    public function test_admin_deliver_order_force_does_not_overwrite_disputed_cash_status(): void
+    {
+        [, $restaurantId] = $this->createRestaurant();
+        $admin = User::factory()->create(['type' => 'admin']);
+        $this->grantAdminWorkspace($admin);
+
+        $order = $this->createOrder($restaurantId, ['cash_collection_status' => 'disputed']);
+
+        $this->actingAs($admin)
+            ->post(route('admin.deliver_order', ['order' => $order->id]))
+            ->assertRedirect();
+
+        $order->refresh();
+        $this->assertSame('disputed', $order->cash_collection_status);
+        $this->assertNull($order->cash_collected_at);
+    }
+
+    public function test_restaurant_deliver_order_force_does_not_overwrite_collection_failed_cash_status(): void
+    {
+        [$owner, $restaurantId] = $this->createRestaurant();
+
+        $order = $this->createOrder($restaurantId, ['cash_collection_status' => 'collection_failed']);
+
+        $this->withoutMiddleware(\App\Http\Middleware\VerifyCsrfToken::class);
+
+        $this->actingAs($owner)
+            ->post(route('restaurant.deliver_order', ['order' => $order->id]))
+            ->assertRedirect();
+
+        $order->refresh();
+        $this->assertSame('collection_failed', $order->cash_collection_status);
+        $this->assertNull($order->cash_collected_at);
+    }
+
     public function test_dispute_cash_collection_validates_current_status(): void
     {
         [, $restaurantId] = $this->createRestaurant();
