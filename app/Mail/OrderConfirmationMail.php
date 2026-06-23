@@ -7,6 +7,7 @@ use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
 use Illuminate\Queue\SerializesModels;
 use App\Services\ConfigService;
+use App\Services\OrderTrackingTokenService;
 
 class OrderConfirmationMail extends Mailable
 {
@@ -27,6 +28,9 @@ class OrderConfirmationMail extends Mailable
             ->from(ConfigService::getNoreplyEmail(), ConfigService::getCompanyName())
             ->subject('Commande confirmée #' . $this->order->order_no . ' — BantuDelice')
             ->view('mail.orderConfirmation')
-            ->with('order', $this->order);
+            ->with([
+                'order' => $this->order,
+                'trackingUrl' => app(OrderTrackingTokenService::class)->publicUrlForOrder($this->order),
+            ]);
     }
 }
