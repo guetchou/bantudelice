@@ -317,10 +317,6 @@ jobs:
             php artisan route:clear || true
             php artisan view:clear || true
             php artisan cache:clear || true
-            # cache:clear peut créer des sous-dossiers cache en root (processus SSH = root).
-            # PHP-FPM tourne en www-data — sans ce chown il ne peut pas écrire dans ces dossiers
-            # et la première requête post-deploy retourne 500.
-            chown -R www-data:www-data /opt/bantudelice/storage/ || true
 
             echo "🔄 Reloading PHP-FPM 8.3..."
             systemctl reload php8.3-fpm || sudo systemctl reload php8.3-fpm || echo "⚠️  Could not reload php8.3-fpm"
@@ -328,6 +324,13 @@ jobs:
             echo "🔄 Restarting queue workers..."
             php artisan queue:restart || true
             supervisorctl restart bantudelice-worker:* || sudo supervisorctl restart bantudelice-worker:* || echo "⚠️  Could not restart queue workers"
+
+            # Tous les artisan (y compris queue:restart) tournent comme root via SSH et peuvent
+            # écrire des entrées de cache (ex : signal de restart) en owner=root.
+            # PHP-FPM (www-data) ne peut pas écrire dans des répertoires root:0755 → 500.
+            # Ce chown doit être la DERNIÈRE opération avant de rendre la main.
+            echo "🔑 Fixing storage/ ownership for PHP-FPM (www-data)..."
+            chown -R www-data:www-data /opt/bantudelice/storage/ || true
 
             echo "✅ Deployment script completed. New HEAD: $(git rev-parse HEAD)"
           DEPLOY_SCRIPT
@@ -446,11 +449,14 @@ jobs:
             php artisan route:clear || true
             php artisan view:clear || true
             php artisan cache:clear || true
-            chown -R www-data:www-data /opt/bantudelice/storage/ || true
 
             systemctl reload php8.3-fpm || sudo systemctl reload php8.3-fpm || true
             php artisan queue:restart || true
             supervisorctl restart bantudelice-worker:* || sudo supervisorctl restart bantudelice-worker:* || true
+
+            # Voir commentaire équivalent dans le job deploy : chown doit être la
+            # DERNIÈRE opération, après tout artisan qui écrit en root via SSH.
+            chown -R www-data:www-data /opt/bantudelice/storage/ || true
 
             echo ""
             echo "════════════════════════════════════════════════════════════"
