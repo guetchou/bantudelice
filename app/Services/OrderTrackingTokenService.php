@@ -79,8 +79,11 @@ class OrderTrackingTokenService
 
     public function isExpired(Order $order): bool
     {
-        return $order->tracking_token_expires_at !== null
-            && $order->tracking_token_expires_at->isPast();
+        if ($order->tracking_token_expires_at === null) {
+            return false;
+        }
+
+        return \Carbon\Carbon::parse($order->tracking_token_expires_at)->isPast();
     }
 
     private function assertColumnsExist(): void
