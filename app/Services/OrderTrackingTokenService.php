@@ -16,28 +16,19 @@ class OrderTrackingTokenService
     {
         $this->assertColumnsExist();
 
-        $token = Str::random(64);
-        $hash = $this->hashToken($token);
+        $plainKey = Str::random(64);
+        $hash = $this->hashToken($plainKey);
         $expiresAt = $expiresAt ?? now()->addDays(self::DEFAULT_TTL_DAYS);
 
-        DB::table('orders')
-            ->where('order_no', $order->order_no)
-            ->update([
-                'tracking_token_hash' => $hash,
-                'tracking_token_expires_at' => $expiresAt,
-                'tracking_token_last_used_at' => null,
-                'tracking_token_revoked_at' => null,
-                'updated_at' => now(),
-            ]);
-
-        $order->forceFill([
+        DB::table('orders')->where('order_no', $order->order_no)->update([
             'tracking_token_hash' => $hash,
             'tracking_token_expires_at' => $expiresAt,
             'tracking_token_last_used_at' => null,
             'tracking_token_revoked_at' => null,
+            'updated_at' => now(),
         ]);
 
-        return $token;
+        return $plainKey;
     }
 
     public function rotate(Order $order, ?CarbonInterface $expiresAt = null): string
@@ -47,32 +38,32 @@ class OrderTrackingTokenService
 
     public function publicUrlForOrder(Order $order): string
     {
-        return route('track.order.guest', ['token' => $this->rotate($order)]);
+        return route('track.order.guest', [$this->rotate($order)]);
     }
 
-    public function hashToken(string $token): string
+    public function hashToken(string $plainKey): string
     {
-        return hash('sha256', trim($token));
+        return hash('sha256', trim($plainKey));
     }
 
-    public function resolveValidToken(string $token): ?Order
+    public function resolveValidToken(string $plainKey): ?Order
     {
         $this->assertColumnsExist();
 
-        $token = trim($token);
-        if (strlen($token) < 48) {
+        $plainKey = trim($plainKey);
+        if (strlen($plainKey) < 48) {
             return null;
         }
 
-        $order = Order::where('tracking_token_hash', $this->hashToken($token))->first();
+        $order = Order::where('tracking_token_hash', $this->hashToken($plainKey))->first();
 
         if (! $order || $this->isExpired($order) || $order->tracking_token_revoked_at !== null) {
             return null;
         }
 
-        DB::table('orders')
-            ->where('order_no', $order->order_no)
-            ->update(['tracking_token_last_used_at' => now()]);
+        DB::table('orders')->where('order_no', $order->order_no)->update([
+            'tracking_token_last_used_at' => now(),
+        ]);
 
         return $order->fresh();
     }
