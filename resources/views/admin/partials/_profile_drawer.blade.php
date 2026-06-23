@@ -318,3 +318,86 @@ document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') bdDrawerClose();
 });
 </script>
+
+@if($uType === 'restaurant')
+<script>
+(function () {
+    var allOrdersUrl = @json(route('restaurant.all_orders'));
+    var showOrderUrlTemplate = @json(route('restaurant.show_order', '__ORDER_NO__'));
+
+    function orderUrl(orderNo) {
+        if (!orderNo) return allOrdersUrl;
+        return showOrderUrlTemplate.replace('__ORDER_NO__', encodeURIComponent(orderNo));
+    }
+
+    window.bdRestaurantOrderUrl = orderUrl;
+
+    document.addEventListener('click', function (event) {
+        var notiBody = document.getElementById('notiBody');
+        if (!notiBody) return;
+
+        var link = event.target.closest ? event.target.closest('#notiBody a.dropdown-item') : null;
+        if (!link) return;
+
+        var href = link.getAttribute('href') || '';
+        if (!href || href === '#') {
+            event.preventDefault();
+            window.location.href = allOrdersUrl;
+            return;
+        }
+
+        event.preventDefault();
+        event.stopPropagation();
+        window.location.href = href;
+    }, true);
+
+    if ('Notification' in window && typeof window.Notification === 'function' && !window.__bdRestaurantNotificationPatched) {
+        window.__bdRestaurantNotificationPatched = true;
+        var NativeNotification = window.Notification;
+
+        function parseOrderNo(title, options) {
+            var tag = options && options.tag ? String(options.tag) : '';
+            if (tag.indexOf('order-') === 0 && tag.length > 6) {
+                return tag.substring(6);
+            }
+
+            var body = options && options.body ? String(options.body) : '';
+            var match = body.match(/Commande\s+#?([A-Za-z0-9_-]+)/i);
+            if (match && match[1]) return match[1];
+
+            match = String(title || '').match(/Commande\s+#?([A-Za-z0-9_-]+)/i);
+            return match && match[1] ? match[1] : '';
+        }
+
+        function ActionableNotification(title, options) {
+            var notification = new NativeNotification(title, options || {});
+            var orderNo = parseOrderNo(title, options || {});
+
+            notification.onclick = function (event) {
+                if (event && event.preventDefault) event.preventDefault();
+                try { window.focus(); } catch (e) {}
+                window.location.href = orderUrl(orderNo);
+                try { notification.close(); } catch (e) {}
+            };
+
+            return notification;
+        }
+
+        ActionableNotification.prototype = NativeNotification.prototype;
+        ActionableNotification.requestPermission = function () {
+            return NativeNotification.requestPermission.apply(NativeNotification, arguments);
+        };
+
+        Object.defineProperty(ActionableNotification, 'permission', {
+            configurable: true,
+            enumerable: true,
+            get: function () {
+                return NativeNotification.permission;
+            }
+        });
+
+        window.Notification = ActionableNotification;
+    }
+})();
+</script>
+@endif
