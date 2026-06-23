@@ -1,6 +1,6 @@
 # Roadmap des lacunes L1–L9 — BantuDelice
 
-**Date** : 2026-06-19 (mise à jour 2026-06-23 : L1 close)
+**Date** : 2026-06-19 (mise à jour 2026-06-23 : L1 close, L9 clarifié)
 **Source** : `docs/benchmark-github-bantudelice.md` (synthèse L1-L9, non modifié par ce document)
 **Méthode** : chaque lacune a été re-vérifiée dans le code actuel (`/opt/bantudelice/projects/bantudelice-prod-audit`) avant d'être détaillée ci-dessous — certaines descriptions du benchmark se sont révélées **partiellement obsolètes** ; les corrections sont signalées explicitement.
 
@@ -302,44 +302,59 @@ Aucune.
 
 ---
 
-## L9 — Tracking public sans authentification (lien partageable)
+## L9 — Tracking public sécurisé
 
-**Priorité : Haute — reclassée après vérification (gap de sécurité réel, pas une feature à ajouter)**
+**Statut : PARTIELLEMENT FERMÉ — L9-A corrigé par auth obligatoire ; L9-B ouvert via issue GitHub #9**
 
-### Problème constaté (corrigé par rapport au benchmark — finding de sécurité)
-Le benchmark présente ceci comme une fonctionnalité à **ajouter** ("rendre la page accessible publiquement avec token URL"). **Vérification du code : la page est déjà accessible sans authentification dans l'état actuel — et c'est un défaut de contrôle d'accès, pas une fonctionnalité manquante.**
+**Priorité : Haute — sécurité + UX tracking**
 
-Détail vérifié :
-- Route `track-order/{orderNo?}` (`routes/web.php` ligne 104) : groupe enveloppant avec middleware `[ResolveSiteContext::class]` uniquement (ligne 57) — **aucun middleware `auth`**.
-- Contrôleur `CustomerOrderController::trackOrder()` (ligne 282) : la vérification de propriété est conditionnelle — `if (auth()->check() && (int) $order->user_id !== (int) auth()->id()) { abort(403); }` (ligne 299). **Si l'utilisateur n'est PAS connecté (`auth()->check()` faux), cette vérification est entièrement court-circuitée** — un visiteur anonyme connaissant ou devinant un `order_no` peut consulter le détail complet de la commande (produits, adresse de livraison, nom/téléphone client, statut paiement) sans aucune authentification ni token dédié.
+### Clarification 2026-06-23
 
-C'est un **Broken Access Control (OWASP A1)** déjà présent en production, pas un choix de design à valider — `order_no` n'est pas conçu comme un secret/token (format prévisible `TD-YYYYMMDD-xxxx`), donc l'absence de contrôle pour les visiteurs anonymes est exploitable par énumération.
+Ne pas confondre deux sujets distincts :
+
+- **L9-A — Broken Access Control / accès anonyme par `order_no` seul** : corrigé par le hotfix `d39e6be`, qui rend `GET /track-order/{orderNo}` obligatoirement authentifié via `middleware(['auth', 'module:food'])`. Cette mesure coupe l'exposition directe de PII par simple connaissance ou énumération d'un `order_no`.
+- **L9-B — Tracking public sécurisé par token signé non devinable** : reste ouvert et suivi par l'issue GitHub #9. Objectif : restaurer une UX de suivi invité sans réintroduire l'accès public par `order_no` brut.
+
+La formulation historique ci-dessous décrivait l'état initial avant hotfix. Elle est conservée pour traçabilité, mais ne doit plus être lue comme une faille active si `track.order` reste bien protégé par `auth + module:food`.
+
+### Problème constaté (historique, avant hotfix L9-A)
+Le benchmark présente ceci comme une fonctionnalité à **ajouter** ("rendre la page accessible publiquement avec token URL"). **Vérification du code initial : la page était déjà accessible sans authentification — et c'était un défaut de contrôle d'accès, pas une fonctionnalité manquante.**
+
+Détail historique vérifié avant correction :
+- Route `track-order/{orderNo?}` : groupe enveloppant avec middleware `[ResolveSiteContext::class]` uniquement — **aucun middleware `auth`**.
+- Contrôleur `CustomerOrderController::trackOrder()` : la vérification de propriété était conditionnelle — `if (auth()->check() && (int) $order->user_id !== (int) auth()->id()) { abort(403); }`. Si l'utilisateur n'était PAS connecté (`auth()->check()` faux), cette vérification était court-circuitée.
 
 ### Impact métier
-Fuite de données personnelles clients (nom, téléphone, adresse) à toute personne devinant/énumérant un `order_no`. Risque de conformité RGPD/protection des données.
+L9-A exposait des données personnelles clients (nom, téléphone, adresse, commande, paiement) à toute personne devinant/énumérant un `order_no`. Ce risque direct est corrigé par auth obligatoire. Le risque restant est désormais UX/produit : le client invité ou la session expirée ne disposent pas encore d'un lien public sécurisé par token signé.
 
-### Fichiers probablement concernés
-- `app/Http/Controllers/CustomerOrderController.php` (méthode `trackOrder`, ligne ~298-301)
-- `routes/web.php` (ligne 104 et le groupe associé)
-- Si un partage public légitime est souhaité côté produit : ajout d'un token signé dédié (`order.tracking_token`), distinct de `order_no`
+### Fichiers probablement concernés pour L9-B
+- `app/Http/Controllers/CustomerOrderController.php` (validation du token avant exposition de données)
+- `routes/web.php` (route publique tokenisée additionnelle ou adaptation contrôlée de `track.order`)
+- `orders` : éventuel champ `tracking_token` / `tracking_token_expires_at` si l'option colonne DB est retenue
+- Notifications SMS/e-mail/page de remerciement : génération et diffusion du lien tokenisé
 
-### Critères d'acceptation — deux options à trancher par décision produit, pas technique
-1. **Option fermeture** : exiger une authentification systématique pour `trackOrder` (retirer le court-circuit conditionnel), avec un mode "invité" limité basé sur un token signé envoyé par SMS/email au moment de la commande (pas l'`order_no` brut).
-2. **Option lien partageable officiel** (ce que propose le benchmark) : introduire un véritable token de tracking signé (`Illuminate\Support\Facades\URL::temporarySignedRoute` ou équivalent), distinct et non devinable, remplaçant la dépendance actuelle à `order_no` pour l'accès anonyme.
-**Dans les deux cas** : le comportement actuel (accès anonyme via `order_no` brut, sans token) doit cesser.
+### Critères d'acceptation L9-B
+- Lien de suivi invité fonctionnel sans compte, via token signé/non devinable uniquement.
+- `order_no` seul, sans session propriétaire et sans token valide, ne donne jamais accès aux données.
+- Utilisateur connecté propriétaire continue d'accéder au tracking via le chemin authentifié.
+- Aucune régression sur le hotfix L9-A : `track.order` ne doit pas redevenir public par `order_no` brut.
+- Le token doit être révocable ou expirable si le choix produit le demande.
 
 ### Tests requis
-- Test de sécurité : requête anonyme sur `/track-order/{orderNo}` d'une commande appartenant à un autre utilisateur → doit échouer (401/403) après correctif, alors qu'elle réussit actuellement (à documenter comme preuve de régression corrigée).
-- Test : utilisateur authentifié propriétaire de la commande → accès toujours fonctionnel (non-régression).
-- Si option 2 retenue : test du token signé (expiration, non-rejouabilité après expiration).
+- Test de sécurité : requête anonyme sur `/track-order/{orderNo}` sans token → 302/401/403, jamais 200 avec PII.
+- Test : utilisateur authentifié propriétaire de la commande → accès toujours fonctionnel.
+- Test : token valide → accès invité autorisé selon périmètre défini.
+- Test : token invalide/expiré → refus.
+- Test : `order_no` seul ne suffit jamais.
 
 ### Dépendances
-Aucune dépendance technique. **Nécessite une décision produit immédiate** (option 1 vs 2) avant tout codage — ce n'est pas un détail d'implémentation.
+Décision produit nécessaire sur la forme du token : URL signée Laravel temporaire, colonne `tracking_token`, route dédiée `/t/{token}`, durée de vie, révocation, et contenu exact visible en mode invité.
 
 ### Interdictions spécifiques
-- **Priorité de traitement recommandée plus haute que sa position dans la liste benchmark** — ceci est un gap de sécurité actif en production, pas une amélioration UX différable. Signalé ici, décision de calendrier laissée à l'utilisateur/propriétaire produit.
-- Ne pas exposer `order_no` comme identifiant de tracking dans toute future communication client (SMS/email) si l'option 2 est retenue — utiliser le nouveau token signé.
-- Ne pas modifier la vérification de propriété pour les routes `confirm`/`reopen-pickup`/`incident`/`redelivery` (lignes 107-110) sans vérifier individuellement si elles ont la même faille (non auditées dans cette passe — à vérifier séparément avant de les considérer couvertes).
+- Ne pas retirer le hotfix auth obligatoire tant que L9-B n'est pas entièrement conçu, testé et validé.
+- Ne pas exposer `order_no` comme secret de tracking dans SMS/e-mail.
+- Ne pas mélanger L9-B avec L2 timestamps ou refactor de la vue `track_order.blade.php`.
+- Ne pas réintroduire d'accès anonyme aux PII sans token valide.
 
 ---
 
@@ -348,7 +363,7 @@ Aucune dépendance technique. **Nécessite une décision produit immédiate** (o
 | # | Lacune | Statut | Priorité réelle (post-vérification) | Écart vs benchmark | Dépendances |
 |---|---|---|---|---|---|
 | L1 | `cash_collection_status` non mis à jour | **FERMÉ (2026-06-23)** — commits `b31d682` + `65d4d8f`, issue #3 close `completed` | Haute | Confirmé conforme au benchmark | Aucune. Suivi UI résiduel → issue #12 |
-| L9 | Accès anonyme à `/track-order/{orderNo}` | Ouvert | **Haute (sécurité)** | Reclassé : faille active, pas une feature à ajouter | Aucune — décision produit requise |
+| L9 | Tracking public sécurisé | **PARTIELLEMENT FERMÉ** — L9-A auth obligatoire corrigé ; L9-B token signé ouvert via issue #9 | **Haute (sécurité + UX)** | Reclassé : faille directe corrigée ; feature tokenisée encore à concevoir | Décision produit sur token signé |
 | L5 | Horaires d'ouverture jamais appliqués au checkout | Ouvert | Haute | Reclassé : le module `working_hours` existe déjà, seule l'application au checkout manque | Décision produit (comportement par défaut) |
 | L2 | Pas de timestamps visibles côté client | Ouvert | Moyenne | Confirmé conforme | Aucune |
 | L3 | Pas de badge cash dans l'app livreur | Ouvert — débloqué | Moyenne | Confirmé conforme | Dépendait de L1 (fermé) — **débloqué**, non commencé |
@@ -363,4 +378,4 @@ Aucune dépendance technique. **Nécessite une décision produit immédiate** (o
 
 ## Rappel final
 
-Ce document est une **roadmap exploitable**, pas un plan d'exécution validé. Conformément aux règles du projet, **aucun item ci-dessus ne doit être codé sans `/PRD && /plan` dédié et validation explicite, item par item**. Les corrections apportées par rapport au benchmark original (L4, L5, L6, L7, L9) reflètent l'état réel du code vérifié le 2026-06-19 et n'impliquent aucune modification du fichier `docs/benchmark-github-bantudelice.md`, qui reste inchangé.
+Ce document est une **roadmap exploitable**, pas un plan d'exécution validé. Conformément aux règles du projet, **aucun item ci-dessus ne doit être codé sans `/PRD && /plan` dédié et validation explicite, item par item**. Les corrections apportées par rapport au benchmark original (L4, L5, L6, L7, L9) reflètent l'état réel du code vérifié le 2026-06-19 et les mises à jour documentaires du 2026-06-23, sans modifier le fichier `docs/benchmark-github-bantudelice.md`, qui reste inchangé.
