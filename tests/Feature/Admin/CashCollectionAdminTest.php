@@ -4,9 +4,9 @@ namespace Tests\Feature\Admin;
 
 use App\Order;
 use App\User;
+use Illuminate\Contracts\Pagination\Paginator;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
-use RuntimeException;
 use Tests\TestCase;
 
 class CashCollectionAdminTest extends TestCase
@@ -60,13 +60,10 @@ class CashCollectionAdminTest extends TestCase
         $response->assertViewHas('orders');
 
         $orders = $response->viewData('orders');
-        $actual = $orders->getCollection()->pluck('order_no')->values()->all();
+        $items = $orders instanceof Paginator ? $orders->items() : $orders;
+        $actual = collect($items)->pluck('order_no')->values()->all();
 
-        if ($actual !== ['TD-CASH-0001']) {
-            throw new RuntimeException('Actual filtered orders: ' . json_encode($actual));
-        }
-
-        $this->assertTrue(true);
+        $this->assertSame(['TD-CASH-0001'], $actual);
     }
 
     public function test_admin_can_export_filtered_cash_collections_without_client_contact_data(): void
