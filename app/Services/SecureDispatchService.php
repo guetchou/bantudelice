@@ -35,10 +35,7 @@ class SecureDispatchService extends DispatchService
         $pendingDeliveries = Delivery::query()
             ->where('status', 'PENDING')
             ->whereHas('order', function ($query) {
-                $query->whereIn(
-                    'business_status',
-                    FoodOrderStateMachineService::DISPATCHABLE_BUSINESS_STATUSES
-                );
+                $query->where('business_status', 'ready_for_pickup');
             })
             ->orderBy('created_at')
             ->limit($limit)
