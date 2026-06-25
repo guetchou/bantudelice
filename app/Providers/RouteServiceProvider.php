@@ -20,6 +20,7 @@ class RouteServiceProvider extends ServiceProvider
     {
         $this->mapApiRoutes();
         $this->mapWebRoutes();
+        $this->mapKendeRoutes();
         $this->mapTrackingRoutes();
     }
 
@@ -28,6 +29,13 @@ class RouteServiceProvider extends ServiceProvider
         Route::middleware('web')
              ->namespace($this->namespace)
              ->group(base_path('routes/web.php'));
+    }
+
+    protected function mapKendeRoutes()
+    {
+        Route::middleware('web')
+             ->namespace($this->namespace)
+             ->group(base_path('routes/kende.php'));
     }
 
     protected function mapTrackingRoutes()
