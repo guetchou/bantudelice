@@ -125,6 +125,8 @@ class TransportController extends Controller
             }])
             ->firstOrFail();
 
+        $this->authorize('view', $booking);
+
         $paymentExperience = app(PaymentExperienceService::class)->describe($booking->payments->first());
 
         return response()
