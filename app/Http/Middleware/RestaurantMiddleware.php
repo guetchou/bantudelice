@@ -37,9 +37,11 @@ class RestaurantMiddleware
         $routeName = (string) optional($request->route())->getName();
 
         // Ces anciens endpoints permettent de contourner le workflow moderne.
-        // La livraison est confirmée par le livreur/client ou par un administrateur audité.
+        // Le statut prêt déclenche déjà le dispatch moderne ; la livraison est confirmée
+        // par le livreur/client ou par un administrateur audité.
         if (in_array($routeName, [
             'restaurant.deliver_order',
+            'restaurant.assign_order',
             'restaurant.assign_driver',
         ], true)) {
             return $this->deny(
@@ -49,11 +51,19 @@ class RestaurantMiddleware
             );
         }
 
+        // Une route GET ne doit jamais modifier l'état d'une commande.
+        if ($routeName === 'restaurant.prepaire_order' && $request->isMethod('get')) {
+            return $this->deny(
+                $request,
+                'Cette ancienne action GET est désactivée. Utilisez le bouton d’acceptation sécurisé.',
+                405
+            );
+        }
+
         if (in_array($routeName, [
             'restaurant.prepaire_orders',
             'restaurant.prepaire_order',
             'restaurant.cancel_order',
-            'restaurant.assign_order',
             'restaurant.orders.cash_dispute',
         ], true)) {
             if (! $this->requestTargetsRestaurantOrders($request, (int) $restaurant->id)) {
@@ -92,7 +102,6 @@ class RestaurantMiddleware
 
         $references = array_values(array_unique(array_map('strval', $references)));
 
-        // Les routes concernées doivent toujours désigner au moins une commande.
         if ($references === []) {
             return false;
         }
