@@ -20,6 +20,10 @@ class DeliveryProofService
 
     public function ensureDeliveryOtp(Delivery $delivery): Delivery
     {
+        if (! in_array($delivery->status, ['ASSIGNED', 'PICKED_UP', 'ON_THE_WAY'], true)) {
+            return $delivery;
+        }
+
         if (! Schema::hasColumn('deliveries', 'delivery_otp_code')
             || ! Schema::hasColumn('deliveries', 'delivery_otp_expires_at')) {
             return $delivery;
