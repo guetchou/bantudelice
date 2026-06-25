@@ -1506,10 +1506,10 @@ document.addEventListener('DOMContentLoaded', function(){
 
     function hdist(a,b,c,d){var e=(c-a)*Math.PI/180,f=(d-b)*Math.PI/180,g=Math.sin(e/2)*Math.sin(e/2)+Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(f/2)*Math.sin(f/2);return 2*6371000*Math.atan2(Math.sqrt(g),Math.sqrt(1-g));}
 
-    function send(pos){
+    function send(pos, heartbeat){
         _lastPos = pos;
         var la=pos.coords.latitude,ln=pos.coords.longitude;
-        var capturedAt = pos.timestamp ? new Date(pos.timestamp) : new Date();
+        var capturedAt = heartbeat ? new Date() : (pos.timestamp ? new Date(pos.timestamp) : new Date());
         var stationary = _lat!==null && hdist(_lat,_lng,la,ln)<MIN_M;
         if (stationary && Date.now() - _lastSentAt < HEARTBEAT_MS) {
             setGps('active', 'Position OK · ' + new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}));
@@ -1541,7 +1541,7 @@ document.addEventListener('DOMContentLoaded', function(){
         }
         if(_heartbeatTimer===null){
             _heartbeatTimer=setInterval(function(){
-                if(_on&&_lastPos&&!_send&&Date.now()-_lastSentAt>=HEARTBEAT_MS) send(_lastPos);
+                if(_on&&_lastPos&&!_send&&Date.now()-_lastSentAt>=HEARTBEAT_MS) send(_lastPos, true);
             },5000);
         }
     }
