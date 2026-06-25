@@ -25,7 +25,7 @@ class SocialAuthController extends Controller
             $request->session()->put("social_auth.{$provider}.state", $state);
 
             $redirectTarget = (string) $request->query('redirect', '');
-            if (Str::startsWith($redirectTarget, ['/'])) {
+            if (Str::startsWith($redirectTarget, ['/']) && $this->shouldHonorRedirectTarget($redirectTarget)) {
                 $request->session()->put('url.intended', $redirectTarget);
             }
 
@@ -112,7 +112,12 @@ class SocialAuthController extends Controller
                         ? 'Bienvenue sur BantuDelice ! Complétez votre profil pour commander plus rapidement.'
                         : "Connexion {$provider} réussie !";
 
-                    return redirect()->intended(route('user.profile'))
+                    $intendedTarget = (string) $request->session()->pull('url.intended', '');
+                    if ($this->shouldHonorRedirectTarget($intendedTarget)) {
+                        return redirect()->to($intendedTarget)->with('message', $message);
+                    }
+
+                    return redirect()->route('user.dashboard')
                         ->with('message', $message);
             }
         } catch (\Throwable $e) {
@@ -127,5 +132,25 @@ class SocialAuthController extends Controller
             ]);
         }
     }
-}
 
+    private function shouldHonorRedirectTarget(?string $target): bool
+    {
+        if (!is_string($target) || trim($target) === '') {
+            return false;
+        }
+
+        return $this->redirectPath($target) !== '/profile';
+    }
+
+    private function redirectPath(string $target): string
+    {
+        $path = parse_url($target, PHP_URL_PATH);
+        if (!is_string($path) || $path === '') {
+            $path = $target;
+        }
+
+        $path = '/' . ltrim($path, '/');
+
+        return rtrim($path, '/') ?: '/';
+    }
+}

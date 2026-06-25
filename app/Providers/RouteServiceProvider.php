@@ -21,6 +21,7 @@ class RouteServiceProvider extends ServiceProvider
         $this->mapApiRoutes();
         $this->mapApiV1FoodDriverRoutes();
         $this->mapWebRoutes();
+        $this->mapCustomerDashboardRoutes();
         $this->mapKendeRoutes();
         $this->mapTrackingRoutes();
         $this->mapAdminCashRoutes();
@@ -32,6 +33,13 @@ class RouteServiceProvider extends ServiceProvider
         Route::middleware('web')
              ->namespace($this->namespace)
              ->group(base_path('routes/web.php'));
+    }
+
+    protected function mapCustomerDashboardRoutes()
+    {
+        Route::middleware('web')
+             ->namespace($this->namespace)
+             ->group(base_path('routes/customer-dashboard.php'));
     }
 
     protected function mapKendeRoutes()

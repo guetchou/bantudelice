@@ -13,12 +13,12 @@ class LoginController extends Controller
         $redirectTarget = $this->safeRedirectTarget($request->query('redirect'));
 
         if (auth()->check()) {
-            return $redirectTarget
+            return $this->shouldHonorRedirectTarget($redirectTarget)
                 ? redirect()->to($redirectTarget)
                 : $this->redirectByType(auth()->user()->type);
         }
 
-        if ($redirectTarget) {
+        if ($this->shouldHonorRedirectTarget($redirectTarget)) {
             $request->session()->put('url.intended', $redirectTarget);
         }
 
@@ -53,7 +53,7 @@ class LoginController extends Controller
         if ($user->type === 'admin' && !empty($user->two_factor_enabled)) {
             $request->session()->put('2fa_pending_user_id',   $user->id);
             $request->session()->put('2fa_pending_remember',  $request->boolean('remember'));
-            if ($redirectTarget) {
+            if ($this->shouldHonorRedirectTarget($redirectTarget)) {
                 $request->session()->put('url.intended', $redirectTarget);
             }
             return redirect()->route('admin.2fa.challenge');
@@ -62,11 +62,16 @@ class LoginController extends Controller
         auth()->login($user, $request->boolean('remember'));
         \App\Services\CartService::migrateSessionCartToDb($user->id);
 
-        if ($redirectTarget) {
+        if ($this->shouldHonorRedirectTarget($redirectTarget)) {
             return redirect()->to($redirectTarget);
         }
 
-        return redirect()->intended($this->defaultRedirect($user->type));
+        $intendedTarget = $this->safeRedirectTarget($request->session()->pull('url.intended'));
+        if ($this->shouldHonorRedirectTarget($intendedTarget)) {
+            return redirect()->to($intendedTarget);
+        }
+
+        return redirect()->to($this->defaultRedirect($user->type));
     }
 
     public function logout(Request $request)
@@ -157,7 +162,7 @@ class LoginController extends Controller
             'admin'              => route('admin.portal'),
             'restaurant'         => route('restaurant.dashboard'),
             'driver', 'delivery' => route('driver.deliveries'),
-            default              => route('home'),
+            default              => route('user.dashboard'),
         };
     }
 
@@ -183,5 +188,26 @@ class LoginController extends Controller
         }
 
         return null;
+    }
+
+    private function shouldHonorRedirectTarget(?string $target): bool
+    {
+        if ($target === null) {
+            return false;
+        }
+
+        return !in_array($this->redirectPath($target), ['/profile'], true);
+    }
+
+    private function redirectPath(string $target): string
+    {
+        $path = parse_url($target, PHP_URL_PATH);
+        if (!is_string($path) || $path === '') {
+            $path = $target;
+        }
+
+        $path = '/' . ltrim($path, '/');
+
+        return rtrim($path, '/') ?: '/';
     }
 }
