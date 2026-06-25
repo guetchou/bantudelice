@@ -8,12 +8,23 @@ use Illuminate\Support\Facades\Hash;
 
 class LoginController extends Controller
 {
-    public function login_view()
+    public function login_view(Request $request)
     {
+        $redirectTarget = $this->safeRedirectTarget($request->query('redirect'));
+
         if (auth()->check()) {
-            return $this->redirectByType(auth()->user()->type);
+            return $redirectTarget
+                ? redirect()->to($redirectTarget)
+                : $this->redirectByType(auth()->user()->type);
         }
-        return view('auth.login');
+
+        if ($redirectTarget) {
+            $request->session()->put('url.intended', $redirectTarget);
+        }
+
+        return view('auth.login', [
+            'redirectTarget' => $redirectTarget,
+        ]);
     }
 
     public function login(Request $request)
@@ -21,14 +32,16 @@ class LoginController extends Controller
         $request->validate([
             'identifier' => 'required|string|max:191',
             'password'   => 'required|string|max:191',
+            'redirect'   => 'nullable|string|max:2048',
         ]);
 
-        $identifier = trim($request->identifier);
-        $user       = $this->findUser($identifier);
+        $identifier     = trim($request->identifier);
+        $user           = $this->findUser($identifier);
+        $redirectTarget = $this->safeRedirectTarget($request->input('redirect'));
 
         if (!$user || !Hash::check($request->password, $user->password)) {
             return redirect()->back()
-                ->withInput($request->only('identifier'))
+                ->withInput($request->only('identifier', 'redirect'))
                 ->with('alert', [
                     'type'    => 'danger',
                     'heading' => 'Échec de connexion',
@@ -40,11 +53,18 @@ class LoginController extends Controller
         if ($user->type === 'admin' && !empty($user->two_factor_enabled)) {
             $request->session()->put('2fa_pending_user_id',   $user->id);
             $request->session()->put('2fa_pending_remember',  $request->boolean('remember'));
+            if ($redirectTarget) {
+                $request->session()->put('url.intended', $redirectTarget);
+            }
             return redirect()->route('admin.2fa.challenge');
         }
 
         auth()->login($user, $request->boolean('remember'));
         \App\Services\CartService::migrateSessionCartToDb($user->id);
+
+        if ($redirectTarget) {
+            return redirect()->to($redirectTarget);
+        }
 
         return redirect()->intended($this->defaultRedirect($user->type));
     }
@@ -139,5 +159,29 @@ class LoginController extends Controller
             'driver', 'delivery' => route('driver.deliveries'),
             default              => route('home'),
         };
+    }
+
+    private function safeRedirectTarget(?string $target): ?string
+    {
+        $target = trim((string) $target);
+        if ($target === '') {
+            return null;
+        }
+
+        if (str_starts_with($target, '/')) {
+            return $target;
+        }
+
+        $appUrl = rtrim((string) config('app.url'), '/');
+        if ($appUrl !== '' && str_starts_with($target, $appUrl . '/')) {
+            return $target;
+        }
+
+        $currentHost = request()->getSchemeAndHttpHost();
+        if ($currentHost !== '' && str_starts_with($target, $currentHost . '/')) {
+            return $target;
+        }
+
+        return null;
     }
 }
