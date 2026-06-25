@@ -8,10 +8,7 @@ use App\Domain\Payment\Adapters\CashDemoAdapter;
 use App\Domain\Payment\Adapters\MtnMomoAdapter;
 use App\Domain\Payment\Adapters\PayPalAdapter;
 use App\Domain\Payment\PaymentGatewayFactory;
-use App\Order;
 use App\Services\CheckoutService;
-use App\Services\CustomerOrderTimelineService;
-use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -125,43 +122,5 @@ class AppServiceProvider extends ServiceProvider
             return "'{$url}'";
         });
 
-        // La page de suivi historique est volumineuse et possède déjà sa propre
-        // timeline de progression. Cette composition injecte uniquement le bloc
-        // horodaté, sans exposer les colonnes internes du journal de transitions.
-        View::composer('frontend.layouts.app-modern', function ($view): void {
-            if (! request()->routeIs('track.order')) {
-                return;
-            }
-
-            $orderNo = request()->route('orderNo') ?: request()->query('order_no');
-            if (! $orderNo) {
-                return;
-            }
-
-            $order = Order::where('order_no', $orderNo)->first();
-            if (! $order) {
-                return;
-            }
-
-            $statusHistory = app(CustomerOrderTimelineService::class)->forOrder($order);
-            $partial = view('frontend.partials.order_status_history', compact('statusHistory'))->render();
-            if ($partial === '') {
-                return;
-            }
-
-            $factory = $view->getFactory();
-            $content = (string) $factory->getSection('content', '');
-
-            if (str_contains($content, 'class="trk-history"')) {
-                return;
-            }
-
-            $marker = '<div class="trk-contacts">';
-            $content = str_contains($content, $marker)
-                ? str_replace($marker, $partial . $marker, $content)
-                : $content . $partial;
-
-            $factory->startSection('content', $content);
-        });
     }
 }

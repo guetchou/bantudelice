@@ -529,6 +529,9 @@
     </div>
     @endif
 
+    {{-- ── Historique horodaté de la commande ─────────────────────────── --}}
+    @include('frontend.partials.order_status_history', ['statusHistory' => $statusHistory])
+
     {{-- ── Contacts : livreur + restaurant ───────────────────────────── --}}
     <div class="trk-contacts">
 
