@@ -41,8 +41,8 @@ class OrderReportExportTest extends TestCase
             'updated_at' => now(),
         ]);
 
-        $this->insertOrderLine($client->id, $restaurantId, 1, 3000);
-        $this->insertOrderLine($client->id, $restaurantId, 2, 1500);
+        $this->insertOrderLine($client->id, $restaurantId, 3000);
+        $this->insertOrderLine($client->id, $restaurantId, 1500);
 
         $filters = [
             'date_from' => now()->subDay()->format('Y-m-d'),
@@ -77,13 +77,12 @@ class OrderReportExportTest extends TestCase
         $this->assertSame('1', $data[2]);
     }
 
-    private function insertOrderLine(int $userId, int $restaurantId, int $productId, int $price): void
+    private function insertOrderLine(int $userId, int $restaurantId, int $price): void
     {
         DB::table('orders')->insert([
             'order_no' => 'TD-EXPORT-001',
             'user_id' => $userId,
             'restaurant_id' => $restaurantId,
-            'product_id' => $productId,
             'qty' => 1,
             'price' => $price,
             'total_items' => 2,
