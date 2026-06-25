@@ -15,6 +15,7 @@ use App\Services\TransportGeoService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Carbon;
 
 class TransportBookingController extends Controller
 {
@@ -189,7 +190,7 @@ class TransportBookingController extends Controller
             'dropoff_precision_level' => 'sometimes|string|in:door,street,district,area,blind',
             'dropoff_pin_confirmed' => 'sometimes|boolean',
             'dropoff_accuracy_meters' => 'sometimes|numeric|min:0|max:5000',
-            'scheduled_at' => 'sometimes|date',
+            'scheduled_at' => 'sometimes|nullable|date|after_or_equal:now',
             'estimated_distance' => 'nullable|numeric',
             'estimated_duration' => 'nullable|numeric',
             'estimated_price' => 'nullable|numeric',
@@ -209,6 +210,9 @@ class TransportBookingController extends Controller
         $type = TransportType::from($data['type']);
         $pricingRule = $this->activePricingRule($type);
         $availableDrivers = null;
+        $shouldDispatchNow = $type === TransportType::TAXI
+            ? $this->shouldDispatchNow($data['scheduled_at'] ?? null)
+            : true;
 
         if ($type === TransportType::TAXI) {
             if (empty($data['dropoff_address']) || !isset($data['dropoff_lat'], $data['dropoff_lng'])) {
@@ -243,21 +247,23 @@ class TransportBookingController extends Controller
                 ], 422);
             }
 
-            $availableDrivers = $this->countAvailableDriversNear(
-                (float) $data['pickup_lat'],
-                (float) $data['pickup_lng']
-            );
+            if ($shouldDispatchNow) {
+                $availableDrivers = $this->countAvailableDriversNear(
+                    (float) $data['pickup_lat'],
+                    (float) $data['pickup_lng']
+                );
 
-            if ($availableDrivers < 1) {
-                return response()->json([
-                    'message' => 'Aucun chauffeur disponible autour du point de depart pour le moment.',
-                    'available_drivers_count' => 0,
-                    'serviceable' => false,
-                    'operating_zone' => $pricingRule?->zone,
-                    'supply_state' => 'unavailable',
-                    'retry_after_minutes' => 6,
-                    'best_driver' => null,
-                ], 409);
+                if ($availableDrivers < 1) {
+                    return response()->json([
+                        'message' => 'Aucun chauffeur disponible autour du point de depart pour le moment.',
+                        'available_drivers_count' => 0,
+                        'serviceable' => false,
+                        'operating_zone' => $pricingRule?->zone,
+                        'supply_state' => 'unavailable',
+                        'retry_after_minutes' => 6,
+                        'best_driver' => null,
+                    ], 409);
+                }
             }
 
             $route = $this->transportGeoService->route(
@@ -315,7 +321,7 @@ class TransportBookingController extends Controller
             : null;
         $offerWindowSeconds = $type === TransportType::TAXI ? 45 : null;
 
-        if ($type === TransportType::TAXI) {
+        if ($type === TransportType::TAXI && $shouldDispatchNow) {
             $nearbyDrivers = $this->findAvailableDriversNear(
                 (float) $data['pickup_lat'],
                 (float) $data['pickup_lng']
@@ -337,6 +343,8 @@ class TransportBookingController extends Controller
                 ));
                 $assignmentStatus = 'broadcasting';
             }
+        } elseif ($type === TransportType::TAXI) {
+            $assignmentStatus = 'scheduled_pending';
         }
 
         return response()->json([
@@ -344,16 +352,16 @@ class TransportBookingController extends Controller
             'booking' => $booking->fresh(['driver', 'vehicle']),
             'serviceability' => [
                 'available_drivers_count' => $type === TransportType::TAXI ? $availableDrivers : null,
-                'serviceable' => $type === TransportType::TAXI ? true : null,
+                'serviceable' => $type === TransportType::TAXI ? ($shouldDispatchNow ? true : null) : null,
                 'operating_zone' => $type === TransportType::TAXI ? $pricingRule?->zone : null,
-                'supply_state' => $type === TransportType::TAXI ? $this->supplyState($availableDrivers) : null,
-                'retry_after_minutes' => $type === TransportType::TAXI && $assignmentStatus !== 'assigned' ? 1 : 0,
+                'supply_state' => $type === TransportType::TAXI ? ($shouldDispatchNow ? $this->supplyState($availableDrivers) : 'scheduled') : null,
+                'retry_after_minutes' => $type === TransportType::TAXI && $shouldDispatchNow && $assignmentStatus !== 'assigned' ? 1 : 0,
                 'within_zone' => $type === TransportType::TAXI ? true : null,
                 'service_radius_km' => $type === TransportType::TAXI ? 35 : null,
                 'trip_window_minutes' => $type === TransportType::TAXI ? $tripWindow : null,
-                'offer_window_seconds' => $offerWindowSeconds,
+                'offer_window_seconds' => $shouldDispatchNow ? $offerWindowSeconds : null,
                 'first_accept_wins' => $type === TransportType::TAXI ? true : null,
-                'best_driver' => $type === TransportType::TAXI ? $this->driverCandidatePayload(
+                'best_driver' => $type === TransportType::TAXI && $shouldDispatchNow ? $this->driverCandidatePayload(
                     $bestDriver,
                     (float) $data['pickup_lat'],
                     (float) $data['pickup_lng']
@@ -600,6 +608,15 @@ class TransportBookingController extends Controller
             $availableDrivers <= 3 => 'steady',
             default => 'healthy',
         };
+    }
+
+    protected function shouldDispatchNow(?string $scheduledAt): bool
+    {
+        if (blank($scheduledAt)) {
+            return true;
+        }
+
+        return Carbon::parse($scheduledAt)->lte(now()->addMinutes(5));
     }
 
     protected function resolveRideOption(array $data): string
