@@ -2,8 +2,8 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Controller;
 use App\Delivery;
+use App\Http\Controllers\Controller;
 use App\Order;
 use App\Services\DeliveryService;
 use App\Support\Auth\AuthenticatedDriverResolver;
@@ -18,11 +18,6 @@ class DriverDeliveriesController extends Controller
         $this->middleware('auth:driver_api');
     }
 
-    /**
-     * Liste des livraisons actives pour le livreur connecté.
-     *
-     * GET /api/driver/deliveries
-     */
     public function index(Request $request)
     {
         $driver = $this->authenticatedDriverResolver->current();
@@ -30,13 +25,13 @@ class DriverDeliveriesController extends Controller
         if (! $driver) {
             return response()->json([
                 'status' => false,
-                'message' => 'Non authentifié',
-            ], 401);
+                'message' => 'Compte livreur non autorisé.',
+            ], 403);
         }
 
         $deliveries = $this->deliveryService->getActiveDeliveriesForDriver($driver);
 
-        $data = $deliveries->map(function ($delivery) {
+        $data = $deliveries->map(function (Delivery $delivery) {
             $order = $delivery->order;
 
             return [
@@ -68,7 +63,7 @@ class DriverDeliveriesController extends Controller
                 'picked_up_at' => $delivery->picked_up_at?->toIso8601String(),
                 'delivered_at' => $delivery->delivered_at?->toIso8601String(),
                 'customer_confirmed_at' => $delivery->customer_confirmed_at?->toIso8601String(),
-                'delivery_otp_required' => method_exists($delivery, 'requiresOtp') ? $delivery->requiresOtp() : false,
+                'delivery_otp_required' => $delivery->requiresOtp(),
                 'incident_status' => $delivery->incident_status,
                 'incident_reason' => $delivery->incident_reason,
                 'incident_notes' => $delivery->incident_notes,
@@ -86,26 +81,20 @@ class DriverDeliveriesController extends Controller
         ]);
     }
 
-    /**
-     * Mettre à jour le statut d'une livraison.
-     *
-     * PATCH /api/driver/deliveries/{delivery}/status
-     */
     public function updateStatus(Request $request, $delivery)
     {
         $request->validate([
-            'status' => 'required|in:PICKED_UP,ON_THE_WAY,DELIVERED,CANCELLED',
+            'status' => 'required|in:PICKED_UP,ON_THE_WAY,DELIVERED',
             'pickup_notes' => 'nullable|string|max:1000',
             'delivery_notes' => 'nullable|string|max:1000',
-            'customer_confirmed' => 'nullable|boolean',
             'delivery_otp' => 'nullable|string|max:12',
             'pickup_proof' => 'nullable|file|image|max:4096',
             'delivery_proof' => 'nullable|file|image|max:4096',
-            'pickup_latitude' => 'nullable|numeric',
-            'pickup_longitude' => 'nullable|numeric',
-            'delivery_latitude' => 'nullable|numeric',
-            'delivery_longitude' => 'nullable|numeric',
-            'cash_collection_outcome' => 'nullable|string|in:collected,collection_failed',
+            'pickup_latitude' => 'nullable|numeric|between:-90,90',
+            'pickup_longitude' => 'nullable|numeric|between:-180,180',
+            'delivery_latitude' => 'nullable|numeric|between:-90,90',
+            'delivery_longitude' => 'nullable|numeric|between:-180,180',
+            'cash_collection_outcome' => 'nullable|in:collected,collection_failed',
         ]);
 
         $driver = $this->authenticatedDriverResolver->current();
@@ -113,8 +102,8 @@ class DriverDeliveriesController extends Controller
         if (! $driver) {
             return response()->json([
                 'status' => false,
-                'message' => 'Non authentifié',
-            ], 401);
+                'message' => 'Compte livreur non autorisé.',
+            ], 403);
         }
 
         $delivery = $this->resolveDriverDelivery($delivery, $driver->id);
@@ -133,10 +122,12 @@ class DriverDeliveriesController extends Controller
             $deliveryProofPath = $request->hasFile('delivery_proof')
                 ? $this->deliveryService->storeProofFile($request->file('delivery_proof'), 'delivery')
                 : null;
+
             $updatedDelivery = $this->deliveryService->updateStatus($delivery, $request->input('status'), [
+                'actor_type' => 'driver',
+                'actor_id' => $driver->id,
                 'pickup_notes' => $request->input('pickup_notes'),
                 'delivery_notes' => $request->input('delivery_notes'),
-                'customer_confirmed' => $request->boolean('customer_confirmed'),
                 'delivery_otp' => $request->input('delivery_otp'),
                 'pickup_proof_path' => $pickupProofPath,
                 'delivery_proof_path' => $deliveryProofPath,
@@ -160,11 +151,12 @@ class DriverDeliveriesController extends Controller
                     'customer_confirmed_at' => $updatedDelivery->customer_confirmed_at?->toIso8601String(),
                     'delivery_confirmation_method' => $updatedDelivery->delivery_confirmation_method,
                     'payment_method' => $updatedDelivery->order->payment_method ?? null,
+                    'payment_status' => $updatedDelivery->order->payment_status ?? null,
                     'cash_collection_status' => $updatedDelivery->order->cash_collection_status ?? null,
                     'cash_collection' => $this->cashCollectionPayload($updatedDelivery->order),
                 ],
             ]);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             return response()->json([
                 'status' => false,
                 'message' => $e->getMessage(),
@@ -184,8 +176,8 @@ class DriverDeliveriesController extends Controller
         if (! $driver) {
             return response()->json([
                 'status' => false,
-                'message' => 'Non authentifié',
-            ], 401);
+                'message' => 'Compte livreur non autorisé.',
+            ], 403);
         }
 
         $delivery = $this->resolveDriverDelivery($delivery, $driver->id);
@@ -255,10 +247,10 @@ class DriverDeliveriesController extends Controller
     private function resolveDriverDelivery($delivery, int $driverId): ?Delivery
     {
         if ($delivery instanceof Delivery) {
-            return $delivery->driver_id === $driverId ? $delivery : null;
+            return (int) $delivery->driver_id === $driverId ? $delivery : null;
         }
 
-        return Delivery::where('id', $delivery)
+        return Delivery::whereKey($delivery)
             ->where('driver_id', $driverId)
             ->first();
     }
