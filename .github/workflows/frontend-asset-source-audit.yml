@@ -1,0 +1,56 @@
+name: Audit frontend asset source
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    outputs:
+      summary: ${{ steps.inspect.outputs.summary }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: chore/mix6-build-chain
+      - id: inspect
+        shell: bash
+        run: |
+          APP_REFS=$(git grep -l 'css/app.css' -- resources/views 2>/dev/null | wc -l | tr -d ' ')
+          MODERN_REFS=$(git grep -l 'frontend/css/modern.css' -- resources/views 2>/dev/null | wc -l | tr -d ' ')
+          APP_SIZE=$(wc -c < public/css/app.css | tr -d ' ')
+          MODERN_SIZE=$(wc -c < public/frontend/css/modern.css | tr -d ' ')
+          SCSS_SIZE=$(wc -c < resources/sass/app.scss | tr -d ' ')
+          RATIO=$(python3 - <<'PY'
+          from pathlib import Path
+          from difflib import SequenceMatcher
+          a = Path('public/css/app.css').read_text(errors='ignore')
+          b = Path('public/frontend/css/modern.css').read_text(errors='ignore')
+          print(f'{SequenceMatcher(None, a, b).ratio():.3f}')
+          PY
+          )
+          SUMMARY="app_refs=$APP_REFS modern_refs=$MODERN_REFS app_bytes=$APP_SIZE modern_bytes=$MODERN_SIZE scss_bytes=$SCSS_SIZE similarity=$RATIO"
+          echo "$SUMMARY"
+          echo "summary=$SUMMARY" >> "$GITHUB_OUTPUT"
+          {
+            echo '# Frontend asset source audit'
+            echo
+            echo "$SUMMARY"
+            echo
+            echo '## app.css references'
+            git grep -n 'css/app.css' -- resources/views || true
+            echo
+            echo '## modern.css references'
+            git grep -n 'frontend/css/modern.css' -- resources/views || true
+          } > frontend-asset-source-audit.txt
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: frontend-asset-source-audit
+          path: frontend-asset-source-audit.txt
+          retention-days: 7
+  report:
+    needs: audit
+    name: ${{ needs.audit.outputs.summary }}
+    runs-on: ubuntu-latest
+    steps:
+      - run: true
