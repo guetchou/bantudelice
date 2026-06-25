@@ -15,6 +15,7 @@ use App\Services\TransportGeoService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Validator;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Carbon;
 
 class TransportBookingController extends Controller
 {
@@ -189,12 +190,14 @@ class TransportBookingController extends Controller
             'dropoff_precision_level' => 'sometimes|string|in:door,street,district,area,blind',
             'dropoff_pin_confirmed' => 'sometimes|boolean',
             'dropoff_accuracy_meters' => 'sometimes|numeric|min:0|max:5000',
-            'scheduled_at' => 'sometimes|date',
+            'scheduled_at' => 'sometimes|nullable|date|after_or_equal:now',
             'estimated_distance' => 'nullable|numeric',
             'estimated_duration' => 'nullable|numeric',
             'estimated_price' => 'nullable|numeric',
             'total_price' => 'nullable|numeric',
             'payment_method' => 'sometimes|string|in:cash,momo,airtel',
+            'ride_option' => 'sometimes|string|in:eco,comfort,xl',
+            'notes' => 'nullable|string|max:5000',
         ]);
 
         if ($validator->fails()) {
@@ -207,6 +210,9 @@ class TransportBookingController extends Controller
         $type = TransportType::from($data['type']);
         $pricingRule = $this->activePricingRule($type);
         $availableDrivers = null;
+        $shouldDispatchNow = $type === TransportType::TAXI
+            ? $this->shouldDispatchNow($data['scheduled_at'] ?? null)
+            : true;
 
         if ($type === TransportType::TAXI) {
             if (empty($data['dropoff_address']) || !isset($data['dropoff_lat'], $data['dropoff_lng'])) {
@@ -241,21 +247,23 @@ class TransportBookingController extends Controller
                 ], 422);
             }
 
-            $availableDrivers = $this->countAvailableDriversNear(
-                (float) $data['pickup_lat'],
-                (float) $data['pickup_lng']
-            );
+            if ($shouldDispatchNow) {
+                $availableDrivers = $this->countAvailableDriversNear(
+                    (float) $data['pickup_lat'],
+                    (float) $data['pickup_lng']
+                );
 
-            if ($availableDrivers < 1) {
-                return response()->json([
-                    'message' => 'Aucun chauffeur disponible autour du point de depart pour le moment.',
-                    'available_drivers_count' => 0,
-                    'serviceable' => false,
-                    'operating_zone' => $pricingRule?->zone,
-                    'supply_state' => 'unavailable',
-                    'retry_after_minutes' => 6,
-                    'best_driver' => null,
-                ], 409);
+                if ($availableDrivers < 1) {
+                    return response()->json([
+                        'message' => 'Aucun chauffeur disponible autour du point de depart pour le moment.',
+                        'available_drivers_count' => 0,
+                        'serviceable' => false,
+                        'operating_zone' => $pricingRule?->zone,
+                        'supply_state' => 'unavailable',
+                        'retry_after_minutes' => 6,
+                        'best_driver' => null,
+                    ], 409);
+                }
             }
 
             $route = $this->transportGeoService->route(
@@ -287,9 +295,23 @@ class TransportBookingController extends Controller
             'distance' => $data['estimated_distance'] ?? 0,
             'duration' => $data['estimated_duration'] ?? 0,
         ]);
-        $data['estimated_price'] = $data['estimated_price'] ?? $serverEstimatedPrice;
-        $data['estimated_price'] = $serverEstimatedPrice;
-        $data['total_price'] = $serverEstimatedPrice;
+
+        $rideOption = $type === TransportType::TAXI ? $this->resolveRideOption($data) : null;
+        $finalEstimatedPrice = $type === TransportType::TAXI
+            ? $this->applyRideOptionMultiplier((float) $serverEstimatedPrice, $rideOption)
+            : (float) $serverEstimatedPrice;
+
+        $data['estimated_price'] = $finalEstimatedPrice;
+        $data['total_price'] = $finalEstimatedPrice;
+
+        if ($type === TransportType::TAXI) {
+            $data['notes'] = $this->enrichTaxiBookingNotes(
+                $data,
+                $rideOption,
+                (float) $serverEstimatedPrice,
+                $finalEstimatedPrice
+            );
+        }
 
         $booking = $this->transportService->createBooking($data);
         $bestDriver = null;
@@ -299,7 +321,7 @@ class TransportBookingController extends Controller
             : null;
         $offerWindowSeconds = $type === TransportType::TAXI ? 45 : null;
 
-        if ($type === TransportType::TAXI) {
+        if ($type === TransportType::TAXI && $shouldDispatchNow) {
             $nearbyDrivers = $this->findAvailableDriversNear(
                 (float) $data['pickup_lat'],
                 (float) $data['pickup_lng']
@@ -321,6 +343,8 @@ class TransportBookingController extends Controller
                 ));
                 $assignmentStatus = 'broadcasting';
             }
+        } elseif ($type === TransportType::TAXI) {
+            $assignmentStatus = 'scheduled_pending';
         }
 
         return response()->json([
@@ -328,16 +352,16 @@ class TransportBookingController extends Controller
             'booking' => $booking->fresh(['driver', 'vehicle']),
             'serviceability' => [
                 'available_drivers_count' => $type === TransportType::TAXI ? $availableDrivers : null,
-                'serviceable' => $type === TransportType::TAXI ? true : null,
+                'serviceable' => $type === TransportType::TAXI ? ($shouldDispatchNow ? true : null) : null,
                 'operating_zone' => $type === TransportType::TAXI ? $pricingRule?->zone : null,
-                'supply_state' => $type === TransportType::TAXI ? $this->supplyState($availableDrivers) : null,
-                'retry_after_minutes' => $type === TransportType::TAXI && $assignmentStatus !== 'assigned' ? 1 : 0,
+                'supply_state' => $type === TransportType::TAXI ? ($shouldDispatchNow ? $this->supplyState($availableDrivers) : 'scheduled') : null,
+                'retry_after_minutes' => $type === TransportType::TAXI && $shouldDispatchNow && $assignmentStatus !== 'assigned' ? 1 : 0,
                 'within_zone' => $type === TransportType::TAXI ? true : null,
                 'service_radius_km' => $type === TransportType::TAXI ? 35 : null,
                 'trip_window_minutes' => $type === TransportType::TAXI ? $tripWindow : null,
-                'offer_window_seconds' => $offerWindowSeconds,
+                'offer_window_seconds' => $shouldDispatchNow ? $offerWindowSeconds : null,
                 'first_accept_wins' => $type === TransportType::TAXI ? true : null,
-                'best_driver' => $type === TransportType::TAXI ? $this->driverCandidatePayload(
+                'best_driver' => $type === TransportType::TAXI && $shouldDispatchNow ? $this->driverCandidatePayload(
                     $bestDriver,
                     (float) $data['pickup_lat'],
                     (float) $data['pickup_lng']
@@ -382,6 +406,12 @@ class TransportBookingController extends Controller
     public function pay(Request $request, $id)
     {
         $booking = TransportBooking::where('uuid', $id)->firstOrFail();
+
+        if (! $this->canPayTransportBooking($booking)) {
+            return response()->json([
+                'message' => 'Vous ne pouvez pas initier le paiement de cette reservation.',
+            ], 403);
+        }
 
         $request->validate([
             'provider' => 'required|string|in:momo,airtel',
@@ -578,5 +608,99 @@ class TransportBookingController extends Controller
             $availableDrivers <= 3 => 'steady',
             default => 'healthy',
         };
+    }
+
+    protected function shouldDispatchNow(?string $scheduledAt): bool
+    {
+        if (blank($scheduledAt)) {
+            return true;
+        }
+
+        return Carbon::parse($scheduledAt)->lte(now()->addMinutes(5));
+    }
+
+    protected function resolveRideOption(array $data): string
+    {
+        $rideOption = $data['ride_option'] ?? null;
+
+        if (! $rideOption && ! empty($data['notes']) && is_string($data['notes'])) {
+            $notes = json_decode($data['notes'], true);
+
+            if (json_last_error() === JSON_ERROR_NONE && is_array($notes)) {
+                $rideOption = $notes['ride_option'] ?? null;
+            }
+        }
+
+        return in_array($rideOption, ['eco', 'comfort', 'xl'], true) ? $rideOption : 'eco';
+    }
+
+    protected function rideOptionMultiplier(string $rideOption): float
+    {
+        return match ($rideOption) {
+            'comfort' => 1.18,
+            'xl' => 1.35,
+            default => 1.0,
+        };
+    }
+
+    protected function applyRideOptionMultiplier(float $serverEstimatedPrice, string $rideOption): float
+    {
+        return (float) max(0, round($serverEstimatedPrice * $this->rideOptionMultiplier($rideOption)));
+    }
+
+    protected function enrichTaxiBookingNotes(
+        array $data,
+        string $rideOption,
+        float $serverEstimatedPrice,
+        float $finalEstimatedPrice
+    ): string {
+        $notes = [];
+
+        if (! empty($data['notes']) && is_string($data['notes'])) {
+            $decodedNotes = json_decode($data['notes'], true);
+
+            if (json_last_error() === JSON_ERROR_NONE && is_array($decodedNotes)) {
+                $notes = $decodedNotes;
+            } else {
+                $notes['legacy_note'] = $data['notes'];
+            }
+        }
+
+        $notes['ride_option'] = $rideOption;
+        $notes['fare_breakdown'] = [
+            'server_base_estimate' => round($serverEstimatedPrice),
+            'ride_option_multiplier' => $this->rideOptionMultiplier($rideOption),
+            'final_estimated_price' => round($finalEstimatedPrice),
+            'currency' => 'FCFA',
+        ];
+        $notes['address_precision'] = [
+            'pickup' => [
+                'level' => $data['pickup_precision_level'] ?? null,
+                'pin_confirmed' => (bool) ($data['pickup_pin_confirmed'] ?? false),
+                'accuracy_meters' => isset($data['pickup_accuracy_meters']) ? (float) $data['pickup_accuracy_meters'] : null,
+            ],
+            'dropoff' => [
+                'level' => $data['dropoff_precision_level'] ?? null,
+                'pin_confirmed' => (bool) ($data['dropoff_pin_confirmed'] ?? false),
+                'accuracy_meters' => isset($data['dropoff_accuracy_meters']) ? (float) $data['dropoff_accuracy_meters'] : null,
+            ],
+        ];
+
+        return json_encode($notes, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: '{}';
+    }
+
+    protected function canPayTransportBooking(TransportBooking $booking): bool
+    {
+        $user = auth()->user();
+
+        if (! $user) {
+            return false;
+        }
+
+        if (($user->type ?? null) === 'admin') {
+            return true;
+        }
+
+        return (int) $booking->user_id === (int) $user->id;
     }
 }

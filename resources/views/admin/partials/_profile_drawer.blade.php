@@ -318,3 +318,283 @@ document.addEventListener('keydown', function(e) {
     if (e.key === 'Escape') bdDrawerClose();
 });
 </script>
+
+@if($uType === 'restaurant')
+<style>
+/* Correctif ciblé du panneau notifications restaurant (#myModal2). */
+#myModal2.modal.right .modal-dialog {
+    position: fixed !important;
+    right: 0;
+    top: 0;
+    margin: 0;
+    width: min(100vw, 440px) !important;
+    max-width: 100vw;
+    height: 100vh;
+}
+#myModal2 .modal-content {
+    height: 100vh;
+    display: flex;
+    flex-direction: column;
+    border: 0;
+    border-radius: 16px 0 0 16px;
+    overflow: hidden;
+    background: var(--bd-surface, #fff);
+    color: var(--bd-text, #111827);
+    box-shadow: -18px 0 45px rgba(15,23,42,.18);
+}
+#myModal2 .modal-header {
+    flex: 0 0 auto;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 18px 18px 14px !important;
+    border-bottom: 1px solid var(--bd-border, #e5e7eb);
+    background: var(--bd-surface, #fff);
+}
+#myModal2 .modal-title {
+    margin: 0;
+    font-size: 17px;
+    font-weight: 800;
+    line-height: 1.25;
+    color: var(--bd-text, #111827);
+    overflow-wrap: anywhere;
+}
+#myModal2 .close {
+    width: 36px;
+    height: 36px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 999px;
+    color: var(--bd-text-2, #4b5563);
+    opacity: 1;
+    margin: 0;
+    padding: 0;
+}
+#myModal2 #notiBody {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 12px !important;
+    margin: 0 !important;
+    background: var(--bd-bg, #f4f5f7);
+}
+#myModal2 #notiBody::-webkit-scrollbar { width: 6px; }
+#myModal2 #notiBody::-webkit-scrollbar-thumb { background: rgba(100,116,139,.35); border-radius: 999px; }
+#myModal2 .dropdown-divider { display: none; }
+#myModal2 .dropdown-item,
+#myModal2 .bd-restaurant-notification {
+    display: grid;
+    grid-template-columns: 38px minmax(0, 1fr) auto;
+    gap: 12px;
+    align-items: center;
+    width: 100%;
+    padding: 12px;
+    margin-bottom: 10px;
+    border: 1px solid var(--bd-border, #e5e7eb);
+    border-radius: 14px;
+    background: var(--bd-surface, #fff);
+    color: var(--bd-text, #111827);
+    text-decoration: none;
+    white-space: normal;
+    box-shadow: 0 1px 2px rgba(15,23,42,.04);
+    transition: border-color .15s, box-shadow .15s, transform .15s;
+}
+#myModal2 .dropdown-item:hover,
+#myModal2 .bd-restaurant-notification:hover {
+    border-color: var(--bd-green, #009543);
+    box-shadow: 0 10px 22px rgba(0,149,67,.10);
+    transform: translateY(-1px);
+    color: var(--bd-text, #111827);
+}
+#myModal2 .bd-restaurant-notification__icon {
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,149,67,.12);
+    color: var(--bd-green, #009543);
+    flex-shrink: 0;
+}
+#myModal2 .bd-restaurant-notification__copy { min-width: 0; }
+#myModal2 .bd-restaurant-notification__title {
+    display: block;
+    font-size: 13px;
+    font-weight: 800;
+    line-height: 1.35;
+    color: var(--bd-text, #111827);
+    overflow-wrap: anywhere;
+}
+#myModal2 .bd-restaurant-notification__text {
+    display: block;
+    margin-top: 2px;
+    font-size: 12px;
+    line-height: 1.45;
+    color: var(--bd-text-2, #4b5563);
+    overflow-wrap: anywhere;
+}
+#myModal2 .bd-restaurant-notification__time {
+    font-size: 11px;
+    color: var(--bd-text-3, #9ca3af);
+    white-space: nowrap;
+    align-self: start;
+    padding-top: 2px;
+}
+#myModal2 .bd-restaurant-notification--empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 220px;
+    text-align: center;
+    padding: 28px 18px;
+    background: var(--bd-surface, #fff);
+    border: 1px dashed var(--bd-border, #e5e7eb);
+    border-radius: 18px;
+    color: var(--bd-text-2, #4b5563);
+}
+#myModal2 .bd-restaurant-notification--empty i {
+    width: 48px;
+    height: 48px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 12px;
+    border-radius: 16px;
+    background: rgba(0,149,67,.10);
+    color: var(--bd-green, #009543);
+    font-size: 20px;
+}
+#notiBell.bd-restaurant-notif-badge--hidden { display: none !important; }
+[data-theme="dark"] #myModal2 .bd-restaurant-notification,
+[data-theme="dark"] #myModal2 .dropdown-item,
+[data-theme="dark"] #myModal2 .bd-restaurant-notification--empty {
+    background: var(--bd-surface, #1a1d27);
+    border-color: var(--bd-border, rgba(255,255,255,.09));
+}
+@media (max-width: 520px) {
+    #myModal2.modal.right .modal-dialog { width: 100vw !important; }
+    #myModal2 .modal-content { border-radius: 0; }
+    #myModal2 .bd-restaurant-notification { grid-template-columns: 36px minmax(0, 1fr); }
+    #myModal2 .bd-restaurant-notification__time { grid-column: 2; white-space: normal; }
+}
+</style>
+<script>
+(function () {
+    var RESTAURANT_NOTIFICATION_POLL_URL = @json(url('/restaurant/notifications'));
+
+    function safeText(value) {
+        return (value || '').toString().replace(/\s+/g, ' ').trim();
+    }
+
+    function setRestaurantNotificationPollUrl() {
+        try {
+            if (typeof notificationConfig !== 'undefined' && notificationConfig) {
+                notificationConfig.pollUrl = RESTAURANT_NOTIFICATION_POLL_URL;
+            }
+        } catch (error) {}
+    }
+
+    function updateRestaurantNotificationBadge() {
+        var badge = document.getElementById('notiBell');
+        if (!badge) return;
+        var count = parseInt(safeText(badge.textContent), 10) || 0;
+        badge.classList.toggle('bd-restaurant-notif-badge--hidden', count <= 0);
+        if (count <= 0) badge.textContent = '';
+    }
+
+    function renderEmptyState(body) {
+        if (body.querySelector('.bd-restaurant-notification--empty')) return;
+
+        body.innerHTML = '';
+        var empty = document.createElement('div');
+        empty.className = 'bd-restaurant-notification--empty';
+        empty.innerHTML = '<i class="far fa-bell-slash" aria-hidden="true"></i><strong>Pas de nouvelle commande</strong><span>Les prochaines alertes apparaîtront ici automatiquement.</span>';
+        body.appendChild(empty);
+    }
+
+    function enhanceNotificationList() {
+        var body = document.getElementById('notiBody');
+        if (!body) return;
+
+        updateRestaurantNotificationBadge();
+
+        var existingEmpty = body.querySelector('.bd-restaurant-notification--empty');
+        if (existingEmpty) return;
+
+        var items = Array.prototype.slice.call(body.querySelectorAll('a.dropdown-item, a.bd-restaurant-notification'));
+        var hasEmptyAnchor = items.some(function (item) {
+            return safeText(item.textContent).toLowerCase().indexOf('aucune') !== -1;
+        });
+
+        if (hasEmptyAnchor) {
+            renderEmptyState(body);
+            return;
+        }
+
+        if (!items.length) {
+            if (safeText(body.textContent).toLowerCase().indexOf('aucune') !== -1) {
+                renderEmptyState(body);
+            }
+            return;
+        }
+
+        items.forEach(function (item) {
+            if (item.classList.contains('bd-restaurant-notification')) return;
+
+            var raw = safeText(item.textContent);
+            var orderMatch = raw.match(/#?([A-Za-z0-9-]{3,})/);
+            var orderNo = orderMatch ? orderMatch[1] : '';
+            var timeNode = item.querySelector('.text-muted');
+            var time = safeText(timeNode ? timeNode.textContent : '').replace(orderNo, '').trim();
+
+            item.className = 'bd-restaurant-notification';
+            item.innerHTML = '';
+
+            var icon = document.createElement('span');
+            icon.className = 'bd-restaurant-notification__icon';
+            icon.innerHTML = '<i class="fas fa-receipt" aria-hidden="true"></i>';
+
+            var copy = document.createElement('span');
+            copy.className = 'bd-restaurant-notification__copy';
+
+            var title = document.createElement('span');
+            title.className = 'bd-restaurant-notification__title';
+            title.textContent = orderNo ? 'Commande #' + orderNo : 'Nouvelle commande';
+
+            var text = document.createElement('span');
+            text.className = 'bd-restaurant-notification__text';
+            text.textContent = 'Action requise : ouvrir la commande pour accepter, préparer ou vérifier son statut.';
+
+            var meta = document.createElement('span');
+            meta.className = 'bd-restaurant-notification__time';
+            meta.textContent = time || 'À l’instant';
+
+            copy.appendChild(title);
+            copy.appendChild(text);
+            item.appendChild(icon);
+            item.appendChild(copy);
+            item.appendChild(meta);
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', function () {
+        setRestaurantNotificationPollUrl();
+        updateRestaurantNotificationBadge();
+        enhanceNotificationList();
+
+        var body = document.getElementById('notiBody');
+        if (!body || !window.MutationObserver) return;
+
+        var observer = new MutationObserver(function () {
+            setRestaurantNotificationPollUrl();
+            enhanceNotificationList();
+        });
+        observer.observe(body, { childList: true, subtree: true });
+    });
+})();
+</script>
+@endif
