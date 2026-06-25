@@ -31,10 +31,11 @@ class ExpireUnacceptedFoodOrders extends Command
         $cutoff = now()->subMinutes($timeoutMinutes);
 
         $orderNos = Order::query()
+            ->select('order_no')
             ->where('business_status', 'pending_restaurant_acceptance')
             ->where('created_at', '<=', $cutoff)
-            ->orderBy('created_at')
-            ->distinct()
+            ->groupBy('order_no')
+            ->orderByRaw('MIN(created_at) ASC')
             ->limit($limit)
             ->pluck('order_no');
 
