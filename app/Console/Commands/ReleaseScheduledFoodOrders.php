@@ -27,7 +27,7 @@ class ReleaseScheduledFoodOrders extends Command
 
         $orderNos = Order::query()
             ->select('order_no')
-            ->where('business_status', 'accepted_scheduled')
+            ->whereIn('business_status', ['accepted_scheduled', 'preparation_due'])
             ->whereNotNull('scheduled_date')
             ->where('scheduled_date', '<=', $releaseBefore)
             ->groupBy('order_no')
