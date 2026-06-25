@@ -21,6 +21,8 @@ class Delivery extends Model
         'delivery_proof_path',
         'delivery_otp_code',
         'delivery_otp_expires_at',
+        'delivery_otp_attempts',
+        'delivery_otp_last_attempt_at',
         'otp_verified_at',
         'delivery_confirmation_method',
         'pickup_latitude',
@@ -44,12 +46,14 @@ class Delivery extends Model
         'support_resolved_at',
         'support_resolved_by',
     ];
-    
+
     protected $casts = [
         'assigned_at' => 'datetime',
         'picked_up_at' => 'datetime',
         'delivered_at' => 'datetime',
         'delivery_otp_expires_at' => 'datetime',
+        'delivery_otp_attempts' => 'integer',
+        'delivery_otp_last_attempt_at' => 'datetime',
         'otp_verified_at' => 'datetime',
         'customer_confirmed_at' => 'datetime',
         'cash_collected_at' => 'datetime',
@@ -59,41 +63,32 @@ class Delivery extends Model
         'redelivery_requested_at' => 'datetime',
         'support_resolved_at' => 'datetime',
     ];
-    
+
     public function order()
     {
         return $this->belongsTo(Order::class);
     }
-    
+
     public function restaurant()
     {
         return $this->belongsTo(Restaurant::class);
     }
-    
+
     public function driver()
     {
         return $this->belongsTo(Driver::class);
     }
-    
-    /**
-     * Vérifier si la livraison est en cours
-     */
+
     public function isInProgress(): bool
     {
-        return in_array($this->status, ['ASSIGNED', 'PICKED_UP', 'ON_THE_WAY']);
+        return in_array($this->status, ['ASSIGNED', 'PICKED_UP', 'ON_THE_WAY'], true);
     }
-    
-    /**
-     * Vérifier si la livraison est terminée
-     */
+
     public function isCompleted(): bool
     {
         return $this->status === 'DELIVERED';
     }
-    
-    /**
-     * Vérifier si la livraison est annulée
-     */
+
     public function isCancelled(): bool
     {
         return $this->status === 'CANCELLED';
@@ -101,7 +96,7 @@ class Delivery extends Model
 
     public function requiresOtp(): bool
     {
-        return !empty($this->delivery_otp_code) && !$this->otp_verified_at;
+        return ! empty($this->delivery_otp_code) && ! $this->otp_verified_at;
     }
 
     public function hasOpenIncident(): bool
