@@ -21,6 +21,7 @@ class RouteServiceProvider extends ServiceProvider
         $this->mapApiRoutes();
         $this->mapWebRoutes();
         $this->mapTrackingRoutes();
+        $this->mapAdminCashRoutes();
     }
 
     protected function mapWebRoutes()
@@ -34,6 +35,12 @@ class RouteServiceProvider extends ServiceProvider
     {
         Route::middleware('web')
              ->group(base_path('routes/tracking.php'));
+    }
+
+    protected function mapAdminCashRoutes()
+    {
+        Route::middleware('web')
+             ->group(base_path('routes/admin-cash.php'));
     }
 
     protected function mapApiRoutes()

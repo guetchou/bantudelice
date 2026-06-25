@@ -23,8 +23,8 @@
 .ord-pill--danger { background:#fef2f2; color:#991b1b; }
 .ord-resolve-form { display:inline-flex; gap:6px; align-items:center; }
 .ord-resolve-form select { border:1px solid #d1d5db; border-radius:6px; padding:5px 8px; font-size:12px; }
-.ord-resolve-form button { padding:5px 12px; border:1px solid #1e3a5f; border-radius:6px; color:#1e3a5f; background:#fff; font-size:12px; font-weight:600; cursor:pointer; }
-.ord-resolve-form button:hover { background:#1e3a5f; color:#fff; }
+.ord-resolve-form button,.ord-link { padding:6px 12px; border:1px solid #1e3a5f; border-radius:6px; color:#1e3a5f; background:#fff; font-size:12px; font-weight:600; cursor:pointer; text-decoration:none; }
+.ord-resolve-form button:hover,.ord-link:hover { background:#1e3a5f; color:#fff; }
 </style>
 @endsection
 
@@ -43,6 +43,7 @@
                 <p class="ord-card__title">Litiges encaissement cash</p>
                 <p class="ord-card__count">{{ $orders->count() }} commande(s) à traiter</p>
             </div>
+            <a class="ord-link" href="{{ route('admin.cash_collections.index') }}">Voir toute la collecte cash</a>
         </div>
         <div class="ord-table-wrap">
             <table class="ord-table">
