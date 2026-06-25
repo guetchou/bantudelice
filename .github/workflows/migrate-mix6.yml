@@ -3,7 +3,7 @@ on:
   pull_request:
     branches: [main]
 permissions:
-  contents: write
+  contents: read
 jobs:
   build:
     if: github.actor != 'github-actions[bot]'
@@ -29,10 +29,8 @@ jobs:
           cp public/mix-manifest.json /tmp/assets-before/mix-manifest.json
           sha256sum public/js/app.js public/css/app.css public/mix-manifest.json > /tmp/assets-before.sha256
           wc -c public/js/app.js public/css/app.css public/mix-manifest.json > /tmp/assets-before.sizes
-      - name: Generate lockfile and install exact dependencies
-        run: |
-          npm install --package-lock-only --ignore-scripts --no-audit --no-fund
-          npm ci --ignore-scripts --no-audit --no-fund
+      - name: Install exact dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Build production assets
         run: npm run production
       - name: Validate generated assets
@@ -65,50 +63,13 @@ jobs:
               yaml.safe_load(handle)
           print('deploy.yml YAML syntax OK')
           PY
-      - name: Compare old and new outputs
+      - name: Verify deterministic workspace
         run: |
-          {
-            echo '# Laravel Mix 6 asset comparison'
-            echo
-            echo '## Node and npm'
-            node --version
-            npm --version
-            echo
-            echo '## Before hashes'
-            cat /tmp/assets-before.sha256
-            echo
-            echo '## After hashes'
-            sha256sum public/js/app.js public/css/app.css public/mix-manifest.json
-            echo
-            echo '## Before sizes'
-            cat /tmp/assets-before.sizes
-            echo
-            echo '## After sizes'
-            wc -c public/js/app.js public/css/app.css public/mix-manifest.json
-            echo
-            echo '## Diff statistics'
-            git diff --stat -- package-lock.json public/js/app.js public/css/app.css public/mix-manifest.json public/js/app.js.LICENSE.txt .github/workflows/deploy.yml
-          } | tee mix6-build-report.txt
-      - name: Reject unexpected generated changes
-        run: |
-          UNEXPECTED=$(git status --short | awk '{print $2}' | grep -Ev '^(package-lock.json|public/js/app.js|public/css/app.css|public/mix-manifest.json|public/js/app.js.LICENSE.txt|.github/workflows/deploy.yml|mix6-build-report.txt)$' || true)
-          if [ -n "$UNEXPECTED" ]; then
-            echo 'Unexpected files changed:'
-            echo "$UNEXPECTED"
-            exit 1
-          fi
-      - name: Publish comparison report
+          git diff --exit-code -- public/js/app.js public/css/app.css public/mix-manifest.json package-lock.json
+          git diff --stat -- .github/workflows/deploy.yml
+      - name: Publish validated deploy workflow
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: mix6-build-comparison
-          path: mix6-build-report.txt
+          name: patched-deploy-yml
+          path: .github/workflows/deploy.yml
           retention-days: 7
-      - name: Commit verified assets and production pipeline
-        run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add package-lock.json public/js/app.js public/css/app.css public/mix-manifest.json .github/workflows/deploy.yml
-          if [ -f public/js/app.js.LICENSE.txt ]; then git add public/js/app.js.LICENSE.txt; fi
-          git diff --cached --quiet && exit 0
-          git commit -m 'ci(frontend): restore deterministic Mix 6 build in CI and deploy'
-          git push origin HEAD:chore/mix6-build-chain
