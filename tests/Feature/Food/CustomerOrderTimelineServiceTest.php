@@ -73,7 +73,7 @@ class CustomerOrderTimelineServiceTest extends TestCase
         $this->insertLog($orderId, 'confirmed', 'in_kitchen', 'restaurant', null, $createdAt->copy()->addMinutes(10));
 
         // Simule les lignes dupliquées produites par plusieurs produits d'une même commande.
-        $this->insertLog($orderId + 1, 'confirmed', 'in_kitchen', 'restaurant', null, $createdAt->copy()->addMinutes(10)->addSecond());
+        $this->insertLog($orderId, 'confirmed', 'in_kitchen', 'restaurant', null, $createdAt->copy()->addMinutes(10)->addSecond());
 
         // Cette transition administrative ne doit jamais être rendue côté client.
         $this->insertLog(
