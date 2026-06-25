@@ -1,6 +1,9 @@
 <?php
 
 return [
+    'restaurant_acceptance_timeout_minutes' => (int) env('FOOD_RESTAURANT_ACCEPTANCE_TIMEOUT_MINUTES', 5),
+    'payment_failed_hold_timeout_minutes' => (int) env('FOOD_PAYMENT_FAILED_HOLD_TIMEOUT_MINUTES', 10),
+
     'dispatch' => [
         'radius_steps_km' => array_values(array_filter(array_map(
             static fn ($value) => (float) trim($value),

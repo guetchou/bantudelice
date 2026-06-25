@@ -50,7 +50,7 @@ class FoodOrderFinanceService
             }
 
             foreach ($orders as $order) {
-                if ($order->delivery && !in_array($order->delivery->status, ['DELIVERED', 'CANCELLED'], true)) {
+                if ($order->delivery && ! in_array($order->delivery->status, ['DELIVERED', 'CANCELLED'], true)) {
                     $order->delivery->update([
                         'status' => 'CANCELLED',
                         'support_status' => $order->delivery->support_status ?: 'resolved',
@@ -113,7 +113,7 @@ class FoodOrderFinanceService
 
     protected function refundSpentLoyaltyPoints(int $userId, int $orderId, array $context = []): int
     {
-        if (!Schema::hasTable('loyalty_transactions') || !Schema::hasTable('loyalty_points')) {
+        if (! Schema::hasTable('loyalty_transactions') || ! Schema::hasTable('loyalty_points')) {
             return 0;
         }
 
@@ -129,12 +129,45 @@ class FoodOrderFinanceService
             ->where('type', 'spent')
             ->sum('points'));
 
+        // Ancien checkout : la transaction de dépense pouvait être créée avec order_id=null.
+        // On la rattache de façon déterministe grâce au snapshot et à la fenêtre temporelle.
+        if ($spent === 0) {
+            $order = Order::find($orderId);
+            $expectedPoints = (int) data_get($order?->checkout_snapshot, 'loyalty_points_used', 0);
+
+            if ($order && $expectedPoints > 0) {
+                $createdAt = $order->created_at ?? now();
+                $unlinkedTransaction = DB::table('loyalty_transactions')
+                    ->where('user_id', $userId)
+                    ->whereNull('order_id')
+                    ->where('type', 'spent')
+                    ->where('points', -$expectedPoints)
+                    ->whereBetween('created_at', [
+                        $createdAt->copy()->subMinutes(5),
+                        $createdAt->copy()->addMinutes(5),
+                    ])
+                    ->orderByDesc('id')
+                    ->lockForUpdate()
+                    ->first();
+
+                if ($unlinkedTransaction) {
+                    DB::table('loyalty_transactions')
+                        ->where('id', $unlinkedTransaction->id)
+                        ->update([
+                            'order_id' => $orderId,
+                            'updated_at' => now(),
+                        ]);
+                    $spent = $expectedPoints;
+                }
+            }
+        }
+
         $pointsToRefund = max(0, $spent - (int) $alreadyRefunded);
         if ($pointsToRefund <= 0) {
             return 0;
         }
 
-        $pointRow = DB::table('loyalty_points')->where('user_id', $userId)->first();
+        $pointRow = DB::table('loyalty_points')->where('user_id', $userId)->lockForUpdate()->first();
         if ($pointRow) {
             DB::table('loyalty_points')
                 ->where('user_id', $userId)
