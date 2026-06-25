@@ -1,0 +1,97 @@
+name: Food Integrity
+
+on:
+  pull_request:
+    paths:
+      - 'app/Console/Commands/*Food*Integrity*.php'
+      - 'app/Services/FoodIntegrity*.php'
+      - 'database/migrations/*integrity*.php'
+      - 'database/migrations/*payment_active_integrity*.php'
+      - 'tests/Feature/FoodIntegrity*.php'
+      - '.github/workflows/food-integrity.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  integrity-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Setup PHP 8.3
+        uses: shivammathur/setup-php@cf4cade2721270509d5b1c766ab3549210a39a2a
+        with:
+          php-version: '8.3'
+          extensions: mbstring, dom, fileinfo, sqlite, pdo_sqlite, gd, curl, intl, xml, zip
+          coverage: none
+
+      - name: Validate PHP syntax
+        run: |
+          php -l app/Services/FoodIntegrityReportService.php
+          php -l app/Services/FoodIntegrityRepairService.php
+          php -l app/Services/FoodIntegrityConstraintService.php
+          php -l app/Console/Commands/AuditFoodWorkflowIntegrity.php
+          php -l app/Console/Commands/RepairFoodWorkflowIntegrity.php
+          php -l app/Console/Commands/EnforceFoodIntegrityConstraints.php
+          php -l database/migrations/2026_06_25_230000_add_payment_active_integrity_key.php
+          php -l database/migrations/2026_06_25_231000_add_integrity_quarantine_columns.php
+          php -l tests/Feature/FoodIntegrityRepairTest.php
+          php -l tests/Feature/FoodIntegrityConstraintTest.php
+
+      - name: Cache Composer
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: ~/.composer/cache/files
+          key: composer-${{ runner.os }}-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-${{ runner.os }}-
+
+      - name: Install dependencies without application scripts
+        id: composer_install
+        shell: bash
+        run: |
+          set +e
+          composer install --no-interaction --prefer-dist --no-progress --no-scripts > composer-install.log 2>&1
+          status=$?
+          cat composer-install.log
+          exit $status
+
+      - name: Upload Composer diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: food-integrity-composer-log
+          path: composer-install.log
+          if-no-files-found: ignore
+          retention-days: 3
+
+      - name: Prepare Laravel test environment
+        run: |
+          mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/framework/testing storage/logs
+          chmod -R 775 storage
+          cat > .env <<'ENVEOF'
+          APP_NAME=BantuDelice
+          APP_ENV=testing
+          APP_KEY=
+          APP_DEBUG=false
+          APP_URL=http://localhost
+          LOG_CHANNEL=stack
+          DB_CONNECTION=sqlite
+          DB_DATABASE=:memory:
+          CACHE_DRIVER=array
+          SESSION_DRIVER=array
+          QUEUE_CONNECTION=sync
+          MAIL_MAILER=array
+          BROADCAST_DRIVER=log
+          ENVEOF
+          php artisan key:generate --ansi
+
+      - name: Discover Laravel packages
+        run: php artisan package:discover --ansi
+
+      - name: Run integrity tests
+        run: php artisan test tests/Feature/FoodIntegrityRepairTest.php tests/Feature/FoodIntegrityConstraintTest.php
