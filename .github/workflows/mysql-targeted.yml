@@ -1,0 +1,31 @@
+name: MySQL targeted test
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: bantudelice_test
+          MYSQL_ROOT_PASSWORD: root
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: shivammathur/setup-php@cf4cade2721270509d5b1c766ab3549210a39a2a
+        with:
+          php-version: '8.3'
+          extensions: pdo, pdo_mysql, mysqli, mbstring, xml, ctype, json, tokenizer, bcmath, openssl, fileinfo
+          coverage: none
+      - run: mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/framework/testing storage/logs
+      - run: printf '%s\n' 'APP_ENV=testing' 'APP_KEY=' 'APP_URL=http://localhost' 'DB_CONNECTION=mysql' 'DB_HOST=127.0.0.1' 'DB_PORT=3306' 'DB_DATABASE=bantudelice_test' 'DB_USERNAME=root' 'DB_PASSWORD=root' 'CACHE_DRIVER=array' 'SESSION_DRIVER=array' 'QUEUE_CONNECTION=sync' 'MAIL_MAILER=array' 'BROADCAST_DRIVER=log' > .env
+      - run: composer install --no-interaction --prefer-dist --optimize-autoloader --quiet
+      - run: php artisan key:generate --ansi && php artisan passport:keys --force
+      - run: php artisan test tests/Feature/Food/CustomerOrderTimelineServiceTest.php --stop-on-failure
