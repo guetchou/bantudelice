@@ -19,9 +19,12 @@ class RouteServiceProvider extends ServiceProvider
     public function map()
     {
         $this->mapApiRoutes();
+        $this->mapApiV1FoodDriverRoutes();
         $this->mapWebRoutes();
         $this->mapKendeRoutes();
         $this->mapTrackingRoutes();
+        $this->mapAdminCashRoutes();
+        $this->mapAdminReportRoutes();
     }
 
     protected function mapWebRoutes()
@@ -44,11 +47,30 @@ class RouteServiceProvider extends ServiceProvider
              ->group(base_path('routes/tracking.php'));
     }
 
+    protected function mapAdminCashRoutes()
+    {
+        Route::middleware('web')
+             ->group(base_path('routes/admin-cash.php'));
+    }
+
+    protected function mapAdminReportRoutes()
+    {
+        Route::middleware('web')
+             ->group(base_path('routes/admin-reports.php'));
+    }
+
     protected function mapApiRoutes()
     {
         Route::prefix('api')
              ->middleware('api')
              ->namespace($this->namespace)
              ->group(base_path('routes/api.php'));
+    }
+
+    protected function mapApiV1FoodDriverRoutes()
+    {
+        Route::prefix('api/v1')
+             ->middleware('api')
+             ->group(base_path('routes/api-v1-food-driver.php'));
     }
 }
