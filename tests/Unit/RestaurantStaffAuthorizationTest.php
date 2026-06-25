@@ -21,10 +21,10 @@ class RestaurantStaffAuthorizationTest extends TestCase
         );
 
         self::assertStringContainsString(
-            "$table->unique(['restaurant_id', 'user_id']",
+            "\$table->unique(['restaurant_id', 'user_id']",
             $migration
         );
-        self::assertStringContainsString("$table->boolean('is_active')", $migration);
+        self::assertStringContainsString("\$table->boolean('is_active')", $migration);
     }
 
     public function test_roles_follow_least_privilege(): void
@@ -55,8 +55,8 @@ class RestaurantStaffAuthorizationTest extends TestCase
         );
 
         self::assertStringContainsString('guardManagerHierarchy', $controller);
-        self::assertStringContainsString("$currentRole === 'manager'", $controller);
-        self::assertStringContainsString("$staff->role === 'manager'", $controller);
+        self::assertStringContainsString("\$currentRole === 'manager'", $controller);
+        self::assertStringContainsString("\$staff->role === 'manager'", $controller);
     }
 
     public function test_staff_routes_are_protected_by_auth_and_restaurant_middleware(): void
