@@ -446,6 +446,7 @@ document.addEventListener('keydown', function(e) {
 <script>
 (function () {
     var RESTAURANT_NOTIFICATION_POLL_URL = @json($restaurantNotificationPollUrl);
+    var initialized = false;
 
     function safeText(value) {
         return (value || '').toString().replace(/\s+/g, ' ').trim();
@@ -486,6 +487,17 @@ document.addEventListener('keydown', function(e) {
         empty.className = 'bd-restaurant-notification--empty';
         empty.innerHTML = '<i class="far fa-bell-slash" aria-hidden="true"></i><strong>Aucune alerte pour le moment</strong><span>Les nouvelles commandes apparaîtront ici automatiquement.</span>';
         body.appendChild(empty);
+    }
+
+    function ensureFallback() {
+        var body = document.getElementById('notiBody');
+        if (!body) return;
+        setRestaurantNotificationPollUrl();
+        updateBadge();
+        setTitle();
+        if (!body.children.length && !safeText(body.textContent)) {
+            renderEmptyState(body);
+        }
     }
 
     function enhanceNotificationList() {
@@ -553,27 +565,51 @@ document.addEventListener('keydown', function(e) {
                 get_notification();
             }
         } catch (error) {}
+        window.setTimeout(enhanceNotificationList, 350);
+        window.setTimeout(ensureFallback, 1200);
+        window.setTimeout(ensureFallback, 3000);
     }
 
-    document.addEventListener('DOMContentLoaded', function () {
+    function initRestaurantNotifications() {
+        if (initialized) return;
+        initialized = true;
+
         setRestaurantNotificationPollUrl();
         enhanceNotificationList();
+        ensureFallback();
 
         var modal = document.getElementById('myModal2');
         if (modal && window.jQuery) {
-            window.jQuery(modal).on('show.bs.modal', function () {
-                enhanceNotificationList();
+            window.jQuery(modal).on('show.bs.modal shown.bs.modal', function () {
+                ensureFallback();
                 refreshNotifications();
             });
         }
 
         var body = document.getElementById('notiBody');
-        if (!body || !window.MutationObserver) return;
+        if (body && window.MutationObserver) {
+            var observer = new MutationObserver(function () {
+                enhanceNotificationList();
+            });
+            observer.observe(body, { childList: true, subtree: true });
+        }
 
-        var observer = new MutationObserver(function () {
-            enhanceNotificationList();
-        });
-        observer.observe(body, { childList: true, subtree: true });
+        window.setTimeout(ensureFallback, 600);
+        window.setTimeout(ensureFallback, 2000);
+    }
+
+    setRestaurantNotificationPollUrl();
+    ensureFallback();
+
+    if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', initRestaurantNotifications);
+    } else {
+        initRestaurantNotifications();
+    }
+
+    window.addEventListener('load', function () {
+        initRestaurantNotifications();
+        ensureFallback();
     });
 })();
 </script>
