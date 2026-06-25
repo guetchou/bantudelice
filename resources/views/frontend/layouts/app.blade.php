@@ -83,6 +83,60 @@ img, video, iframe, canvas, svg {
     overflow-wrap: anywhere;
 }
 
+.bd-legacy-account {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: #fff;
+    text-decoration: none;
+    vertical-align: middle;
+}
+
+.bd-legacy-account:hover,
+.bd-legacy-account:focus {
+    color: #fff;
+    text-decoration: none;
+}
+
+.bd-legacy-account__avatar {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid rgba(255,255,255,.65);
+    background: rgba(255,255,255,.2);
+}
+
+.bd-legacy-account__copy {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-start;
+    line-height: 1.15;
+}
+
+.bd-legacy-account__name {
+    max-width: 150px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 13px;
+    font-weight: 700;
+}
+
+.bd-legacy-account__label {
+    font-size: 11px;
+    opacity: .82;
+}
+
+.bd-legacy-logout {
+    background: none;
+    border: 0;
+    padding: 0;
+    color: inherit;
+    font: inherit;
+    cursor: pointer;
+}
+
 @media (max-width: 1199px) {
     .navigation .navbar-nav {
         gap: 0;
@@ -129,13 +183,37 @@ img, video, iframe, canvas, svg {
 					<div class="m9ls-header-right">
 						<ul>
 							@if(Auth::check())
+                            @php
+                                $legacyUser = auth()->user();
+                                $legacyFirstName = trim(explode(' ', (string) $legacyUser->name)[0] ?? '');
+                                $legacyFirstName = $legacyFirstName !== '' ? $legacyFirstName : ($legacyUser->username ?? 'Compte');
+                                $legacyAccountLink = match ($legacyUser->type ?? 'user') {
+                                    'admin' => route('admin.portal'),
+                                    'restaurant' => route('restaurant.dashboard'),
+                                    'driver' => route('driver.deliveries'),
+                                    'delivery' => route('delivery.dashboard'),
+                                    default => route('user.dashboard'),
+                                };
+                                $legacyAccountLabel = match ($legacyUser->type ?? 'user') {
+                                    'admin' => 'Administration',
+                                    'restaurant' => 'Espace restaurant',
+                                    'driver', 'delivery' => 'Espace livraison',
+                                    default => 'Mon dashboard',
+                                };
+                            @endphp
 							<li class="head-dpdn">
-								<a href="{{route('user.profile')}}">Profil</a>
+								<a href="{{ $legacyAccountLink }}" class="bd-legacy-account" aria-label="Compte connecté">
+                                    <img src="{{ $legacyUser->avatarUrl() }}" alt="{{ $legacyUser->name }}" class="bd-legacy-account__avatar">
+                                    <span class="bd-legacy-account__copy">
+                                        <span class="bd-legacy-account__name">{{ $legacyFirstName }}</span>
+                                        <span class="bd-legacy-account__label">{{ $legacyAccountLabel }}</span>
+                                    </span>
+                                </a>
 							</li>
 							<li class="head-dpdn">
 								<form method="POST" action="{{ route('user.logout') }}" style="display:inline;">
 									@csrf
-									<button type="submit" style="background:none;border:0;padding:0;color:inherit;font:inherit;cursor:pointer;">Déconnexion</button>
+									<button type="submit" class="bd-legacy-logout">Déconnexion</button>
 								</form>
 							</li>
 							@endif
