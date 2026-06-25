@@ -16,7 +16,7 @@ jobs:
         with:
           ref: chore/mix6-build-chain
           fetch-depth: 0
-      - uses: actions/setup-node@1e60f620b9541d0c243d4afc0317c29e95c00a47
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
         with:
           node-version: '20'
       - name: Capture current compiled assets
