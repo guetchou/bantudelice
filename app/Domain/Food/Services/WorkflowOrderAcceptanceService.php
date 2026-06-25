@@ -11,10 +11,6 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
 
-/**
- * Orchestration finale de l'acceptation restaurant.
- * Les commandes programmées sont réservées puis libérées par le scheduler.
- */
 class WorkflowOrderAcceptanceService extends OrderAcceptanceService
 {
     public function handleAccepted(Order $order): void
@@ -24,21 +20,11 @@ class WorkflowOrderAcceptanceService extends OrderAcceptanceService
             $currentStatus = $this->stateMachine->resolveCurrentBusinessStatus($lockedOrder);
 
             if (in_array($currentStatus, [
-                'accepted_scheduled',
-                'preparation_due',
-                'accepted_awaiting_payment',
-                'confirmed',
-                'in_kitchen',
-                'ready_for_pickup',
-                'dispatching',
-                'driver_assigned',
-                'driver_arrived_at_restaurant',
-                'picked_up',
-                'out_for_delivery',
-                'delivered',
-                'customer_arrived',
-                'picked_up_by_customer',
-                'closed',
+                'accepted_scheduled', 'preparation_due', 'accepted_awaiting_payment',
+                'confirmed', 'in_kitchen', 'ready_for_pickup', 'dispatching',
+                'driver_assigned', 'driver_arrived_at_restaurant', 'picked_up',
+                'out_for_delivery', 'delivered', 'customer_arrived',
+                'picked_up_by_customer', 'closed',
             ], true)) {
                 return;
             }
@@ -70,18 +56,10 @@ class WorkflowOrderAcceptanceService extends OrderAcceptanceService
             $currentStatus = $this->stateMachine->resolveCurrentBusinessStatus($lockedOrder);
 
             if (in_array($currentStatus, [
-                'preparation_due',
-                'accepted_awaiting_payment',
-                'confirmed',
-                'in_kitchen',
-                'ready_for_pickup',
-                'dispatching',
-                'driver_assigned',
-                'picked_up',
-                'out_for_delivery',
-                'delivered',
-                'picked_up_by_customer',
-                'closed',
+                'preparation_due', 'accepted_awaiting_payment', 'confirmed',
+                'in_kitchen', 'ready_for_pickup', 'dispatching', 'driver_assigned',
+                'picked_up', 'out_for_delivery', 'delivered',
+                'picked_up_by_customer', 'closed',
             ], true)) {
                 return;
             }
@@ -186,8 +164,12 @@ class WorkflowOrderAcceptanceService extends OrderAcceptanceService
     ): void {
         $orderNo = $order->order_no;
 
+        // accepted_at sert de début de fenêtre au job d'expiration du paiement.
+        // Pour une commande programmée, il doit donc être réinitialisé au moment
+        // où le paiement est réellement demandé, et non à l'acceptation initiale.
         Order::where('order_no', $orderNo)->update([
             'payment_status' => OrderPaymentStatus::NOT_STARTED->value,
+            'accepted_at' => now(),
         ]);
         $this->stateMachine->transitionOrderGroup($orderNo, 'accepted_awaiting_payment', [
             'actor_type' => $actorType,
