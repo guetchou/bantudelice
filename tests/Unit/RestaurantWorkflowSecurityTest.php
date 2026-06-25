@@ -60,7 +60,7 @@ class RestaurantWorkflowSecurityTest extends TestCase
     {
         $source = $this->source('app/Services/CheckoutService.php');
 
-        self::assertStringContainsString('\$restaurant->is_paused', $source);
+        self::assertStringContainsString('$restaurant->is_paused', $source);
         self::assertStringContainsString('commandes programmées sont temporairement indisponibles', $source);
         self::assertStringContainsString('guardRestaurantAvailableForOrdering', $source);
     }
