@@ -118,8 +118,9 @@ class TransportController extends Controller
      */
     public function showBooking($id)
     {
+        abort_unless($this->looksLikeUuid($id), 404);
+
         $booking = TransportBooking::where('uuid', $id)
-            ->orWhere('id', $id)
             ->with(['driver', 'vehicle', 'trackingPoints', 'payments' => function ($query) {
                 $query->latest('id');
             }])
@@ -187,5 +188,10 @@ class TransportController extends Controller
         }
 
         return $driver;
+    }
+
+    protected function looksLikeUuid(string $value): bool
+    {
+        return (bool) preg_match('/^[0-9a-fA-F-]{36}$/', $value);
     }
 }
