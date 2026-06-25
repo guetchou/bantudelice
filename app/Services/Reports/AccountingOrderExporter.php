@@ -24,11 +24,11 @@ class AccountingOrderExporter
             ->orderBy('orders.id');
 
         $headers = [
-            'N° commande', 'Date', 'Restaurant', 'Remise', 'Statut métier',
-            'Mode paiement', 'Statut paiement', 'Prestataire', 'Référence', 'Devise',
-            'Sous-total', 'Remise commerciale', 'Taxe', 'Frais livraison',
+            'N° commande', 'Date', 'Restaurant', 'Mode de remise', 'Statut métier',
+            'Mode de paiement', 'Statut paiement', 'Prestataire', 'Référence', 'Devise',
+            'Sous-total', 'Remise commerciale', 'Taxe', 'Frais de livraison',
             'Pourboire', 'Total', 'Commission plateforme', 'Commission restaurant',
-            'Statut cash', 'Cash collecté le', 'Livreur',
+            'Statut collecte cash', 'Cash collecté le', 'Livreur',
         ];
 
         return $this->csv->download(
