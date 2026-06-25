@@ -4,9 +4,13 @@ namespace App\Http\Middleware;
 
 use App\Order;
 use App\Restaurant;
+use App\RestaurantStaffMember;
 use App\Services\FoodOrderStateMachineService;
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class RestaurantMiddleware
@@ -22,14 +26,41 @@ class RestaurantMiddleware
             return redirect('/')->with('error', 'Accès refusé. Cette page est réservée aux restaurants.');
         }
 
-        $restaurant = $user->restaurant
-            ?? Restaurant::where('user_id', $user->id)->first();
+        [$restaurant, $membership, $role, $permissions] = $this->resolveRestaurantContext($user);
 
         if (! $restaurant) {
-            return $this->deny($request, 'Aucun restaurant n’est associé à ce compte.', 403);
+            return $this->deny($request, 'Aucun restaurant actif n’est associé à ce compte.', 403);
         }
 
+        // Les contrôleurs historiques lisent auth()->user()->restaurant. Pour un membre
+        // du personnel, on injecte la relation résolue sans modifier chaque contrôleur.
+        $user->setRelation('restaurant', $restaurant);
+        $request->attributes->set('restaurant_context', $restaurant);
+        $request->attributes->set('restaurant_staff_role', $role);
+        $request->attributes->set('restaurant_staff_permissions', $permissions);
+
         $routeName = (string) optional($request->route())->getName();
+        $requiredPermission = $this->requiredPermissionForRoute($routeName, $request);
+
+        if ($membership && ! $this->hasPermission($permissions, $requiredPermission)) {
+            Log::warning('Restaurant staff permission denied', [
+                'user_id' => $user->id,
+                'restaurant_id' => $restaurant->id,
+                'role' => $role,
+                'route' => $routeName,
+                'required_permission' => $requiredPermission,
+            ]);
+
+            return $this->deny(
+                $request,
+                'Votre rôle restaurant ne permet pas cette action.',
+                403
+            );
+        }
+
+        if ($membership && (! $membership->last_access_at || $membership->last_access_at->lt(now()->subMinutes(5)))) {
+            $membership->forceFill(['last_access_at' => now()])->save();
+        }
 
         if (in_array($routeName, [
             'restaurant.deliver_order',
@@ -110,9 +141,6 @@ class RestaurantMiddleware
             }
         }
 
-        // La vue historique interroge /restaurant/notifications/{id} sans transmettre de curseur.
-        // Le middleware maintient donc un curseur de session afin qu'une commande ne déclenche
-        // le son qu'une seule fois, tout en restant visible tant qu'elle n'est pas traitée.
         $isNotificationPoll = $request->isMethod('get')
             && $request->is('restaurant/notifications/*');
         $cursorKey = 'restaurant_notification_cursor_' . $restaurant->id;
@@ -131,6 +159,126 @@ class RestaurantMiddleware
         }
 
         return $response;
+    }
+
+    private function resolveRestaurantContext($user): array
+    {
+        $ownedRestaurant = $user->restaurant
+            ?? Restaurant::where('user_id', $user->id)->first();
+
+        if ($ownedRestaurant) {
+            return [
+                $ownedRestaurant,
+                null,
+                'owner',
+                ['all'],
+            ];
+        }
+
+        if (! Schema::hasTable('restaurant_staff_members')) {
+            return [null, null, null, []];
+        }
+
+        $membership = RestaurantStaffMember::query()
+            ->with('restaurant')
+            ->where('user_id', $user->id)
+            ->where('is_active', true)
+            ->orderByDesc('id')
+            ->first();
+
+        if (! $membership || ! $membership->restaurant) {
+            return [null, null, null, []];
+        }
+
+        return [
+            $membership->restaurant,
+            $membership,
+            (string) $membership->role,
+            $membership->resolvedPermissions(),
+        ];
+    }
+
+    private function requiredPermissionForRoute(string $routeName, Request $request): ?string
+    {
+        if ($routeName === '') {
+            return 'unclassified';
+        }
+
+        $rules = [
+            'dashboard.view' => [
+                'restaurant.dashboard',
+                'restaurant.notifications',
+                'restaurant.sidebar.stats',
+                'restaurant.availability.status',
+            ],
+            'orders.view' => [
+                'restaurant.all_orders',
+                'restaurant.show_order',
+                'restaurant.pending_orders',
+                'restaurant.complete_orders',
+                'restaurant.cancel_orders',
+                'restaurant.schedule_orders',
+            ],
+            'orders.manage' => [
+                'restaurant.prepaire_orders',
+                'restaurant.prepaire_order',
+                'restaurant.cancel_order',
+            ],
+            'kitchen.manage' => [
+                'restaurant.kitchen',
+                'restaurant.kitchen.orders',
+                'restaurant.kitchen.status',
+            ],
+            'cash.collect' => [
+                'restaurant.orders.cash_dispute',
+                'restaurant.cash.*',
+            ],
+            'catalog.manage' => [
+                'product.*',
+                'category.*',
+                'menu.*',
+                'addon.*',
+                'option.*',
+            ],
+            'promotions.manage' => ['voucher.*'],
+            'finance.view' => [
+                'r_earnings.*',
+                'restaurant.payments.*',
+            ],
+            'staff.manage' => [
+                'employee.*',
+                'restaurant.staff.*',
+            ],
+            'settings.manage' => [
+                'working-hour.*',
+                'restaurant.availability.*',
+                'restaurant.profile.*',
+                'restaurant.settings.*',
+            ],
+        ];
+
+        foreach ($rules as $permission => $patterns) {
+            if (Str::is($patterns, $routeName)) {
+                return $permission;
+            }
+        }
+
+        // Les routes de session restent accessibles à tout membre actif.
+        if (Str::is(['logout', 'restaurant.logout'], $routeName)) {
+            return null;
+        }
+
+        return 'unclassified';
+    }
+
+    private function hasPermission(array $permissions, ?string $requiredPermission): bool
+    {
+        if ($requiredPermission === null) {
+            return true;
+        }
+
+        return in_array('all', $permissions, true)
+            || in_array($requiredPermission, $permissions, true);
     }
 
     private function requestTargetsRestaurantOrders(Request $request, int $restaurantId): bool
