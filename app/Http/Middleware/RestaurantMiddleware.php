@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use App\Order;
 use App\Restaurant;
+use App\Services\FoodOrderStateMachineService;
 use Closure;
 use Illuminate\Http\Request;
 
@@ -71,6 +72,31 @@ class RestaurantMiddleware
             }
         }
 
+        if ($routeName === 'restaurant.cancel_order') {
+            $order = $this->resolveRouteOrder($request, (int) $restaurant->id);
+            if (! $order) {
+                return $this->deny($request, 'Commande introuvable pour ce restaurant.', 403);
+            }
+
+            $order->loadMissing('delivery');
+            $status = app(FoodOrderStateMachineService::class)->resolveCurrentBusinessStatus($order);
+            if (in_array($status, [
+                'picked_up',
+                'out_for_delivery',
+                'delivery_attempt_failed',
+                'delivered',
+                'picked_up_by_customer',
+                'closed',
+                'refunded',
+            ], true)) {
+                return $this->deny(
+                    $request,
+                    'Le restaurant ne peut plus annuler cette commande après sa prise en charge. Ouvrez un incident support.',
+                    409
+                );
+            }
+        }
+
         return $next($request);
     }
 
@@ -107,23 +133,51 @@ class RestaurantMiddleware
         }
 
         foreach ($references as $reference) {
-            $owned = Order::query()
-                ->where('restaurant_id', $restaurantId)
-                ->where(function ($query) use ($reference) {
-                    $query->where('order_no', $reference);
-
-                    if (ctype_digit($reference)) {
-                        $query->orWhere('id', (int) $reference);
-                    }
-                })
-                ->exists();
-
-            if (! $owned) {
+            if (! $this->referenceBelongsToRestaurant($reference, $restaurantId)) {
                 return false;
             }
         }
 
         return true;
+    }
+
+    private function resolveRouteOrder(Request $request, int $restaurantId): ?Order
+    {
+        $value = $request->route('order') ?? $request->route('orderNo');
+
+        if ($value instanceof Order) {
+            return (int) $value->restaurant_id === $restaurantId ? $value : null;
+        }
+
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        $reference = (string) $value;
+
+        return Order::query()
+            ->where('restaurant_id', $restaurantId)
+            ->where(function ($query) use ($reference) {
+                $query->where('order_no', $reference);
+                if (ctype_digit($reference)) {
+                    $query->orWhere('id', (int) $reference);
+                }
+            })
+            ->first();
+    }
+
+    private function referenceBelongsToRestaurant(string $reference, int $restaurantId): bool
+    {
+        return Order::query()
+            ->where('restaurant_id', $restaurantId)
+            ->where(function ($query) use ($reference) {
+                $query->where('order_no', $reference);
+
+                if (ctype_digit($reference)) {
+                    $query->orWhere('id', (int) $reference);
+                }
+            })
+            ->exists();
     }
 
     private function deny(Request $request, string $message, int $status)
