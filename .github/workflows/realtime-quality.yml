@@ -1,0 +1,37 @@
+name: Realtime Quality
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: shivammathur/setup-php@cf4cade2721270509d5b1c766ab3549210a39a2a
+        with:
+          php-version: '8.3'
+          extensions: pdo, pdo_sqlite, mbstring, xml, ctype, json, tokenizer, bcmath, openssl, fileinfo
+          coverage: none
+      - name: Prepare Laravel
+        run: |
+          mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/framework/testing storage/logs
+          printf '%s\n' 'APP_ENV=testing' 'APP_KEY=' 'APP_URL=http://localhost' 'DB_CONNECTION=sqlite' 'DB_DATABASE=:memory:' 'CACHE_DRIVER=array' 'SESSION_DRIVER=array' 'QUEUE_CONNECTION=sync' 'BROADCAST_DRIVER=log' > .env
+          composer install --no-interaction --prefer-dist --optimize-autoloader --quiet
+          php artisan key:generate --ansi
+          php artisan passport:keys --force
+      - name: Check route and syntax
+        run: |
+          php -l app/Services/DriverLocationIngestionService.php
+          php -l app/Http/Controllers/DriverLocationWebController.php
+          php -l app/Http/Controllers/api/DriverOrderController.php
+          php -l app/Http/Controllers/api/Transport/DriverTransportController.php
+          php -l app/Domain/Transport/Events/TransportTrackingUpdated.php
+          php -l app/Services/RealtimeChannelAuthorizer.php
+          php artisan route:list | grep -q 'broadcasting/auth'
+      - name: Run realtime tests
+        run: |
+          php artisan test tests/Feature/RealtimeGeolocationPipelineTest.php --stop-on-failure
+          php artisan test tests/Feature/DriverLocationApiTest.php --stop-on-failure
+          php artisan test tests/Feature/RealtimeBroadcastEventsTest.php --stop-on-failure
