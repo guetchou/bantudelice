@@ -59,9 +59,12 @@ class CashCollectionAdminTest extends TestCase
         $response->assertViewHas('orders');
 
         $orders = $response->viewData('orders');
+        $actual = $orders->getCollection()->pluck('order_no')->values()->all();
+
         $this->assertSame(
             ['TD-CASH-0001'],
-            $orders->getCollection()->pluck('order_no')->values()->all()
+            $actual,
+            'Actual filtered orders: ' . json_encode($actual)
         );
     }
 
