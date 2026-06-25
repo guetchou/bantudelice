@@ -2,6 +2,10 @@
 
 namespace Tests\Feature\Admin;
 
+use App\Http\Middleware\AdminAuditLogger;
+use App\Http\Middleware\EnsureModuleEnabled;
+use App\Http\Middleware\RequireAdmin2FA;
+use App\Http\Middleware\RequireAdminWorkspace;
 use App\Order;
 use App\User;
 use Illuminate\Contracts\Pagination\Paginator;
@@ -52,10 +56,8 @@ class CashCollectionAdminTest extends TestCase
         $this->createOrder('TD-CASH-0002', 'cash', 'collected');
         $this->createOrder('TD-ONLINE-0001', 'paypal', null);
 
-        $this->withoutExceptionHandling();
-
         $response = $this->actingAs($this->admin)
-            ->withoutMiddleware()
+            ->withoutMiddleware($this->administrativeGuards())
             ->get(route('admin.cash_collections.index', ['status' => 'pending_collection']));
 
         $response->assertOk();
@@ -74,7 +76,7 @@ class CashCollectionAdminTest extends TestCase
         $this->createOrder('TD-CASH-EXPORT', 'cash', 'collected');
 
         $response = $this->actingAs($this->admin)
-            ->withoutMiddleware()
+            ->withoutMiddleware($this->administrativeGuards())
             ->get(route('admin.cash_collections.export', ['status' => 'collected']));
 
         $response->assertOk();
@@ -83,6 +85,16 @@ class CashCollectionAdminTest extends TestCase
         $this->assertStringContainsString('TD-CASH-EXPORT', $content);
         $this->assertStringContainsString('Restaurant Cash Test', $content);
         $this->assertStringNotContainsString('0699999999', $content);
+    }
+
+    private function administrativeGuards(): array
+    {
+        return [
+            RequireAdmin2FA::class,
+            AdminAuditLogger::class,
+            RequireAdminWorkspace::class,
+            EnsureModuleEnabled::class,
+        ];
     }
 
     private function createOrder(string $orderNo, string $paymentMethod, ?string $cashStatus): Order
