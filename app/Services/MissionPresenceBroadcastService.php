@@ -36,7 +36,7 @@ class MissionPresenceBroadcastService
     protected function broadcastTransportPresence(Driver $driver): void
     {
         TransportBooking::query()
-            ->with(['driver', 'vehicle', 'trackingPoints'])
+            ->with(['driver', 'vehicle'])
             ->where('driver_id', $driver->id)
             ->whereIn('status', [
                 TransportStatus::ASSIGNED->value,

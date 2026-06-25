@@ -33,8 +33,9 @@ class TransportMissionPresenceUpdated implements ShouldBroadcast
 
     public function broadcastWith(): array
     {
-        $latestTrackingPoint = $this->booking->trackingPoints
-            ->sortByDesc(fn ($point) => optional($point->recorded_at)->getTimestamp() ?? 0)
+        $latestTrackingPoint = $this->booking->trackingPoints()
+            ->orderByDesc('recorded_at')
+            ->orderByDesc('id')
             ->first();
         $driver = $this->booking->driver;
         $latestDriverLocation = $this->booking->driver_id

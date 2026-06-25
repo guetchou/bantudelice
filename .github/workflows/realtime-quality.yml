@@ -1,0 +1,88 @@
+name: Realtime Quality
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  test:
+    name: ${{ matrix.suite }} / ${{ matrix.db }}
+    runs-on: ubuntu-latest
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=5s
+          --health-timeout=3s
+          --health-retries=10
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: bantudelice_testing
+          MYSQL_ROOT_PASSWORD: root
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=5s
+          --health-timeout=3s
+          --health-retries=20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - suite: pipeline-contract
+            file: tests/Feature/RealtimeGeolocationPipelineTest.php
+            db: sqlite
+          - suite: driver-location-api
+            file: tests/Feature/DriverLocationApiTest.php
+            db: sqlite
+          - suite: broadcast-events
+            file: tests/Feature/RealtimeBroadcastEventsTest.php
+            db: sqlite
+          - suite: channel-authorization
+            file: tests/Feature/RealtimeChannelAuthorizationTest.php
+            db: sqlite
+          - suite: clock-skew
+            file: tests/Feature/DriverLocationClockSkewTest.php
+            db: sqlite
+          - suite: pipeline-contract
+            file: tests/Feature/RealtimeGeolocationPipelineTest.php
+            db: mysql
+          - suite: clock-skew
+            file: tests/Feature/DriverLocationClockSkewTest.php
+            db: mysql
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: shivammathur/setup-php@cf4cade2721270509d5b1c766ab3549210a39a2a
+        with:
+          php-version: '8.3'
+          extensions: pdo, pdo_mysql, pdo_sqlite, redis, mbstring, xml, ctype, json, tokenizer, bcmath, openssl, fileinfo
+          coverage: none
+      - name: Prepare Laravel
+        run: |
+          mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/framework/testing storage/logs
+          if [ "${{ matrix.db }}" = "mysql" ]; then
+            printf '%s\n' 'APP_ENV=testing' 'APP_KEY=' 'APP_URL=http://localhost' 'DB_CONNECTION=mysql' 'DB_HOST=127.0.0.1' 'DB_PORT=3306' 'DB_DATABASE=bantudelice_testing' 'DB_USERNAME=root' 'DB_PASSWORD=root' 'CACHE_DRIVER=array' 'SESSION_DRIVER=array' 'QUEUE_CONNECTION=sync' 'BROADCAST_DRIVER=log' 'REDIS_HOST=127.0.0.1' 'REDIS_PORT=6379' > .env
+          else
+            printf '%s\n' 'APP_ENV=testing' 'APP_KEY=' 'APP_URL=http://localhost' 'DB_CONNECTION=sqlite' 'DB_DATABASE=:memory:' 'CACHE_DRIVER=array' 'SESSION_DRIVER=array' 'QUEUE_CONNECTION=sync' 'BROADCAST_DRIVER=log' 'REDIS_HOST=127.0.0.1' 'REDIS_PORT=6379' > .env
+          fi
+          composer install --no-interaction --prefer-dist --optimize-autoloader --quiet
+          php artisan key:generate --ansi
+          php artisan passport:keys --force
+      - name: Check route and syntax
+        run: |
+          php -l app/Services/DriverLocationIngestionService.php
+          php -l app/Http/Controllers/DriverLocationWebController.php
+          php -l app/Http/Controllers/api/DriverOrderController.php
+          php -l app/Http/Controllers/api/Transport/DriverTransportController.php
+          php -l app/Domain/Transport/Events/TransportTrackingUpdated.php
+          php -l app/Services/RealtimeChannelAuthorizer.php
+          php -l tests/Feature/DriverLocationClockSkewTest.php
+          php -l tests/Feature/RealtimeChannelAuthorizationTest.php
+          php artisan route:list | grep -q 'broadcasting/auth'
+      - name: Run suite
+        run: php artisan test ${{ matrix.file }} --stop-on-failure
