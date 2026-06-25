@@ -1,0 +1,51 @@
+name: Realtime Geolocation Audit
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+
+      - name: Inventory geolocation and realtime code
+        run: |
+          set -e
+          {
+            echo '=== ROUTES ==='
+            git grep -n -i -E 'updateLocation|driver/.*/location|tracking|presence|broadcasting/auth' -- routes || true
+            echo
+            echo '=== GPS INGESTION / STORAGE ==='
+            git grep -n -i -E 'DriverLocation|latitude|longitude|accuracy|heading|speed|recorded_at|watchPosition|getCurrentPosition|geolocation' -- app resources database tests || true
+            echo
+            echo '=== REALTIME BACKEND ==='
+            git grep -n -i -E 'ShouldBroadcast|ShouldBroadcastNow|broadcastOn|broadcastAs|broadcastWith|PrivateChannel|MissionPresence|Pusher|Echo|Soketi' -- app config routes resources package.json composer.json || true
+            echo
+            echo '=== REALTIME FRONTEND ==='
+            git grep -n -i -E 'window\.Echo|new Echo|Pusher|\.private\(|\.channel\(|presence\.updated|tracking\.updated|location\.updated' -- resources public || true
+            echo
+            echo '=== QUEUE / WORKERS ==='
+            git grep -n -i -E 'QUEUE_CONNECTION|queue:work|queue:listen|supervisor|ShouldQueue|broadcastQueue|onQueue' -- config app scripts .github docker* supervisor* 2>/dev/null || true
+            echo
+            echo '=== SCHEMA / INDEXES ==='
+            git grep -n -i -E 'driver_locations|tracking_points|index\(|unique\(|timestamp' -- database/migrations app/DriverLocation.php app/Domain/Transport 2>/dev/null || true
+            echo
+            echo '=== TEST COVERAGE ==='
+            git grep -n -i -E 'DriverLocation|updateLocation|presence.updated|tracking.updated|RealtimeChannelAuthorizer|geolocation' -- tests || true
+            echo
+            echo '=== FILE LIST ==='
+            find app resources routes database/migrations tests -type f | sort | grep -Ei 'location|tracking|presence|broadcast|transport|driver' || true
+          } | tee /tmp/realtime-geolocation-audit.txt
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: realtime-geolocation-audit
+          path: /tmp/realtime-geolocation-audit.txt
+          retention-days: 7
