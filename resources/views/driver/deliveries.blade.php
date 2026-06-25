@@ -1493,8 +1493,9 @@ document.addEventListener('DOMContentLoaded', function(){
 (function(){
     var GPS_URL = @json(route('driver.location.update'));
     var CSRF    = @json(csrf_token());
-    var MIN_M   = 30;
-    var _wid = null, _lat = null, _lng = null, _on = {{ $driverIsOnline ? 'true' : 'false' }}, _send = false;
+    var MIN_M = 30;
+    var HEARTBEAT_MS = 45000;
+    var _wid = null, _lat = null, _lng = null, _lastSentAt = 0, _on = {{ $driverIsOnline ? 'true' : 'false' }}, _send = false;
     var gpsBar = document.getElementById('gpsBar');
     var gpsLabel = document.getElementById('gpsLabel');
 
@@ -1507,16 +1508,18 @@ document.addEventListener('DOMContentLoaded', function(){
 
     function send(pos){
         var la=pos.coords.latitude,ln=pos.coords.longitude;
-        if (_lat!==null && hdist(_lat,_lng,la,ln)<MIN_M) {
+        var capturedAt = pos.timestamp ? new Date(pos.timestamp) : new Date();
+        var stationary = _lat!==null && hdist(_lat,_lng,la,ln)<MIN_M;
+        if (stationary && Date.now() - _lastSentAt < HEARTBEAT_MS) {
             setGps('active', 'Position OK · ' + new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}));
             return;
         }
         if (_send) return; _send=true;
         setGps('active', 'Envoi de la position...');
-        fetch(GPS_URL,{method:'POST',headers:{'X-CSRF-TOKEN':CSRF,'Content-Type':'application/json','Accept':'application/json'},credentials:'same-origin',body:JSON.stringify({latitude:la,longitude:ln,accuracy:pos.coords.accuracy||null,heading:pos.coords.heading||null,speed:pos.coords.speed||null})})
+        fetch(GPS_URL,{method:'POST',headers:{'X-CSRF-TOKEN':CSRF,'Content-Type':'application/json','Accept':'application/json'},credentials:'same-origin',body:JSON.stringify({latitude:la,longitude:ln,accuracy:pos.coords.accuracy||null,heading:pos.coords.heading||null,speed:pos.coords.speed||null,recorded_at:capturedAt.toISOString()})})
         .then(function(r){return r.ok?r.json():null;})
         .then(function(d){
-            if(d&&d.status){_lat=la;_lng=ln; setGps('active', 'Position envoyée · ' + new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}));}
+            if(d&&d.status){if(!d.stale){_lat=la;_lng=ln;_lastSentAt=Date.now();} setGps('active', d.stale?'Ancienne position ignorée':'Position envoyée · ' + new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}));}
             else setGps('error', 'Erreur serveur · réessai en cours');
         })
         .catch(function(){ setGps('error', 'Connexion perdue · réessai...'); })
