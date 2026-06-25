@@ -38,6 +38,10 @@ class DriverTransportController extends Controller
 
         $requests = TransportBooking::where('status', TransportStatus::REQUESTED)
             ->whereNull('driver_id')
+            ->where(function ($query) {
+                $query->whereNull('scheduled_at')
+                    ->orWhere('scheduled_at', '<=', now()->addMinutes(5));
+            })
             ->whereBetween('pickup_lat', [$lat - $latDelta, $lat + $latDelta])
             ->whereBetween('pickup_lng', [$lng - $lngDelta, $lng + $lngDelta])
             ->orderBy('created_at', 'desc')
@@ -78,6 +82,10 @@ class DriverTransportController extends Controller
                     return null;
                 }
 
+                if (! $this->isDispatchableNow($booking)) {
+                    return 'scheduled_not_ready';
+                }
+
                 $booking->update([
                     'driver_id' => $driver->id,
                     'vehicle_id' => $vehicle->id,
@@ -87,6 +95,12 @@ class DriverTransportController extends Controller
             });
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $exception) {
             return response()->json(['error' => 'Course introuvable'], 404);
+        }
+
+        if ($booking === 'scheduled_not_ready') {
+            return response()->json([
+                'error' => 'Cette course est programmée pour plus tard. Elle sera disponible quelques minutes avant le départ.',
+            ], 409);
         }
 
         if (! $booking) {
@@ -158,5 +172,10 @@ class DriverTransportController extends Controller
     protected function resolveDriverFromAuthUser(): ?Driver
     {
         return $this->authenticatedDriverResolver->current();
+    }
+
+    protected function isDispatchableNow(TransportBooking $booking): bool
+    {
+        return ! $booking->scheduled_at || $booking->scheduled_at->lte(now()->addMinutes(5));
     }
 }
