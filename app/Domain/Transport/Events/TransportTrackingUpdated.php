@@ -14,32 +14,29 @@ class TransportTrackingUpdated implements ShouldBroadcast
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
-    public function __construct(
-        public string $booking_uuid,
-        public float $lat,
-        public float $lng,
-        public ?float $speed,
-        public string $recorded_at,
-        public ?int $tracking_point_id = null
-    ) {
-    }
+    public string $booking_uuid;
+    public float $lat;
+    public float $lng;
+    public ?float $speed;
+    public string $recorded_at;
+    public ?int $tracking_point_id;
 
-    public static function fromBooking(
+    public function __construct(
         TransportBooking $booking,
         float $lat,
         float $lng,
-        ?float $speed,
-        CarbonInterface $recordedAt,
+        ?float $speed = null,
+        CarbonInterface|string|null $recordedAt = null,
         ?int $trackingPointId = null
-    ): self {
-        return new self(
-            $booking->uuid,
-            $lat,
-            $lng,
-            $speed,
-            $recordedAt->toIso8601String(),
-            $trackingPointId
-        );
+    ) {
+        $this->booking_uuid = $booking->uuid;
+        $this->lat = $lat;
+        $this->lng = $lng;
+        $this->speed = $speed;
+        $this->recorded_at = $recordedAt instanceof CarbonInterface
+            ? $recordedAt->toIso8601String()
+            : ($recordedAt ?: now()->toIso8601String());
+        $this->tracking_point_id = $trackingPointId;
     }
 
     public function broadcastOn(): PrivateChannel
