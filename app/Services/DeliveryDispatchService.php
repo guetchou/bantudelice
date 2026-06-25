@@ -9,8 +9,7 @@ use App\Restaurant;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Responsabilité unique : trouver, scorer et sélectionner des livreurs disponibles
- * pour un restaurant donné, calculer les fenêtres de livraison et de préparation.
+ * Sélection géographique des livreurs réellement opérationnels.
  */
 class DeliveryDispatchService
 {
@@ -20,7 +19,12 @@ class DeliveryDispatchService
         ?float $targetLng = null,
         float $radiusKm = 8.0
     ): int {
-        return $this->operationalDriversForRestaurant($restaurant, $targetLat, $targetLng, $radiusKm)->count();
+        return $this->operationalDriversForRestaurant(
+            $restaurant,
+            $targetLat,
+            $targetLng,
+            $radiusKm
+        )->count();
     }
 
     public function bestOperationalDriverForRestaurant(
@@ -29,7 +33,12 @@ class DeliveryDispatchService
         ?float $targetLng = null,
         float $radiusKm = 8.0
     ): ?Driver {
-        return $this->operationalDriversForRestaurant($restaurant, $targetLat, $targetLng, $radiusKm)->first();
+        return $this->operationalDriversForRestaurant(
+            $restaurant,
+            $targetLat,
+            $targetLng,
+            $radiusKm
+        )->first();
     }
 
     public function estimateDeliveryWindowForRestaurant(
@@ -84,7 +93,9 @@ class DeliveryDispatchService
                 'min' => $windowMin,
                 'max' => $windowMax,
             ],
-            'next_capacity_check_minutes' => $bestDriver ? 0 : max(6, min(18, (int) ceil(($prepWindow['min'] ?? 18) / 2))),
+            'next_capacity_check_minutes' => $bestDriver
+                ? 0
+                : max(6, min(18, (int) ceil(($prepWindow['min'] ?? 18) / 2))),
         ];
     }
 
@@ -139,12 +150,21 @@ class DeliveryDispatchService
                     ->orWhereNull('restaurant_id');
             });
 
+        if (Schema::hasColumn('drivers', 'approved')) {
+            $drivers->where('approved', true);
+        }
         if (Schema::hasColumn('drivers', 'status')) {
             $drivers->where('status', 'online');
         }
-
         if (Schema::hasColumn('drivers', 'is_available')) {
             $drivers->where('is_available', true);
+        }
+
+        if (Schema::hasTable('driver_locations')) {
+            $freshAfter = now()->subSeconds($this->locationFreshnessSeconds());
+            $drivers->whereHas('locations', function ($query) use ($freshAfter) {
+                $query->where('timestamp', '>=', $freshAfter);
+            });
         }
 
         $drivers = $drivers
@@ -156,16 +176,12 @@ class DeliveryDispatchService
         $restaurantLng = $restaurant->longitude !== null ? (float) $restaurant->longitude : null;
 
         return $drivers->filter(function (Driver $driver) use ($restaurant, $restaurantLat, $restaurantLng, $radiusKm) {
-            if (!$this->driverCanTakeNewDelivery($driver)) {
+            if (! $this->driverCanTakeNewDelivery($driver)) {
                 return false;
             }
 
-            if ((int) $driver->restaurant_id === (int) $restaurant->id) {
-                return true;
-            }
-
             if ($restaurantLat === null || $restaurantLng === null) {
-                return true;
+                return (int) $driver->restaurant_id === (int) $restaurant->id;
             }
 
             return $this->haversineKm(
@@ -174,39 +190,43 @@ class DeliveryDispatchService
                 $restaurantLat,
                 $restaurantLng
             ) <= $radiusKm;
-        })->sortBy(function (Driver $driver) use ($restaurant, $targetLat, $targetLng, $restaurantLat, $restaurantLng) {
-            $referenceLat = $restaurantLat;
-            $referenceLng = $restaurantLng;
-
-            if ($targetLat !== null && $targetLng !== null) {
-                $referenceLat = $targetLat;
-                $referenceLng = $targetLng;
-            }
-
-            if ($referenceLat === null || $referenceLng === null) {
+        })->sortBy(function (Driver $driver) use ($restaurantLat, $restaurantLng) {
+            if ($restaurantLat === null || $restaurantLng === null) {
                 return 0;
             }
 
             return $this->haversineKm(
                 (float) $driver->latitude,
                 (float) $driver->longitude,
-                $referenceLat,
-                $referenceLng
+                $restaurantLat,
+                $restaurantLng
             );
         })->values();
     }
 
     public function driverCanTakeNewDelivery(Driver $driver): bool
     {
+        if (! (bool) $driver->approved) {
+            return false;
+        }
         if (Schema::hasColumn('drivers', 'status') && $driver->status !== 'online') {
             return false;
         }
-
-        if (Schema::hasColumn('drivers', 'is_available') && !$driver->is_available) {
+        if (Schema::hasColumn('drivers', 'is_available') && ! $driver->is_available) {
             return false;
         }
 
-        $activeDeliveries = \App\Delivery::where('driver_id', $driver->id)
+        if (Schema::hasTable('driver_locations')) {
+            $hasFreshLocation = $driver->locations()
+                ->where('timestamp', '>=', now()->subSeconds($this->locationFreshnessSeconds()))
+                ->exists();
+
+            if (! $hasFreshLocation) {
+                return false;
+            }
+        }
+
+        $activeDeliveries = Delivery::where('driver_id', $driver->id)
             ->whereIn('status', ['ASSIGNED', 'PICKED_UP', 'ON_THE_WAY'])
             ->count();
 
@@ -224,5 +244,10 @@ class DeliveryDispatchService
             * sin($dLng / 2) * sin($dLng / 2);
 
         return $earthRadius * 2 * atan2(sqrt($a), sqrt(1 - $a));
+    }
+
+    private function locationFreshnessSeconds(): int
+    {
+        return max(60, (int) config('food.dispatch.location_freshness_seconds', 180));
     }
 }

@@ -14,10 +14,10 @@ class Kernel extends ConsoleKernel
 
     protected function schedule(Schedule $schedule)
     {
-        $schedule->call(function () {
-            $result = app(\App\Services\DispatchService::class)->processPendingDeliveries(20);
-            \Log::info('Dispatch automatique exécuté', $result);
-        })->name('dispatch-automatique')->everyTwoMinutes()->withoutOverlapping();
+        $schedule->command('dispatch:process-pending --limit=20')
+            ->everyTwoMinutes()
+            ->name('dispatch-offres-livreurs')
+            ->withoutOverlapping();
 
         $schedule->call(function () {
             $reconciliationService = new \App\Services\PaymentReconciliationService();
@@ -81,11 +81,6 @@ class Kernel extends ConsoleKernel
         $schedule->command('db:optimize')
             ->dailyAt('03:00')
             ->name('db-optimize')
-            ->withoutOverlapping();
-
-        $schedule->command('dispatch:process-pending --limit=20')
-            ->everyFiveMinutes()
-            ->name('dispatch-process-pending')
             ->withoutOverlapping();
 
         $schedule->command('food:expire-unpaid-accepted')

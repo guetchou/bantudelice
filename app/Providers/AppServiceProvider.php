@@ -11,7 +11,11 @@ use App\Domain\Payment\Adapters\MtnMomoAdapter;
 use App\Domain\Payment\Adapters\PayPalAdapter;
 use App\Domain\Payment\PaymentGatewayFactory;
 use App\Services\CheckoutService;
+use App\Services\DeliveryService;
+use App\Services\DispatchService;
 use App\Services\FoodOrderStateMachineService;
+use App\Services\SecureDeliveryService;
+use App\Services\SecureDispatchService;
 use App\Services\WorkflowCheckoutService;
 use App\Services\WorkflowFoodOrderStateMachineService;
 use Illuminate\Support\ServiceProvider;
@@ -22,6 +26,8 @@ class AppServiceProvider extends ServiceProvider
     {
         $this->app->singleton(CheckoutService::class, WorkflowCheckoutService::class);
         $this->app->bind(CheckoutOrchestratorInterface::class, WorkflowCheckoutService::class);
+        $this->app->singleton(DeliveryService::class, SecureDeliveryService::class);
+        $this->app->singleton(DispatchService::class, SecureDispatchService::class);
         $this->app->singleton(
             FoodOrderStateMachineService::class,
             WorkflowFoodOrderStateMachineService::class

@@ -4,8 +4,8 @@ namespace App\Jobs;
 
 use App\Delivery;
 use App\DeliveryOffer;
+use App\Services\CommerceSignalService;
 use App\Services\DispatchService;
-use App\Services\FoodOrderStateMachineService;
 use App\Services\NotificationService;
 use App\Services\ProgressiveDispatchPlan;
 use Illuminate\Bus\Queueable;
@@ -17,8 +17,7 @@ use Illuminate\Queue\SerializesModels;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Broadcast une offre de livraison aux meilleurs livreurs du rayon courant.
- * Le rayon est élargi à chaque round jusqu'au dernier palier configuré.
+ * Offre une mission aux meilleurs livreurs. Aucune assignation n'est imposée.
  */
 class BroadcastDeliveryOfferJob implements ShouldQueue
 {
@@ -48,12 +47,8 @@ class BroadcastDeliveryOfferJob implements ShouldQueue
         }
 
         $order = $delivery->order;
-        if (! $order || ! in_array(
-            $order->business_status,
-            FoodOrderStateMachineService::DISPATCHABLE_BUSINESS_STATUSES,
-            true
-        )) {
-            Log::warning('BroadcastDeliveryOffer: commande non dispatchable, job ignoré', [
+        if (! $order || $order->business_status !== 'ready_for_pickup') {
+            Log::warning('BroadcastDeliveryOffer: commande non prête, job ignoré', [
                 'delivery_id' => $this->deliveryId,
                 'round' => $this->round,
                 'business_status' => $order?->business_status,
@@ -62,15 +57,13 @@ class BroadcastDeliveryOfferJob implements ShouldQueue
         }
 
         if ($this->round > $plan->maxRounds()) {
-            Log::warning('BroadcastDeliveryOffer: paliers épuisés, assignation de dernier recours', [
-                'delivery_id' => $this->deliveryId,
-                'round' => $this->round,
-            ]);
-            $dispatchService->autoAssignResult($delivery);
+            $this->scheduleConsentRetry($delivery);
             return;
         }
 
+        $cooldownMinutes = max(5, (int) config('food.dispatch.reoffer_cooldown_minutes', 10));
         $alreadyOffered = DeliveryOffer::where('delivery_id', $this->deliveryId)
+            ->where('created_at', '>=', now()->subMinutes($cooldownMinutes))
             ->pluck('driver_id')
             ->toArray();
 
@@ -90,7 +83,7 @@ class BroadcastDeliveryOfferJob implements ShouldQueue
             ]);
 
             if ($this->round >= $plan->maxRounds()) {
-                $dispatchService->autoAssignResult($delivery);
+                $this->scheduleConsentRetry($delivery);
                 return;
             }
 
@@ -132,29 +125,28 @@ class BroadcastDeliveryOfferJob implements ShouldQueue
     {
         $order = $delivery->order;
         $orderNo = $order->order_no ?? '—';
-        $restName = $order->restaurant->name ?? 'Restaurant';
+        $restaurantName = $order->restaurant->name ?? 'Restaurant';
+        $portalUrl = url('/driver/deliveries');
 
         try {
             NotificationService::sendToDriver(
                 $driver->id,
-                '🛵 Nouvelle mission disponible',
-                "Commande #{$orderNo} — {$restName}. Acceptez dans {$offerWindow}s.",
-                'newDeliveryOffer',
-                $driver->id,
-                'driver',
+                'Nouvelle mission disponible',
+                "Commande #{$orderNo} — {$restaurantName}. Acceptez dans {$offerWindow}s.",
                 [
+                    'key' => 'newDeliveryOffer',
                     'module' => 'food',
                     'order_no' => $orderNo,
                     'delivery_id' => $delivery->id,
                     'expires_at' => $expiresAt->toIso8601String(),
-                    'accept_url' => url('/driver/deliveries/' . $delivery->id . '/offer/accept'),
-                    'decline_url' => url('/driver/deliveries/' . $delivery->id . '/offer/decline'),
+                    'route_path' => '/driver/deliveries',
+                    'deep_link' => 'bantudelice://food/delivery-offers/' . $delivery->id,
                     'audio_cue' => 'driver_order_assignment',
                     'sound_key' => 'food_driver_mission',
                 ]
             );
         } catch (\Throwable $e) {
-            Log::warning('BroadcastDeliveryOffer: notification driver échouée', [
+            Log::warning('BroadcastDeliveryOffer: notification livreur échouée', [
                 'driver_id' => $driver->id,
                 'error' => $e->getMessage(),
             ]);
@@ -162,30 +154,52 @@ class BroadcastDeliveryOfferJob implements ShouldQueue
 
         try {
             if ($driver->email ?? false) {
-                $acceptUrl = url('/driver/deliveries/' . $delivery->id . '/offer/accept');
-                $declineUrl = url('/driver/deliveries/' . $delivery->id . '/offer/decline');
-                \Illuminate\Support\Facades\Mail::send([], [], function ($message) use ($driver, $orderNo, $restName, $acceptUrl, $declineUrl, $offerWindow) {
+                \Illuminate\Support\Facades\Mail::send([], [], function ($message) use ($driver, $orderNo, $restaurantName, $portalUrl, $offerWindow) {
                     $message->to($driver->email, $driver->name ?? 'Livreur')
                         ->subject("Nouvelle mission #{$orderNo} — BantuDelice")
                         ->html(
                             "<div style='font-family:sans-serif;max-width:520px;margin:0 auto;padding:24px;'>"
                             . "<h2 style='color:#009543;'>Nouvelle mission disponible</h2>"
-                            . "<p>Commande <strong>#{$orderNo}</strong> depuis <strong>{$restName}</strong>.</p>"
-                            . "<p>Vous avez <strong>{$offerWindow} secondes</strong> pour accepter.</p>"
-                            . "<p><a href='{$acceptUrl}'>Accepter</a> · <a href='{$declineUrl}'>Refuser</a></p>"
-                            . "</div>"
+                            . "<p>Commande <strong>#{$orderNo}</strong> depuis <strong>{$restaurantName}</strong>.</p>"
+                            . "<p>Vous avez <strong>{$offerWindow} secondes</strong> pour répondre depuis votre espace sécurisé.</p>"
+                            . "<p><a href='{$portalUrl}'>Ouvrir l’espace livreur</a></p>"
+                            . '</div>'
                         );
                 });
             }
         } catch (\Throwable $e) {
-            Log::warning('BroadcastDeliveryOffer: email driver échoué', ['driver_id' => $driver->id]);
+            Log::warning('BroadcastDeliveryOffer: e-mail livreur échoué', [
+                'driver_id' => $driver->id,
+                'error' => $e->getMessage(),
+            ]);
         }
+    }
+
+    private function scheduleConsentRetry(Delivery $delivery): void
+    {
+        $retrySeconds = max(120, (int) config('food.dispatch.exhausted_retry_seconds', 300));
+
+        Log::warning('BroadcastDeliveryOffer: paliers épuisés, nouvelle recherche planifiée sans assignation forcée', [
+            'delivery_id' => $delivery->id,
+            'round' => $this->round,
+            'retry_seconds' => $retrySeconds,
+        ]);
+
+        app(CommerceSignalService::class)->emitDelivery($delivery, 'delivery.dispatch_exhausted', [
+            'module' => 'food',
+            'severity' => 'warning',
+            'technical_status' => 'driver_timeout',
+            'retry_seconds' => $retrySeconds,
+        ]);
+
+        self::dispatch($delivery->id, 1)->delay(now()->addSeconds($retrySeconds));
     }
 
     public function middleware(): array
     {
         return [
-            (new WithoutOverlapping("food:broadcast-offer-delivery:{$this->deliveryId}:{$this->round}"))->expireAfter(120),
+            (new WithoutOverlapping("food:broadcast-offer-delivery:{$this->deliveryId}:{$this->round}"))
+                ->expireAfter(120),
         ];
     }
 }

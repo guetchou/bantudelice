@@ -20,9 +20,6 @@ class DriverLocationIngestionService
     }
 
     /**
-     * Persist one GPS sample without allowing an old/retried sample to move the
-     * driver's current position backwards in time.
-     *
      * @return array{accepted:bool, duplicate:bool, stale:bool, location:?DriverLocation, driver:Driver}
      */
     public function ingest(
@@ -31,11 +28,19 @@ class DriverLocationIngestionService
         bool $markOnline = true,
         bool $broadcast = true
     ): array {
+        if (! (bool) $driver->approved) {
+            throw new \RuntimeException('Un compte livreur non approuvé ne peut pas publier de position.');
+        }
+
         $recordedAt = $this->resolveRecordedAt($payload['recorded_at'] ?? null);
 
         $result = DB::transaction(function () use ($driver, $payload, $recordedAt, $markOnline): array {
             /** @var Driver $lockedDriver */
             $lockedDriver = Driver::query()->lockForUpdate()->findOrFail($driver->id);
+
+            if (! (bool) $lockedDriver->approved) {
+                throw new \RuntimeException('Le compte livreur a été suspendu ou n’est pas approuvé.');
+            }
 
             /** @var DriverLocation|null $latest */
             $latest = DriverLocation::query()
