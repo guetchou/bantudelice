@@ -36,7 +36,9 @@ jobs:
           set +e
           php artisan test tests/Feature/Food/CustomerOrderTimelinePageTest.php --stop-on-failure > /tmp/result.txt 2>&1
           C=$?
-          L=$(grep -E 'Failed asserting|Expected response|Exception|Error|Call to|Undefined' /tmp/result.txt | head -n 1)
+          L=$(grep -F 'Missing timeline marker:' /tmp/result.txt | head -n 1)
+          if [ -z "$L" ]; then L=$(grep -F 'Leaked internal marker:' /tmp/result.txt | head -n 1); fi
+          if [ -z "$L" ]; then L=$(grep -E 'Failed asserting|Expected response|Exception|Error|Call to|Undefined' /tmp/result.txt | tail -n 1); fi
           if [ -z "$L" ]; then L=$(tail -n 12 /tmp/result.txt | tr '\r\n' ' ' | tr -s ' '); fi
           L=$(printf '%s' "$L" | cut -c1-220)
           echo "result=$L" >> "$GITHUB_OUTPUT"
