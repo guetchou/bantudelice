@@ -42,6 +42,10 @@ class SecureDeliveryService extends DeliveryService
                 );
             }
 
+            if (! $lockedDelivery->order || $lockedDelivery->order->business_status !== 'ready_for_pickup') {
+                throw new \RuntimeException('La commande doit être déclarée prête avant l’assignation d’un livreur.');
+            }
+
             if (! (bool) $lockedDriver->approved) {
                 throw new \RuntimeException('Ce compte livreur n’est pas approuvé.');
             }
@@ -56,7 +60,6 @@ class SecureDeliveryService extends DeliveryService
 
             $activeDeliveries = Delivery::where('driver_id', $lockedDriver->id)
                 ->whereIn('status', ['ASSIGNED', 'PICKED_UP', 'ON_THE_WAY'])
-                ->lockForUpdate()
                 ->count();
 
             if ($activeDeliveries >= 3) {
