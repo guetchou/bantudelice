@@ -22,6 +22,7 @@ class CashCollectionController extends Controller
 
     public function index(Request $request)
     {
+        $this->validateFilters($request);
         $query = $this->filteredQuery($request);
 
         $orders = $query
@@ -58,6 +59,7 @@ class CashCollectionController extends Controller
 
     public function export(Request $request): StreamedResponse
     {
+        $this->validateFilters($request);
         $query = $this->filteredQuery($request)
             ->orderBy('orders.id');
 
@@ -84,13 +86,13 @@ class CashCollectionController extends Controller
                 foreach ($orders as $order) {
                     fputcsv($output, [
                         $order->order_no,
-                        optional($order->created_at)->timezone(config('app.timezone'))->format('d/m/Y H:i'),
+                        $this->formatDate($order->created_at),
                         $order->restaurant->name ?? '',
                         $order->driver->name ?? '',
                         $order->cash_collection_status,
                         (float) ($order->total ?? 0),
-                        optional($order->cash_collected_at)->timezone(config('app.timezone'))->format('d/m/Y H:i'),
-                        optional($order->cash_collection_confirmed_at)->timezone(config('app.timezone'))->format('d/m/Y H:i'),
+                        $this->formatDate($order->cash_collected_at),
+                        $this->formatDate($order->cash_collection_confirmed_at),
                         $order->cash_collection_reference ?? '',
                     ], ';');
                 }
@@ -138,6 +140,17 @@ class CashCollectionController extends Controller
         return $query;
     }
 
+    private function validateFilters(Request $request): void
+    {
+        $request->validate([
+            'status' => 'nullable|in:' . implode(',', self::STATUSES),
+            'restaurant_id' => 'nullable|integer|exists:restaurants,id',
+            'order_no' => 'nullable|string|max:100',
+            'date_from' => 'nullable|date_format:Y-m-d',
+            'date_to' => 'nullable|date_format:Y-m-d|after_or_equal:date_from',
+        ]);
+    }
+
     private function applyDateFilter(Builder $query, Request $request): void
     {
         if ($request->filled('date_from')) {
@@ -147,5 +160,16 @@ class CashCollectionController extends Controller
         if ($request->filled('date_to')) {
             $query->where('orders.created_at', '<=', Carbon::createFromFormat('Y-m-d', $request->query('date_to'))->endOfDay());
         }
+    }
+
+    private function formatDate($value): string
+    {
+        if (! $value) {
+            return '';
+        }
+
+        return Carbon::parse($value)
+            ->timezone(config('app.timezone'))
+            ->format('d/m/Y H:i');
     }
 }
