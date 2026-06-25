@@ -168,6 +168,7 @@
         }
         .bl-alert.error   { background: #fdecea; color: #c0392b; }
         .bl-alert.success { background: #e8f7ee; color: #1a7a40; }
+        .bl-alert.info    { background: #eef6ff; color: #1d4ed8; }
 
         /* Inputs */
         .bl-field { margin-bottom: 13px; }
@@ -435,9 +436,18 @@
             </div>
         @endif
 
+        @php($loginRedirectTarget = old('redirect', $redirectTarget ?? request('redirect')))
+        @if($loginRedirectTarget)
+            <div class="bl-alert info">
+                <i class="fas fa-route"></i>
+                <span>Connectez-vous pour continuer votre réservation.</span>
+            </div>
+        @endif
+
         {{-- Formulaire — action/csrf/champs inchangés --}}
         <form method="post" action="{{ url('login') }}" id="loginForm">
             @csrf
+            <input type="hidden" name="redirect" value="{{ $loginRedirectTarget }}">
 
             <div class="bl-field">
                 <input type="text"
