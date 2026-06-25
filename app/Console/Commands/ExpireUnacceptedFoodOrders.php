@@ -61,15 +61,17 @@ class ExpireUnacceptedFoodOrders extends Command
                         return false;
                     }
 
-                    Order::where('order_no', $orderNo)->update([
-                        'technical_status' => 'restaurant_timeout',
-                    ]);
-
                     $this->finance->cancelOrderGroup($orderNo, [
                         'actor_type' => 'system',
                         'actor_id' => null,
                         'reason_code' => 'restaurant_timeout',
                         'notes' => "Commande annulée automatiquement : aucune réponse du restaurant après {$timeoutMinutes} minute(s).",
+                    ]);
+
+                    // La machine d'état réinitialise technical_status lorsqu'aucune valeur
+                    // n'est fournie ; on persiste donc explicitement le motif technique final.
+                    Order::where('order_no', $orderNo)->update([
+                        'technical_status' => 'restaurant_timeout',
                     ]);
 
                     $this->auditLogs->record([
