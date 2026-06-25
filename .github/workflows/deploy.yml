@@ -1,35 +1,20 @@
-name: 🚀 BantuDelice - CI/CD Production
+name: BantuDelice - CI/CD Production
 
-# Déclenchement strict : uniquement un push direct sur main.
-# Interdit : branches feature, pull_request, déclenchement manuel.
-# Tout commit qui arrive sur main doit passer quality_gate avant tout déploiement.
 on:
   push:
-    branches:
-      - main
+    branches: [main]
 
-# Empêche deux déploiements simultanés. Un déploiement production en cours
-# n'est jamais interrompu brutalement par un nouveau push (cancel-in-progress: false).
 concurrency:
   group: production-deploy
   cancel-in-progress: false
 
 env:
-  PROJECT_NAME: bantudelice
-  PROJECT_PATH: /opt/bantudelice
-  DB_CONTAINER: bantudelice-db-new
   APP_URL: https://bantudelice.cg
 
 jobs:
-  # ──────────────────────────────────────────────────────────────────────
-  # GATE OBLIGATOIRE — si un seul contrôle échoue, aucun déploiement n'a lieu.
-  # ──────────────────────────────────────────────────────────────────────
   quality_gate:
-    name: 🛡️ Quality Gate
+    name: Quality Gate
     runs-on: ubuntu-latest
-    # RealtimeBroadcastEventsTest a besoin d'un vrai Redis (le driver array/log
-    # ne couvre pas tous les events diffusés) — service jetable, détruit avec
-    # le job, aucun lien avec un Redis de production.
     services:
       redis:
         image: redis:7-alpine
@@ -41,38 +26,25 @@ jobs:
           --health-timeout 5s
           --health-retries 5
     steps:
-      - name: 📥 Checkout code
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           fetch-depth: 0
 
-      - name: 📦 Setup PHP 8.3
-        uses: shivammathur/setup-php@cf4cade2721270509d5b1c766ab3549210a39a2a # v2.34.1
+      - name: Setup PHP 8.3
+        uses: shivammathur/setup-php@cf4cade2721270509d5b1c766ab3549210a39a2a
         with:
           php-version: '8.3'
           extensions: pdo, pdo_mysql, mysqli, mbstring, xml, ctype, json, tokenizer, bcmath, openssl, fileinfo
           coverage: none
 
-      - name: ✅ composer validate
+      - name: Validate Composer
         run: composer validate --strict
 
-      # storage/ n'a AUCUN fichier suivi par git dans ce repo (vérifié :
-      # git ls-files | grep '^storage/' est vide) — l'arborescence n'existe
-      # donc pas du tout après un checkout frais. Sans elle, le View Compiler
-      # de Laravel plante immédiatement ("Please provide a valid cache path").
-      - name: 📁 Créer l'arborescence storage/ (absente du checkout, voir .gitignore)
+      - name: Prepare Laravel test environment
         run: |
           mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/framework/testing storage/logs
           chmod -R 775 storage
-
-      # Il n'existe pas de .env.example dans ce repo — généré ici directement,
-      # uniquement pour ce job CI jetable (aucun lien avec le .env de production
-      # sur vps-ovh, jamais transmis ni écrasé par cette étape). .env DOIT
-      # exister avant composer install : le hook post-autoload-dump
-      # (`artisan package:discover`) démarre l'application et plante sans
-      # configuration si .env est absent.
-      - name: 🔍 Générer un .env minimal pour les tests (CI uniquement)
-        run: |
           cat > .env <<'ENVEOF'
           APP_NAME=BantuDelice
           APP_ENV=testing
@@ -91,86 +63,40 @@ jobs:
           REDIS_PORT=6379
           ENVEOF
 
-      # Installation AVEC dépendances dev : nécessaire pour exécuter PHPUnit
-      # dans ce job. L'installation de production (--no-dev) a lieu séparément
-      # sur le serveur pendant le déploiement réel (job deploy ci-dessous).
-      - name: 📥 Install dependencies (with dev, pour les tests)
+      - name: Install PHP dependencies
         run: composer install --no-interaction --prefer-dist --optimize-autoloader
 
-      - name: 🔑 Generate application key
-        run: php artisan key:generate --ansi
-
-      # laravel/passport ^12 est utilisé par plusieurs routes API testées
-      # (OrderTrackingApiTest, PaymentApiTest, TransportApiTest...). Sans ces
-      # clés, le serveur OAuth2 plante avec "Invalid key supplied". Clés
-      # jetables générées dans ce job CI uniquement, sans rapport avec celles
-      # de production.
-      - name: 🔑 Générer les clés Passport (CI uniquement)
-        run: php artisan passport:keys --force
-
-      - name: 🔍 PHP lint (php -l)
+      - name: Prepare application
         run: |
-          set -e
-          find app config database routes tests -name '*.php' -print0 \
-            | xargs -0 -n1 php -l
+          php artisan key:generate --ansi
+          php artisan passport:keys --force
 
-      - name: 🧪 php artisan test
+      - name: PHP syntax
+        run: find app config database routes tests -name '*.php' -print0 | xargs -0 -n1 php -l
+
+      - name: Test suite
         run: php artisan test
 
-      - name: 🧪 php artisan route:list (intégrité du fichier de routes)
-        run: php artisan route:list > /dev/null
-
-      - name: 🧪 Sanity check config (cache puis clear immédiat, environnement jetable uniquement)
+      - name: Route and configuration checks
         run: |
+          php artisan route:list > /dev/null
           php artisan config:cache
           php artisan config:clear
 
-      # Build npm DÉSACTIVÉ TEMPORAIREMENT : assets compilés (public/css/app.css,
-      # public/js/app.js, mix-manifest.json) déjà commités et à jour. La chaîne
-      # Laravel Mix/Webpack est actuellement incompatible (babel-loader@10 et
-      # style-loader@4 exigent webpack 5, laravel-mix@5 génère une config au
-      # format webpack4 que webpack5 rejette) — un build non-bloquant ne serait
-      # pas un vrai contrôle qualité. Chantier séparé : voir issue dédiée
-      # "chore(frontend): réparer la chaîne build npm Laravel Mix/Webpack".
-      #
-      # Garde-fou : si ce push modifie des sources frontend, le build doit être
-      # réparé avant de pouvoir merger sans risque — on bloque explicitement
-      # plutôt que de laisser passer un changement non vérifié.
-      - name: 🚧 Bloquer si des sources frontend ont changé (build npm désactivé)
-        run: |
-          BEFORE="${{ github.event.before }}"
-          if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
-            RANGE="${{ github.sha }}~1..${{ github.sha }}"
-          else
-            RANGE="$BEFORE..${{ github.sha }}"
-          fi
-          CHANGED=$(git diff --name-only "$RANGE" -- resources/js resources/sass webpack.mix.js package.json package-lock.json)
-          if [ -n "$CHANGED" ]; then
-            echo "❌ Ce push modifie des sources frontend, mais le build npm est désactivé (chaîne Laravel Mix/Webpack cassée) :"
-            echo "$CHANGED"
-            echo "❌ Réparer la chaîne build (voir issue dédiée) avant de merger ce changement."
-            exit 1
-          fi
-          echo "✅ Aucune source frontend modifiée — build npm désactivé sans risque pour ce push."
+      - name: Setup Node 20
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+        with:
+          node-version: '20'
 
-      - name: 🔒 Vérifier que .env n'est pas commité
-        run: |
-          if git ls-files | grep -qx '\.env'; then
-            echo "❌ .env est suivi par git — ne doit jamais être commité."
-            exit 1
-          fi
-          echo "✅ .env non suivi par git."
+      - name: Deterministic frontend build
+        run: MIN_NODE_MAJOR=20 REQUIRE_EXACT_NODE_MAJOR=1 bash scripts/ci/verify_frontend_build.sh
 
-      - name: 🔒 Vérifier qu'aucun fichier storage/ n'est suivi par git
+      - name: Repository hygiene
         run: |
-          if git ls-files | grep -q '^storage/'; then
-            echo "❌ Des fichiers sous storage/ sont suivis par git :"
-            git ls-files | grep '^storage/'
-            exit 1
-          fi
-          echo "✅ Aucun fichier storage/ suivi par git."
+          ! git ls-files | grep -qx '.env'
+          ! git ls-files | grep -q '^storage/'
 
-      - name: 🔒 Scan de secrets sur les commits de ce push
+      - name: Secret scan for this push
         run: |
           set -e
           BEFORE="${{ github.event.before }}"
@@ -180,316 +106,99 @@ jobs:
             RANGE="$BEFORE..${{ github.sha }}"
           fi
           PATTERN='-----BEGIN (RSA|EC|OPENSSH|DSA|PGP) PRIVATE KEY-----|AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{30,}|glpat-[A-Za-z0-9_-]{20,}|sk_live_[A-Za-z0-9]{20,}|AIza[0-9A-Za-z_-]{30,}'
-          if git diff "$RANGE" | grep -E "$PATTERN" > /tmp/secret_hits.txt; then
-            echo "❌ Motif de secret détecté dans ce push :"
-            cat /tmp/secret_hits.txt
-            exit 1
-          fi
-          echo "✅ Aucun motif de secret connu détecté dans ce diff."
+          ! git diff "$RANGE" | grep -E "$PATTERN"
 
-      - name: 🔒 Vérifier que track.order reste protégée (auth + module:food)
+      - name: Keep order tracking protected
         run: |
           LINE=$(grep -n "track-order/{orderNo?}" routes/web.php || true)
-          if [ -z "$LINE" ]; then
-            echo "❌ Route track.order introuvable dans routes/web.php."
-            exit 1
-          fi
-          echo "$LINE"
-          if ! echo "$LINE" | grep -q "'auth'" || ! echo "$LINE" | grep -q "'module:food'"; then
-            echo "❌ La route track.order n'a plus le middleware ['auth', 'module:food'] — régression de sécurité (L9)."
-            exit 1
-          fi
-          echo "✅ track.order protégée par auth + module:food."
+          test -n "$LINE"
+          echo "$LINE" | grep -q "'auth'"
+          echo "$LINE" | grep -q "'module:food'"
 
-  # ──────────────────────────────────────────────────────────────────────
-  # DÉPLOIEMENT — uniquement si quality_gate est entièrement vert, sur main.
-  # ──────────────────────────────────────────────────────────────────────
   deploy:
-    name: 🚀 Deploy to Production
+    name: Deploy to Production
     needs: [quality_gate]
-    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     environment: production
-
     steps:
-      - name: 🔐 Setup SSH
-        uses: webfactory/ssh-agent@dc588b651fe13675774614f8e6a936a468676387 # v0.9.0
+      - name: Checkout deployment scripts
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@dc588b651fe13675774614f8e6a936a468676387
         with:
           ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
 
-      - name: 🔑 Add server to known hosts
+      - name: Trust production host
         run: ssh-keyscan -H ${{ secrets.DEPLOY_HOST }} >> ~/.ssh/known_hosts
 
-      - name: 🏗️ Build and Deploy
-        id: deploy
+      - name: Deploy verified commit
         run: |
           ssh ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} \
             DEPLOY_SHA="${{ github.sha }}" \
-            'bash -s' << 'DEPLOY_SCRIPT'
-            set -e
+            'bash -s' < scripts/deploy/production.sh
 
-            PROJECT_PATH="/opt/bantudelice"
-            PROJECT_NAME="bantudelice"
-            DB_CONTAINER="bantudelice-db-new"
-            BACKUPS_ROOT="/opt/backups/bantudelice"
-
-            echo "🚀 Starting deployment of $PROJECT_NAME (target: $DEPLOY_SHA)..."
-            cd "$PROJECT_PATH"
-
-            # Garde-fou : ne jamais écraser des modifications serveur non commitées.
-            # On filtre les fichiers non-trackés (??) : git reset --hard ne les touche
-            # jamais (images uploadées, logs, backups locaux restent intacts).
-            # Seuls les fichiers trackés modifiés/supprimés justifient un arrêt.
-            if [ -n "$(git status --porcelain | grep -v '^??')" ]; then
-              echo "❌ Fichiers trackés modifiés sur le serveur — déploiement annulé :"
-              git status --porcelain | grep -v '^??'
-              echo "❌ Committer ou reverter ces fichiers avant de déployer."
-              exit 1
-            fi
-
-            # Mémoriser le commit actuellement en prod, pour un rollback éventuel.
-            PREVIOUS_SHA=$(git rev-parse HEAD)
-            mkdir -p "$BACKUPS_ROOT"
-            echo "$PREVIOUS_SHA" > "$BACKUPS_ROOT/.previous_sha"
-            echo "ℹ️  Commit actuellement en prod (rollback target si besoin) : $PREVIOUS_SHA"
-
-            # Sauvegarde .env + DB avant tout changement
-            BACKUP_DIR="$BACKUPS_ROOT/$(date +%Y%m%d_%H%M%S)"
-            mkdir -p "$BACKUP_DIR"
-            echo "ℹ️  Répertoire de sauvegarde de ce déploiement : $BACKUP_DIR"
-            [ -f .env ] && cp .env "$BACKUP_DIR/.env.backup"
-
-            if docker ps --format '{{.Names}}' | grep -qx "$DB_CONTAINER"; then
-              echo "💾 Backing up database..."
-              DB_NAME=$(grep -E '^DB_DATABASE=' .env | cut -d= -f2-)
-              DB_USER=$(grep -E '^DB_USERNAME=' .env | cut -d= -f2-)
-              DB_PASS=$(grep -E '^DB_PASSWORD=' .env | cut -d= -f2-)
-              docker exec -e MYSQL_PWD="$DB_PASS" "$DB_CONTAINER" mysqldump -u "$DB_USER" "$DB_NAME" > "$BACKUP_DIR/database.sql" 2>/dev/null \
-                || echo "⚠️  Could not backup database"
-            else
-              echo "⚠️  Conteneur $DB_CONTAINER introuvable — backup DB ignoré"
-            fi
-
-            # Récupérer exactement le commit testé par quality_gate (pas "origin/main"
-            # au cas où main aurait avancé depuis le déclenchement du workflow).
-            echo "📥 Fetching and checking out $DEPLOY_SHA..."
-            git fetch origin
-            git reset --hard "$DEPLOY_SHA"
-
-            # Dépendances de production
-            echo "📦 Installing dependencies (no-dev)..."
-            composer install --no-interaction --prefer-dist --optimize-autoloader --no-dev
-
-            # Build npm DÉSACTIVÉ TEMPORAIREMENT sur le serveur : assets compilés
-            # déjà commités et à jour (chaîne Laravel Mix/Webpack incompatible,
-            # voir commentaire équivalent dans quality_gate et issue dédiée).
-            # Le garde-fou de quality_gate bloque déjà tout push qui modifierait
-            # les sources frontend tant que ce chantier n'est pas réparé.
-
-            # Migrations — fenêtre de maintenance la plus courte possible,
-            # uniquement si des migrations sont réellement en attente.
-            MIGRATIONS_RAN="false"
-            PENDING=$(php artisan migrate:status 2>/dev/null | grep -c 'Pending' || true)
-            if [ "$PENDING" != "0" ]; then
-              echo "🔄 Migrations en attente détectées — passage en mode maintenance court."
-              php artisan down --retry=15 || true
-              if php artisan migrate --force; then
-                MIGRATIONS_RAN="true"
-                touch "$BACKUP_DIR/.migrations_ran"
-              else
-                echo "❌ Migration failed."
-                php artisan up || true
-                exit 1
-              fi
-              php artisan up
-            else
-              echo "⏭️  Aucune migration en attente — pas de fenêtre de maintenance."
-            fi
-            echo "ℹ️  migrations_ran=$MIGRATIONS_RAN"
-
-            # RÈGLE PROJET — INCIDENT DU 2026-06-19 :
-            # config:cache / route:cache / view:cache / optimize (sans :clear) ont déjà
-            # causé un 500 sur ce HTTP/PHP-FPM. INTERDIT de les exécuter en prod.
-            # Seules les commandes *:clear sont autorisées après déploiement.
-            echo "🧹 Clearing caches (clear uniquement — jamais cache, voir incident 2026-06-19)..."
-            php artisan optimize:clear || true
-            php artisan config:clear || true
-            php artisan route:clear || true
-            php artisan view:clear || true
-            php artisan cache:clear || true
-
-            echo "🔄 Reloading PHP-FPM 8.3..."
-            systemctl reload php8.3-fpm || sudo systemctl reload php8.3-fpm || echo "⚠️  Could not reload php8.3-fpm"
-
-            echo "🔄 Restarting queue workers..."
-            php artisan queue:restart || true
-            supervisorctl restart bantudelice-worker:* || sudo supervisorctl restart bantudelice-worker:* || echo "⚠️  Could not restart queue workers"
-
-            # Tous les artisan (y compris queue:restart) tournent comme root via SSH et peuvent
-            # écrire des entrées de cache (ex : signal de restart) en owner=root.
-            # PHP-FPM (www-data) ne peut pas écrire dans des répertoires root:0755 → 500.
-            # Ce chown doit être la DERNIÈRE opération avant de rendre la main.
-            echo "🔑 Fixing storage/ ownership for PHP-FPM (www-data)..."
-            chown -R www-data:www-data /opt/bantudelice/storage/ || true
-
-            echo "✅ Deployment script completed. New HEAD: $(git rev-parse HEAD)"
-          DEPLOY_SCRIPT
-
-  # ──────────────────────────────────────────────────────────────────────
-  # SMOKE TESTS — obligatoires après chaque déploiement.
-  # ──────────────────────────────────────────────────────────────────────
   smoke_test:
-    name: 🔥 Smoke Tests
+    name: Smoke Tests
     needs: [deploy]
     runs-on: ubuntu-latest
-    # environment requis : les secrets DEPLOY_USER / DEPLOY_HOST / DEPLOY_SSH_KEY
-    # sont scopés à l'environnement "production" — sans cette ligne les secrets
-    # sont vides et le step SSH log échoue silencieusement.
     environment: production
     steps:
-      - name: 🔐 Setup SSH
-        uses: webfactory/ssh-agent@dc588b651fe13675774614f8e6a936a468676387 # v0.9.0
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@dc588b651fe13675774614f8e6a936a468676387
         with:
           ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
 
-      - name: 🔑 Add server to known hosts
+      - name: Trust production host
         run: ssh-keyscan -H ${{ secrets.DEPLOY_HOST }} >> ~/.ssh/known_hosts
 
-      - name: 🌐 Page d'accueil (200 attendu)
+      - name: Public HTTP checks
         run: |
-          CODE=$(curl -s -o /dev/null -w '%{http_code}' "$APP_URL/")
-          echo "GET / -> $CODE"
-          [ "$CODE" = "200" ]
+          test "$(curl -sS -o /dev/null -w '%{http_code}' "$APP_URL/")" = "200"
+          test "$(curl -sS -o /dev/null -w '%{http_code}' "$APP_URL/login")" = "200"
+          test "$(curl -sS -o /dev/null -w '%{http_code}' "$APP_URL/restaurants")" = "200"
+          CHECKOUT_CODE=$(curl -sS -o /dev/null -w '%{http_code}' "$APP_URL/checkout")
+          test "$CHECKOUT_CODE" -lt 500
+          TRACK_CODE=$(curl -sS -o /dev/null -w '%{http_code}' "$APP_URL/track-order")
+          test "$TRACK_CODE" = "301" -o "$TRACK_CODE" = "302"
 
-      - name: 🌐 Login (200 attendu)
+      - name: API health
         run: |
-          CODE=$(curl -s -o /dev/null -w '%{http_code}' "$APP_URL/login")
-          echo "GET /login -> $CODE"
-          [ "$CODE" = "200" ]
-
-      - name: 🌐 Restaurants (200 attendu)
-        run: |
-          CODE=$(curl -s -o /dev/null -w '%{http_code}' "$APP_URL/restaurants")
-          echo "GET /restaurants -> $CODE"
-          [ "$CODE" = "200" ]
-
-      - name: 🌐 Checkout accessible (pas de 5xx)
-        run: |
-          CODE=$(curl -s -o /dev/null -w '%{http_code}' "$APP_URL/checkout")
-          echo "GET /checkout -> $CODE"
-          [ "$CODE" -lt "500" ]
-
-      - name: 🔒 track-order anonyme redirige vers login (302/301 attendu)
-        run: |
-          CODE=$(curl -s -o /dev/null -w '%{http_code}' "$APP_URL/track-order")
-          echo "GET /track-order (anonyme) -> $CODE"
-          [ "$CODE" = "302" ] || [ "$CODE" = "301" ]
-
-      - name: 🌐 API health (status ok attendu)
-        run: |
-          BODY=$(curl -s "$APP_URL/api/health/modules")
+          BODY=$(curl -sS "$APP_URL/api/health/modules")
           echo "$BODY"
-          echo "$BODY" | grep -q '"status":"ok"' || echo "$BODY" | grep -q '"status": "ok"'
+          echo "$BODY" | grep -Eq '"status"[[:space:]]*:[[:space:]]*"ok"'
 
-      - name: 📋 Vérifier l'absence de nouvelles erreurs 500 dans les logs
+      - name: Recent production errors
         run: |
           ssh ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} \
             "tail -n 200 /opt/bantudelice/storage/logs/laravel.log 2>/dev/null | grep -c '\.ERROR:' || true"
 
-  # ──────────────────────────────────────────────────────────────────────
-  # ROLLBACK — uniquement si deploy ou smoke_test a échoué.
-  # Rollback CODE automatique. Rollback DB TOUJOURS manuel (décision humaine).
-  # ──────────────────────────────────────────────────────────────────────
   rollback:
-    name: ⏪ Rollback (code uniquement — DB manuelle)
+    name: Rollback Code
     needs: [deploy, smoke_test]
-    # IMPORTANT : failure() remonte toute la chaîne d'ancêtres (donc aussi
-    # quality_gate). On ne veut PAS rollback si quality_gate a simplement
-    # échoué sans qu'aucun déploiement n'ait eu lieu — on vérifie donc
-    # explicitement le résultat direct de deploy/smoke_test.
     if: needs.deploy.result == 'failure' || needs.smoke_test.result == 'failure'
     runs-on: ubuntu-latest
     environment: production
     steps:
-      - name: 🔐 Setup SSH
-        uses: webfactory/ssh-agent@dc588b651fe13675774614f8e6a936a468676387 # v0.9.0
+      - name: Checkout rollback script
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@dc588b651fe13675774614f8e6a936a468676387
         with:
           ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
 
-      - name: 🔑 Add server to known hosts
+      - name: Trust production host
         run: ssh-keyscan -H ${{ secrets.DEPLOY_HOST }} >> ~/.ssh/known_hosts
 
-      - name: ⏪ Revenir au code précédent (sans toucher à la base)
+      - name: Restore previous code
         run: |
           ssh ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} \
             DEPLOY_SHA="${{ github.sha }}" \
-            'bash -s' << 'ROLLBACK_SCRIPT'
-            set -e
-            PROJECT_PATH="/opt/bantudelice"
-            BACKUPS_ROOT="/opt/backups/bantudelice"
-            PREVIOUS_SHA=$(cat "$BACKUPS_ROOT/.previous_sha" 2>/dev/null || echo "")
-            LATEST_BACKUP=$(ls -td "$BACKUPS_ROOT"/*/ 2>/dev/null | head -1)
+            'bash -s' < scripts/deploy/rollback.sh
 
-            echo "❌ Déploiement ou smoke test en échec. Rollback CODE uniquement."
+      - name: Verify rollback
+        run: test "$(curl -sS -o /dev/null -w '%{http_code}' "$APP_URL/")" = "200"
 
-            if [ -z "$PREVIOUS_SHA" ]; then
-              echo "❌ Aucun commit précédent connu — rollback automatique impossible. Intervention manuelle requise."
-              exit 1
-            fi
-
-            cd "$PROJECT_PATH"
-            echo "⏪ Retour au commit précédent : $PREVIOUS_SHA"
-            git reset --hard "$PREVIOUS_SHA"
-
-            composer install --no-interaction --prefer-dist --optimize-autoloader --no-dev || true
-
-            # Clear uniquement — jamais cache (règle projet, incident 2026-06-19)
-            php artisan optimize:clear || true
-            php artisan config:clear || true
-            php artisan route:clear || true
-            php artisan view:clear || true
-            php artisan cache:clear || true
-
-            systemctl reload php8.3-fpm || sudo systemctl reload php8.3-fpm || true
-            php artisan queue:restart || true
-            supervisorctl restart bantudelice-worker:* || sudo supervisorctl restart bantudelice-worker:* || true
-
-            # Voir commentaire équivalent dans le job deploy : chown doit être la
-            # DERNIÈRE opération, après tout artisan qui écrit en root via SSH.
-            chown -R www-data:www-data /opt/bantudelice/storage/ || true
-
-            echo ""
-            echo "════════════════════════════════════════════════════════════"
-            echo "  ROLLBACK CODE TERMINÉ — DÉCISION HUMAINE REQUISE POUR LA DB"
-            echo "════════════════════════════════════════════════════════════"
-            echo "  Commit déployé (échoué)  : $DEPLOY_SHA"
-            echo "  Commit restauré (rollback): $PREVIOUS_SHA"
-            if [ -n "$LATEST_BACKUP" ]; then
-              echo "  Dernier dump DB disponible : ${LATEST_BACKUP}database.sql"
-              echo "  Horodatage du dump          : $(basename "$LATEST_BACKUP")"
-              if [ -f "${LATEST_BACKUP}.migrations_ran" ]; then
-                echo "  ⚠️  Des migrations ont été exécutées avant l'échec."
-                echo "  ⚠️  Restaurer la DB effacerait toute donnée écrite depuis (commandes,"
-                echo "      paiements Mobile Money, callbacks, livraisons, tracking, support)."
-                echo ""
-                echo "  Commande de restauration MANUELLE (NE PAS exécuter automatiquement) :"
-                echo "    docker exec -i bantudelice-db-new mysql -u <DB_USERNAME> <DB_DATABASE> < ${LATEST_BACKUP}database.sql"
-              else
-                echo "  ℹ️  Aucune migration n'a tourné lors de ce déploiement — restauration DB probablement inutile."
-              fi
-            else
-              echo "  ⚠️  Aucun dump DB trouvé pour ce déploiement."
-            fi
-            echo "════════════════════════════════════════════════════════════"
-          ROLLBACK_SCRIPT
-
-      - name: 🔥 Re-vérifier les smoke tests après rollback
-        run: |
-          CODE=$(curl -s -o /dev/null -w '%{http_code}' "$APP_URL/")
-          echo "GET / (post-rollback) -> $CODE"
-          [ "$CODE" = "200" ]
-
-      - name: ❌ Marquer le workflow en échec
-        run: |
-          echo "❌ Déploiement annulé et rollback code effectué. Voir l'étape précédente pour la décision DB manuelle."
-          exit 1
+      - name: Preserve failed workflow status
+        run: exit 1
