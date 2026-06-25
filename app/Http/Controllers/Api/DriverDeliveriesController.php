@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Delivery;
+use App\Order;
 use App\Services\DeliveryService;
 use App\Support\Auth\AuthenticatedDriverResolver;
 use Illuminate\Http\Request;
@@ -16,35 +17,40 @@ class DriverDeliveriesController extends Controller
     ) {
         $this->middleware('auth:driver_api');
     }
-    
+
     /**
-     * Liste des livraisons actives pour le livreur connecté
-     * 
+     * Liste des livraisons actives pour le livreur connecté.
+     *
      * GET /api/driver/deliveries
-     * 
-     * @param Request $request
-     * @return \Illuminate\Http\JsonResponse
      */
     public function index(Request $request)
     {
         $driver = $this->authenticatedDriverResolver->current();
 
-        if (!$driver) {
+        if (! $driver) {
             return response()->json([
                 'status' => false,
-                'message' => 'Non authentifié'
+                'message' => 'Non authentifié',
             ], 401);
         }
 
         $deliveries = $this->deliveryService->getActiveDeliveriesForDriver($driver);
-        
-        $data = $deliveries->map(function($delivery) {
+
+        $data = $deliveries->map(function ($delivery) {
+            $order = $delivery->order;
+
             return [
                 'id' => $delivery->id,
                 'order_id' => $delivery->order_id,
-                'order_no' => $delivery->order->order_no ?? null,
+                'order_no' => $order->order_no ?? null,
                 'status' => $delivery->status,
-                'business_status' => method_exists($delivery->order, 'resolveEffectiveBusinessStatus') ? $delivery->order->resolveEffectiveBusinessStatus() : null,
+                'business_status' => $order && method_exists($order, 'resolveEffectiveBusinessStatus')
+                    ? $order->resolveEffectiveBusinessStatus()
+                    : null,
+                'payment_method' => $order->payment_method ?? null,
+                'payment_status' => $order->payment_status ?? null,
+                'cash_collection_status' => $order->cash_collection_status ?? null,
+                'cash_collection' => $this->cashCollectionPayload($order),
                 'restaurant' => [
                     'id' => $delivery->restaurant->id ?? null,
                     'name' => $delivery->restaurant->name ?? null,
@@ -52,12 +58,12 @@ class DriverDeliveriesController extends Controller
                     'phone' => $delivery->restaurant->phone ?? null,
                 ],
                 'customer' => [
-                    'name' => $delivery->order->user->name ?? null,
-                    'phone' => $delivery->order->user->phone ?? null,
+                    'name' => $order->user->name ?? null,
+                    'phone' => $order->user->phone ?? null,
                 ],
-                'delivery_address' => $delivery->order->delivery_address ?? null,
+                'delivery_address' => $order->delivery_address ?? null,
                 'delivery_fee' => $delivery->delivery_fee,
-                'total' => $delivery->order->total ?? null,
+                'total' => $order->total ?? null,
                 'assigned_at' => $delivery->assigned_at?->toIso8601String(),
                 'picked_up_at' => $delivery->picked_up_at?->toIso8601String(),
                 'delivered_at' => $delivery->delivered_at?->toIso8601String(),
@@ -73,21 +79,17 @@ class DriverDeliveriesController extends Controller
                 'created_at' => $delivery->created_at->toIso8601String(),
             ];
         });
-        
+
         return response()->json([
             'status' => true,
             'data' => $data,
         ]);
     }
-    
+
     /**
-     * Mettre à jour le statut d'une livraison
-     * 
+     * Mettre à jour le statut d'une livraison.
+     *
      * PATCH /api/driver/deliveries/{delivery}/status
-     * 
-     * @param Request $request
-     * @param int|Delivery $delivery (peut être un ID ou un modèle Delivery selon le binding)
-     * @return \Illuminate\Http\JsonResponse
      */
     public function updateStatus(Request $request, $delivery)
     {
@@ -105,25 +107,25 @@ class DriverDeliveriesController extends Controller
             'delivery_longitude' => 'nullable|numeric',
             'cash_collection_outcome' => 'nullable|string|in:collected,collection_failed',
         ]);
-        
+
         $driver = $this->authenticatedDriverResolver->current();
 
-        if (!$driver) {
+        if (! $driver) {
             return response()->json([
                 'status' => false,
-                'message' => 'Non authentifié'
+                'message' => 'Non authentifié',
             ], 401);
         }
 
         $delivery = $this->resolveDriverDelivery($delivery, $driver->id);
 
-        if (!$delivery) {
+        if (! $delivery) {
             return response()->json([
                 'status' => false,
-                'message' => 'Livraison introuvable'
+                'message' => 'Livraison introuvable',
             ], 404);
         }
-        
+
         try {
             $pickupProofPath = $request->hasFile('pickup_proof')
                 ? $this->deliveryService->storeProofFile($request->file('pickup_proof'), 'pickup')
@@ -144,7 +146,9 @@ class DriverDeliveriesController extends Controller
                 'delivery_longitude' => $request->input('delivery_longitude'),
                 'cash_collection_outcome' => $request->input('cash_collection_outcome'),
             ]);
-            
+
+            $updatedDelivery->loadMissing('order');
+
             return response()->json([
                 'status' => true,
                 'message' => 'Statut mis à jour avec succès',
@@ -155,12 +159,15 @@ class DriverDeliveriesController extends Controller
                     'delivered_at' => $updatedDelivery->delivered_at?->toIso8601String(),
                     'customer_confirmed_at' => $updatedDelivery->customer_confirmed_at?->toIso8601String(),
                     'delivery_confirmation_method' => $updatedDelivery->delivery_confirmation_method,
-                ]
+                    'payment_method' => $updatedDelivery->order->payment_method ?? null,
+                    'cash_collection_status' => $updatedDelivery->order->cash_collection_status ?? null,
+                    'cash_collection' => $this->cashCollectionPayload($updatedDelivery->order),
+                ],
             ]);
         } catch (\Exception $e) {
             return response()->json([
                 'status' => false,
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 422);
         }
     }
@@ -174,19 +181,19 @@ class DriverDeliveriesController extends Controller
 
         $driver = $this->authenticatedDriverResolver->current();
 
-        if (!$driver) {
+        if (! $driver) {
             return response()->json([
                 'status' => false,
-                'message' => 'Non authentifié'
+                'message' => 'Non authentifié',
             ], 401);
         }
 
         $delivery = $this->resolveDriverDelivery($delivery, $driver->id);
 
-        if (!$delivery) {
+        if (! $delivery) {
             return response()->json([
                 'status' => false,
-                'message' => 'Livraison introuvable'
+                'message' => 'Livraison introuvable',
             ], 404);
         }
 
@@ -214,6 +221,35 @@ class DriverDeliveriesController extends Controller
                 'message' => $e->getMessage(),
             ], 422);
         }
+    }
+
+    private function cashCollectionPayload(?Order $order): array
+    {
+        if (! $order || strtolower((string) $order->payment_method) !== 'cash') {
+            return [
+                'required' => false,
+                'status' => null,
+                'amount' => 0,
+                'badge' => null,
+                'attention_required' => false,
+            ];
+        }
+
+        $status = $order->cash_collection_status ?: 'pending_collection';
+        $badge = match ($status) {
+            'collected' => 'Espèces collectées',
+            'collection_failed' => 'Collecte échouée',
+            'disputed' => 'Collecte contestée',
+            default => 'Espèces à collecter',
+        };
+
+        return [
+            'required' => $status !== 'collected',
+            'status' => $status,
+            'amount' => (float) ($order->total ?? 0),
+            'badge' => $badge,
+            'attention_required' => in_array($status, ['pending_collection', 'collection_failed', 'disputed'], true),
+        ];
     }
 
     private function resolveDriverDelivery($delivery, int $driverId): ?Delivery
