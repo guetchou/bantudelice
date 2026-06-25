@@ -36,9 +36,16 @@ class OrderTrackingTokenService
         return $this->generateForOrder($order, $expiresAt);
     }
 
-    public function publicUrlForOrder(Order $order): string
+    public function publicUrlForOrder(Order $order, ?CarbonInterface $expiresAt = null): string
     {
-        return route('track.order.guest', [$this->rotate($order)]);
+        $expiresAt = $expiresAt ?? now()->addDays(self::DEFAULT_TTL_DAYS);
+        $plainKey = $this->rotate($order, $expiresAt);
+
+        return app('url')->temporarySignedRoute(
+            'track.order.guest',
+            $expiresAt,
+            ['guestKey' => $plainKey]
+        );
     }
 
     public function hashToken(string $plainKey): string
