@@ -1,10 +1,10 @@
 name: Apply timeline wiring fix
-on: [push]
+on: [push, pull_request]
 permissions:
   contents: write
 jobs:
   fix-and-test:
-    if: github.actor != 'github-actions[bot]'
+    if: github.event_name == 'pull_request' && github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     services:
       mysql:
