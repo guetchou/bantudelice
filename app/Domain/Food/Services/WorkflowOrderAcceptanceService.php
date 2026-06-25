@@ -137,10 +137,9 @@ class WorkflowOrderAcceptanceService extends OrderAcceptanceService
 
         if ($freshOrder->fulfillment_mode !== 'pickup' && ! Delivery::where('order_id', $freshOrder->id)->exists()) {
             try {
-                $delivery = $this->deliveryService->createForOrder($freshOrder);
-                enqueue_job('food', 'auto_assign_delivery', ['delivery' => $delivery]);
+                $this->deliveryService->createForOrder($freshOrder);
             } catch (\Throwable $e) {
-                Log::error('Erreur création livraison programmée cash', [
+                Log::error('Erreur création livraison cash', [
                     'order_no' => $orderNo,
                     'error' => $e->getMessage(),
                 ]);
