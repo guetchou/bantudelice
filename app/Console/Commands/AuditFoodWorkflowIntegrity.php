@@ -57,7 +57,9 @@ class AuditFoodWorkflowIntegrity extends Command
 
     private function duplicatePayments(): array
     {
-        if (! Schema::hasTable('payments')) {
+        if (! Schema::hasTable('payments')
+            || ! Schema::hasColumn('payments', 'order_id')
+            || ! Schema::hasColumn('payments', 'provider')) {
             return [];
         }
 
@@ -80,7 +82,7 @@ class AuditFoodWorkflowIntegrity extends Command
 
     private function duplicateDeliveries(): array
     {
-        if (! Schema::hasTable('deliveries')) {
+        if (! Schema::hasTable('deliveries') || ! Schema::hasColumn('deliveries', 'order_id')) {
             return [];
         }
 
@@ -97,8 +99,16 @@ class AuditFoodWorkflowIntegrity extends Command
 
     private function inconsistentOrderGroups(): array
     {
-        if (! Schema::hasTable('orders')) {
-            return [];
+        foreach (['orders'] as $table) {
+            if (! Schema::hasTable($table)) {
+                return [];
+            }
+        }
+
+        foreach (['order_no', 'restaurant_id', 'user_id', 'total', 'payment_method'] as $column) {
+            if (! Schema::hasColumn('orders', $column)) {
+                return [];
+            }
         }
 
         return DB::table('orders')
@@ -125,9 +135,16 @@ class AuditFoodWorkflowIntegrity extends Command
 
     private function cashPaidWithoutCollection(): array
     {
-        if (! Schema::hasTable('orders')
-            || ! Schema::hasColumn('orders', 'cash_collection_confirmed_at')) {
-            return [];
+        foreach ([
+            'payment_method',
+            'payment_status',
+            'cash_collection_confirmed_at',
+            'business_status',
+            'order_no',
+        ] as $column) {
+            if (! Schema::hasTable('orders') || ! Schema::hasColumn('orders', $column)) {
+                return [];
+            }
         }
 
         return DB::table('orders')
@@ -145,7 +162,10 @@ class AuditFoodWorkflowIntegrity extends Command
 
     private function scheduledOrdersWithoutDate(): array
     {
-        if (! Schema::hasTable('orders') || ! Schema::hasColumn('orders', 'scheduled_date')) {
+        if (! Schema::hasTable('orders')
+            || ! Schema::hasColumn('orders', 'scheduled_date')
+            || ! Schema::hasColumn('orders', 'business_status')
+            || ! Schema::hasColumn('orders', 'order_no')) {
             return [];
         }
 
@@ -162,7 +182,9 @@ class AuditFoodWorkflowIntegrity extends Command
 
     private function orphanRestaurantStaff(): array
     {
-        if (! Schema::hasTable('restaurant_staff_members')) {
+        if (! Schema::hasTable('restaurant_staff_members')
+            || ! Schema::hasTable('users')
+            || ! Schema::hasTable('restaurants')) {
             return [];
         }
 
