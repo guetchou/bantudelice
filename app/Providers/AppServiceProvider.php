@@ -12,6 +12,7 @@ use App\Domain\Payment\Adapters\PayPalAdapter;
 use App\Domain\Payment\PaymentGatewayFactory;
 use App\Services\CheckoutService;
 use App\Services\FoodOrderStateMachineService;
+use App\Services\WorkflowCheckoutService;
 use App\Services\WorkflowFoodOrderStateMachineService;
 use Illuminate\Support\ServiceProvider;
 
@@ -19,7 +20,8 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register()
     {
-        $this->app->bind(CheckoutOrchestratorInterface::class, CheckoutService::class);
+        $this->app->singleton(CheckoutService::class, WorkflowCheckoutService::class);
+        $this->app->bind(CheckoutOrchestratorInterface::class, WorkflowCheckoutService::class);
         $this->app->singleton(
             FoodOrderStateMachineService::class,
             WorkflowFoodOrderStateMachineService::class
