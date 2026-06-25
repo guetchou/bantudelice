@@ -24,9 +24,9 @@ jobs:
           mkdir -p /tmp/assets-before
           cp public/js/app.js /tmp/assets-before/app.js
           cp public/css/app.css /tmp/assets-before/app.css
-          cp mix-manifest.json /tmp/assets-before/mix-manifest.json
-          sha256sum public/js/app.js public/css/app.css mix-manifest.json > /tmp/assets-before.sha256
-          wc -c public/js/app.js public/css/app.css mix-manifest.json > /tmp/assets-before.sizes
+          cp public/mix-manifest.json /tmp/assets-before/mix-manifest.json
+          sha256sum public/js/app.js public/css/app.css public/mix-manifest.json > /tmp/assets-before.sha256
+          wc -c public/js/app.js public/css/app.css public/mix-manifest.json > /tmp/assets-before.sizes
       - name: Generate lockfile and install exact dependencies
         run: |
           npm install --package-lock-only --ignore-scripts --no-audit --no-fund
@@ -37,14 +37,14 @@ jobs:
         run: |
           test -s public/js/app.js
           test -s public/css/app.css
-          test -s mix-manifest.json
+          test -s public/mix-manifest.json
           node --check public/js/app.js
           node - <<'NODE'
           const fs = require('fs');
           const postcss = require('postcss');
-          const manifest = JSON.parse(fs.readFileSync('mix-manifest.json', 'utf8'));
+          const manifest = JSON.parse(fs.readFileSync('public/mix-manifest.json', 'utf8'));
           if (!manifest['/js/app.js'] || !manifest['/css/app.css']) {
-            throw new Error('mix-manifest.json ne contient pas les deux assets attendus');
+            throw new Error('public/mix-manifest.json ne contient pas les deux assets attendus');
           }
           postcss.parse(fs.readFileSync('public/css/app.css', 'utf8'));
           NODE
@@ -57,20 +57,20 @@ jobs:
             cat /tmp/assets-before.sha256
             echo
             echo '## After hashes'
-            sha256sum public/js/app.js public/css/app.css mix-manifest.json
+            sha256sum public/js/app.js public/css/app.css public/mix-manifest.json
             echo
             echo '## Before sizes'
             cat /tmp/assets-before.sizes
             echo
             echo '## After sizes'
-            wc -c public/js/app.js public/css/app.css mix-manifest.json
+            wc -c public/js/app.js public/css/app.css public/mix-manifest.json
             echo
             echo '## Diff statistics'
-            git diff --stat -- package-lock.json public/js/app.js public/css/app.css mix-manifest.json public/js/app.js.LICENSE.txt || true
+            git diff --stat -- package-lock.json public/js/app.js public/css/app.css public/mix-manifest.json public/js/app.js.LICENSE.txt || true
           } | tee mix6-build-report.txt
       - name: Reject unexpected generated changes
         run: |
-          UNEXPECTED=$(git status --short | awk '{print $2}' | grep -Ev '^(package-lock.json|public/js/app.js|public/css/app.css|mix-manifest.json|public/js/app.js.LICENSE.txt|mix6-build-report.txt)$' || true)
+          UNEXPECTED=$(git status --short | awk '{print $2}' | grep -Ev '^(package-lock.json|public/js/app.js|public/css/app.css|public/mix-manifest.json|public/js/app.js.LICENSE.txt|mix6-build-report.txt)$' || true)
           if [ -n "$UNEXPECTED" ]; then
             echo 'Unexpected files changed:'
             echo "$UNEXPECTED"
@@ -86,7 +86,7 @@ jobs:
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git add package-lock.json public/js/app.js public/css/app.css mix-manifest.json
+          git add package-lock.json public/js/app.js public/css/app.css public/mix-manifest.json
           if [ -f public/js/app.js.LICENSE.txt ]; then git add public/js/app.js.LICENSE.txt; fi
           git diff --cached --quiet && exit 0
           git commit -m 'build(frontend): regenerate assets with Laravel Mix 6'
