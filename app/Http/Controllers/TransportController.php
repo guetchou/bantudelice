@@ -158,6 +158,10 @@ class TransportController extends Controller
             
         $nearbyRequests = TransportBooking::where('status', 'requested')
             ->whereNull('driver_id')
+            ->where(function ($query) {
+                $query->whereNull('scheduled_at')
+                    ->orWhere('scheduled_at', '<=', now()->addMinutes(5));
+            })
             ->orderBy('created_at', 'desc')
             ->get();
 
