@@ -12,7 +12,12 @@ Effectuer une sauvegarde complète de la base avant toute réparation ou modific
 php artisan migrate --force
 ```
 
-La migration ajoute uniquement la clé générée nécessaire à MySQL pour distinguer les paiements actifs des paiements supprimés logiquement. Elle n’ajoute pas encore l’index unique.
+Les migrations ajoutent :
+
+- la clé générée nécessaire à MySQL pour distinguer les paiements actifs des paiements supprimés logiquement ;
+- les colonnes de quarantaine réversible sur les paiements et les livraisons.
+
+Aucun index unique n’est encore activé à cette étape.
 
 ## 3. Auditer la base
 
@@ -42,17 +47,27 @@ La simulation sépare :
 
 Un paiement est toujours classé manuel lorsque plusieurs lignes sont payées ou lorsque les références opérateur sont différentes.
 
-## 5. Appliquer uniquement les réparations sûres
+## 5. Mettre en quarantaine uniquement les doublons sûrs
 
 ```bash
 php artisan food:repair-integrity --apply --confirm=APPLY_SAFE_REPAIRS
 ```
 
-La commande travaille dans une transaction et revérifie chaque groupe sous verrou avant suppression. Les identifiants supprimés sont enregistrés dans les métadonnées du paiement conservé et dans les journaux applicatifs.
+La commande travaille dans une transaction et revérifie chaque groupe sous verrou.
+
+Aucune ligne n’est effacée définitivement :
+
+- le doublon est détaché de la commande ;
+- il est relié à la ligne conservée par `integrity_duplicate_of_id` ;
+- la date et le motif sont enregistrés ;
+- le paiement conserve dans ses métadonnées son ancien `order_id`, son fournisseur et le motif ;
+- une livraison mise en quarantaine passe à `CANCELLED`.
+
+La correction peut donc être analysée et reconstruite manuellement si nécessaire.
 
 ## 6. Corriger les anomalies manuelles
 
-Ne jamais supprimer automatiquement :
+Ne jamais traiter automatiquement :
 
 - deux paiements `PAID` ;
 - deux références Mobile Money ou PayPal différentes ;
