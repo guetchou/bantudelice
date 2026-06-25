@@ -3,6 +3,7 @@
 namespace App\Domain\Transport\Events;
 
 use App\Domain\Transport\Models\TransportBooking;
+use Carbon\CarbonInterface;
 use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
@@ -13,34 +14,40 @@ class TransportTrackingUpdated implements ShouldBroadcast
 {
     use Dispatchable, InteractsWithSockets, SerializesModels;
 
-    public $booking_uuid;
-    public $lat;
-    public $lng;
-    public $speed;
-
-    /**
-     * Create a new event instance.
-     */
-    public function __construct(TransportBooking $booking, $lat, $lng, $speed = null)
-    {
-        $this->booking_uuid = $booking->uuid;
-        $this->lat = $lat;
-        $this->lng = $lng;
-        $this->speed = $speed;
+    public function __construct(
+        public string $booking_uuid,
+        public float $lat,
+        public float $lng,
+        public ?float $speed,
+        public string $recorded_at,
+        public ?int $tracking_point_id = null
+    ) {
     }
 
-    /**
-     * Get the channels the event should broadcast on.
-     */
-    public function broadcastOn()
+    public static function fromBooking(
+        TransportBooking $booking,
+        float $lat,
+        float $lng,
+        ?float $speed,
+        CarbonInterface $recordedAt,
+        ?int $trackingPointId = null
+    ): self {
+        return new self(
+            $booking->uuid,
+            $lat,
+            $lng,
+            $speed,
+            $recordedAt->toIso8601String(),
+            $trackingPointId
+        );
+    }
+
+    public function broadcastOn(): PrivateChannel
     {
         return new PrivateChannel('transport.booking.' . $this->booking_uuid . '.tracking');
     }
 
-    /**
-     * The event's broadcast name.
-     */
-    public function broadcastAs()
+    public function broadcastAs(): string
     {
         return 'location.updated';
     }
@@ -49,9 +56,11 @@ class TransportTrackingUpdated implements ShouldBroadcast
     {
         return [
             'booking_uuid' => $this->booking_uuid,
-            'lat' => (float) $this->lat,
-            'lng' => (float) $this->lng,
-            'speed' => $this->speed !== null ? (float) $this->speed : null,
+            'lat' => $this->lat,
+            'lng' => $this->lng,
+            'speed' => $this->speed,
+            'recorded_at' => $this->recorded_at,
+            'tracking_point_id' => $this->tracking_point_id,
         ];
     }
 }
