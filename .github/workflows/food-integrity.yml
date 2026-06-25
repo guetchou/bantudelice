@@ -1,0 +1,55 @@
+name: Food Integrity
+
+on:
+  pull_request:
+    paths:
+      - 'app/Console/Commands/*Food*Integrity*.php'
+      - 'app/Services/FoodIntegrity*.php'
+      - 'database/migrations/*integrity*.php'
+      - 'database/migrations/*payment_active_integrity*.php'
+      - 'tests/Feature/FoodIntegrity*.php'
+      - '.github/workflows/food-integrity.yml'
+  workflow_dispatch:
+
+jobs:
+  integrity-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, dom, fileinfo, sqlite, pdo_sqlite
+          coverage: none
+
+      - name: Cache Composer
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache/files
+          key: composer-${{ runner.os }}-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Prepare environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Validate PHP syntax
+        run: |
+          php -l app/Services/FoodIntegrityReportService.php
+          php -l app/Services/FoodIntegrityRepairService.php
+          php -l app/Services/FoodIntegrityConstraintService.php
+          php -l app/Console/Commands/AuditFoodWorkflowIntegrity.php
+          php -l app/Console/Commands/RepairFoodWorkflowIntegrity.php
+          php -l app/Console/Commands/EnforceFoodIntegrityConstraints.php
+
+      - name: Run integrity tests
+        run: php artisan test tests/Feature/FoodIntegrityRepairTest.php tests/Feature/FoodIntegrityConstraintTest.php
