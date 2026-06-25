@@ -31,8 +31,6 @@ class ExpireUnpaidAcceptedOrders extends Command
         $timeoutMinutes = (int) config('food.payment_failed_hold_timeout_minutes', 10);
         $cutoff = Carbon::now()->subMinutes($timeoutMinutes);
 
-        // Toutes les lignes dont le groupe est en accepted_awaiting_payment depuis plus de $timeout minutes.
-        // On group par order_no pour ne traiter chaque groupe qu'une fois.
         $orderNos = Order::where('business_status', 'accepted_awaiting_payment')
             ->where('accepted_at', '<=', $cutoff)
             ->whereNotIn('payment_status', [
@@ -57,12 +55,10 @@ class ExpireUnpaidAcceptedOrders extends Command
     private function expireGroup(string $orderNo): void
     {
         try {
-            // 1. Marquer le paiement comme expiré sur la commande
             Order::where('order_no', $orderNo)->update([
                 'payment_status' => OrderPaymentStatus::EXPIRED->value,
             ]);
 
-            // 2. Annuler le Payment PSP en cours si besoin (évite un paiement orphelin côté opérateur)
             $payment = Payment::whereIn('status', ['PENDING', 'AUTHORIZED'])
                 ->whereHas('order', fn ($q) => $q->where('order_no', $orderNo))
                 ->first();
@@ -81,22 +77,57 @@ class ExpireUnpaidAcceptedOrders extends Command
                 }
             }
 
-            // 3. Transition vers cancelled
+            // La notification générique de la machine d'état est neutralisée ici :
+            // ce flux émet ensuite une seule notification détaillée et idempotente.
             $this->stateMachine->transitionOrderGroup($orderNo, 'cancelled', [
-                'actor_type'  => 'system',
-                'actor_id'    => null,
-                'reason_code' => 'payment_timeout_after_acceptance',
-                'notes'       => "Délai de paiement dépassé ({$this->getTimeoutMinutes()} min).",
+                'actor_type'            => 'system',
+                'actor_id'              => null,
+                'reason_code'           => 'payment_timeout_after_acceptance',
+                'notes'                 => "Délai de paiement dépassé ({$this->getTimeoutMinutes()} min).",
+                'suppress_notifications' => true,
             ]);
 
-            // 4. Notifier client + restaurant
             $order = Order::with(['user', 'restaurant'])->where('order_no', $orderNo)->first();
             if ($order?->user_id) {
+                $customerPath = NotificationService::routePath('track.order', ['orderNo' => $orderNo]);
                 NotificationService::sendToUser(
                     $order->user_id,
                     'Commande annulée',
                     'Votre commande #' . $orderNo . ' a été annulée car le paiement n\'a pas été finalisé à temps.',
-                    ['key' => 'orderCancelled', 'channel' => 'user', 'module' => 'food', 'type' => 'order_cancelled']
+                    [
+                        'key'        => 'orderCancelledPaymentTimeout',
+                        'channel'    => 'user',
+                        'module'     => 'food',
+                        'type'       => 'order_cancelled',
+                        'order_no'   => $orderNo,
+                        'dedup_key'  => 'food:user:cancelled:payment_timeout:' . $orderNo,
+                        'route_path' => $customerPath,
+                        'deep_link'  => 'bantudelice://food/orders/' . $orderNo,
+                        'actions'    => [
+                            ['id' => 'open_order', 'label' => 'Voir la commande', 'path' => $customerPath],
+                        ],
+                    ]
+                );
+            }
+
+            if ($order?->restaurant?->user_id) {
+                $restaurantPath = NotificationService::routePath('restaurant.all_orders', ['focus' => $orderNo]);
+                NotificationService::sendToUser(
+                    $order->restaurant->user_id,
+                    'Commande annulée automatiquement',
+                    'La commande #' . $orderNo . ' a été annulée : le paiement du client n\'a pas été finalisé dans le délai imparti.',
+                    [
+                        'key'        => 'restaurantOrderCancelledPaymentTimeout',
+                        'channel'    => 'restaurant',
+                        'module'     => 'food',
+                        'type'       => 'order_cancelled',
+                        'order_no'   => $orderNo,
+                        'dedup_key'  => 'food:restaurant:cancelled:payment_timeout:' . $orderNo,
+                        'route_path' => $restaurantPath,
+                        'actions'    => [
+                            ['id' => 'open_order', 'label' => 'Voir la commande', 'path' => $restaurantPath],
+                        ],
+                    ]
                 );
             }
 

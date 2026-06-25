@@ -1,0 +1,37 @@
+name: Notifications Audit
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Locate notification routes, views and producers
+        run: |
+          set -e
+          {
+            echo '=== ROUTES ==='
+            git grep -n -i 'notification' -- routes app/Providers || true
+            echo
+            echo '=== VIEWS ==='
+            git grep -n -i 'notification' -- resources/views || true
+            echo
+            echo '=== PRODUCERS / COPY ==='
+            git grep -n -i -E 'Commande annul|Commande confirm|Commande reç|paiement.*finalis|order.*cancel|payment.*timeout' -- app routes database resources || true
+            echo
+            echo '=== READ STATE / COUNTS ==='
+            git grep -n -i -E 'read_at|markAsRead|unread|notifications_count|notification_count' -- app resources routes || true
+          } | tee /tmp/notifications-audit.txt
+
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: notifications-audit
+          path: /tmp/notifications-audit.txt
+          retention-days: 7

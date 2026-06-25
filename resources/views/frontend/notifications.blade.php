@@ -136,6 +136,7 @@ button.ntf-item { appearance: none; -webkit-appearance: none; }
 
 .ntf-body { min-width: 0; }
 .ntf-item-title {
+    display: block;
     font-size: .98rem;
     font-weight: 750;
     color: #111827;
@@ -146,6 +147,7 @@ button.ntf-item { appearance: none; -webkit-appearance: none; }
 }
 .ntf-item:not(.is-unread) .ntf-item-title { font-weight: 650; color: #374151; }
 .ntf-item-body {
+    display: block;
     font-size: .86rem;
     color: #5f6b7a;
     line-height: 1.55;

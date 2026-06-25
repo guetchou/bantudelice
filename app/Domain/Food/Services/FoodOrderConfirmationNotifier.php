@@ -5,27 +5,20 @@ namespace App\Domain\Food\Services;
 use App\Payment;
 use App\Restaurant;
 use App\User;
+use App\Services\NotificationService;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 
 /**
- * Notification + traçabilité "commande confirmée" — partagée entre les deux seuls points
+ * Notification + traçabilité « commande confirmée » partagée entre les deux seuls points
  * du code qui peuvent légitimement confirmer une commande food :
  *  - OrderAcceptanceService (cash : confirmation immédiate à l'acceptation restaurant)
  *  - FoodOrderPaymentConfirmed (en ligne : confirmation au paiement confirmé, après acceptation)
- *
- * Extrait de FoodOrderPaymentConfirmed::finalizeFoodOrder() — comportement inchangé,
- * seulement rendu réutilisable par les deux chemins.
  */
 class FoodOrderConfirmationNotifier
 {
-    /**
-     * Enregistrer le ledger financier, émettre les signaux métier et notifier
-     * client + restaurant que la commande est confirmée (paiement réglé, acceptée).
-     * Idempotent : ne ré-émet rien si déjà enregistré pour cet order_no.
-     */
     public function confirmOrder(Payment $payment, Collection $orders, array $checkoutData, array $totals, string $fulfillmentMode, string $orderNo): void
     {
         $order = $orders->first();
@@ -103,17 +96,25 @@ class FoodOrderConfirmationNotifier
         if ($shouldEmitOrderCreated) {
             try {
                 if ($user?->id) {
-                    \App\Services\NotificationService::sendToUser(
+                    $customerPath = NotificationService::routePath('track.order', ['orderNo' => $orderNo]);
+                    NotificationService::sendToUser(
                         $user->id,
-                        'Commande confirmee',
+                        'Commande confirmée',
                         $isPickup
-                            ? 'Votre commande retrait #' . $orderNo . ' a ete confirmee et est en preparation.'
-                            : 'Votre commande #' . $orderNo . ' a ete confirmee et est en preparation.',
+                            ? 'Votre commande retrait #' . $orderNo . ' a été confirmée et est en préparation.'
+                            : 'Votre commande #' . $orderNo . ' a été confirmée et est en préparation.',
                         [
-                            'key'     => 'orderConfirmed',
-                            'channel' => 'user',
-                            'module'  => 'food',
-                            'type'    => 'order_created',
+                            'key'        => 'orderConfirmed',
+                            'channel'    => 'user',
+                            'module'     => 'food',
+                            'type'       => 'order_created',
+                            'order_no'   => $orderNo,
+                            'dedup_key'  => 'food:user:confirmed:' . $orderNo,
+                            'route_path' => $customerPath,
+                            'deep_link'  => 'bantudelice://food/orders/' . $orderNo,
+                            'actions'    => [
+                                ['id' => 'open_order', 'label' => 'Suivre', 'path' => $customerPath],
+                            ],
                         ]
                     );
                 }
@@ -124,15 +125,22 @@ class FoodOrderConfirmationNotifier
                         ->first();
 
                     if ($restaurantUser) {
-                        \App\Services\NotificationService::sendToUser(
+                        $restaurantPath = NotificationService::routePath('restaurant.all_orders', ['focus' => $orderNo]);
+                        NotificationService::sendToUser(
                             $restaurantUser->id,
                             'Nouvelle commande',
-                            'Nouvelle commande #' . $orderNo . ' recue.',
+                            'Nouvelle commande #' . $orderNo . ' reçue.',
                             [
-                                'key'     => 'newOrder',
-                                'channel' => 'restaurant',
-                                'module'  => 'food',
-                                'type'    => 'order_created',
+                                'key'        => 'newOrder',
+                                'channel'    => 'restaurant',
+                                'module'     => 'food',
+                                'type'       => 'order_created',
+                                'order_no'   => $orderNo,
+                                'dedup_key'  => 'food:restaurant:confirmed:' . $orderNo,
+                                'route_path' => $restaurantPath,
+                                'actions'    => [
+                                    ['id' => 'open_order', 'label' => 'Voir', 'path' => $restaurantPath],
+                                ],
                             ]
                         );
                     }
