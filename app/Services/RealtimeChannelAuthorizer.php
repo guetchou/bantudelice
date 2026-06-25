@@ -17,7 +17,7 @@ class RealtimeChannelAuthorizer
         }
 
         $order = Order::query()
-            ->with('restaurant')
+            ->with(['restaurant', 'delivery'])
             ->where('order_no', $orderNo)
             ->first();
 
@@ -34,8 +34,12 @@ class RealtimeChannelAuthorizer
         }
 
         $driver = $this->resolveDriverForUser($user);
+        if (! $driver) {
+            return false;
+        }
 
-        return $driver && (int) $order->driver_id === (int) $driver->id;
+        return (int) $order->driver_id === (int) $driver->id
+            || (int) ($order->delivery->driver_id ?? 0) === (int) $driver->id;
     }
 
     public function canAccessFoodRestaurantOrders(User $user, int $restaurantId): bool
@@ -58,7 +62,7 @@ class RealtimeChannelAuthorizer
 
         $driver = $this->resolveDriverForUser($user);
 
-        return $driver && (int) $driver->id === (int) $driverId;
+        return $driver && (int) $driver->id === $driverId;
     }
 
     public function canAccessTransportBooking(User $user, string $bookingUuid): bool
@@ -92,7 +96,7 @@ class RealtimeChannelAuthorizer
 
         $driver = $this->resolveDriverForUser($user);
 
-        return $driver && (int) $driver->id === (int) $driverId;
+        return $driver && (int) $driver->id === $driverId;
     }
 
     public function canAccessColisShipment(User $user, int $shipmentId): bool
@@ -102,7 +106,6 @@ class RealtimeChannelAuthorizer
         }
 
         $shipment = Shipment::query()->find($shipmentId);
-
         if (! $shipment) {
             return false;
         }
@@ -118,16 +121,19 @@ class RealtimeChannelAuthorizer
 
     protected function resolveDriverForUser(User $user): ?Driver
     {
-        $driver = Driver::query()
-            ->where('email', $user->email)
-            ->orWhere('phone', $user->phone)
-            ->first();
-
-        if (! $driver && ($user->type ?? null) === 'driver') {
-            $driver = Driver::query()->where('name', $user->name)->first();
+        $driver = Driver::query()->where('user_id', $user->id)->first();
+        if ($driver) {
+            return $driver;
         }
 
-        return $driver;
+        if (! $user->email || ! $user->phone) {
+            return null;
+        }
+
+        return Driver::query()
+            ->where('email', $user->email)
+            ->where('phone', $user->phone)
+            ->first();
     }
 
     protected function isAdmin(User $user): bool
