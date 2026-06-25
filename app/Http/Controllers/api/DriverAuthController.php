@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
@@ -56,6 +57,11 @@ class DriverAuthController extends Controller
                 $payload['approved'] = false;
                 $payload['status'] = 'offline';
 
+                $directory = public_path('images/driver_images');
+                if (! is_dir($directory)) {
+                    mkdir($directory, 0775, true);
+                }
+
                 foreach (['image', 'licence_image'] as $field) {
                     if (! $request->hasFile($field)) {
                         continue;
@@ -67,8 +73,8 @@ class DriverAuthController extends Controller
                         . '-' . bin2hex(random_bytes(8))
                         . '.' . $file->getClientOriginalExtension()
                     );
-                    $file->move(public_path('images/driver_images'), $filename);
-                    $storedFiles[] = public_path('images/driver_images/' . $filename);
+                    $file->move($directory, $filename);
+                    $storedFiles[] = $directory . DIRECTORY_SEPARATOR . $filename;
                     $payload[$field] = $filename;
                 }
 
@@ -346,19 +352,24 @@ class DriverAuthController extends Controller
 
     private function revokeDriverTokens(Driver $driver): void
     {
-        try {
-            $driver->tokens()->update(['revoked' => true]);
+        if (! Schema::hasTable('oauth_access_tokens') || ! Schema::hasTable('oauth_clients')) {
             return;
-        } catch (\Throwable $e) {
-            report($e);
         }
 
-        if (! Schema::hasTable('oauth_access_tokens')) {
+        $clientIds = DB::table('oauth_clients')
+            ->where('provider', 'drivers')
+            ->pluck('id');
+
+        if ($clientIds->isEmpty()) {
+            Log::warning('Aucun client OAuth associé au provider drivers : jetons non révoqués.', [
+                'driver_id' => $driver->id,
+            ]);
             return;
         }
 
         DB::table('oauth_access_tokens')
             ->where('user_id', (string) $driver->id)
+            ->whereIn('client_id', $clientIds)
             ->update(['revoked' => true]);
     }
 }
