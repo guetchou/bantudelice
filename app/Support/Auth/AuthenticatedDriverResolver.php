@@ -4,6 +4,7 @@ namespace App\Support\Auth;
 
 use App\Driver;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Schema;
 
 class AuthenticatedDriverResolver
 {
@@ -11,7 +12,7 @@ class AuthenticatedDriverResolver
     {
         $actor = Auth::guard('driver_api')->user();
         if ($actor instanceof Driver) {
-            return $actor;
+            return (bool) $actor->approved ? $actor : null;
         }
 
         $user = Auth::user();
@@ -20,25 +21,24 @@ class AuthenticatedDriverResolver
         }
 
         $driver = null;
-        if (! empty($user->email) || ! empty($user->phone)) {
-            $driver = Driver::query()
-                ->where(function ($query) use ($user) {
-                    if (! empty($user->email)) {
-                        $query->orWhere('email', $user->email);
-                    }
 
-                    if (! empty($user->phone)) {
-                        $query->orWhere('phone', $user->phone);
-                    }
-                })
+        if (Schema::hasColumn('drivers', 'user_id')) {
+            $driver = Driver::where('user_id', $user->id)->first();
+        }
+
+        if (! $driver && ! empty($user->email) && ! empty($user->phone)) {
+            $driver = Driver::where('email', $user->email)
+                ->where('phone', $user->phone)
                 ->first();
+
+            if ($driver && Schema::hasColumn('drivers', 'user_id') && ! $driver->user_id) {
+                $driver->forceFill(['user_id' => $user->id])->save();
+            }
         }
 
-        if (! $driver && $user->type === 'driver' && ! empty($user->name)) {
-            $driver = Driver::where('name', $user->name)->first();
-        }
-
-        return $driver;
+        return $driver && (bool) $driver->approved
+            ? $driver
+            : null;
     }
 
     public function id(): ?int
