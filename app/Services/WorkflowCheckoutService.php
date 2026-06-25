@@ -5,8 +5,10 @@ namespace App\Services;
 use App\Cart;
 use App\Domain\Food\Enums\OrderPaymentStatus;
 use App\Exceptions\DeliveryCapacityException;
+use App\Exceptions\RestaurantClosedException;
 use App\Order;
 use App\Restaurant;
+use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -44,11 +46,11 @@ class WorkflowCheckoutService extends CheckoutService
             ? Restaurant::find($cartItems->first()->restaurant_id)
             : null;
 
-        $this->guardRestaurantAvailableForOrdering($restaurant);
-
         if ($scheduledAt) {
+            $this->guardRestaurantAvailableAt($restaurant, $scheduledAt);
             app(ScheduledRestaurantAvailabilityService::class)->guard($restaurant, $scheduledAt);
         } else {
+            $this->guardRestaurantAvailableForOrdering($restaurant);
             $this->placeOrderService()->guardRestaurantOpenForOrdering($restaurant);
         }
 
@@ -169,5 +171,35 @@ class WorkflowCheckoutService extends CheckoutService
                 'delivery_address_quality' => $checkoutData['delivery_address_quality'] ?? null,
             ];
         });
+    }
+
+    protected function guardRestaurantAvailableAt(?Restaurant $restaurant, Carbon $scheduledAt): void
+    {
+        if (! $restaurant) {
+            throw new RestaurantClosedException('Restaurant introuvable ou indisponible.', null, null);
+        }
+
+        $approved = $restaurant->getAttribute('approved');
+        if ($approved !== null && ! (bool) $approved) {
+            throw new RestaurantClosedException(
+                'Ce restaurant n’est pas encore autorisé à recevoir des commandes.',
+                null,
+                $restaurant->id
+            );
+        }
+
+        if (! (bool) $restaurant->is_paused) {
+            return;
+        }
+
+        if ($restaurant->paused_until && $scheduledAt->greaterThanOrEqualTo($restaurant->paused_until)) {
+            return;
+        }
+
+        throw new RestaurantClosedException(
+            'Ce restaurant sera encore en pause à l’heure programmée.',
+            $restaurant->paused_until?->format('d/m/Y H:i'),
+            $restaurant->id
+        );
     }
 }
