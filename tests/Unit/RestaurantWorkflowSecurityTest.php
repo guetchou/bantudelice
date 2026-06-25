@@ -64,4 +64,17 @@ class RestaurantWorkflowSecurityTest extends TestCase
         self::assertStringContainsString('commandes programmées sont temporairement indisponibles', $source);
         self::assertStringContainsString('guardRestaurantAvailableForOrdering', $source);
     }
+
+    public function test_unaccepted_orders_have_a_scheduled_timeout(): void
+    {
+        $command = $this->source('app/Console/Commands/ExpireUnacceptedFoodOrders.php');
+        $kernel = $this->source('app/Console/Kernel.php');
+        $config = $this->source('config/food.php');
+
+        self::assertStringContainsString("where('business_status', 'pending_restaurant_acceptance')", $command);
+        self::assertStringContainsString('lockForUpdate()', $command);
+        self::assertStringContainsString("'reason_code' => 'restaurant_timeout'", $command);
+        self::assertStringContainsString("food:expire-unaccepted --limit=100", $kernel);
+        self::assertStringContainsString('FOOD_RESTAURANT_ACCEPTANCE_TIMEOUT_MINUTES', $config);
+    }
 }
