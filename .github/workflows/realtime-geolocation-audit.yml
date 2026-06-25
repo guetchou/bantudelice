@@ -8,7 +8,7 @@ permissions:
   contents: read
 
 jobs:
-  audit:
+  static-audit:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -48,4 +48,68 @@ jobs:
         with:
           name: realtime-geolocation-audit
           path: /tmp/realtime-geolocation-audit.txt
+          retention-days: 7
+
+  route-contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: shivammathur/setup-php@cf4cade2721270509d5b1c766ab3549210a39a2a
+        with:
+          php-version: '8.3'
+          extensions: pdo, pdo_mysql, mbstring, xml, ctype, json, tokenizer, bcmath, openssl, fileinfo
+          coverage: none
+      - name: Bootstrap Laravel
+        run: |
+          mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/framework/testing storage/logs
+          printf '%s\n' 'APP_ENV=testing' 'APP_KEY=' 'APP_URL=http://localhost' 'DB_CONNECTION=sqlite' 'DB_DATABASE=:memory:' 'CACHE_DRIVER=array' 'SESSION_DRIVER=array' 'QUEUE_CONNECTION=sync' 'BROADCAST_DRIVER=log' > .env
+          composer install --no-interaction --prefer-dist --optimize-autoloader --quiet
+          php artisan key:generate --ansi
+      - name: Inspect effective route registry
+        run: |
+          php artisan route:list > /tmp/routes.txt
+          {
+            echo '=== EFFECTIVE BROADCAST ROUTE ==='
+            grep -n 'broadcasting/auth' /tmp/routes.txt || echo 'MISSING: /broadcasting/auth'
+            echo
+            echo '=== LOCATION ROUTES ==='
+            grep -n -E 'driver/.*/location|driver/location|bookings/.*/location' /tmp/routes.txt || true
+          } | tee /tmp/realtime-route-contract.txt
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: realtime-route-contract
+          path: /tmp/realtime-route-contract.txt
+          retention-days: 7
+
+  production-runtime:
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@dc588b651fe13675774614f8e6a936a468676387
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
+      - name: Trust production host
+        run: ssh-keyscan -H ${{ secrets.DEPLOY_HOST }} >> ~/.ssh/known_hosts
+      - name: Inspect production realtime runtime
+        run: |
+          ssh ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} 'bash -s' <<'REMOTE' | tee /tmp/realtime-production-runtime.txt
+          set -u
+          cd /opt/bantudelice
+          echo "head=$(git rev-parse HEAD)"
+          echo '=== EFFECTIVE CONFIG ==='
+          php -r '$app=require "bootstrap/app.php"; $kernel=$app->make(Illuminate\Contracts\Console\Kernel::class); $kernel->bootstrap(); echo "broadcast=".config("broadcasting.default").PHP_EOL; echo "queue=".config("queue.default").PHP_EOL; echo "pusher_host=".config("broadcasting.connections.pusher.options.host").PHP_EOL; echo "pusher_port=".config("broadcasting.connections.pusher.options.port").PHP_EOL; echo "pusher_scheme=".config("broadcasting.connections.pusher.options.scheme").PHP_EOL;'
+          echo '=== BROADCAST ROUTE ==='
+          php artisan route:list 2>/dev/null | grep 'broadcasting/auth' || echo 'MISSING: /broadcasting/auth'
+          echo '=== QUEUE WORKERS ==='
+          supervisorctl status 2>/dev/null | grep -E 'bantudelice-worker|RUNNING|STOPPED|FATAL' || echo 'No matching supervisor worker'
+          echo '=== SCHEDULER ==='
+          (crontab -l 2>/dev/null || true) | grep 'schedule:run' || echo 'No schedule:run cron for current user'
+          echo '=== HTTP AUTH ENDPOINT ==='
+          curl -sS -o /dev/null -w 'POST /broadcasting/auth -> %{http_code}\n' -X POST https://bantudelice.cg/broadcasting/auth || true
+          REMOTE
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: realtime-production-runtime
+          path: /tmp/realtime-production-runtime.txt
           retention-days: 7
