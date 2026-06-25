@@ -8,28 +8,23 @@
         "audit:views": "node scripts/audit_view_routes.js",
         "e2e:http": "php scripts/e2e_http_validate.php",
         "dev": "npm run development",
-        "development": "cross-env NODE_ENV=development node_modules/.bin/webpack --progress --hide-modules --config=node_modules/laravel-mix/setup/webpack.config.js",
+        "development": "mix",
         "e2e": "npx playwright test tests/e2e",
-        "watch": "npm run development -- --watch",
-        "watch-poll": "npm run watch -- --watch-poll",
-        "hot": "cross-env NODE_ENV=development node_modules/webpack-dev-server/bin/webpack-dev-server.js --inline --hot --config=node_modules/laravel-mix/setup/webpack.config.js",
+        "watch": "mix watch",
+        "watch-poll": "mix watch -- --watch-options-poll=1000",
+        "hot": "mix watch --hot",
         "prod": "npm run production",
-        "production": "cross-env NODE_ENV=production node_modules/.bin/webpack --no-progress --hide-modules --config=node_modules/laravel-mix/setup/webpack.config.js"
+        "production": "mix --production"
     },
     "devDependencies": {
         "@playwright/test": "^1.58.2",
         "axios": "^0.19",
-        "babel-loader": "^10.0.0",
-        "cross-env": "^5.1",
-        "laravel-mix": "^5.0.1",
-        "lodash": "^4.17.13",
+        "laravel-mix": "^6.0.49",
+        "lodash": "^4.17.21",
         "playwright": "^1.58.2",
         "playwright-core": "^1.58.2",
         "puppeteer": "^24.40.0",
-        "resolve-url-loader": "^2.3.1",
-        "sass": "^1.15.2",
-        "sass-loader": "^8.0.0",
-        "style-loader": "^4.0.0",
-        "vue-template-compiler": "^2.7.16"
+        "sass": "^1.77.8",
+        "sass-loader": "^12.6.0"
     }
 }
