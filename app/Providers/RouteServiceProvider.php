@@ -26,59 +26,66 @@ class RouteServiceProvider extends ServiceProvider
         $this->mapTrackingRoutes();
         $this->mapAdminCashRoutes();
         $this->mapAdminReportRoutes();
+        $this->mapRestaurantStaffRoutes();
     }
 
     protected function mapWebRoutes()
     {
         Route::middleware('web')
-             ->namespace($this->namespace)
-             ->group(base_path('routes/web.php'));
+            ->namespace($this->namespace)
+            ->group(base_path('routes/web.php'));
     }
 
     protected function mapCustomerDashboardRoutes()
     {
         Route::middleware('web')
-             ->namespace($this->namespace)
-             ->group(base_path('routes/customer-dashboard.php'));
+            ->namespace($this->namespace)
+            ->group(base_path('routes/customer-dashboard.php'));
     }
 
     protected function mapKendeRoutes()
     {
         Route::middleware('web')
-             ->namespace($this->namespace)
-             ->group(base_path('routes/kende.php'));
+            ->namespace($this->namespace)
+            ->group(base_path('routes/kende.php'));
     }
 
     protected function mapTrackingRoutes()
     {
         Route::middleware('web')
-             ->group(base_path('routes/tracking.php'));
+            ->group(base_path('routes/tracking.php'));
     }
 
     protected function mapAdminCashRoutes()
     {
         Route::middleware('web')
-             ->group(base_path('routes/admin-cash.php'));
+            ->group(base_path('routes/admin-cash.php'));
     }
 
     protected function mapAdminReportRoutes()
     {
         Route::middleware('web')
-             ->group(base_path('routes/admin-reports.php'));
+            ->group(base_path('routes/admin-reports.php'));
+    }
+
+    protected function mapRestaurantStaffRoutes()
+    {
+        Route::middleware('web')
+            ->group(base_path('routes/restaurant-staff.php'));
     }
 
     protected function mapApiRoutes()
     {
         Route::prefix('api')
-             ->middleware('api')
-             ->namespace($this->namespace)
-             ->group(base_path('routes/api.php'));
+            ->middleware('api')
+            ->namespace($this->namespace)
+            ->group(base_path('routes/api.php'));
     }
 
     protected function mapApiV1FoodDriverRoutes()
     {
         Route::prefix('api/v1')
-             ->middleware('api')
-             ->group(base_path('routes/api-v1-food-driver.php'));
+            ->middleware('api')
+            ->group(base_path('routes/api-v1-food-driver.php'));
     }
 }
