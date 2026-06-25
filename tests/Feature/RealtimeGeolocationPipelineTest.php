@@ -53,6 +53,26 @@ class RealtimeGeolocationPipelineTest extends TestCase
         $this->assertEqualsWithDelta(15.2429, (float) $driver->fresh()->longitude, 0.000001);
     }
 
+    public function test_an_expired_first_sample_is_rejected(): void
+    {
+        $driver = $this->createDriver('expired');
+        $broadcasts = Mockery::mock(MissionPresenceBroadcastService::class);
+        $broadcasts->shouldNotReceive('broadcastForDriver');
+        $service = new DriverLocationIngestionService($broadcasts);
+
+        $result = $service->ingest($driver, [
+            'latitude' => -4.3000,
+            'longitude' => 15.3000,
+            'recorded_at' => now()->subMinutes(10)->toIso8601String(),
+        ]);
+
+        $this->assertFalse($result['accepted']);
+        $this->assertTrue($result['stale']);
+        $this->assertDatabaseMissing('driver_locations', ['driver_id' => $driver->id]);
+        $this->assertNull($driver->fresh()->latitude);
+        $this->assertNull($driver->fresh()->longitude);
+    }
+
     public function test_stationary_heartbeat_with_a_new_timestamp_is_accepted(): void
     {
         $driver = $this->createDriver('heartbeat');
@@ -77,15 +97,52 @@ class RealtimeGeolocationPipelineTest extends TestCase
         $this->assertSame(2, DB::table('driver_locations')->where('driver_id', $driver->id)->count());
     }
 
+    public function test_broadcast_failure_does_not_rollback_a_valid_location(): void
+    {
+        $driver = $this->createDriver('broadcast-failure');
+        $broadcasts = Mockery::mock(MissionPresenceBroadcastService::class);
+        $broadcasts->shouldReceive('broadcastForDriver')->once()->andThrow(new \RuntimeException('Soketi unavailable'));
+        $service = new DriverLocationIngestionService($broadcasts);
+
+        $result = $service->ingest($driver, [
+            'latitude' => -4.2634,
+            'longitude' => 15.2429,
+            'recorded_at' => now()->toIso8601String(),
+        ]);
+
+        $this->assertTrue($result['accepted']);
+        $this->assertDatabaseHas('driver_locations', ['driver_id' => $driver->id]);
+        $this->assertEqualsWithDelta(-4.2634, (float) $driver->fresh()->latitude, 0.000001);
+    }
+
     public function test_food_tracking_frontend_matches_backend_presence_contract(): void
     {
         $view = file_get_contents(resource_path('views/frontend/track_order.blade.php'));
 
         $this->assertStringContainsString("private-food.order.' + ORDER_NO + '.presence", $view);
-        $this->assertStringContainsString("food.order.presence.updated", $view);
+        $this->assertStringContainsString('food.order.presence.updated', $view);
         $this->assertStringContainsString('data.location', $view);
         $this->assertStringNotContainsString('food.driver.location.updated', $view);
         $this->assertStringNotContainsString("presence-food.order.' + ORDER_NO", $view);
+    }
+
+    public function test_transport_tracking_frontend_consumes_tracking_presence_and_status_events(): void
+    {
+        $view = file_get_contents(resource_path('views/booking_detail.blade.php'));
+
+        $this->assertStringContainsString('private-transport.booking.', $view);
+        $this->assertStringContainsString('location.updated', $view);
+        $this->assertStringContainsString('transport.booking.presence.updated', $view);
+        $this->assertStringContainsString('transport.booking.status.updated', $view);
+    }
+
+    public function test_colis_tracking_frontend_consumes_presence_and_status_events(): void
+    {
+        $view = file_get_contents(resource_path('views/frontend/colis/show.blade.php'));
+
+        $this->assertStringContainsString('private-colis.shipment.', $view);
+        $this->assertStringContainsString('colis.shipment.presence.updated', $view);
+        $this->assertStringContainsString('colis.shipment.status.updated', $view);
     }
 
     public function test_web_driver_endpoint_uses_shared_ingestion_and_broadcasts(): void
