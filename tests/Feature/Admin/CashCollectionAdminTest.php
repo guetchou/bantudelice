@@ -56,9 +56,9 @@ class CashCollectionAdminTest extends TestCase
             ->get(route('admin.cash_collections.index', ['status' => 'pending_collection']));
 
         $response->assertOk();
-        $response->assertSee('TD-CASH-0001');
-        $response->assertDontSee('TD-CASH-0002');
-        $response->assertDontSee('TD-ONLINE-0001');
+        $response->assertViewHas('orders', function ($orders): bool {
+            return $orders->getCollection()->pluck('order_no')->all() === ['TD-CASH-0001'];
+        });
     }
 
     public function test_admin_can_export_filtered_cash_collections_without_client_contact_data(): void
