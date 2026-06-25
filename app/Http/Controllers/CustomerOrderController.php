@@ -357,9 +357,10 @@ class CustomerOrderController extends Controller
         // Informations de livraison déjà résolues plus haut (variable $delivery, utilisée pour l'ETA).
         $chatData = app(OrderChatService::class)->viewDataForOrder($order, auth()->user());
         $paymentExperience = app(\App\Services\PaymentExperienceService::class)->describe($order->payment);
+        $statusHistory = app(\App\Services\CustomerOrderTimelineService::class)->forOrder($order);
 
         return response()
-            ->view('frontend.track_order', compact('order', 'orderItems', 'estimatedTime', 'remainingMinutes', 'delivery', 'chatData', 'paymentExperience'))
+            ->view('frontend.track_order', compact('order', 'orderItems', 'estimatedTime', 'remainingMinutes', 'delivery', 'chatData', 'paymentExperience', 'statusHistory'))
             ->header('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0, private')
             ->header('Pragma', 'no-cache')
             ->header('Expires', '0');

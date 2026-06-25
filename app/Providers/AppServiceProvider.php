@@ -121,5 +121,6 @@ class AppServiceProvider extends ServiceProvider
             
             return "'{$url}'";
         });
+
     }
 }
