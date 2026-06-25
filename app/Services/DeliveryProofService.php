@@ -130,13 +130,22 @@ class DeliveryProofService
         );
     }
 
-    public function resolveConfirmationMethod(Delivery $delivery, array $context): ?string
+    /**
+     * Compatible avec l'ancien appel resolveConfirmationMethod($context)
+     * et le nouvel appel resolveConfirmationMethod($delivery, $context).
+     */
+    public function resolveConfirmationMethod($deliveryOrContext, array $context = []): ?string
     {
-        if (! empty($delivery->otp_verified_at)) {
+        $delivery = $deliveryOrContext instanceof Delivery ? $deliveryOrContext : null;
+        if (is_array($deliveryOrContext)) {
+            $context = $deliveryOrContext;
+        }
+
+        if ($delivery && ! empty($delivery->otp_verified_at)) {
             return 'otp';
         }
 
-        if (! empty($delivery->customer_confirmed_at)) {
+        if ($delivery && ! empty($delivery->customer_confirmed_at)) {
             return 'customer_button';
         }
 
@@ -186,6 +195,7 @@ class DeliveryProofService
     {
         return str_starts_with($value, '$2y$')
             || str_starts_with($value, '$2a$')
+            || str_starts_with($value, '$2b$')
             || str_starts_with($value, '$argon');
     }
 }
