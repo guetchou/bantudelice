@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\api;
 
+use App\Delivery;
 use App\Driver;
 use App\DriverHistory;
 use App\Http\Controllers\Controller;
@@ -10,12 +11,9 @@ use App\Order;
 use App\Product;
 use App\Restaurant;
 use App\Services\DriverLocationIngestionService;
-use App\Services\NotificationService;
-use App\UserToken;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 
@@ -24,129 +22,120 @@ class DriverOrderController extends Controller
     public function __construct(
         private DriverLocationIngestionService $driverLocations
     ) {
+        $this->middleware('auth:driver_api');
     }
 
     public function orderRequests($driver)
     {
-        $tokenDriver = auth('driver_api')->user();
-        if (!$tokenDriver || (int)$tokenDriver->id !== (int)$driver) {
+        $tokenDriver = $this->approvedDriver();
+        if (! $tokenDriver || (int) $tokenDriver->id !== (int) $driver) {
             return response()->json(['status' => false, 'message' => 'Accès non autorisé'], 403);
-        }
-
-        $driverModel = Driver::find($driver);
-
-        if (!$driverModel) {
-            return response()->json(['status' => false, 'message' => 'Livreur introuvable', 'data' => null], 404);
         }
 
         $driverOrders = Order::where('driver_id', $driver)->get();
 
         if ($driverOrders->isEmpty()) {
-            $driverModel['orders'] = collect();
-            return response()->json(['status' => true, 'data' => $driverModel]);
+            $tokenDriver->setAttribute('orders', collect());
+            return response()->json(['status' => true, 'data' => $tokenDriver]);
         }
 
-        $uniqueOrderNos = $driverOrders->pluck('order_no')->unique()->toArray();
+        $uniqueOrderNos = $driverOrders->pluck('order_no')->filter()->unique()->values();
         $firstOrder = $driverOrders->first();
         $restaurant = Restaurant::find($firstOrder->restaurant_id);
 
-        $restaurant['orders'] = Order::whereIn('order_no', $uniqueOrderNos)
+        if (! $restaurant) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Restaurant introuvable pour cette mission.',
+            ], 404);
+        }
+
+        $restaurant->setAttribute('orders', Order::whereIn('order_no', $uniqueOrderNos)
             ->with('user')
-            ->take(count($uniqueOrderNos))
-            ->get();
+            ->orderBy('id')
+            ->get());
 
         return response()->json(['status' => true, 'data' => $restaurant]);
     }
 
-    public function ordersProducts($orderno)
+    public function ordersProducts($orderNo)
     {
-        $orders = Order::where('order_no', $orderno)->get();
-
-        if ($orders->isEmpty()) {
-            return response()->json(['status' => false, 'message' => 'Commande introuvable', 'products' => []], 404);
+        $driver = $this->approvedDriver();
+        if (! $driver) {
+            return response()->json(['status' => false, 'message' => 'Accès non autorisé'], 403);
         }
 
-        $products = Product::whereIn('id', $orders->pluck('product_id')->toArray())->get();
+        $ownsMission = Delivery::where('driver_id', $driver->id)
+            ->whereHas('order', fn ($query) => $query->where('order_no', $orderNo))
+            ->exists();
+
+        if (! $ownsMission) {
+            return response()->json(['status' => false, 'message' => 'Commande introuvable'], 404);
+        }
+
+        $orders = Order::where('order_no', $orderNo)->get();
+        $products = Product::whereIn('id', $orders->pluck('product_id')->filter()->all())->get();
 
         return response()->json(['status' => true, 'products' => $products]);
     }
 
+    /**
+     * Ancien endpoint incompatible avec le workflow DeliveryOffer.
+     * L'assignation doit désormais passer par une offre appartenant au livreur.
+     */
     public function acceptOrderRequests(Request $request)
     {
-        $validator = Validator::make($request->all(), [
-            'driver_id' => 'required',
-            'status' => 'required|in:1,3',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'status' => false,
-                'error_code' => 101,
-                'message' => implode(',', $validator->messages()->all()),
-            ], 422);
-        }
-
-        $driverId = $request->driver_id;
-
-        if (!Driver::where('id', $driverId)->exists()) {
-            return response()->json(['status' => false, 'message' => 'Livreur introuvable'], 404);
-        }
-
-        $tokens = UserToken::whereIn(
-            'user_id',
-            Order::get()->unique('order_no')->pluck('user_id')->toArray()
-        )->pluck('device_tokens')->toArray();
-
-        if ($request->status == 1) {
-            Log::info('acceptOrderRequests: notification assign envoyée', ['driver_id' => $driverId]);
-            NotificationService::sendToMultipleDevices($tokens, 'Order Assign', 'Your is assign to driver', 'assignOrder', $driverId, 'user');
-            $status = true;
-        } elseif ($request->status == 3) {
-            Log::info('acceptOrderRequests: notification pickup envoyée', ['driver_id' => $driverId]);
-            NotificationService::sendToMultipleDevices($tokens, 'Order Pickup', 'Your Order is pickup from', 'pickipOrder', $driverId, 'user');
-            $status = true;
-        } else {
-            $status = false;
-        }
-
-        return response()->json(['status' => $status]);
+        return response()->json([
+            'status' => false,
+            'message' => 'Cette ancienne méthode d’assignation est désactivée. Utilisez les offres de livraison.',
+        ], 410);
     }
 
     public function deliverySummary($driver)
     {
-        $tokenDriver = auth('driver_api')->user();
-        if (!$tokenDriver || (int)$tokenDriver->id !== (int)$driver) {
+        $tokenDriver = $this->approvedDriver();
+        if (! $tokenDriver || (int) $tokenDriver->id !== (int) $driver) {
             return response()->json(['status' => false, 'message' => 'Accès non autorisé'], 403);
         }
 
-        $driverModel = Driver::find($driver);
-
-        if (!$driverModel) {
-            return response()->json(['status' => false, 'message' => 'Livreur introuvable', 'derlieries' => 0, 'total' => 0], 404);
-        }
-
-        $records = DB::table('completed_orders')
-            ->whereRaw('DATE(created_at) = CURDATE()')
+        $records = Delivery::where('driver_id', $driver)
+            ->where('status', 'DELIVERED')
+            ->whereDate('delivered_at', today())
             ->count();
 
-        if (!Schema::hasTable('driver_histories')) {
-            return response()->json(['status' => true, 'derlieries' => $records, 'total' => 0, 'starttime' => null, 'to' => 0]);
+        if (! Schema::hasTable('driver_histories')) {
+            return response()->json([
+                'status' => true,
+                'derlieries' => $records,
+                'deliveries' => $records,
+                'total' => 0,
+                'starttime' => null,
+                'to' => 0,
+            ]);
         }
 
         $history = DriverHistory::where('driver_id', $driver)->latest()->first();
 
-        if (!$history) {
-            return response()->json(['status' => true, 'derlieries' => $records, 'total' => 0, 'starttime' => null, 'to' => 0]);
+        if (! $history) {
+            return response()->json([
+                'status' => true,
+                'derlieries' => $records,
+                'deliveries' => $records,
+                'total' => 0,
+                'starttime' => null,
+                'to' => 0,
+            ]);
         }
 
         $start = Carbon::parse($history->start_date);
         $end = $history->end_date ? Carbon::parse($history->end_date) : now();
         $hours = $start->diffInHours($end);
-        $earnings = $driverModel->hourly_pay * $hours;
+        $earnings = (float) $tokenDriver->hourly_pay * $hours;
 
         return response()->json([
             'status' => true,
             'derlieries' => $records,
+            'deliveries' => $records,
             'total' => $earnings,
             'starttime' => $history->start_date,
             'to' => $hours,
@@ -155,27 +144,46 @@ class DriverOrderController extends Controller
 
     public function driverEarningHistory(Request $request, $driver)
     {
-        $tokenDriver = auth('driver_api')->user();
-        if (!$tokenDriver || (int)$tokenDriver->id !== (int)$driver) {
+        $tokenDriver = $this->approvedDriver();
+        if (! $tokenDriver || (int) $tokenDriver->id !== (int) $driver) {
             return response()->json(['status' => false, 'message' => 'Accès non autorisé'], 403);
-        }
-
-        if (!Driver::whereKey($driver)->exists()) {
-            return response()->json(['status' => false, 'message' => 'Livreur introuvable', 'totalEarning' => 0, 'weeks' => []], 404);
         }
 
         $totalEarning = DriverHistory::where('driver_id', $driver)->sum('earnings');
         $query = DriverHistory::where('driver_id', $driver)->latest();
 
-        if ($request->start_date != '' || $request->end_date != '') {
-            $query->whereBetween('created_at', [$request->start_date, $request->end_date]);
+        if ($request->filled('start_date') || $request->filled('end_date')) {
+            $validator = Validator::make($request->all(), [
+                'start_date' => 'required_with:end_date|date',
+                'end_date' => 'required_with:start_date|date|after_or_equal:start_date',
+            ]);
+
+            if ($validator->fails()) {
+                return response()->json([
+                    'status' => false,
+                    'message' => implode(',', $validator->messages()->all()),
+                ], 422);
+            }
+
+            $query->whereBetween('created_at', [
+                Carbon::parse($request->start_date)->startOfDay(),
+                Carbon::parse($request->end_date)->endOfDay(),
+            ]);
         }
 
-        return response()->json(['status' => true, 'totalEarning' => $totalEarning, 'weeks' => $query->get()]);
+        return response()->json([
+            'status' => true,
+            'totalEarning' => $totalEarning,
+            'weeks' => $query->get(),
+        ]);
     }
 
     public function latestNews()
     {
+        if (! $this->approvedDriver()) {
+            return response()->json(['status' => false, 'message' => 'Accès non autorisé'], 403);
+        }
+
         return response()->json(['status' => true, 'data' => News::latest()->get()]);
     }
 
@@ -198,17 +206,12 @@ class DriverOrderController extends Controller
             ], 422);
         }
 
-        $authDriver = auth('driver_api')->user();
-        if (! $authDriver) {
+        $driver = $this->approvedDriver();
+        if (! $driver) {
             return response()->json(['status' => false, 'message' => 'Non authentifié'], 401);
         }
 
-        $driver = Driver::find($driverId);
-        if (! $driver) {
-            return response()->json(['status' => false, 'message' => 'Livreur non trouvé'], 404);
-        }
-
-        if ((int) $authDriver->id !== (int) $driver->id) {
+        if ((int) $driver->id !== (int) $driverId) {
             return response()->json(['status' => false, 'message' => 'Non autorisé'], 403);
         }
 
@@ -236,5 +239,14 @@ class DriverOrderController extends Controller
             ],
             'recorded_at' => optional($result['location']?->timestamp)->toIso8601String(),
         ], $result['stale'] ? 202 : 200);
+    }
+
+    private function approvedDriver(): ?Driver
+    {
+        $driver = auth('driver_api')->user();
+
+        return $driver instanceof Driver && (bool) $driver->approved
+            ? $driver
+            : null;
     }
 }
