@@ -24,6 +24,7 @@
         "playwright": "^1.58.2",
         "playwright-core": "^1.58.2",
         "puppeteer": "^24.40.0",
+        "resolve-url-loader": "^5.0.0",
         "sass": "^1.77.8",
         "sass-loader": "^12.6.0"
     }
