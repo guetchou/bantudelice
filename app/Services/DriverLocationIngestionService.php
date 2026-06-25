@@ -12,7 +12,6 @@ class DriverLocationIngestionService
 {
     private const STALE_TOLERANCE_SECONDS = 5;
     private const MAX_SAMPLE_AGE_SECONDS = 300;
-    private const FUTURE_TOLERANCE_SECONDS = 120;
     private const COORDINATE_EPSILON = 0.0000001;
 
     public function __construct(
@@ -114,11 +113,8 @@ class DriverLocationIngestionService
         }
 
         $recordedAt = CarbonImmutable::parse($value);
-        if ($recordedAt->gt($now->addSeconds(self::FUTURE_TOLERANCE_SECONDS))) {
-            return $now;
-        }
 
-        return $recordedAt;
+        return $recordedAt->gt($now) ? $now : $recordedAt;
     }
 
     private function isDuplicate(DriverLocation $latest, array $payload, CarbonImmutable $recordedAt): bool
