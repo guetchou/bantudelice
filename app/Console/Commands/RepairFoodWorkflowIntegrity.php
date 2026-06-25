@@ -9,10 +9,10 @@ use Illuminate\Support\Facades\Log;
 class RepairFoodWorkflowIntegrity extends Command
 {
     protected $signature = 'food:repair-integrity
-        {--apply : Appliquer uniquement les réparations classées sans ambiguïté}
+        {--apply : Mettre en quarantaine uniquement les doublons classés sans ambiguïté}
         {--confirm= : Confirmation obligatoire APPLY_SAFE_REPAIRS}';
 
-    protected $description = 'Planifie ou applique les réparations conservatrices des doublons food';
+    protected $description = 'Planifie ou applique la quarantaine réversible des doublons food';
 
     public function __construct(
         protected FoodIntegrityRepairService $repairs
@@ -39,8 +39,13 @@ class RepairFoodWorkflowIntegrity extends Command
             return self::FAILURE;
         }
 
+        if (! $plan['quarantine_schema_ready']) {
+            $this->error('Les colonnes de quarantaine sont absentes. Exécutez les migrations.');
+            return self::FAILURE;
+        }
+
         if ((int) $plan['safe_repairs_count'] === 0) {
-            $this->info('Aucune réparation automatique sûre à appliquer.');
+            $this->info('Aucun doublon sûr à mettre en quarantaine.');
             if ((int) $plan['manual_reviews_count'] > 0) {
                 $this->warn('Des groupes nécessitent encore une vérification humaine.');
             }
@@ -48,7 +53,7 @@ class RepairFoodWorkflowIntegrity extends Command
         }
 
         $result = $this->repairs->apply();
-        Log::warning('Food workflow integrity safe repairs applied', $result);
+        Log::warning('Food workflow integrity duplicates quarantined', $result);
 
         $this->line(json_encode([
             'mode' => 'applied',
