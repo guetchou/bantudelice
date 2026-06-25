@@ -5,43 +5,24 @@ namespace App\Console\Commands;
 use App\Services\DispatchService;
 use Illuminate\Console\Command;
 
-/**
- * Commande Artisan pour traiter manuellement les livraisons en attente
- * 
- * Usage: php artisan dispatch:process-pending [--limit=10]
- */
 class ProcessPendingDeliveries extends Command
 {
-    /**
-     * The name and signature of the console command.
-     *
-     * @var string
-     */
     protected $signature = 'dispatch:process-pending {--limit=10 : Nombre max de livraisons à traiter}';
 
-    /**
-     * The console command description.
-     *
-     * @var string
-     */
-    protected $description = 'Traiter les livraisons en attente et assigner automatiquement des livreurs';
+    protected $description = 'Relancer les offres de missions pour les livraisons en attente';
 
-    /**
-     * Execute the console command.
-     */
     public function handle(DispatchService $dispatchService): int
     {
-        $limit = (int) $this->option('limit');
-
+        $limit = max(1, (int) $this->option('limit'));
         $this->info("Traitement de {$limit} livraisons en attente...");
 
         $result = $dispatchService->processPendingDeliveries($limit);
-        
-        $this->info("✅ Traitées: {$result['processed']}");
-        $this->info("✅ Assignées: {$result['assigned']}");
-        $this->info("❌ Échecs: {$result['failed']}");
-        
-        return 0;
+
+        $this->info('Traitées : ' . ($result['processed'] ?? 0));
+        $this->info('Offres mises en file : ' . ($result['queued'] ?? 0));
+        $this->info('Déjà couvertes par une offre active : ' . ($result['skipped'] ?? 0));
+        $this->info('Échecs : ' . ($result['failed'] ?? 0));
+
+        return self::SUCCESS;
     }
 }
-
