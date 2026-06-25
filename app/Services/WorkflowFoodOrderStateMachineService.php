@@ -9,19 +9,22 @@ use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use RuntimeException;
 
-/**
- * Extension compatible du moteur historique.
- *
- * Elle ajoute les états des commandes programmées et distingue une commande cash
- * autorisée à être préparée d'une commande réellement encaissée.
- */
 class WorkflowFoodOrderStateMachineService extends FoodOrderStateMachineService
 {
     public function transitionOrders(Collection $orders, string $targetStatus, array $context = []): Collection
     {
+        $normalizedTarget = $this->normalizeBusinessStatus($targetStatus);
         $transitioned = parent::transitionOrders($orders, $targetStatus, $context);
-        $first = $transitioned->first();
+        $orderIds = $transitioned->pluck('id')->filter()->values()->all();
 
+        if ($normalizedTarget === 'accepted_scheduled') {
+            Order::whereIn('id', $orderIds)
+                ->whereNull('accepted_at')
+                ->update(['accepted_at' => now()]);
+            $transitioned = Order::whereIn('id', $orderIds)->orderBy('id')->get();
+        }
+
+        $first = $transitioned->first();
         if (! $first || strtolower((string) $first->payment_method) !== 'cash') {
             return $transitioned;
         }
@@ -34,7 +37,6 @@ class WorkflowFoodOrderStateMachineService extends FoodOrderStateMachineService
             return $transitioned;
         }
 
-        $orderIds = $transitioned->pluck('id')->filter()->values()->all();
         Order::whereIn('id', $orderIds)->update([
             'payment_status' => OrderPaymentStatus::PAID->value,
         ]);
