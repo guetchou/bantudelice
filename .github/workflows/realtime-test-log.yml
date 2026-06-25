@@ -21,8 +21,7 @@ jobs:
           php artisan key:generate --ansi
           php artisan passport:keys --force
       - name: Capture test output
-        run: |
-          php artisan test tests/Feature/RealtimeGeolocationPipelineTest.php --stop-on-failure > /tmp/realtime-test.log 2>&1 || true
+        run: php artisan test tests/Feature/RealtimeBroadcastEventsTest.php --stop-on-failure > /tmp/realtime-test.log 2>&1 || true
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: realtime-test-log
