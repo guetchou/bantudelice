@@ -56,25 +56,25 @@ class WorkflowOrderAcceptanceService extends OrderAcceptanceService
             $currentStatus = $this->stateMachine->resolveCurrentBusinessStatus($lockedOrder);
 
             if (in_array($currentStatus, [
-                'preparation_due', 'accepted_awaiting_payment', 'confirmed',
-                'in_kitchen', 'ready_for_pickup', 'dispatching', 'driver_assigned',
+                'accepted_awaiting_payment', 'confirmed', 'in_kitchen',
+                'ready_for_pickup', 'dispatching', 'driver_assigned',
                 'picked_up', 'out_for_delivery', 'delivered',
                 'picked_up_by_customer', 'closed',
             ], true)) {
                 return;
             }
 
-            if ($currentStatus !== 'accepted_scheduled') {
+            if ($currentStatus === 'accepted_scheduled') {
+                $this->stateMachine->transitionOrderGroup($lockedOrder->order_no, 'preparation_due', [
+                    'actor_type' => 'system',
+                    'actor_id' => null,
+                    'reason_code' => 'scheduled_preparation_window_opened',
+                ]);
+            } elseif ($currentStatus !== 'preparation_due') {
                 throw new RuntimeException(
                     "La commande programmée ne peut pas être libérée depuis l'état {$currentStatus}."
                 );
             }
-
-            $this->stateMachine->transitionOrderGroup($lockedOrder->order_no, 'preparation_due', [
-                'actor_type' => 'system',
-                'actor_id' => null,
-                'reason_code' => 'scheduled_preparation_window_opened',
-            ]);
 
             $freshOrder = Order::where('order_no', $lockedOrder->order_no)->orderBy('id')->firstOrFail();
             $this->startWorkflow($freshOrder, 'system', null);
@@ -127,6 +127,8 @@ class WorkflowOrderAcceptanceService extends OrderAcceptanceService
                 'currency' => 'XAF',
                 'status' => 'PENDING',
                 'meta' => [
+                    'cash_on_delivery' => $freshOrder->fulfillment_mode !== 'pickup',
+                    'cash_on_pickup' => $freshOrder->fulfillment_mode === 'pickup',
                     'fulfillment_mode' => $freshOrder->fulfillment_mode,
                     'collection_status' => 'pending_collection',
                 ],
@@ -164,9 +166,6 @@ class WorkflowOrderAcceptanceService extends OrderAcceptanceService
     ): void {
         $orderNo = $order->order_no;
 
-        // accepted_at sert de début de fenêtre au job d'expiration du paiement.
-        // Pour une commande programmée, il doit donc être réinitialisé au moment
-        // où le paiement est réellement demandé, et non à l'acceptation initiale.
         Order::where('order_no', $orderNo)->update([
             'payment_status' => OrderPaymentStatus::NOT_STARTED->value,
             'accepted_at' => now(),
