@@ -39,6 +39,7 @@ jobs:
         run: |
           python3 <<'PY'
           from pathlib import Path
+          import re
 
           provider = Path('app/Providers/AppServiceProvider.php')
           text = provider.read_text()
@@ -48,39 +49,39 @@ jobs:
               'use Illuminate\\Support\\Facades\\View;\n',
           ]:
               text = text.replace(line, '')
-          start_token = '        // La page de suivi historique est volumineuse'
-          start = text.find(start_token)
-          if start == -1:
-              raise SystemExit('timeline composer start not found')
-          end_token = '        });\n'
-          end = text.find(end_token, start)
-          if end == -1:
-              raise SystemExit('timeline composer end not found')
-          end += len(end_token)
-          text = text[:start] + text[end:]
+          pattern = re.compile(
+              r"\n        // La page de suivi historique est volumineuse.*?\n        \}\);\n(?=    \}\n\})",
+              re.S,
+          )
+          text, removed = pattern.subn('\n', text, count=1)
+          if removed != 1 and 'View::composer(' in text:
+              raise SystemExit('timeline composer removal failed')
           provider.write_text(text)
 
           controller = Path('app/Http/Controllers/CustomerOrderController.php')
           text = controller.read_text()
-          needle = "        $paymentExperience = app(\\App\\Services\\PaymentExperienceService::class)->describe($order->payment);\n\n        return response()"
-          replacement = "        $paymentExperience = app(\\App\\Services\\PaymentExperienceService::class)->describe($order->payment);\n        $statusHistory = app(\\App\\Services\\CustomerOrderTimelineService::class)->forOrder($order);\n\n        return response()"
-          if needle not in text:
-              raise SystemExit('controller insertion point not found')
-          text = text.replace(needle, replacement, 1)
-          compact_old = "'delivery', 'chatData', 'paymentExperience'"
-          compact_new = "'delivery', 'chatData', 'paymentExperience', 'statusHistory'"
-          if compact_old not in text:
-              raise SystemExit('controller compact list not found')
-          text = text.replace(compact_old, compact_new, 1)
+          payment_line = "        $paymentExperience = app(\\App\\Services\\PaymentExperienceService::class)->describe($order->payment);"
+          history_line = "        $statusHistory = app(\\App\\Services\\CustomerOrderTimelineService::class)->forOrder($order);"
+          if payment_line not in text:
+              raise SystemExit('payment experience line not found')
+          if history_line not in text:
+              text = text.replace(payment_line, payment_line + '\n' + history_line, 1)
+          if "'statusHistory'" not in text:
+              compact_old = "'delivery', 'chatData', 'paymentExperience'"
+              if compact_old not in text:
+                  raise SystemExit('controller compact list not found')
+              text = text.replace(compact_old, compact_old + ", 'statusHistory'", 1)
           controller.write_text(text)
 
           view = Path('resources/views/frontend/track_order.blade.php')
           text = view.read_text()
-          needle = "    {{-- ── Contacts : livreur + restaurant ───────────────────────────── --}}\n    <div class=\"trk-contacts\">"
-          replacement = "    {{-- ── Historique horodaté de la commande ─────────────────────────── --}}\n    @include('frontend.partials.order_status_history', ['statusHistory' => $statusHistory])\n\n" + needle
-          if needle not in text:
-              raise SystemExit('timeline view insertion point not found')
-          text = text.replace(needle, replacement, 1)
+          include_line = "    @include('frontend.partials.order_status_history', ['statusHistory' => $statusHistory])"
+          marker = '    <div class="trk-contacts">'
+          if marker not in text:
+              raise SystemExit('contacts marker not found')
+          if include_line not in text:
+              insertion = "    {{-- ── Historique horodaté de la commande ─────────────────────────── --}}\n" + include_line + "\n\n"
+              text = text.replace(marker, insertion + marker, 1)
           view.write_text(text)
           PY
       - name: Verify syntax and page rendering
