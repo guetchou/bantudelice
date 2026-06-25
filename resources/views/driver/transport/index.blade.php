@@ -465,6 +465,8 @@ function txApplyStatus(status) {
 }
 
 // GPS
+let txLocationInFlight = false;
+let txLocationTimer = null;
 function txSetGps(label, ok) {
     var pill = document.getElementById('txGpsPill');
     var dot  = document.getElementById('txGpsDot');
@@ -473,29 +475,51 @@ function txSetGps(label, ok) {
     if (pill) pill.className = 'tx-gps' + (ok ? '' : ' error');
     if (dot) dot.style.background = ok ? 'var(--c-green-lt)' : 'var(--c-err)';
 }
+function txScheduleLocation(delay) {
+    clearTimeout(txLocationTimer);
+    txLocationTimer = setTimeout(txSendLocation, delay);
+}
 function txSendLocation() {
-    if (!activeBookingUuid || !('geolocation' in navigator)) return;
+    if (!activeBookingUuid || !('geolocation' in navigator) || txLocationInFlight) return;
+    if (document.visibilityState && document.visibilityState !== 'visible') return;
+    txLocationInFlight = true;
     navigator.geolocation.getCurrentPosition(pos => {
         fetch(`{{ url('transport/xhr/driver/bookings') }}/${activeBookingUuid}/location`, {
             method: 'POST',
             headers: { 'Content-Type':'application/json', 'X-CSRF-TOKEN':'{{ csrf_token() }}'
                 @if(auth()->user()->api_token), 'Authorization':'Bearer {{ auth()->user()->api_token }}'@endif },
-            body: JSON.stringify({ lat: pos.coords.latitude, lng: pos.coords.longitude, speed: pos.coords.speed })
+            body: JSON.stringify({
+                lat: pos.coords.latitude,
+                lng: pos.coords.longitude,
+                accuracy: pos.coords.accuracy || null,
+                heading: pos.coords.heading || null,
+                speed: pos.coords.speed || null,
+                recorded_at: new Date(pos.timestamp || Date.now()).toISOString()
+            })
         })
         .then(async r => {
-            if (r.ok) txSetGps('Position envoyée &middot; ' + new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}), true);
-            else txSetGps('Erreur GPS &middot; réessai', false);
+            if (r.ok) txSetGps('Position envoyée · ' + new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'}), true);
+            else txSetGps('Erreur GPS · réessai', false);
         })
-        .catch(() => txSetGps('Connexion perdue', false));
-    }, () => txSetGps('Géolocalisation refusée &mdash; activez-la', false),
-    { enableHighAccuracy:true, timeout:12000, maximumAge:0 });
+        .catch(() => txSetGps('Connexion perdue', false))
+        .finally(() => {
+            txLocationInFlight = false;
+            txScheduleLocation(8000);
+        });
+    }, () => {
+        txLocationInFlight = false;
+        txSetGps('Géolocalisation refusée — activez-la', false);
+        txScheduleLocation(15000);
+    }, { enableHighAccuracy:true, timeout:12000, maximumAge:5000 });
 }
 
 if (activeBookingUuid) {
     txApplyStatus(initialBookingStatus);
     txSendLocation();
-    setInterval(txSendLocation, 8000);
-    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') txSendLocation(); });
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') txSendLocation();
+        else clearTimeout(txLocationTimer);
+    });
 }
 </script>
 @endsection

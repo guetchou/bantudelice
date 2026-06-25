@@ -1495,7 +1495,7 @@ document.addEventListener('DOMContentLoaded', function(){
     var CSRF    = @json(csrf_token());
     var MIN_M = 30;
     var HEARTBEAT_MS = 45000;
-    var _wid = null, _lat = null, _lng = null, _lastSentAt = 0, _on = {{ $driverIsOnline ? 'true' : 'false' }}, _send = false;
+    var _wid = null, _lat = null, _lng = null, _lastPos = null, _lastSentAt = 0, _heartbeatTimer = null, _on = {{ $driverIsOnline ? 'true' : 'false' }}, _send = false;
     var gpsBar = document.getElementById('gpsBar');
     var gpsLabel = document.getElementById('gpsLabel');
 
@@ -1507,6 +1507,7 @@ document.addEventListener('DOMContentLoaded', function(){
     function hdist(a,b,c,d){var e=(c-a)*Math.PI/180,f=(d-b)*Math.PI/180,g=Math.sin(e/2)*Math.sin(e/2)+Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(f/2)*Math.sin(f/2);return 2*6371000*Math.atan2(Math.sqrt(g),Math.sqrt(1-g));}
 
     function send(pos){
+        _lastPos = pos;
         var la=pos.coords.latitude,ln=pos.coords.longitude;
         var capturedAt = pos.timestamp ? new Date(pos.timestamp) : new Date();
         var stationary = _lat!==null && hdist(_lat,_lng,la,ln)<MIN_M;
@@ -1533,12 +1534,20 @@ document.addEventListener('DOMContentLoaded', function(){
     }
 
     function start(){
-        if(_wid!==null||!navigator.geolocation)return;
-        setGps('active', 'Localisation GPS en cours...');
-        _wid=navigator.geolocation.watchPosition(send, onGpsError, {enableHighAccuracy:true,maximumAge:10000,timeout:20000});
+        if(!navigator.geolocation)return;
+        if(_wid===null){
+            setGps('active', 'Localisation GPS en cours...');
+            _wid=navigator.geolocation.watchPosition(send, onGpsError, {enableHighAccuracy:true,maximumAge:10000,timeout:20000});
+        }
+        if(_heartbeatTimer===null){
+            _heartbeatTimer=setInterval(function(){
+                if(_on&&_lastPos&&!_send&&Date.now()-_lastSentAt>=HEARTBEAT_MS) send(_lastPos);
+            },5000);
+        }
     }
     function stop(){
         if(_wid!==null){navigator.geolocation.clearWatch(_wid);_wid=null;}
+        if(_heartbeatTimer!==null){clearInterval(_heartbeatTimer);_heartbeatTimer=null;}
         if(!_on) setGps('off', 'GPS inactif — passez en ligne pour activer');
     }
 
