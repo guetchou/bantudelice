@@ -6,7 +6,6 @@ use App\Delivery;
 use App\DeliveryOffer;
 use App\Services\CommerceSignalService;
 use App\Services\DispatchService;
-use App\Services\FoodOrderStateMachineService;
 use App\Services\NotificationService;
 use App\Services\ProgressiveDispatchPlan;
 use Illuminate\Bus\Queueable;
@@ -48,12 +47,8 @@ class BroadcastDeliveryOfferJob implements ShouldQueue
         }
 
         $order = $delivery->order;
-        if (! $order || ! in_array(
-            $order->business_status,
-            FoodOrderStateMachineService::DISPATCHABLE_BUSINESS_STATUSES,
-            true
-        )) {
-            Log::warning('BroadcastDeliveryOffer: commande non dispatchable, job ignoré', [
+        if (! $order || $order->business_status !== 'ready_for_pickup') {
+            Log::warning('BroadcastDeliveryOffer: commande non prête, job ignoré', [
                 'delivery_id' => $this->deliveryId,
                 'round' => $this->round,
                 'business_status' => $order?->business_status,
@@ -62,7 +57,7 @@ class BroadcastDeliveryOfferJob implements ShouldQueue
         }
 
         if ($this->round > $plan->maxRounds()) {
-            $this->scheduleConsentRetry($delivery, $plan);
+            $this->scheduleConsentRetry($delivery);
             return;
         }
 
@@ -88,7 +83,7 @@ class BroadcastDeliveryOfferJob implements ShouldQueue
             ]);
 
             if ($this->round >= $plan->maxRounds()) {
-                $this->scheduleConsentRetry($delivery, $plan);
+                $this->scheduleConsentRetry($delivery);
                 return;
             }
 
@@ -180,7 +175,7 @@ class BroadcastDeliveryOfferJob implements ShouldQueue
         }
     }
 
-    private function scheduleConsentRetry(Delivery $delivery, ProgressiveDispatchPlan $plan): void
+    private function scheduleConsentRetry(Delivery $delivery): void
     {
         $retrySeconds = max(120, (int) config('food.dispatch.exhausted_retry_seconds', 300));
 
