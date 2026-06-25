@@ -1,0 +1,25 @@
+name: Apply Food Heartbeat Timestamp
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: write
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: fix/realtime-geolocation-pipeline
+          fetch-depth: 0
+      - run: python3 scripts/ci/patch_food_heartbeat_timestamp.py
+      - run: |
+          grep -Fq "function send(pos, heartbeat)" resources/views/driver/deliveries.blade.php
+          grep -Fq "send(_lastPos, true)" resources/views/driver/deliveries.blade.php
+      - run: |
+          git config user.name github-actions
+          git config user.email github-actions@users.noreply.github.com
+          git add resources/views/driver/deliveries.blade.php
+          git commit -m 'fix(realtime): timestamp stationary heartbeats at send time'
+          git push origin HEAD:fix/realtime-geolocation-pipeline
