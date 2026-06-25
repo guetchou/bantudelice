@@ -32,15 +32,13 @@ class RestaurantMiddleware
             return $this->deny($request, 'Aucun restaurant actif n’est associé à ce compte.', 403);
         }
 
-        // Les contrôleurs historiques lisent auth()->user()->restaurant. Pour un membre
-        // du personnel, on injecte la relation résolue sans modifier chaque contrôleur.
         $user->setRelation('restaurant', $restaurant);
         $request->attributes->set('restaurant_context', $restaurant);
         $request->attributes->set('restaurant_staff_role', $role);
         $request->attributes->set('restaurant_staff_permissions', $permissions);
 
         $routeName = (string) optional($request->route())->getName();
-        $requiredPermission = $this->requiredPermissionForRoute($routeName, $request);
+        $requiredPermission = $this->requiredPermissionForRoute($routeName);
 
         if ($membership && ! $this->hasPermission($permissions, $requiredPermission)) {
             Log::warning('Restaurant staff permission denied', [
@@ -51,11 +49,7 @@ class RestaurantMiddleware
                 'required_permission' => $requiredPermission,
             ]);
 
-            return $this->deny(
-                $request,
-                'Votre rôle restaurant ne permet pas cette action.',
-                403
-            );
+            return $this->deny($request, 'Votre rôle restaurant ne permet pas cette action.', 403);
         }
 
         if ($membership && (! $membership->last_access_at || $membership->last_access_at->lt(now()->subMinutes(5)))) {
@@ -167,12 +161,7 @@ class RestaurantMiddleware
             ?? Restaurant::where('user_id', $user->id)->first();
 
         if ($ownedRestaurant) {
-            return [
-                $ownedRestaurant,
-                null,
-                'owner',
-                ['all'],
-            ];
+            return [$ownedRestaurant, null, 'owner', ['all']];
         }
 
         if (! Schema::hasTable('restaurant_staff_members')) {
@@ -198,7 +187,7 @@ class RestaurantMiddleware
         ];
     }
 
-    private function requiredPermissionForRoute(string $routeName, Request $request): ?string
+    private function requiredPermissionForRoute(string $routeName): ?string
     {
         if ($routeName === '') {
             return 'unclassified';
@@ -234,9 +223,12 @@ class RestaurantMiddleware
                 'restaurant.cash.*',
             ],
             'catalog.manage' => [
+                'restaurant.menu.*',
+                'restaurant.media.*',
                 'product.*',
                 'category.*',
                 'menu.*',
+                'add-on.*',
                 'addon.*',
                 'option.*',
             ],
@@ -245,13 +237,23 @@ class RestaurantMiddleware
                 'r_earnings.*',
                 'restaurant.payments.*',
             ],
+            'analytics.view' => [
+                'restaurant.analytics',
+                'restaurant.analytics.*',
+            ],
+            'reviews.view' => [
+                'restaurant.ratings',
+                'restaurant.ratings.*',
+            ],
             'staff.manage' => [
                 'employee.*',
                 'restaurant.staff.*',
             ],
             'settings.manage' => [
+                'working_hour.*',
                 'working-hour.*',
                 'restaurant.availability.*',
+                'restaurant.profile',
                 'restaurant.profile.*',
                 'restaurant.settings.*',
             ],
@@ -263,7 +265,6 @@ class RestaurantMiddleware
             }
         }
 
-        // Les routes de session restent accessibles à tout membre actif.
         if (Str::is(['logout', 'restaurant.logout'], $routeName)) {
             return null;
         }
