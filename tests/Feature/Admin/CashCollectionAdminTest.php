@@ -52,6 +52,8 @@ class CashCollectionAdminTest extends TestCase
         $this->createOrder('TD-CASH-0002', 'cash', 'collected');
         $this->createOrder('TD-ONLINE-0001', 'paypal', null);
 
+        $this->withoutExceptionHandling();
+
         $response = $this->actingAs($this->admin)
             ->withoutMiddleware()
             ->get(route('admin.cash_collections.index', ['status' => 'pending_collection']));
