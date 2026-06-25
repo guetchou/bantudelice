@@ -8,6 +8,7 @@ on:
       - 'database/migrations/**'
       - 'resources/views/driver/**'
       - 'tests/Unit/DriverWorkflowSecurityTest.php'
+      - 'tests/driver_workflow_security_check.php'
       - '.github/workflows/driver-workflow-quality.yml'
 
 permissions:
@@ -16,7 +17,7 @@ permissions:
 jobs:
   php-quality:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
 
     steps:
       - name: Checkout
@@ -28,14 +29,11 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.2'
-          extensions: mbstring, xml, ctype, json, tokenizer, fileinfo, openssl, pdo_sqlite, curl, dom, simplexml, xmlwriter, zip, gd, intl, bcmath
+          extensions: mbstring, xml, ctype, json, tokenizer, fileinfo, openssl
           coverage: none
 
       - name: Validate Composer metadata
         run: composer validate --no-check-publish
-
-      - name: Install dependencies
-        run: composer install --no-interaction --prefer-dist --no-progress --no-scripts
 
       - name: Lint changed PHP files
         shell: bash
@@ -51,5 +49,5 @@ jobs:
             php -l "$file"
           done < /tmp/changed-php.txt
 
-      - name: Run driver workflow regression tests
-        run: vendor/bin/phpunit tests/Unit/DriverWorkflowSecurityTest.php
+      - name: Run dependency-free driver workflow checks
+        run: php tests/driver_workflow_security_check.php
