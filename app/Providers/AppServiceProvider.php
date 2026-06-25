@@ -3,6 +3,8 @@
 namespace App\Providers;
 
 use App\Domain\Checkout\Contracts\CheckoutOrchestratorInterface;
+use App\Domain\Food\Services\OrderAcceptanceService;
+use App\Domain\Food\Services\WorkflowOrderAcceptanceService;
 use App\Domain\Payment\Adapters\AirtelMoneyAdapter;
 use App\Domain\Payment\Adapters\CashDemoAdapter;
 use App\Domain\Payment\Adapters\MtnMomoAdapter;
@@ -21,6 +23,10 @@ class AppServiceProvider extends ServiceProvider
         $this->app->singleton(
             FoodOrderStateMachineService::class,
             WorkflowFoodOrderStateMachineService::class
+        );
+        $this->app->singleton(
+            OrderAcceptanceService::class,
+            WorkflowOrderAcceptanceService::class
         );
 
         $this->app->singleton(PaymentGatewayFactory::class, function ($app) {
