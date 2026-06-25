@@ -6,6 +6,7 @@ use App\Driver;
 use App\Http\Controllers\Controller;
 use App\Mail\RegisterEmail;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Mail;
@@ -22,62 +23,63 @@ class DriverAuthController extends Controller
     public function register(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'name'              => 'required|string|max:255',
-            'email'             => 'required|email|max:255|unique:drivers,email',
-            'password'          => 'required|string|min:8',
-            'phone'             => 'required|string|max:30|unique:drivers,phone',
-            'address'           => 'nullable|string|max:1000',
-            'image'             => 'nullable|image|mimes:jpeg,png,jpg,webp|max:8192',
-            'account_name'      => 'nullable|string|max:255',
-            'account_address'   => 'required|string|max:1000',
-            'account_number'    => 'required|string|max:100',
-            'bank_name'         => 'required|string|max:255',
-            'branch_name'       => 'required|string|max:255',
-            'branch_address'    => 'required|string|max:1000',
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|max:255|unique:drivers,email',
+            'password' => 'required|string|min:8',
+            'phone' => 'required|string|max:30|unique:drivers,phone',
+            'address' => 'nullable|string|max:1000',
+            'image' => 'nullable|image|mimes:jpeg,png,jpg,webp|max:8192',
+            'account_name' => 'nullable|string|max:255',
+            'account_address' => 'required|string|max:1000',
+            'account_number' => 'required|string|max:100',
+            'bank_name' => 'required|string|max:255',
+            'branch_name' => 'required|string|max:255',
+            'branch_address' => 'required|string|max:1000',
             'paypal_account_no' => 'required|string|max:255',
-            'licence_image'     => 'required|image|mimes:jpeg,png,jpg,webp|max:8192',
+            'licence_image' => 'required|image|mimes:jpeg,png,jpg,webp|max:8192',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
-                'status'     => false,
+                'status' => false,
                 'error_code' => 101,
-                'message'    => implode(',', $validator->messages()->all()),
+                'message' => implode(',', $validator->messages()->all()),
             ], 422);
         }
 
-        DB::beginTransaction();
+        $storedFiles = [];
 
         try {
-            $payload = $validator->validated();
-            $payload['password'] = Hash::make($payload['password']);
-            $payload['approved'] = false;
+            $driver = DB::transaction(function () use ($request, $validator, &$storedFiles): Driver {
+                $payload = Arr::except($validator->validated(), ['image', 'licence_image']);
+                $payload['password'] = Hash::make($payload['password']);
+                $payload['approved'] = false;
+                $payload['status'] = 'offline';
 
-            $driver = Driver::create($payload);
+                foreach (['image', 'licence_image'] as $field) {
+                    if (! $request->hasFile($field)) {
+                        continue;
+                    }
 
-            foreach (['image' => 'image', 'licence_image' => 'licence_image'] as $field => $column) {
-                if (! $request->hasFile($field)) {
-                    continue;
+                    $file = $request->file($field);
+                    $filename = strtolower(
+                        pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME)
+                        . '-' . bin2hex(random_bytes(8))
+                        . '.' . $file->getClientOriginalExtension()
+                    );
+                    $file->move(public_path('images/driver_images'), $filename);
+                    $storedFiles[] = public_path('images/driver_images/' . $filename);
+                    $payload[$field] = $filename;
                 }
 
-                $file = $request->file($field);
-                $filename = strtolower(
-                    pathinfo($file->getClientOriginalName(), PATHINFO_FILENAME)
-                    . '-' . bin2hex(random_bytes(6)) . '.' . $file->getClientOriginalExtension()
-                );
-                $file->move('images/driver_images', $filename);
-                $driver->{$column} = $filename;
-            }
-
-            $driver->save();
-            Mail::to($driver->email)->send(new RegisterEmail([
-                'name' => $driver->name,
-                'email' => $driver->email,
-            ]));
-
-            DB::commit();
+                return Driver::create($payload);
+            }, 3);
         } catch (\Throwable $e) {
-            DB::rollBack();
+            foreach ($storedFiles as $path) {
+                if (is_file($path)) {
+                    @unlink($path);
+                }
+            }
 
             report($e);
 
@@ -85,6 +87,15 @@ class DriverAuthController extends Controller
                 'status' => false,
                 'message' => 'Impossible de créer le compte livreur.',
             ], 500);
+        }
+
+        try {
+            Mail::to($driver->email)->send(new RegisterEmail([
+                'name' => $driver->name,
+                'email' => $driver->email,
+            ]));
+        } catch (\Throwable $e) {
+            report($e);
         }
 
         return response()->json([
@@ -100,15 +111,15 @@ class DriverAuthController extends Controller
     public function login(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'phone'    => 'required|string',
+            'phone' => 'required|string',
             'password' => 'required|string',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
-                'status'     => false,
+                'status' => false,
                 'error_code' => 101,
-                'message'    => implode(',', $validator->messages()->all()),
+                'message' => implode(',', $validator->messages()->all()),
             ], 422);
         }
 
@@ -131,20 +142,20 @@ class DriverAuthController extends Controller
         $token = 'Bearer ' . $driver->createToken('MyApp')->accessToken;
 
         return response()->json([
-            'user_id'                  => $driver->id,
-            'name'                     => $driver->name,
-            'email'                    => $driver->email,
-            'image'                    => $driver->image,
+            'user_id' => $driver->id,
+            'name' => $driver->name,
+            'email' => $driver->email,
+            'image' => $driver->image,
             'password_change_required' => (bool) ($driver->password_must_change ?? false),
-            'status'                   => true,
-            'status_code'              => 200,
-            'message'                  => 'Connexion réussie',
-            'data'                     => $token,
+            'status' => true,
+            'status_code' => 200,
+            'message' => 'Connexion réussie',
+            'data' => $token,
         ]);
     }
 
     /**
-     * Étape 1 : phone uniquement, envoi d'un code à l'adresse e-mail enregistrée.
+     * Étape 1 : phone uniquement, envoi d'un code à l'adresse enregistrée.
      * Étape 2 : phone + code + password, validation puis changement du mot de passe.
      */
     public function forgotPassword(Request $request)
@@ -335,21 +346,19 @@ class DriverAuthController extends Controller
 
     private function revokeDriverTokens(Driver $driver): void
     {
-        if (! Schema::hasTable('oauth_access_tokens') || ! Schema::hasTable('oauth_clients')) {
+        try {
+            $driver->tokens()->update(['revoked' => true]);
             return;
+        } catch (\Throwable $e) {
+            report($e);
         }
 
-        $driverClientIds = DB::table('oauth_clients')
-            ->where('provider', 'drivers')
-            ->pluck('id');
-
-        if ($driverClientIds->isEmpty()) {
+        if (! Schema::hasTable('oauth_access_tokens')) {
             return;
         }
 
         DB::table('oauth_access_tokens')
             ->where('user_id', (string) $driver->id)
-            ->whereIn('client_id', $driverClientIds)
             ->update(['revoked' => true]);
     }
 }
