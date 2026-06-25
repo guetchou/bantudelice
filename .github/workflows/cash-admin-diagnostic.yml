@@ -25,9 +25,9 @@ jobs:
           set +e
           php artisan test tests/Feature/Admin/CashCollectionAdminTest.php --stop-on-failure > /tmp/result.txt 2>&1
           CODE=$?
-          LINE=$(grep -F 'Actual filtered orders:' /tmp/result.txt | head -n 1)
-          if [ -z "$LINE" ]; then LINE=$(tail -n 8 /tmp/result.txt | tr '\r\n' ' ' | tr -s ' '); fi
-          LINE=$(printf '%s' "$LINE" | cut -c1-180)
+          LINE=$(grep -E 'Error|Exception|Call to|Undefined|Failed asserting|Actual filtered orders' /tmp/result.txt | head -n 1)
+          if [ -z "$LINE" ]; then LINE=$(tail -n 12 /tmp/result.txt | tr '\r\n' ' ' | tr -s ' '); fi
+          LINE=$(printf '%s' "$LINE" | cut -c1-220)
           echo "result=$LINE" >> "$GITHUB_OUTPUT"
           echo "code=$CODE" >> "$GITHUB_OUTPUT"
           exit 0
