@@ -49,7 +49,7 @@ class RestaurantStaffMember extends Model
     {
         $permissions = $this->resolvedPermissions();
 
-        return in_array('*', $permissions, true)
+        return in_array('all', $permissions, true)
             || in_array($permission, $permissions, true);
     }
 }
