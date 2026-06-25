@@ -45,6 +45,7 @@ jobs:
       - name: Verify unsigned guest tracking is rejected
         run: |
           set -euo pipefail
-          CODE=$(curl --retry 3 --retry-delay 2 --connect-timeout 15 --max-time 45 -sS -o /tmp/guest.txt -w '%{http_code}' https://bantudelice.cg/t/not-a-valid-signed-token)
+          KEY=$(printf 'A%.0s' {1..64})
+          CODE=$(curl --retry 3 --retry-delay 2 --connect-timeout 15 --max-time 45 -sS -o /tmp/guest.txt -w '%{http_code}' "https://bantudelice.cg/t/$KEY")
           echo "unsigned_guest_tracking=$CODE"
           test "$CODE" = "403"
