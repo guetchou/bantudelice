@@ -32,7 +32,6 @@ class FoodCashScheduledWorkflowTest extends TestCase
 
         self::assertStringContainsString("'accepted_scheduled'", $acceptance);
         self::assertStringContainsString('scheduledAt->isFuture()', $acceptance);
-        self::assertStringContainsString('return;', $acceptance);
         self::assertStringContainsString('releaseScheduled', $acceptance);
         self::assertStringContainsString("'preparation_due'", $acceptance);
     }
@@ -48,14 +47,19 @@ class FoodCashScheduledWorkflowTest extends TestCase
         self::assertStringContainsString('previousDate', $availability);
     }
 
-    public function test_scheduler_releases_only_accepted_scheduled_orders(): void
+    public function test_scheduler_releases_and_retries_due_scheduled_orders(): void
     {
         $command = $this->source('app/Console/Commands/ReleaseScheduledFoodOrders.php');
         $kernel = $this->source('app/Console/Kernel.php');
         $config = $this->source('config/food.php');
+        $acceptance = $this->source('app/Domain/Food/Services/WorkflowOrderAcceptanceService.php');
 
-        self::assertStringContainsString("where('business_status', 'accepted_scheduled')", $command);
-        self::assertStringContainsString("food:release-scheduled --limit=100", $kernel);
+        self::assertStringContainsString(
+            "whereIn('business_status', ['accepted_scheduled', 'preparation_due'])",
+            $command
+        );
+        self::assertStringContainsString("currentStatus !== 'preparation_due'", $acceptance);
+        self::assertStringContainsString('food:release-scheduled --limit=100', $kernel);
         self::assertStringContainsString('FOOD_SCHEDULED_PREPARATION_LEAD_MINUTES', $config);
     }
 
