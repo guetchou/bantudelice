@@ -7,16 +7,10 @@ use App\Restaurant;
 use App\Services\FoodOrderStateMachineService;
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class RestaurantMiddleware
 {
-    /**
-     * Handle an incoming request.
-     *
-     * En plus du type de compte, ce middleware cloisonne les actions sensibles :
-     * un restaurant ne peut jamais agir sur une commande appartenant à un autre
-     * restaurant, même s'il connaît son identifiant ou son numéro.
-     */
     public function handle($request, Closure $next)
     {
         if (! auth()->check()) {
@@ -37,9 +31,6 @@ class RestaurantMiddleware
 
         $routeName = (string) optional($request->route())->getName();
 
-        // Ces anciens endpoints permettent de contourner le workflow moderne.
-        // Le statut prêt déclenche déjà le dispatch moderne ; la livraison est confirmée
-        // par le livreur/client ou par un administrateur audité.
         if (in_array($routeName, [
             'restaurant.deliver_order',
             'restaurant.assign_order',
@@ -52,7 +43,6 @@ class RestaurantMiddleware
             );
         }
 
-        // Une route GET ne doit jamais modifier l'état d'une commande.
         if ($routeName === 'restaurant.prepaire_order' && $request->isMethod('get')) {
             return $this->deny(
                 $request,
@@ -73,6 +63,29 @@ class RestaurantMiddleware
         }
 
         if ($routeName === 'restaurant.cancel_order') {
+            $request->validate([
+                'reason' => [
+                    'required',
+                    Rule::in([
+                        'restaurant_closed',
+                        'product_unavailable',
+                        'too_many_orders',
+                        'delivery_zone_issue',
+                        'other',
+                    ]),
+                ],
+                'cancel_note' => [
+                    'nullable',
+                    'string',
+                    'max:500',
+                    Rule::requiredIf(fn () => $request->input('reason') === 'other'),
+                ],
+            ], [
+                'reason.required' => 'Le motif du refus est obligatoire.',
+                'reason.in' => 'Le motif du refus est invalide.',
+                'cancel_note.required' => 'Précisez le motif lorsque vous choisissez « Autre ».',
+            ]);
+
             $order = $this->resolveRouteOrder($request, (int) $restaurant->id);
             if (! $order) {
                 return $this->deny($request, 'Commande introuvable pour ce restaurant.', 403);
@@ -119,15 +132,13 @@ class RestaurantMiddleware
             }
         }
 
-        $bodyIds = $request->input('id', []);
-        foreach ((array) $bodyIds as $value) {
+        foreach ((array) $request->input('id', []) as $value) {
             if ($value !== null && $value !== '') {
                 $references[] = $value;
             }
         }
 
         $references = array_values(array_unique(array_map('strval', $references)));
-
         if ($references === []) {
             return false;
         }
@@ -172,7 +183,6 @@ class RestaurantMiddleware
             ->where('restaurant_id', $restaurantId)
             ->where(function ($query) use ($reference) {
                 $query->where('order_no', $reference);
-
                 if (ctype_digit($reference)) {
                     $query->orWhere('id', (int) $reference);
                 }
