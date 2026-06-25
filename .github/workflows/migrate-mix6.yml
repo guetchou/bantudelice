@@ -5,15 +5,12 @@ on:
 permissions:
   contents: write
 jobs:
-  diagnose:
+  build:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
     env:
       PUPPETEER_SKIP_DOWNLOAD: '1'
       PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1'
-    outputs:
-      result: ${{ steps.build.outputs.result }}
-      code: ${{ steps.build.outputs.code }}
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
@@ -22,33 +19,84 @@ jobs:
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
         with:
           node-version: '20'
-      - name: Install Mix 6 dependencies
+      - name: Assert Node 20
+        run: test "$(node -p "process.versions.node.split('.')[0]")" = "20"
+      - name: Capture current generated assets
+        run: |
+          mkdir -p /tmp/assets-before
+          cp public/js/app.js /tmp/assets-before/app.js
+          cp public/css/app.css /tmp/assets-before/app.css
+          cp public/mix-manifest.json /tmp/assets-before/mix-manifest.json
+          sha256sum public/js/app.js public/css/app.css public/mix-manifest.json > /tmp/assets-before.sha256
+          wc -c public/js/app.js public/css/app.css public/mix-manifest.json > /tmp/assets-before.sizes
+      - name: Generate lockfile and install exact dependencies
         run: |
           npm install --package-lock-only --ignore-scripts --no-audit --no-fund
           npm ci --ignore-scripts --no-audit --no-fund
-      - id: build
-        name: Capture production build result
-        shell: bash
+      - name: Build production assets
+        run: npm run production
+      - name: Validate generated assets
         run: |
-          set +e
-          npm run production > /tmp/mix-build.log 2>&1
-          CODE=$?
-          PATTERN=$(printf '%s' 'U2Fzc0Vycm9yfE1vZHVsZSBidWlsZCBmYWlsZWR8TW9kdWxlIG5vdCBmb3VuZHxFUlJPUlxpRXJyb3J8VHlwZUVycm9yfFJlZmVyZW5jZUVycm9y' | base64 -d)
-          LINE=$(grep -E "$PATTERN" /tmp/mix-build.log | head -n 1)
-          if [ -z "$LINE" ]; then LINE=$(tail -n 20 /tmp/mix-build.log | tr '\r\n' ' ' | tr -s ' '); fi
-          LINE=$(printf '%s' "$LINE" | cut -c1-220)
-          echo "result=$LINE" >> "$GITHUB_OUTPUT"
-          echo "code=$CODE" >> "$GITHUB_OUTPUT"
-          exit 0
-      - if: always()
+          test -s public/js/app.js
+          test -s public/css/app.css
+          test -s public/mix-manifest.json
+          node --check public/js/app.js
+          cmp --silent resources/css/app.css public/css/app.css
+          grep -Fq 'fonts.googleapis.com/css2?family=Plus+Jakarta+Sans' public/css/app.css
+          grep -Fq "../frontend/css/modern.css" public/css/app.css
+          node - <<'NODE'
+          const fs = require('fs');
+          const postcss = require('postcss');
+          const manifest = JSON.parse(fs.readFileSync('public/mix-manifest.json', 'utf8'));
+          if (manifest['/js/app.js'] !== '/js/app.js') {
+            throw new Error('public/mix-manifest.json ne référence pas /js/app.js');
+          }
+          postcss.parse(fs.readFileSync('public/css/app.css', 'utf8'));
+          NODE
+      - name: Compare old and new outputs
+        run: |
+          {
+            echo '# Laravel Mix 6 asset comparison'
+            echo
+            echo '## Node and npm'
+            node --version
+            npm --version
+            echo
+            echo '## Before hashes'
+            cat /tmp/assets-before.sha256
+            echo
+            echo '## After hashes'
+            sha256sum public/js/app.js public/css/app.css public/mix-manifest.json
+            echo
+            echo '## Before sizes'
+            cat /tmp/assets-before.sizes
+            echo
+            echo '## After sizes'
+            wc -c public/js/app.js public/css/app.css public/mix-manifest.json
+            echo
+            echo '## Diff statistics'
+            git diff --stat -- package-lock.json public/js/app.js public/css/app.css public/mix-manifest.json public/js/app.js.LICENSE.txt
+          } | tee mix6-build-report.txt
+      - name: Reject unexpected generated changes
+        run: |
+          UNEXPECTED=$(git status --short | awk '{print $2}' | grep -Ev '^(package-lock.json|public/js/app.js|public/css/app.css|public/mix-manifest.json|public/js/app.js.LICENSE.txt|mix6-build-report.txt)$' || true)
+          if [ -n "$UNEXPECTED" ]; then
+            echo 'Unexpected files changed:'
+            echo "$UNEXPECTED"
+            exit 1
+          fi
+      - name: Publish comparison report
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
-          name: mix6-build-log
-          path: /tmp/mix-build.log
+          name: mix6-build-comparison
+          path: mix6-build-report.txt
           retention-days: 7
-  report:
-    needs: diagnose
-    name: ${{ needs.diagnose.outputs.result }}
-    runs-on: ubuntu-latest
-    steps:
-      - run: test "${{ needs.diagnose.outputs.code }}" = "0"
+      - name: Commit verified lockfile and assets
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add package-lock.json public/js/app.js public/css/app.css public/mix-manifest.json
+          if [ -f public/js/app.js.LICENSE.txt ]; then git add public/js/app.js.LICENSE.txt; fi
+          git diff --cached --quiet && exit 0
+          git commit -m 'build(frontend): regenerate assets with Laravel Mix 6'
+          git push origin HEAD:chore/mix6-build-chain
