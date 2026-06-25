@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Delivery;
 use App\DeliveryOffer;
-use App\Driver;
 use App\Services\DeliveryService;
 use App\Services\OrderChatService;
 use App\Services\PartnerFinancialDashboardService;
@@ -102,7 +101,7 @@ class DriverDeliveriesController extends Controller
 
         $financialDashboard = app(PartnerFinancialDashboardService::class)->forDeliveryDriver($driver);
 
-        return view('driver.deliveries', compact('deliveries', 'driver', 'financialDashboard'));
+        return view('driver.deliveries-secure', compact('deliveries', 'driver', 'financialDashboard'));
     }
 
     public function updateStatus(Request $request, $deliveryId)
