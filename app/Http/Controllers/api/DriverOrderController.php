@@ -9,7 +9,7 @@ use App\News;
 use App\Order;
 use App\Product;
 use App\Restaurant;
-use App\Services\MissionPresenceBroadcastService;
+use App\Services\DriverLocationIngestionService;
 use App\Services\NotificationService;
 use App\UserToken;
 use Carbon\Carbon;
@@ -21,11 +21,13 @@ use Illuminate\Support\Facades\Validator;
 
 class DriverOrderController extends Controller
 {
-    protected ?MissionPresenceBroadcastService $missionPresenceBroadcastService = null;
+    public function __construct(
+        private DriverLocationIngestionService $driverLocations
+    ) {
+    }
 
     public function orderRequests($driver)
     {
-        // IDOR guard: if driver_api token present, it must belong to this driver
         $tokenDriver = auth('driver_api')->user();
         if (!$tokenDriver || (int)$tokenDriver->id !== (int)$driver) {
             return response()->json(['status' => false, 'message' => 'Accès non autorisé'], 403);
@@ -45,8 +47,8 @@ class DriverOrderController extends Controller
         }
 
         $uniqueOrderNos = $driverOrders->pluck('order_no')->unique()->toArray();
-        $firstOrder     = $driverOrders->first();
-        $restaurant     = Restaurant::find($firstOrder->restaurant_id);
+        $firstOrder = $driverOrders->first();
+        $restaurant = Restaurant::find($firstOrder->restaurant_id);
 
         $restaurant['orders'] = Order::whereIn('order_no', $uniqueOrderNos)
             ->with('user')
@@ -73,14 +75,14 @@ class DriverOrderController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'driver_id' => 'required',
-            'status'    => 'required|in:1,3',
+            'status' => 'required|in:1,3',
         ]);
 
         if ($validator->fails()) {
             return response()->json([
-                'status'     => false,
+                'status' => false,
                 'error_code' => 101,
-                'message'    => implode(',', $validator->messages()->all()),
+                'message' => implode(',', $validator->messages()->all()),
             ], 422);
         }
 
@@ -112,7 +114,6 @@ class DriverOrderController extends Controller
 
     public function deliverySummary($driver)
     {
-        // IDOR guard: if driver_api token present, it must belong to this driver
         $tokenDriver = auth('driver_api')->user();
         if (!$tokenDriver || (int)$tokenDriver->id !== (int)$driver) {
             return response()->json(['status' => false, 'message' => 'Accès non autorisé'], 403);
@@ -138,23 +139,22 @@ class DriverOrderController extends Controller
             return response()->json(['status' => true, 'derlieries' => $records, 'total' => 0, 'starttime' => null, 'to' => 0]);
         }
 
-        $start   = Carbon::parse($history->start_date);
-        $end     = $history->end_date ? Carbon::parse($history->end_date) : now();
-        $hours   = $start->diffInHours($end);
+        $start = Carbon::parse($history->start_date);
+        $end = $history->end_date ? Carbon::parse($history->end_date) : now();
+        $hours = $start->diffInHours($end);
         $earnings = $driverModel->hourly_pay * $hours;
 
         return response()->json([
-            'status'    => true,
-            'derlieries'=> $records,
-            'total'     => $earnings,
+            'status' => true,
+            'derlieries' => $records,
+            'total' => $earnings,
             'starttime' => $history->start_date,
-            'to'        => $hours,
+            'to' => $hours,
         ]);
     }
 
     public function driverEarningHistory(Request $request, $driver)
     {
-        // IDOR guard: if driver_api token present, it must belong to this driver
         $tokenDriver = auth('driver_api')->user();
         if (!$tokenDriver || (int)$tokenDriver->id !== (int)$driver) {
             return response()->json(['status' => false, 'message' => 'Accès non autorisé'], 403);
@@ -165,7 +165,6 @@ class DriverOrderController extends Controller
         }
 
         $totalEarning = DriverHistory::where('driver_id', $driver)->sum('earnings');
-
         $query = DriverHistory::where('driver_id', $driver)->latest();
 
         if ($request->start_date != '' || $request->end_date != '') {
@@ -183,70 +182,59 @@ class DriverOrderController extends Controller
     public function updateLocation(Request $request, $driverId)
     {
         $validator = Validator::make($request->all(), [
-            'latitude'  => 'required|numeric|between:-90,90',
-            'longitude' => 'required|numeric|between:-180,180',
+            'latitude' => ['required', 'numeric', 'between:-90,90'],
+            'longitude' => ['required', 'numeric', 'between:-180,180'],
+            'accuracy' => ['nullable', 'numeric', 'between:0,5000'],
+            'heading' => ['nullable', 'numeric', 'between:0,360'],
+            'speed' => ['nullable', 'numeric', 'between:0,100'],
+            'recorded_at' => ['nullable', 'date'],
         ]);
 
         if ($validator->fails()) {
-            return response()->json(['status' => false, 'message' => 'Données invalides', 'errors' => $validator->errors()], 422);
+            return response()->json([
+                'status' => false,
+                'message' => 'Données invalides',
+                'errors' => $validator->errors(),
+            ], 422);
+        }
+
+        $authDriver = auth('driver_api')->user();
+        if (! $authDriver) {
+            return response()->json(['status' => false, 'message' => 'Non authentifié'], 401);
         }
 
         $driver = Driver::find($driverId);
-
-        if (!$driver) {
+        if (! $driver) {
             return response()->json(['status' => false, 'message' => 'Livreur non trouvé'], 404);
         }
 
-        // S1.5 — Vérification ownership : le driver authentifié ne peut mettre à jour
-        // que sa propre position, identifiée par email ou téléphone.
-        $authUser = auth('driver_api')->user();
-        if ($authUser) {
-            $isOwner = (
-                ($authUser->email && $authUser->email === $driver->email) ||
-                ($authUser->phone && $authUser->phone === $driver->phone) ||
-                ($authUser->id === $driver->id)
-            );
-            if (!$isOwner) {
-                return response()->json(['status' => false, 'message' => 'Non autorisé'], 403);
-            }
+        if ((int) $authDriver->id !== (int) $driver->id) {
+            return response()->json(['status' => false, 'message' => 'Non autorisé'], 403);
         }
 
-        $driver->latitude  = $request->latitude;
-        $driver->longitude = $request->longitude;
-        $driver->status    = 'online';
-        $driver->save();
-
-        try {
-            \App\DriverLocation::create([
-                'driver_id' => $driver->id,
-                'latitude'  => $request->latitude,
-                'longitude' => $request->longitude,
-                'accuracy'  => $request->accuracy ?? null,
-                'heading'   => $request->heading ?? null,
-                'speed'     => $request->speed ?? null,
-                'timestamp' => now(),
-            ]);
-        } catch (\Exception $e) {
-            Log::warning('Erreur enregistrement historique position livreur', ['driver_id' => $driver->id, 'error' => $e->getMessage()]);
-        }
-
-        $this->missionPresenceBroadcasts()->broadcastForDriver($driver->fresh());
+        $result = $this->driverLocations->ingest(
+            $driver,
+            $validator->validated(),
+            markOnline: true,
+            broadcast: true
+        );
 
         return response()->json([
-            'status'  => true,
-            'message' => 'Position mise à jour avec succès',
-            'driver'  => [
-                'id'        => $driver->id,
-                'name'      => $driver->name,
-                'latitude'  => $driver->latitude,
-                'longitude' => $driver->longitude,
-                'status'    => $driver->status,
+            'status' => true,
+            'accepted' => $result['accepted'],
+            'duplicate' => $result['duplicate'],
+            'stale' => $result['stale'],
+            'message' => $result['stale']
+                ? 'Position ancienne ignorée'
+                : 'Position mise à jour avec succès',
+            'driver' => [
+                'id' => $result['driver']->id,
+                'name' => $result['driver']->name,
+                'latitude' => (float) $result['driver']->latitude,
+                'longitude' => (float) $result['driver']->longitude,
+                'status' => $result['driver']->status,
             ],
-        ]);
-    }
-
-    protected function missionPresenceBroadcasts(): MissionPresenceBroadcastService
-    {
-        return $this->missionPresenceBroadcastService ??= app(MissionPresenceBroadcastService::class);
+            'recorded_at' => optional($result['location']?->timestamp)->toIso8601String(),
+        ], $result['stale'] ? 202 : 200);
     }
 }
