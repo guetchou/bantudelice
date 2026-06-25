@@ -63,6 +63,11 @@ class Kernel extends ConsoleKernel
             ->name('food-release-scheduled')
             ->withoutOverlapping();
 
+        $schedule->command('food:project-order-headers --minutes=15')
+            ->everyFiveMinutes()
+            ->name('food-project-order-headers')
+            ->withoutOverlapping();
+
         $schedule->command('food:audit-integrity --json')
             ->dailyAt('02:15')
             ->name('food-audit-integrity')
