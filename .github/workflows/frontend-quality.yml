@@ -1,0 +1,43 @@
+name: Frontend Quality
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Setup Node 20
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+        with:
+          node-version: '20'
+
+      - name: Validate deployment scripts
+        run: |
+          bash -n scripts/ci/verify_frontend_build.sh
+          bash -n scripts/deploy/production.sh
+          bash -n scripts/deploy/rollback.sh
+
+      - name: Validate workflow YAML
+        run: |
+          python3 -m pip install --quiet pyyaml
+          python3 - <<'PY'
+          import yaml
+          for path in [
+              '.github/workflows/deploy.yml',
+              '.github/workflows/frontend-quality.yml',
+          ]:
+              with open(path, encoding='utf-8') as handle:
+                  yaml.safe_load(handle)
+              print(f'{path}: YAML valide')
+          PY
+
+      - name: Deterministic production build
+        run: MIN_NODE_MAJOR=20 REQUIRE_EXACT_NODE_MAJOR=1 bash scripts/ci/verify_frontend_build.sh
