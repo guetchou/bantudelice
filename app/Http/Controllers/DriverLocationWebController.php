@@ -70,7 +70,7 @@ class DriverLocationWebController extends Controller
             ->first();
 
         if ($driver && ! $driver->user_id) {
-            $driver->update(['user_id' => $user->id]);
+            $driver->forceFill(['user_id' => $user->id])->save();
         }
 
         return $driver;
