@@ -70,11 +70,15 @@ class RestaurantWorkflowSecurityTest extends TestCase
         $command = $this->source('app/Console/Commands/ExpireUnacceptedFoodOrders.php');
         $kernel = $this->source('app/Console/Kernel.php');
         $config = $this->source('config/food.php');
+        $finance = $this->source('app/Services/FoodOrderFinanceService.php');
 
         self::assertStringContainsString("where('business_status', 'pending_restaurant_acceptance')", $command);
         self::assertStringContainsString('lockForUpdate()', $command);
         self::assertStringContainsString("'reason_code' => 'restaurant_timeout'", $command);
-        self::assertStringContainsString("food:expire-unaccepted --limit=100", $kernel);
+        self::assertStringContainsString('groupBy(\'order_no\')', $command);
+        self::assertStringContainsString('food:expire-unaccepted --limit=100', $kernel);
         self::assertStringContainsString('FOOD_RESTAURANT_ACCEPTANCE_TIMEOUT_MINUTES', $config);
+        self::assertStringContainsString("whereNull('order_id')", $finance);
+        self::assertStringContainsString("'loyalty_points_used'", $finance);
     }
 }
