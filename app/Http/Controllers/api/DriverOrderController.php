@@ -13,7 +13,6 @@ use App\Restaurant;
 use App\Services\DriverLocationIngestionService;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\Validator;
 
@@ -209,6 +208,13 @@ class DriverOrderController extends Controller
         $driver = $this->approvedDriver();
         if (! $driver) {
             return response()->json(['status' => false, 'message' => 'Non authentifié'], 401);
+        }
+
+        if (! Driver::whereKey($driverId)->exists()) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Livreur non trouvé',
+            ], 404);
         }
 
         if ((int) $driver->id !== (int) $driverId) {
