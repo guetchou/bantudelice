@@ -9,6 +9,13 @@ document.addEventListener('DOMContentLoaded', function () {
         if (field) field.remove();
     });
 
+    document.querySelectorAll('input[name="delivery_otp"]').forEach(function (input) {
+        input.placeholder = 'Code à 6 chiffres';
+        input.maxLength = 6;
+        input.pattern = '[0-9]{6}';
+        input.autocomplete = 'one-time-code';
+    });
+
     document.querySelectorAll('form.delivery-action-form').forEach(function (form) {
         var status = form.querySelector('input[name="status"]');
         if (!status || status.value !== 'DELIVERED') return;
