@@ -14,7 +14,6 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           fetch-depth: 0
-
       - name: Inventory geolocation and realtime code
         run: |
           set -e
@@ -39,11 +38,7 @@ jobs:
             echo
             echo '=== TEST COVERAGE ==='
             git grep -n -i -E 'DriverLocation|updateLocation|presence.updated|tracking.updated|RealtimeChannelAuthorizer|geolocation' -- tests || true
-            echo
-            echo '=== FILE LIST ==='
-            find app resources routes database/migrations tests -type f | sort | grep -Ei 'location|tracking|presence|broadcast|transport|driver' || true
           } | tee /tmp/realtime-geolocation-audit.txt
-
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: realtime-geolocation-audit
@@ -57,7 +52,7 @@ jobs:
       - uses: shivammathur/setup-php@cf4cade2721270509d5b1c766ab3549210a39a2a
         with:
           php-version: '8.3'
-          extensions: pdo, pdo_mysql, mbstring, xml, ctype, json, tokenizer, bcmath, openssl, fileinfo
+          extensions: pdo, pdo_sqlite, mbstring, xml, ctype, json, tokenizer, bcmath, openssl, fileinfo
           coverage: none
       - name: Bootstrap Laravel
         run: |
@@ -98,13 +93,16 @@ jobs:
           cd /opt/bantudelice
           echo "head=$(git rev-parse HEAD)"
           echo '=== EFFECTIVE CONFIG ==='
-          php -r '$app=require "bootstrap/app.php"; $kernel=$app->make(Illuminate\Contracts\Console\Kernel::class); $kernel->bootstrap(); echo "broadcast=".config("broadcasting.default").PHP_EOL; echo "queue=".config("queue.default").PHP_EOL; echo "pusher_host=".config("broadcasting.connections.pusher.options.host").PHP_EOL; echo "pusher_port=".config("broadcasting.connections.pusher.options.port").PHP_EOL; echo "pusher_scheme=".config("broadcasting.connections.pusher.options.scheme").PHP_EOL;'
+          php -r 'require "vendor/autoload.php"; $app=require "bootstrap/app.php"; $kernel=$app->make(Illuminate\Contracts\Console\Kernel::class); $kernel->bootstrap(); $key=(string)config("broadcasting.connections.pusher.key"); echo "broadcast=".config("broadcasting.default").PHP_EOL; echo "queue=".config("queue.default").PHP_EOL; echo "pusher_key=".($key!==""?"set":"missing").PHP_EOL; echo "pusher_host=".config("broadcasting.connections.pusher.options.host").PHP_EOL; echo "pusher_port=".config("broadcasting.connections.pusher.options.port").PHP_EOL; echo "pusher_scheme=".config("broadcasting.connections.pusher.options.scheme").PHP_EOL;'
           echo '=== BROADCAST ROUTE ==='
           php artisan route:list 2>/dev/null | grep 'broadcasting/auth' || echo 'MISSING: /broadcasting/auth'
           echo '=== QUEUE WORKERS ==='
           supervisorctl status 2>/dev/null | grep -E 'bantudelice-worker|RUNNING|STOPPED|FATAL' || echo 'No matching supervisor worker'
           echo '=== SCHEDULER ==='
           (crontab -l 2>/dev/null || true) | grep 'schedule:run' || echo 'No schedule:run cron for current user'
+          echo '=== SOKETI ==='
+          (systemctl is-active soketi 2>/dev/null || true)
+          (docker ps --format '{{.Names}} {{.Status}}' 2>/dev/null | grep -i soketi || true)
           echo '=== HTTP AUTH ENDPOINT ==='
           curl -sS -o /dev/null -w 'POST /broadcasting/auth -> %{http_code}\n' -X POST https://bantudelice.cg/broadcasting/auth || true
           REMOTE
