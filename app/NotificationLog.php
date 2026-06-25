@@ -10,13 +10,12 @@ class NotificationLog extends Model
 
     protected $fillable = [
         'channel', 'recipient_type', 'recipient_id', 'recipient_address',
-        'title', 'body', 'provider', 'status', 'context', 'read_at', 'archived_at',
+        'title', 'body', 'provider', 'status', 'context', 'read_at',
     ];
 
     protected $casts = [
         'context' => 'array',
         'read_at' => 'datetime',
-        'archived_at' => 'datetime',
     ];
 
     public function isUnread(): bool
