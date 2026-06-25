@@ -1,0 +1,67 @@
+name: Apply Notification Inbox Fix
+
+on:
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  patch-and-test:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: bantudelice_test
+          MYSQL_ROOT_PASSWORD: root
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: fix/notifications-dedup-copy-read-state
+          fetch-depth: 0
+
+      - uses: shivammathur/setup-php@cf4cade2721270509d5b1c766ab3549210a39a2a
+        with:
+          php-version: '8.3'
+          extensions: pdo, pdo_mysql, mysqli, mbstring, xml, ctype, json, tokenizer, bcmath, openssl, fileinfo
+          coverage: none
+
+      - name: Apply inbox patch
+        run: python3 scripts/ci/patch_notifications_ui.py
+
+      - name: Prepare Laravel tests
+        run: |
+          mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/framework/testing storage/logs
+          printf '%s\n' 'APP_ENV=testing' 'APP_KEY=' 'APP_URL=http://localhost' 'DB_CONNECTION=mysql' 'DB_HOST=127.0.0.1' 'DB_PORT=3306' 'DB_DATABASE=bantudelice_test' 'DB_USERNAME=root' 'DB_PASSWORD=root' 'CACHE_DRIVER=array' 'SESSION_DRIVER=array' 'QUEUE_CONNECTION=sync' 'MAIL_MAILER=array' 'BROADCAST_DRIVER=log' > .env
+          composer install --no-interaction --prefer-dist --optimize-autoloader --quiet
+          php artisan key:generate --ansi
+          php artisan passport:keys --force
+
+      - name: Syntax and targeted tests
+        run: |
+          php -l app/Http/Controllers/ProfileController.php
+          php -l app/Console/Commands/ExpireUnpaidAcceptedOrders.php
+          php -l app/Services/NotificationLogService.php
+          php -l app/Services/FoodOrderNotificationService.php
+          php -l app/Domain/Food/Services/FoodOrderConfirmationNotifier.php
+          php -l app/NotificationLog.php
+          php -l database/migrations/2026_06_25_235900_archive_duplicate_food_payment_timeout_notifications.php
+          php artisan test tests/Feature/Notifications/NotificationInboxTest.php --stop-on-failure
+
+      - name: Commit verified inbox changes
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/Http/Controllers/ProfileController.php resources/views/frontend/notifications.blade.php
+          git diff --cached --quiet && exit 0
+          git commit -m 'fix(notifications): hide archives and sync unread UI'
+          git push origin HEAD:fix/notifications-dedup-copy-read-state
