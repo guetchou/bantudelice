@@ -51,16 +51,24 @@ class DriverWorkflowSecurityTest extends TestCase
         $this->assertStringNotContainsString("orWhere('orders.payment_method', 'cash')", $dashboard);
     }
 
-    public function test_dispatch_uses_offers_and_approved_fresh_drivers(): void
+    public function test_dispatch_uses_consent_approved_fresh_drivers_and_ready_orders(): void
     {
         $dispatch = $this->source('app/Services/SecureDispatchService.php');
         $geo = $this->source('app/Services/DeliveryDispatchService.php');
         $offerJob = $this->source('app/Jobs/BroadcastDeliveryOfferJob.php');
+        $deliveryService = $this->source('app/Services/SecureDeliveryService.php');
+        $cashAcceptance = $this->source('app/Domain/Food/Services/WorkflowOrderAcceptanceService.php');
+        $onlinePayment = $this->source('app/Domain/Food/Listeners/FoodOrderPaymentConfirmed.php');
 
         $this->assertStringContainsString('return false;', $dispatch);
+        $this->assertStringContainsString("where('business_status', 'ready_for_pickup')", $dispatch);
+        $this->assertStringContainsString("business_status !== 'ready_for_pickup'", $offerJob);
+        $this->assertStringContainsString("business_status !== 'ready_for_pickup'", $deliveryService);
         $this->assertStringContainsString("where('approved', true)", $geo);
         $this->assertStringContainsString('locationFreshnessSeconds()', $geo);
         $this->assertStringContainsString('nouvelle recherche planifiée sans assignation forcée', $offerJob);
+        $this->assertStringNotContainsString("enqueue_job('food', 'auto_assign_delivery'", $cashAcceptance);
+        $this->assertStringNotContainsString("enqueue_job('food', 'auto_assign_delivery'", $onlinePayment);
     }
 
     private function source(string $relativePath): string
