@@ -79,6 +79,11 @@ class Delivery extends Model
         return $this->belongsTo(Driver::class);
     }
 
+    public function offers()
+    {
+        return $this->hasMany(DeliveryOffer::class);
+    }
+
     public function isInProgress(): bool
     {
         return in_array($this->status, ['ASSIGNED', 'PICKED_UP', 'ON_THE_WAY'], true);
