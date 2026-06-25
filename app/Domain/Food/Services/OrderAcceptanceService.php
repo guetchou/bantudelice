@@ -9,7 +9,9 @@ use App\Payment;
 use App\Services\DeliveryService;
 use App\Services\FoodOrderStateMachineService;
 use App\Services\PaymentService;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use RuntimeException;
 
 /**
  * Point de déclenchement unique du paiement et de la livraison food — appelé uniquement
@@ -30,26 +32,70 @@ class OrderAcceptanceService
         protected FoodOrderConfirmationNotifier $confirmationNotifier
     ) {}
 
+    /**
+     * Accepte une commande une seule fois.
+     *
+     * Le verrou pessimiste sur la première ligne du groupe empêche deux clics ou deux
+     * requêtes concurrentes de créer plusieurs paiements/livraisons pour le même order_no.
+     */
     public function handleAccepted(Order $order): void
     {
-        $snapshot = $order->checkout_snapshot ?? [];
-        $paymentMethod = $snapshot['payment_method'] ?? $order->payment_method ?? 'cash';
+        DB::transaction(function () use ($order): void {
+            $lockedOrder = Order::query()
+                ->where('order_no', $order->order_no)
+                ->orderBy('id')
+                ->lockForUpdate()
+                ->first();
 
-        if ($paymentMethod === 'cash') {
-            $this->triggerCashFulfillment($order, $snapshot);
-            return;
-        }
+            if (! $lockedOrder) {
+                throw new RuntimeException('Commande introuvable.');
+            }
 
-        $this->triggerOnlinePayment($order, $snapshot, $paymentMethod);
+            $currentStatus = $this->stateMachine->resolveCurrentBusinessStatus($lockedOrder);
+
+            // Réponse idempotente : la première requête a déjà effectué l'acceptation.
+            if (in_array($currentStatus, [
+                'accepted_awaiting_payment',
+                'confirmed',
+                'in_kitchen',
+                'ready_for_pickup',
+                'dispatching',
+                'driver_assigned',
+                'driver_arrived_at_restaurant',
+                'picked_up',
+                'out_for_delivery',
+                'delivered',
+                'customer_arrived',
+                'picked_up_by_customer',
+                'closed',
+            ], true)) {
+                return;
+            }
+
+            if ($currentStatus !== 'pending_restaurant_acceptance') {
+                throw new RuntimeException(
+                    "Cette commande ne peut plus être acceptée depuis l'état {$currentStatus}."
+                );
+            }
+
+            $snapshot = $lockedOrder->checkout_snapshot ?? [];
+            $paymentMethod = $snapshot['payment_method'] ?? $lockedOrder->payment_method ?? 'cash';
+
+            if ($paymentMethod === 'cash') {
+                $this->triggerCashFulfillment($lockedOrder, $snapshot);
+                return;
+            }
+
+            $this->triggerOnlinePayment($lockedOrder, $snapshot, $paymentMethod);
+        }, 3);
     }
 
     protected function triggerCashFulfillment(Order $order, array $snapshot): void
     {
         $orderNo = $order->order_no;
 
-        // 1. Marquer le paiement cash comme "payé" au sens workflow (promesse de paiement à la
-        // livraison) — aucune exception dans la garde in_kitchen, voir FoodOrderStateMachineService.
-        // L'encaissement réel est suivi séparément via cash_collection_status.
+        // Le paiement cash est considéré comme satisfait pour autoriser la préparation.
+        // L'encaissement réel reste suivi séparément via cash_collection_status.
         Order::where('order_no', $orderNo)->update([
             'payment_status' => OrderPaymentStatus::PAID->value,
             'cash_collection_status' => 'pending_collection',
@@ -67,21 +113,25 @@ class OrderAcceptanceService
             'reason_code' => 'kitchen_started',
         ]);
 
-        $freshOrder = Order::where('order_no', $orderNo)->first();
+        $freshOrder = Order::where('order_no', $orderNo)->firstOrFail();
 
-        $payment = Payment::create([
-            'user_id'  => $freshOrder->user_id,
-            'order_id' => $freshOrder->id,
-            'amount'   => (int) $freshOrder->total,
-            'currency' => 'XAF',
-            'status'   => 'PENDING', // encaissement réel restant à faire — trace comptable uniquement
-            'provider' => 'cash',
-            'meta'     => [
-                'cash_on_delivery' => $freshOrder->fulfillment_mode !== 'pickup',
-                'cash_on_pickup' => $freshOrder->fulfillment_mode === 'pickup',
-                'fulfillment_mode' => $freshOrder->fulfillment_mode,
+        $payment = Payment::firstOrCreate(
+            [
+                'order_id' => $freshOrder->id,
+                'provider' => 'cash',
             ],
-        ]);
+            [
+                'user_id'  => $freshOrder->user_id,
+                'amount'   => (int) $freshOrder->total,
+                'currency' => 'XAF',
+                'status'   => 'PENDING',
+                'meta'     => [
+                    'cash_on_delivery' => $freshOrder->fulfillment_mode !== 'pickup',
+                    'cash_on_pickup' => $freshOrder->fulfillment_mode === 'pickup',
+                    'fulfillment_mode' => $freshOrder->fulfillment_mode,
+                ],
+            ]
+        );
 
         if ($freshOrder->fulfillment_mode !== 'pickup') {
             $this->createDeliveryAndDispatch($freshOrder);
@@ -112,31 +162,41 @@ class OrderAcceptanceService
             'reason_code' => 'accepted_awaiting_payment',
         ]);
 
-        $freshOrder = Order::where('order_no', $orderNo)->first();
+        $freshOrder = Order::where('order_no', $orderNo)->firstOrFail();
         $amount = (int) ($snapshot['amount'] ?? $freshOrder->total ?? 0);
 
-        $payment = Payment::create([
-            'user_id'  => $freshOrder->user_id,
-            'order_id' => $freshOrder->id, // renseigné dès la création, contrairement à l'ancien flux
-            'amount'   => $amount,
-            'currency' => 'XAF',
-            'status'   => 'PENDING',
-            'provider' => $paymentMethod,
-        ]);
+        $payment = Payment::firstOrCreate(
+            [
+                'order_id' => $freshOrder->id,
+                'provider' => $paymentMethod,
+            ],
+            [
+                'user_id'  => $freshOrder->user_id,
+                'amount'   => $amount,
+                'currency' => 'XAF',
+                'status'   => 'PENDING',
+            ]
+        );
 
-        Order::where('order_no', $orderNo)->update([
-            'payment_status' => OrderPaymentStatus::PENDING->value,
-        ]);
+        // Un paiement déjà confirmé ne doit jamais être remis en attente.
+        if (strtoupper((string) $payment->status) !== 'PAID') {
+            Order::where('order_no', $orderNo)->update([
+                'payment_status' => OrderPaymentStatus::PENDING->value,
+            ]);
+        }
 
         $orderLines = Order::where('order_no', $orderNo)->get();
 
         try {
-            $this->paymentService->prepareExternalPayment(
-                $payment,
-                $orderLines,
-                (array) ($snapshot['checkout_data'] ?? []),
-                ['totals' => (array) ($snapshot['totals'] ?? [])]
-            );
+            // Ne relancer le provider que lors de la création effective du paiement.
+            if ($payment->wasRecentlyCreated) {
+                $this->paymentService->prepareExternalPayment(
+                    $payment,
+                    $orderLines,
+                    (array) ($snapshot['checkout_data'] ?? []),
+                    ['totals' => (array) ($snapshot['totals'] ?? [])]
+                );
+            }
         } catch (\Throwable $e) {
             Log::error('OrderAcceptanceService: erreur déclenchement paiement en ligne après acceptation', [
                 'order_no' => $orderNo,
@@ -151,8 +211,7 @@ class OrderAcceptanceService
     }
 
     /**
-     * Idempotent : ne crée jamais une 2e Delivery pour le même order_id
-     * (contrainte unique en DB de toute façon, ce check évite l'exception en pratique).
+     * Idempotent : ne crée jamais une 2e Delivery pour le même order_id.
      */
     protected function createDeliveryAndDispatch(Order $order): void
     {
