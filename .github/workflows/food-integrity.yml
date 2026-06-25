@@ -51,7 +51,23 @@ jobs:
           restore-keys: composer-${{ runner.os }}-
 
       - name: Install dependencies without application scripts
-        run: composer install --no-interaction --prefer-dist --no-progress --no-scripts
+        id: composer_install
+        shell: bash
+        run: |
+          set +e
+          composer install --no-interaction --prefer-dist --no-progress --no-scripts > composer-install.log 2>&1
+          status=$?
+          cat composer-install.log
+          exit $status
+
+      - name: Upload Composer diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: food-integrity-composer-log
+          path: composer-install.log
+          if-no-files-found: ignore
+          retention-days: 3
 
       - name: Prepare environment
         run: |
