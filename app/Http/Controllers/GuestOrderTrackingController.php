@@ -8,9 +8,9 @@ use Illuminate\Http\Request;
 
 class GuestOrderTrackingController extends Controller
 {
-    public function show(Request $request, string $token, OrderTrackingTokenService $tokens)
+    public function show(Request $request, string $guestKey, OrderTrackingTokenService $tokens)
     {
-        $order = $tokens->resolveValidToken($token);
+        $order = $tokens->resolveValidToken($guestKey);
 
         if (! $order) {
             abort(404);
