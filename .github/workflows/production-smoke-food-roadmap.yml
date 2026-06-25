@@ -1,0 +1,50 @@
+name: Production smoke — Food roadmap
+on:
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Verify homepage
+        run: |
+          set -euo pipefail
+          CODE=$(curl --retry 3 --retry-delay 2 --connect-timeout 15 --max-time 45 -sS -o /tmp/home.html -w '%{http_code}' https://bantudelice.cg/)
+          echo "homepage=$CODE"
+          test "$CODE" = "200"
+          grep -Fq 'BantuDelice' /tmp/home.html
+      - name: Verify API v1 route exists and is protected
+        run: |
+          set -euo pipefail
+          CODE=$(curl --retry 3 --retry-delay 2 --connect-timeout 15 --max-time 45 -sS -o /tmp/api.txt -w '%{http_code}' https://bantudelice.cg/api/v1/driver/deliveries)
+          echo "api_v1_driver_deliveries=$CODE"
+          case "$CODE" in
+            401|403) ;;
+            *) echo 'Expected protected API response (401/403), not a missing route.'; cat /tmp/api.txt; exit 1 ;;
+          esac
+      - name: Verify cash administration route exists and is protected
+        run: |
+          set -euo pipefail
+          CODE=$(curl --retry 3 --retry-delay 2 --connect-timeout 15 --max-time 45 -sS -D /tmp/cash.headers -o /tmp/cash.txt -w '%{http_code}' https://bantudelice.cg/admin/cash-collections)
+          echo "admin_cash_collections=$CODE"
+          case "$CODE" in
+            302|303|401|403) ;;
+            *) echo 'Expected authentication protection, not a missing route.'; cat /tmp/cash.headers; cat /tmp/cash.txt; exit 1 ;;
+          esac
+      - name: Verify reporting route exists and is protected
+        run: |
+          set -euo pipefail
+          CODE=$(curl --retry 3 --retry-delay 2 --connect-timeout 15 --max-time 45 -sS -D /tmp/reports.headers -o /tmp/reports.txt -w '%{http_code}' https://bantudelice.cg/admin/reports/orders)
+          echo "admin_reports_orders=$CODE"
+          case "$CODE" in
+            302|303|401|403) ;;
+            *) echo 'Expected authentication protection, not a missing route.'; cat /tmp/reports.headers; cat /tmp/reports.txt; exit 1 ;;
+          esac
+      - name: Verify unsigned guest tracking is rejected
+        run: |
+          set -euo pipefail
+          CODE=$(curl --retry 3 --retry-delay 2 --connect-timeout 15 --max-time 45 -sS -o /tmp/guest.txt -w '%{http_code}' https://bantudelice.cg/t/not-a-valid-signed-token)
+          echo "unsigned_guest_tracking=$CODE"
+          test "$CODE" = "403"
