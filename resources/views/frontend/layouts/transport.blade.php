@@ -77,100 +77,30 @@
             letter-spacing:.08em;
         }
         .module-shell__brand span{color:var(--module-primary)}
-        .module-shell__nav{
-            display:flex;
-            align-items:center;
-            gap:10px;
-            flex-wrap:wrap;
-        }
+        .module-shell__nav{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
         .module-shell__nav a{
-            display:inline-flex;
-            align-items:center;
-            min-height:42px;
-            padding:0 16px;
-            border-radius:999px;
-            color:var(--module-ink);
-            text-decoration:none;
-            font-weight:700;
-            font-size:.92rem;
+            display:inline-flex;align-items:center;min-height:42px;padding:0 16px;border-radius:999px;
+            color:var(--module-ink);text-decoration:none;font-weight:700;font-size:.92rem;
         }
-        .module-shell__nav a.is-active,
-        .module-shell__nav a:hover{
-            background:rgba(255,107,0,.10);
-            color:var(--module-primary);
-        }
-        .module-shell__actions{
-            display:flex;
-            align-items:center;
-            gap:10px;
-            flex-wrap:wrap;
-        }
+        .module-shell__nav a.is-active,.module-shell__nav a:hover{background:rgba(255,107,0,.10);color:var(--module-primary);}
+        .module-shell__actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
         .module-shell__button{
-            display:inline-flex;
-            align-items:center;
-            justify-content:center;
-            min-height:44px;
-            padding:0 18px;
-            border-radius:999px;
-            text-decoration:none;
-            font-weight:800;
-            font-size:.9rem;
+            display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 18px;
+            border-radius:999px;text-decoration:none;font-weight:800;font-size:.9rem;
         }
-        .module-shell__button--ghost{
-            color:var(--module-ink);
-            border:1px solid var(--module-line);
-            background:#fff;
-        }
-        .module-shell__button--primary{
-            color:#fff;
-            background:var(--module-primary);
-            box-shadow:0 14px 28px rgba(255,107,0,.18);
-        }
-        .module-shell__main{
-            min-height:calc(100vh - 220px);
-        }
-        .module-shell__footer{
-            margin-top:48px;
-            background:#fff;
-            border-top:1px solid var(--module-line);
-        }
-        .module-shell__footer-inner{
-            padding-top:28px;
-            padding-bottom:28px;
-        }
-        .module-shell__footer-grid{
-            display:grid;
-            grid-template-columns:1.2fr 1fr 1fr;
-            gap:24px;
-        }
-        .module-shell__footer h4{
-            margin:0 0 12px;
-            font-size:1rem;
-            font-weight:800;
-        }
-        .module-shell__footer p,
-        .module-shell__footer a{
-            color:var(--module-muted);
-            font-size:.92rem;
-            line-height:1.7;
-            text-decoration:none;
-        }
-        .module-shell__footer-links{
-            display:flex;
-            flex-direction:column;
-            gap:6px;
-        }
+        .module-shell__button--ghost{color:var(--module-ink);border:1px solid var(--module-line);background:#fff;}
+        .module-shell__button--primary{color:#fff;background:var(--module-primary);box-shadow:0 14px 28px rgba(255,107,0,.18);}
+        .module-shell__main{min-height:calc(100vh - 220px);}
+        .module-shell__footer{margin-top:48px;background:#fff;border-top:1px solid var(--module-line);}
+        .module-shell__footer-inner{padding-top:28px;padding-bottom:28px;}
+        .module-shell__footer-grid{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:24px;}
+        .module-shell__footer h4{margin:0 0 12px;font-size:1rem;font-weight:800;}
+        .module-shell__footer p,.module-shell__footer a{color:var(--module-muted);font-size:.92rem;line-height:1.7;text-decoration:none;}
+        .module-shell__footer-links{display:flex;flex-direction:column;gap:6px;}
         .module-shell__footer-bottom{
-            margin-top:22px;
-            padding-top:18px;
-            border-top:1px solid var(--module-line);
-            display:flex;
-            align-items:center;
-            justify-content:space-between;
-            gap:16px;
-            flex-wrap:wrap;
-            color:var(--module-muted);
-            font-size:.88rem;
+            margin-top:22px;padding-top:18px;border-top:1px solid var(--module-line);
+            display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;
+            color:var(--module-muted);font-size:.88rem;
         }
         @media (max-width: 992px){
             .module-shell__header-inner{padding-top:14px;padding-bottom:14px;align-items:flex-start;flex-direction:column}
@@ -259,136 +189,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 @yield('scripts')
-<script>
-(function () {
-    const match = window.location.pathname.match(/\/transport\/booking\/([0-9a-fA-F-]{36})$/);
-    if (!match) return;
-
-    const bookingUuid = match[1];
-    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || '';
-    const cancelableStatuses = ['requested', 'assigned'];
-
-    function notify(message, type) {
-        if (typeof window.showToast === 'function') {
-            window.showToast(message, type || 'info');
-            return;
-        }
-
-        alert(message);
-    }
-
-    async function readJson(response) {
-        try {
-            return await response.json();
-        } catch (error) {
-            return {};
-        }
-    }
-
-    async function refreshCancelAction() {
-        try {
-            const response = await fetch(`/transport/xhr/bookings/${bookingUuid}`, {
-                headers: {
-                    'Accept': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'X-CSRF-TOKEN': csrfToken,
-                },
-                credentials: 'same-origin',
-                cache: 'no-store',
-            });
-            const data = await readJson(response);
-
-            if (!response.ok || !data || !data.status) {
-                removeCancelAction();
-                return;
-            }
-
-            if (!cancelableStatuses.includes(data.status)) {
-                removeCancelAction();
-                return;
-            }
-
-            renderCancelAction(data);
-        } catch (error) {
-            removeCancelAction();
-        }
-    }
-
-    function removeCancelAction() {
-        document.getElementById('kendeCancelBookingBox')?.remove();
-    }
-
-    function renderCancelAction(booking) {
-        if (document.getElementById('kendeCancelBookingBox')) return;
-
-        const target = document.querySelector('.trip-fare-card') || document.querySelector('.trip-side-card');
-        if (!target) return;
-
-        const box = document.createElement('div');
-        box.id = 'kendeCancelBookingBox';
-        box.style.marginTop = '14px';
-        box.style.paddingTop = '14px';
-        box.style.borderTop = '1px solid rgba(15,23,42,0.08)';
-
-        const note = document.createElement('small');
-        note.style.display = 'block';
-        note.style.color = '#64748b';
-        note.style.lineHeight = '1.5';
-        note.textContent = booking.status === 'assigned'
-            ? 'Vous pouvez encore annuler avant le démarrage de la course.'
-            : 'Vous pouvez annuler tant qu’aucun chauffeur n’a démarré la course.';
-
-        const button = document.createElement('button');
-        button.id = 'kendeCancelBookingBtn';
-        button.type = 'button';
-        button.className = 'trip-pay-btn';
-        button.style.background = '#dc2626';
-        button.style.marginTop = '10px';
-        button.innerHTML = '<i class="fas fa-ban"></i> Annuler la réservation';
-        button.addEventListener('click', () => cancelBooking(button));
-
-        box.appendChild(note);
-        box.appendChild(button);
-        target.appendChild(box);
-    }
-
-    async function cancelBooking(button) {
-        if (!confirm('Confirmer l’annulation de cette réservation Kende ?')) return;
-
-        const originalLabel = button.innerHTML;
-        button.disabled = true;
-        button.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Annulation...';
-
-        try {
-            const response = await fetch(`/transport/xhr/bookings/${bookingUuid}/cancel`, {
-                method: 'POST',
-                headers: {
-                    'Accept': 'application/json',
-                    'Content-Type': 'application/json',
-                    'X-Requested-With': 'XMLHttpRequest',
-                    'X-CSRF-TOKEN': csrfToken,
-                },
-                credentials: 'same-origin',
-                body: JSON.stringify({ cancel_reason: 'Annulation client depuis la page de suivi' }),
-            });
-            const data = await readJson(response);
-
-            if (!response.ok) {
-                throw new Error(data.message || data.error || 'Annulation impossible pour cette réservation.');
-            }
-
-            notify(data.message || 'Réservation annulée.', 'success');
-            window.setTimeout(() => window.location.reload(), 700);
-        } catch (error) {
-            button.disabled = false;
-            button.innerHTML = originalLabel;
-            notify(error.message || 'Erreur pendant l’annulation.', 'error');
-        }
-    }
-
-    document.addEventListener('DOMContentLoaded', refreshCancelAction);
-    window.setInterval(refreshCancelAction, 15000);
-})();
-</script>
+@include('frontend.transport.partials.taxi_recovery_patch')
+@include('frontend.transport.partials.booking_cancel_action')
 </body>
 </html>
