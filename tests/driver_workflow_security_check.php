@@ -45,6 +45,7 @@ $proof = $source('app/Services/DeliveryProofService.php');
 $contains($proof, 'Hash::make($code)', 'L’OTP de livraison n’est pas haché.');
 $contains($proof, 'OTP_MAX_ATTEMPTS = 5', 'La limite de tentatives OTP est absente.');
 $contains($proof, 'OTP_TTL_MINUTES = 30', 'La durée OTP attendue est absente.');
+$contains($proof, "['ASSIGNED', 'PICKED_UP', 'ON_THE_WAY']", 'L’OTP peut être généré avant l’assignation du livreur.');
 
 $deliveryService = $source('app/Services/SecureDeliveryService.php');
 $dashboard = $source('app/Services/PartnerFinancialDashboardService.php');
