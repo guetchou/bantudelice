@@ -110,7 +110,27 @@ class RestaurantMiddleware
             }
         }
 
-        return $next($request);
+        // La vue historique interroge /restaurant/notifications/{id} sans transmettre de curseur.
+        // Le middleware maintient donc un curseur de session afin qu'une commande ne déclenche
+        // le son qu'une seule fois, tout en restant visible tant qu'elle n'est pas traitée.
+        $isNotificationPoll = $request->isMethod('get')
+            && $request->is('restaurant/notifications/*');
+        $cursorKey = 'restaurant_notification_cursor_' . $restaurant->id;
+
+        if ($isNotificationPoll && ! $request->query->has('after_id')) {
+            $request->query->set('after_id', (int) session($cursorKey, 0));
+        }
+
+        $response = $next($request);
+
+        if ($isNotificationPoll && method_exists($response, 'getData')) {
+            $payload = (array) $response->getData(true);
+            if (isset($payload['next_cursor'])) {
+                session([$cursorKey => max(0, (int) $payload['next_cursor'])]);
+            }
+        }
+
+        return $response;
     }
 
     private function requestTargetsRestaurantOrders(Request $request, int $restaurantId): bool
