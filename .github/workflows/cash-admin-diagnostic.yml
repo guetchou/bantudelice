@@ -54,7 +54,8 @@ jobs:
           set +e
           php artisan test tests/Feature/Admin/CashCollectionAdminTest.php --stop-on-failure > /tmp/result.txt 2>&1
           CODE=$?
-          LINE=$(grep -E 'Error|Exception|Call to|Undefined|Failed asserting|SQLSTATE' /tmp/result.txt | head -n 1)
+          LINE=$(awk '/ViewException/{found=1; next} found && NF {print; exit}' /tmp/result.txt)
+          if [ -z "$LINE" ]; then LINE=$(grep -E 'Error|Exception|Call to|Undefined|Failed asserting|SQLSTATE' /tmp/result.txt | tail -n 1); fi
           if [ -z "$LINE" ]; then LINE=$(tail -n 12 /tmp/result.txt | tr '\r\n' ' ' | tr -s ' '); fi
           LINE=$(printf '%s' "$LINE" | cut -c1-220)
           echo "result=$LINE" >> "$GITHUB_OUTPUT"
