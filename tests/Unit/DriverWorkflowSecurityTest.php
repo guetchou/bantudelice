@@ -11,11 +11,11 @@ class DriverWorkflowSecurityTest extends TestCase
         $routes = $this->source('routes/api.php');
 
         $this->assertStringContainsString("Route::middleware('auth:driver_api')->group", $routes);
-        $this->assertStringContainsString("driver_change_password", $routes);
-        $this->assertStringContainsString("driver_update_profile", $routes);
-        $this->assertStringContainsString("set_driver_online", $routes);
-        $this->assertStringContainsString("driver_earning_history", $routes);
-        $this->assertStringContainsString("driver/offers/{delivery}/accept", $routes);
+        $this->assertStringContainsString('driver_change_password', $routes);
+        $this->assertStringContainsString('driver_update_profile', $routes);
+        $this->assertStringContainsString('set_driver_online', $routes);
+        $this->assertStringContainsString('driver_earning_history', $routes);
+        $this->assertStringContainsString('driver/offers/{delivery}/accept', $routes);
     }
 
     public function test_driver_endpoints_cannot_cancel_or_self_confirm_delivery(): void
@@ -23,10 +23,10 @@ class DriverWorkflowSecurityTest extends TestCase
         $apiController = $this->source('app/Http/Controllers/Api/DriverDeliveriesController.php');
         $webController = $this->source('app/Http/Controllers/DriverDeliveriesController.php');
 
-        $this->assertStringContainsString("required|in:PICKED_UP,ON_THE_WAY,DELIVERED", $apiController);
-        $this->assertStringContainsString("required|in:PICKED_UP,ON_THE_WAY,DELIVERED", $webController);
-        $this->assertStringNotContainsString("'customer_confirmed' => $request", $apiController);
-        $this->assertStringNotContainsString("'customer_confirmed' => $request", $webController);
+        $this->assertStringContainsString('required|in:PICKED_UP,ON_THE_WAY,DELIVERED', $apiController);
+        $this->assertStringContainsString('required|in:PICKED_UP,ON_THE_WAY,DELIVERED', $webController);
+        $this->assertStringNotContainsString("'customer_confirmed' => \$request", $apiController);
+        $this->assertStringNotContainsString("'customer_confirmed' => \$request", $webController);
     }
 
     public function test_otp_is_hashed_limited_and_never_returned_to_driver(): void
@@ -46,7 +46,7 @@ class DriverWorkflowSecurityTest extends TestCase
         $dashboard = $this->source('app/Services/PartnerFinancialDashboardService.php');
 
         $this->assertStringContainsString('OrderPaymentStatus::CASH_DUE->value', $deliveryService);
-        $this->assertStringContainsString("$collected ? 'PAID' : 'PENDING'", $deliveryService);
+        $this->assertStringContainsString("\$collected ? 'PAID' : 'PENDING'", $deliveryService);
         $this->assertStringContainsString("cash_collection_status', 'collected'", $dashboard);
         $this->assertStringNotContainsString("orWhere('orders.payment_method', 'cash')", $dashboard);
     }
