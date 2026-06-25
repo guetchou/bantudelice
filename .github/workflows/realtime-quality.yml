@@ -43,6 +43,9 @@ jobs:
           - suite: broadcast-events
             file: tests/Feature/RealtimeBroadcastEventsTest.php
             db: sqlite
+          - suite: channel-authorization
+            file: tests/Feature/RealtimeChannelAuthorizationTest.php
+            db: sqlite
           - suite: clock-skew
             file: tests/Feature/DriverLocationClockSkewTest.php
             db: sqlite
@@ -79,6 +82,7 @@ jobs:
           php -l app/Domain/Transport/Events/TransportTrackingUpdated.php
           php -l app/Services/RealtimeChannelAuthorizer.php
           php -l tests/Feature/DriverLocationClockSkewTest.php
+          php -l tests/Feature/RealtimeChannelAuthorizationTest.php
           php artisan route:list | grep -q 'broadcasting/auth'
       - name: Run suite
         run: php artisan test ${{ matrix.file }} --stop-on-failure
