@@ -11,6 +11,9 @@ on:
       - '.github/workflows/food-integrity.yml'
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   integrity-tests:
     runs-on: ubuntu-latest
@@ -24,23 +27,8 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.2'
-          extensions: mbstring, dom, fileinfo, sqlite, pdo_sqlite
+          extensions: mbstring, dom, fileinfo, sqlite, pdo_sqlite, gd, curl, intl, xml, zip
           coverage: none
-
-      - name: Cache Composer
-        uses: actions/cache@v4
-        with:
-          path: ~/.composer/cache/files
-          key: composer-${{ runner.os }}-${{ hashFiles('composer.lock') }}
-          restore-keys: composer-${{ runner.os }}-
-
-      - name: Install dependencies
-        run: composer install --no-interaction --prefer-dist --no-progress
-
-      - name: Prepare environment
-        run: |
-          cp .env.example .env
-          php artisan key:generate
 
       - name: Validate PHP syntax
         run: |
@@ -50,6 +38,28 @@ jobs:
           php -l app/Console/Commands/AuditFoodWorkflowIntegrity.php
           php -l app/Console/Commands/RepairFoodWorkflowIntegrity.php
           php -l app/Console/Commands/EnforceFoodIntegrityConstraints.php
+          php -l database/migrations/2026_06_25_230000_add_payment_active_integrity_key.php
+          php -l database/migrations/2026_06_25_231000_add_integrity_quarantine_columns.php
+          php -l tests/Feature/FoodIntegrityRepairTest.php
+          php -l tests/Feature/FoodIntegrityConstraintTest.php
+
+      - name: Cache Composer
+        uses: actions/cache@v4
+        with:
+          path: ~/.composer/cache/files
+          key: composer-${{ runner.os }}-${{ hashFiles('composer.lock') }}
+          restore-keys: composer-${{ runner.os }}-
+
+      - name: Install dependencies without application scripts
+        run: composer install --no-interaction --prefer-dist --no-progress --no-scripts
+
+      - name: Prepare environment
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+
+      - name: Discover Laravel packages
+        run: php artisan package:discover --ansi
 
       - name: Run integrity tests
         run: php artisan test tests/Feature/FoodIntegrityRepairTest.php tests/Feature/FoodIntegrityConstraintTest.php
