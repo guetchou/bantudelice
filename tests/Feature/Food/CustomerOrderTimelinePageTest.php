@@ -7,6 +7,7 @@ use App\User;
 use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use RuntimeException;
 use Tests\TestCase;
 
 class CustomerOrderTimelinePageTest extends TestCase
@@ -86,13 +87,21 @@ class CustomerOrderTimelinePageTest extends TestCase
             ->get(route('track.order', ['orderNo' => 'TD-TIMELINE-PAGE-001']));
 
         $response->assertOk();
-        $response->assertSee('Étapes de votre commande');
-        $response->assertSee('Commande confirmée');
-        $response->assertSee('En préparation');
-        $response->assertSee('11:05');
-        $response->assertSee('11:10');
-        $response->assertDontSee('Note interne confidentielle');
-        $response->assertDontSee('status_transition_forced_unpaid');
+        $content = $response->getContent();
+
+        foreach (['Étapes de votre commande', 'Commande confirmée', 'En préparation', '11:05', '11:10'] as $marker) {
+            if (! str_contains($content, $marker)) {
+                throw new RuntimeException('Missing timeline marker: ' . $marker);
+            }
+        }
+
+        foreach (['Note interne confidentielle', 'status_transition_forced_unpaid'] as $forbidden) {
+            if (str_contains($content, $forbidden)) {
+                throw new RuntimeException('Leaked internal marker: ' . $forbidden);
+            }
+        }
+
+        $this->assertTrue(true);
     }
 
     private function insertLog(
