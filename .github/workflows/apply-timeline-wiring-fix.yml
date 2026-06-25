@@ -1,0 +1,98 @@
+name: Apply timeline wiring fix
+on: [push]
+permissions:
+  contents: write
+jobs:
+  fix-and-test:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_DATABASE: bantudelice_test
+          MYSQL_ROOT_PASSWORD: root
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: integration/food-roadmap-2026-06-25
+          fetch-depth: 0
+      - uses: shivammathur/setup-php@cf4cade2721270509d5b1c766ab3549210a39a2a
+        with:
+          php-version: '8.3'
+          extensions: pdo, pdo_mysql, mysqli, mbstring, xml, ctype, json, tokenizer, bcmath, openssl, fileinfo
+          coverage: none
+      - name: Prepare test environment
+        run: |
+          mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/framework/testing storage/logs
+          printf '%s\n' 'APP_ENV=testing' 'APP_KEY=' 'APP_URL=http://localhost' 'DB_CONNECTION=mysql' 'DB_HOST=127.0.0.1' 'DB_PORT=3306' 'DB_DATABASE=bantudelice_test' 'DB_USERNAME=root' 'DB_PASSWORD=root' 'CACHE_DRIVER=array' 'SESSION_DRIVER=array' 'QUEUE_CONNECTION=sync' 'MAIL_MAILER=array' 'BROADCAST_DRIVER=log' > .env
+          composer install --no-interaction --prefer-dist --optimize-autoloader --quiet
+          php artisan key:generate --ansi
+          php artisan passport:keys --force
+      - name: Wire timeline explicitly
+        run: |
+          python3 <<'PY'
+          from pathlib import Path
+
+          provider = Path('app/Providers/AppServiceProvider.php')
+          text = provider.read_text()
+          for line in [
+              'use App\\Order;\n',
+              'use App\\Services\\CustomerOrderTimelineService;\n',
+              'use Illuminate\\Support\\Facades\\View;\n',
+          ]:
+              text = text.replace(line, '')
+          start_token = '        // La page de suivi historique est volumineuse'
+          start = text.find(start_token)
+          if start == -1:
+              raise SystemExit('timeline composer start not found')
+          end_token = '        });\n'
+          end = text.find(end_token, start)
+          if end == -1:
+              raise SystemExit('timeline composer end not found')
+          end += len(end_token)
+          text = text[:start] + text[end:]
+          provider.write_text(text)
+
+          controller = Path('app/Http/Controllers/CustomerOrderController.php')
+          text = controller.read_text()
+          needle = "        $paymentExperience = app(\\App\\Services\\PaymentExperienceService::class)->describe($order->payment);\n\n        return response()"
+          replacement = "        $paymentExperience = app(\\App\\Services\\PaymentExperienceService::class)->describe($order->payment);\n        $statusHistory = app(\\App\\Services\\CustomerOrderTimelineService::class)->forOrder($order);\n\n        return response()"
+          if needle not in text:
+              raise SystemExit('controller insertion point not found')
+          text = text.replace(needle, replacement, 1)
+          compact_old = "'delivery', 'chatData', 'paymentExperience'"
+          compact_new = "'delivery', 'chatData', 'paymentExperience', 'statusHistory'"
+          if compact_old not in text:
+              raise SystemExit('controller compact list not found')
+          text = text.replace(compact_old, compact_new, 1)
+          controller.write_text(text)
+
+          view = Path('resources/views/frontend/track_order.blade.php')
+          text = view.read_text()
+          needle = "    {{-- ── Contacts : livreur + restaurant ───────────────────────────── --}}\n    <div class=\"trk-contacts\">"
+          replacement = "    {{-- ── Historique horodaté de la commande ─────────────────────────── --}}\n    @include('frontend.partials.order_status_history', ['statusHistory' => $statusHistory])\n\n" + needle
+          if needle not in text:
+              raise SystemExit('timeline view insertion point not found')
+          text = text.replace(needle, replacement, 1)
+          view.write_text(text)
+          PY
+      - name: Verify syntax and page rendering
+        run: |
+          php -l app/Providers/AppServiceProvider.php
+          php -l app/Http/Controllers/CustomerOrderController.php
+          php artisan test tests/Feature/Food/CustomerOrderTimelineServiceTest.php tests/Feature/Food/CustomerOrderTimelinePageTest.php --stop-on-failure
+      - name: Commit verified fix
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add app/Providers/AppServiceProvider.php app/Http/Controllers/CustomerOrderController.php resources/views/frontend/track_order.blade.php
+          git diff --cached --quiet && exit 0
+          git commit -m 'fix(tracking): render timeline explicitly in customer page'
+          git push origin HEAD:integration/food-roadmap-2026-06-25
