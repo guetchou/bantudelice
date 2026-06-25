@@ -6,6 +6,7 @@ use App\Order;
 use App\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use RuntimeException;
 use Tests\TestCase;
 
 class CashCollectionAdminTest extends TestCase
@@ -61,11 +62,11 @@ class CashCollectionAdminTest extends TestCase
         $orders = $response->viewData('orders');
         $actual = $orders->getCollection()->pluck('order_no')->values()->all();
 
-        $this->assertSame(
-            ['TD-CASH-0001'],
-            $actual,
-            'Actual filtered orders: ' . json_encode($actual)
-        );
+        if ($actual !== ['TD-CASH-0001']) {
+            throw new RuntimeException('Actual filtered orders: ' . json_encode($actual));
+        }
+
+        $this->assertTrue(true);
     }
 
     public function test_admin_can_export_filtered_cash_collections_without_client_contact_data(): void
