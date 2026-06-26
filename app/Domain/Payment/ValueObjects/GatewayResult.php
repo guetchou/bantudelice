@@ -33,9 +33,12 @@ final class GatewayResult
 
     public static function demo(string $providerReference, array $meta = [], ?string $redirectUrl = null): self
     {
+        $provider = strtolower(trim((string) ($meta['provider'] ?? '')));
+        $isManualCash = in_array($provider, ['cash', 'cod'], true);
+
         // Un PSP non configuré ne doit jamais simuler un succès en production,
-        // préproduction ou dans tout environnement autre que local/testing.
-        if (! app()->environment(['local', 'testing'])) {
+        // mais le cash réel reste un mode manuel légitime sans appel externe.
+        if (! $isManualCash && ! app()->environment(['local', 'testing'])) {
             return self::failure(
                 'Le mode démonstration des paiements est désactivé dans cet environnement.',
                 array_merge($meta, ['demo_blocked' => true])
