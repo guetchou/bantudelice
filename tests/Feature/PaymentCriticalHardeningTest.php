@@ -19,26 +19,22 @@ class PaymentCriticalHardeningTest extends TestCase
 {
     public function test_external_payment_cannot_be_confirmed_manually_by_customer(): void
     {
-        $user = new User();
-        $user->id = 42;
-
-        $payment = new Payment([
-            'user_id' => 42,
-            'provider' => 'momo',
-            'status' => 'PENDING',
-            'amount' => 1000,
-            'currency' => 'XAF',
-        ]);
-        $payment->id = 99;
-
-        $request = Request::create('/api/payments/99/confirm', 'POST');
-        $request->setUserResolver(static fn() => $user);
-
-        $response = app(PaymentController::class)->confirm($request, $payment);
+        $response = $this->callCustomerConfirmation('momo');
 
         $this->assertSame(403, $response->getStatusCode());
         $this->assertStringContainsString(
-            'confirmé directement auprès du fournisseur',
+            'confirmation d’un paiement est réservée',
+            (string) $response->getContent()
+        );
+    }
+
+    public function test_cash_payment_cannot_be_confirmed_manually_by_customer(): void
+    {
+        $response = $this->callCustomerConfirmation('cash');
+
+        $this->assertSame(403, $response->getStatusCode());
+        $this->assertStringContainsString(
+            'au livreur ou au back-office',
             (string) $response->getContent()
         );
     }
@@ -117,5 +113,25 @@ class PaymentCriticalHardeningTest extends TestCase
 
         $this->assertSame($mtn, $factory->forMomoPhone('06 800 67 30'));
         $this->assertSame($airtel, $factory->forMomoPhone('05 500 00 00'));
+    }
+
+    private function callCustomerConfirmation(string $provider)
+    {
+        $user = new User();
+        $user->id = 42;
+
+        $payment = new Payment([
+            'user_id' => 42,
+            'provider' => $provider,
+            'status' => 'PENDING',
+            'amount' => 1000,
+            'currency' => 'XAF',
+        ]);
+        $payment->id = 99;
+
+        $request = Request::create('/api/payments/99/confirm', 'POST');
+        $request->setUserResolver(static fn() => $user);
+
+        return app(PaymentController::class)->confirm($request, $payment);
     }
 }
