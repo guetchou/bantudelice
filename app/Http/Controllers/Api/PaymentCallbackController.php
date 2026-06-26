@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Payment;
+use App\Services\DisbursementReconciliationService;
 use App\Services\PaymentService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -30,6 +31,23 @@ class PaymentCallbackController extends Controller
             }
 
             $payment = $this->resolvePayment($normalizedProvider, $references);
+
+            // MTN utilise la même URL de callback configurée pour Collection et
+            // Disbursement dans l'intégration historique. Si aucune entrée Payment
+            // ne correspond, tenter une réconciliation des reversements avant de
+            // conclure que la référence est inconnue.
+            if (!$payment && $normalizedProvider === 'momo') {
+                $disbursement = app(DisbursementReconciliationService::class)
+                    ->handleCallback($references);
+
+                if ($disbursement !== null) {
+                    return response()->json([
+                        'status' => ($disbursement['handled'] ?? false) ? 'success' : 'accepted',
+                        'message' => 'Callback de décaissement réconcilié',
+                        'disbursement_status' => $disbursement['status'] ?? 'UNKNOWN',
+                    ], ($disbursement['handled'] ?? false) ? 200 : 202);
+                }
+            }
 
             if (!$payment) {
                 throw new \RuntimeException(
