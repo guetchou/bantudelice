@@ -33,6 +33,15 @@ final class GatewayResult
 
     public static function demo(string $providerReference, array $meta = [], ?string $redirectUrl = null): self
     {
+        // Un PSP non configuré ne doit jamais simuler un succès en production,
+        // préproduction ou dans tout environnement autre que local/testing.
+        if (! app()->environment(['local', 'testing'])) {
+            return self::failure(
+                'Le mode démonstration des paiements est désactivé dans cet environnement.',
+                array_merge($meta, ['demo_blocked' => true])
+            );
+        }
+
         return new self(
             success: true,
             providerReference: $providerReference,
