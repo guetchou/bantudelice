@@ -12,6 +12,7 @@ use App\Domain\Payment\ValueObjects\GatewayStatus;
 use App\Http\Controllers\Api\PaymentController;
 use App\Payment;
 use App\User;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Tests\TestCase;
 
@@ -20,22 +21,24 @@ class PaymentCriticalHardeningTest extends TestCase
     public function test_external_payment_cannot_be_confirmed_manually_by_customer(): void
     {
         $response = $this->callCustomerConfirmation('momo');
+        $payload = $response->getData(true);
 
         $this->assertSame(403, $response->getStatusCode());
         $this->assertStringContainsString(
             'confirmation d’un paiement est réservée',
-            (string) $response->getContent()
+            (string) ($payload['message'] ?? '')
         );
     }
 
     public function test_cash_payment_cannot_be_confirmed_manually_by_customer(): void
     {
         $response = $this->callCustomerConfirmation('cash');
+        $payload = $response->getData(true);
 
         $this->assertSame(403, $response->getStatusCode());
         $this->assertStringContainsString(
             'au livreur ou au back-office',
-            (string) $response->getContent()
+            (string) ($payload['message'] ?? '')
         );
     }
 
@@ -115,7 +118,7 @@ class PaymentCriticalHardeningTest extends TestCase
         $this->assertSame($airtel, $factory->forMomoPhone('05 500 00 00'));
     }
 
-    private function callCustomerConfirmation(string $provider)
+    private function callCustomerConfirmation(string $provider): JsonResponse
     {
         $user = new User();
         $user->id = 42;
