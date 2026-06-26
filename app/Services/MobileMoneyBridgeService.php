@@ -21,6 +21,13 @@ class MobileMoneyBridgeService
 
     public function initiate(array $payload, array $bridgeClient): array
     {
+        $callbackUrl = trim((string) ($payload['callback_url'] ?? ''));
+        if ($callbackUrl !== '' && !$this->isAllowedCallbackUrl($callbackUrl)) {
+            throw ValidationException::withMessages([
+                'callback_url' => ['Cette URL de callback n’est pas autorisée. Utilisez une URL HTTPS publique.'],
+            ]);
+        }
+
         $existing = $this->findByExternalReference(
             (string) $payload['external_reference'],
             (string) $bridgeClient['key']
@@ -57,7 +64,7 @@ class MobileMoneyBridgeService
                     'bridge' => [
                         'external_reference' => (string) $payload['external_reference'],
                         'gateway_reference' => null,
-                        'callback_url' => $payload['callback_url'] ?? null,
+                        'callback_url' => $callbackUrl !== '' ? $callbackUrl : null,
                         'client_key' => $bridgeClient['key'],
                         'client_name' => $bridgeClient['name'],
                         'metadata' => $payload['metadata'] ?? [],
@@ -221,8 +228,8 @@ class MobileMoneyBridgeService
 
     protected function notifyCallbackIfNeeded(Payment $payment, string $event): void
     {
-        $callbackUrl = (string) data_get($payment->meta, 'bridge.callback_url', '');
-        if ($callbackUrl === '' || !filter_var($callbackUrl, FILTER_VALIDATE_URL)) {
+        $callbackUrl = trim((string) data_get($payment->meta, 'bridge.callback_url', ''));
+        if ($callbackUrl === '' || !$this->isAllowedCallbackUrl($callbackUrl)) {
             return;
         }
 
@@ -242,7 +249,24 @@ class MobileMoneyBridgeService
         ];
 
         try {
-            $response = Http::timeout(10)->post($callbackUrl, $payload);
+            $timestamp = (string) now()->timestamp;
+            $encodedPayload = json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE);
+            $secret = $this->resolveBridgeClientSecret($payment);
+            $headers = [
+                'X-BantuDelice-Timestamp' => $timestamp,
+            ];
+
+            if ($secret !== null && $encodedPayload !== false) {
+                $headers['X-BantuDelice-Signature'] = hash_hmac(
+                    'sha256',
+                    $timestamp . '.' . $encodedPayload,
+                    $secret
+                );
+            }
+
+            $response = Http::timeout(10)
+                ->withHeaders($headers)
+                ->post($callbackUrl, $payload);
 
             if (!$response->successful()) {
                 return;
@@ -255,5 +279,56 @@ class MobileMoneyBridgeService
         } catch (\Throwable $e) {
             // Notification passive : le flux de paiement ne doit pas échouer.
         }
+    }
+
+    private function resolveBridgeClientSecret(Payment $payment): ?string
+    {
+        $clientKey = (string) data_get($payment->meta, 'bridge.client_key', '');
+        $secret = (string) data_get(config('mobile-money-bridge.clients', []), $clientKey . '.secret', '');
+
+        return $secret !== '' ? $secret : null;
+    }
+
+    private function isAllowedCallbackUrl(string $url): bool
+    {
+        $parts = parse_url($url);
+        if (!is_array($parts)) {
+            return false;
+        }
+
+        $scheme = strtolower((string) ($parts['scheme'] ?? ''));
+        $host = strtolower(trim((string) ($parts['host'] ?? '')));
+
+        if ($host === '' || in_array($host, ['localhost', 'localhost.localdomain'], true)) {
+            return false;
+        }
+
+        if (app()->environment(['local', 'testing'])) {
+            return in_array($scheme, ['http', 'https'], true);
+        }
+
+        if ($scheme !== 'https') {
+            return false;
+        }
+
+        $ips = filter_var($host, FILTER_VALIDATE_IP)
+            ? [$host]
+            : (gethostbynamel($host) ?: []);
+
+        if ($ips === []) {
+            return false;
+        }
+
+        foreach ($ips as $ip) {
+            if (!filter_var(
+                $ip,
+                FILTER_VALIDATE_IP,
+                FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE
+            )) {
+                return false;
+            }
+        }
+
+        return true;
     }
 }
