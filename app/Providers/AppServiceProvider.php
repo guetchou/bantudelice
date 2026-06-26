@@ -10,6 +10,7 @@ use App\Domain\Payment\Adapters\CashDemoAdapter;
 use App\Domain\Payment\Adapters\MtnMomoAdapter;
 use App\Domain\Payment\Adapters\PayPalAdapter;
 use App\Domain\Payment\PaymentGatewayFactory;
+use App\Http\Middleware\AuthenticateGePayClient;
 use App\Services\CheckoutService;
 use App\Services\DeliveryService;
 use App\Services\DispatchService;
@@ -18,6 +19,7 @@ use App\Services\SecureDeliveryService;
 use App\Services\SecureDispatchService;
 use App\Services\WorkflowCheckoutService;
 use App\Services\WorkflowFoodOrderStateMachineService;
+use Illuminate\Console\Scheduling\Schedule;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -49,6 +51,16 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot()
     {
+        $this->app['router']->aliasMiddleware('gepay.client', AuthenticateGePayClient::class);
+        $this->loadRoutesFrom(base_path('routes/gepay.php'));
+
+        $this->callAfterResolving(Schedule::class, function (Schedule $schedule) {
+            $schedule->command('gepay:reconcile --limit=100')
+                ->everyMinute()
+                ->name('gepay-reconcile')
+                ->withoutOverlapping();
+        });
+
         $this->callAfterResolving(
             \Illuminate\Broadcasting\BroadcastManager::class,
             function (\Illuminate\Broadcasting\BroadcastManager $manager) {
