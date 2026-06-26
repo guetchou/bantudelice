@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Payment;
 use App\Services\PaymentExperienceService;
 use App\Services\PaymentReconciliationService;
+use App\Services\PaymentService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 
@@ -16,13 +17,7 @@ class PaymentController extends Controller
     ) {}
 
     /**
-     * Récupérer le statut d'un paiement
-     * 
-     * GET /api/payments/{payment}
-     * 
-     * @param Request $request
-     * @param int|Payment $payment
-     * @return \Illuminate\Http\JsonResponse
+     * Récupérer le statut d'un paiement.
      */
     public function show(Request $request, $payment)
     {
@@ -31,17 +26,16 @@ class PaymentController extends Controller
         if (!$user) {
             return response()->json([
                 'status' => false,
-                'message' => 'Non authentifié'
+                'message' => 'Non authentifié',
             ], 401);
         }
 
-        // Si $payment est un ID, récupérer le modèle
         $payment = $this->resolveOwnedPayment($payment, $user->id);
 
         if (!$payment) {
             return response()->json([
                 'status' => false,
-                'message' => 'Paiement introuvable'
+                'message' => 'Paiement introuvable',
             ], 404);
         }
 
@@ -81,13 +75,10 @@ class PaymentController extends Controller
     }
 
     /**
-     * Confirmer manuellement un paiement (pour modes manuels)
-     * 
-     * POST /api/payments/{payment}/confirm
-     * 
-     * @param Request $request
-     * @param int|Payment $payment
-     * @return \Illuminate\Http\JsonResponse
+     * Confirmation manuelle réservée aux paiements réellement manuels.
+     *
+     * Cette route appartient à l'espace client et ne doit jamais pouvoir
+     * confirmer un paiement MTN, Airtel, PayPal ou tout autre PSP externe.
      */
     public function confirm(Request $request, $payment)
     {
@@ -96,31 +87,48 @@ class PaymentController extends Controller
         if (!$user) {
             return response()->json([
                 'status' => false,
-                'message' => 'Non authentifié'
+                'message' => 'Non authentifié',
             ], 401);
         }
 
-        // Si $payment est un ID, récupérer le modèle
         $payment = $this->resolveOwnedPayment($payment, $user->id);
 
         if (!$payment) {
             return response()->json([
                 'status' => false,
-                'message' => 'Paiement introuvable'
+                'message' => 'Paiement introuvable',
             ], 404);
         }
 
-        // Seuls les paiements PENDING peuvent être confirmés manuellement
+        $provider = strtolower(trim((string) $payment->provider));
+
+        if (!in_array($provider, ['cash', 'cod'], true)) {
+            Log::warning('Tentative de confirmation manuelle d’un paiement externe bloquée', [
+                'payment_id' => $payment->id,
+                'provider' => $payment->provider,
+                'user_id' => $user->id,
+                'ip' => $request->ip(),
+            ]);
+
+            return response()->json([
+                'status' => false,
+                'message' => 'Un paiement externe doit être confirmé directement auprès du fournisseur de paiement.',
+            ], 403);
+        }
+
         if ($payment->status !== 'PENDING') {
             return response()->json([
                 'status' => false,
-                'message' => 'Ce paiement ne peut pas être confirmé (statut: ' . $payment->status . ')'
+                'message' => 'Ce paiement ne peut pas être confirmé (statut: ' . $payment->status . ')',
             ], 422);
         }
 
         try {
-            $paymentService = new \App\Services\PaymentService();
-            $paymentService->markPaymentAsPaid($payment, ['manual_confirmation' => true]);
+            app(PaymentService::class)->markPaymentAsPaid($payment, [
+                'manual_confirmation' => true,
+                'confirmed_by_user_id' => $user->id,
+                'confirmed_at' => now()->toIso8601String(),
+            ]);
 
             return response()->json([
                 'status' => true,
@@ -128,12 +136,17 @@ class PaymentController extends Controller
                 'payment' => [
                     'id' => $payment->id,
                     'status' => $payment->fresh()->status,
-                ]
+                ],
             ]);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
+            Log::error('Erreur lors de la confirmation manuelle d’un paiement', [
+                'payment_id' => $payment->id,
+                'error' => $e->getMessage(),
+            ]);
+
             return response()->json([
                 'status' => false,
-                'message' => 'Erreur lors de la confirmation: ' . $e->getMessage()
+                'message' => 'Erreur lors de la confirmation du paiement.',
             ], 500);
         }
     }
