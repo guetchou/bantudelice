@@ -49,11 +49,27 @@ class PaymentCriticalHardeningTest extends TestCase
         $this->app['env'] = 'production';
 
         try {
-            $result = GatewayResult::demo('DEMO-123');
+            $result = GatewayResult::demo('DEMO-123', ['provider' => 'momo']);
 
             $this->assertFalse($result->success);
             $this->assertFalse($result->isDemo);
             $this->assertTrue((bool) ($result->meta['demo_blocked'] ?? false));
+        } finally {
+            $this->app['env'] = $originalEnvironment;
+        }
+    }
+
+    public function test_manual_cash_result_remains_available_in_production(): void
+    {
+        $originalEnvironment = $this->app['env'];
+        $this->app['env'] = 'production';
+
+        try {
+            $result = GatewayResult::demo('CASH-123', ['provider' => 'cash']);
+
+            $this->assertTrue($result->success);
+            $this->assertTrue($result->isDemo);
+            $this->assertFalse((bool) ($result->meta['demo_blocked'] ?? false));
         } finally {
             $this->app['env'] = $originalEnvironment;
         }
