@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Payment;
 use App\Services\PaymentService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
@@ -14,68 +15,49 @@ class PaymentCallbackController extends Controller
     ) {}
 
     /**
-     * Gérer le callback d'un PSP (MoMo, PayPal, etc.)
-     * 
-     * POST /api/payments/callback/{provider}
-     * 
-     * @param Request $request
-     * @param string $provider
-     * @return \Illuminate\Http\JsonResponse
+     * Gérer le callback d'un PSP (MoMo, Airtel, PayPal, etc.).
      */
     public function handle(Request $request, string $provider)
     {
-        // Logger le callback pour debug
-        Log::info('Payment callback received', [
-            'provider' => $provider,
-            'payload' => $request->all(),
-            'ip' => $request->ip()
-        ]);
-
+        $normalizedProvider = $this->normalizeProvider($provider);
         $payment = null;
 
         try {
-            // 1. Retrouver le paiement (la signature est vérifiée plus bas,
-            // une fois le paiement et son provider identifiés)
-            $providerRef = $request->get('reference') ?? $request->get('transaction_id') ?? $request->get('id') ?? null;
-            
-            if (!$providerRef) {
+            $references = $this->extractReferenceCandidates($request);
+
+            if ($references === []) {
                 throw new \RuntimeException('Référence de paiement manquante');
             }
 
-            $payment = \App\Payment::where('provider_reference', $providerRef)
-                ->where('provider', $provider)
-                ->first();
+            $payment = $this->resolvePayment($normalizedProvider, $references);
 
             if (!$payment) {
-                throw new \RuntimeException('Paiement non trouvé pour la référence: ' . $providerRef);
+                throw new \RuntimeException(
+                    'Paiement non trouvé pour les références reçues: ' . implode(', ', $references)
+                );
             }
 
-            // Injecter les headers HTTP pour la vérif de signature PayPal — construit
-            // ici (avant le routage transport/colis) pour que la vérification de
-            // signature ci-dessous dispose des mêmes données que handleCallback().
-            $paypalHeaders = [];
-            if (strtolower($provider) === 'paypal') {
-                foreach (['PAYPAL-TRANSMISSION-ID','PAYPAL-TRANSMISSION-TIME','PAYPAL-CERT-URL','PAYPAL-TRANSMISSION-SIG','PAYPAL-AUTH-ALGO'] as $h) {
-                    $val = $request->header($h);
-                    if ($val !== null) {
-                        $paypalHeaders[$h] = $val;
-                    }
-                }
-            }
-            $callbackPayload = array_merge($request->all(), [
-                '_headers'  => $paypalHeaders,
-                '_raw_body' => $request->getContent(),
+            $callbackPayload = $this->buildCallbackPayload($request, $normalizedProvider);
+
+            // La référence technique MTN est le X-Reference-Id stocké dans
+            // provider_reference. Si le callback ne la répète pas sous le même nom,
+            // on la réinjecte pour que le contrôle de statut interroge la bonne ressource.
+            $callbackPayload['referenceId'] = $callbackPayload['referenceId']
+                ?? $callbackPayload['reference']
+                ?? $payment->provider_reference;
+            $callbackPayload['reference'] = $callbackPayload['reference']
+                ?? $payment->provider_reference;
+
+            Log::info('Payment callback received', [
+                'provider' => $normalizedProvider,
+                'payment_id' => $payment->id,
+                'reference' => $payment->provider_reference,
+                'ip' => $request->ip(),
             ]);
 
-            // Vérifier la signature AVANT tout traitement, y compris pour les
-            // branches transport/colis ci-dessous qui retournent avant
-            // d'atteindre paymentService->handleCallback() (seul endroit où
-            // la signature était vérifiée jusqu'ici) — sans ce contrôle,
-            // un callback forgé pouvait confirmer un paiement transport/colis
-            // sans vérification du PSP.
-            if (!$this->paymentService->verifyCallbackSignature($provider, $callbackPayload)) {
+            if (!$this->paymentService->verifyCallbackSignature($normalizedProvider, $callbackPayload)) {
                 Log::warning('Signature callback invalide — rejeté avant traitement', [
-                    'provider' => $provider,
+                    'provider' => $normalizedProvider,
                     'payment_id' => $payment->id,
                 ]);
 
@@ -88,8 +70,8 @@ class PaymentCallbackController extends Controller
             if ($payment->transport_booking_id) {
                 app(\App\Services\ModuleQueueService::class)->enqueueJob('transport', 'handle_transport_payment_callback', [
                     'payment_id' => $payment->id,
-                    'provider' => $provider,
-                    'payload' => $request->all(),
+                    'provider' => $normalizedProvider,
+                    'payload' => $callbackPayload,
                 ]);
 
                 return response()->json([
@@ -101,8 +83,8 @@ class PaymentCallbackController extends Controller
             if ($payment->shipment_id) {
                 app(\App\Services\ModuleQueueService::class)->enqueueJob('colis', 'handle_shipment_payment_callback', [
                     'payment_id' => $payment->id,
-                    'provider' => $provider,
-                    'payload' => $request->all(),
+                    'provider' => $normalizedProvider,
+                    'payload' => $callbackPayload,
                 ]);
 
                 return response()->json([
@@ -111,19 +93,18 @@ class PaymentCallbackController extends Controller
                 ], 202);
             }
 
-            // 3. Vérifier anti-fraude (si paiement en attente)
             if ($payment->status === 'PENDING') {
                 $fraudService = new \App\Services\FraudDetectionService();
                 $fraudCheck = $fraudService->checkFraud($payment, [
                     'ip' => $request->ip(),
-                    'user_agent' => $request->userAgent()
+                    'user_agent' => $request->userAgent(),
                 ]);
 
                 if ($fraudCheck['is_fraud'] && $fraudCheck['recommendation'] === 'BLOCK') {
                     Log::warning('Paiement bloqué par anti-fraude', [
                         'payment_id' => $payment->id,
                         'risk_score' => $fraudCheck['risk_score'],
-                        'reasons' => $fraudCheck['reasons']
+                        'reasons' => $fraudCheck['reasons'],
                     ]);
 
                     $payment->update([
@@ -132,91 +113,175 @@ class PaymentCallbackController extends Controller
                             'fraud_detected' => true,
                             'fraud_reasons' => $fraudCheck['reasons'],
                             'risk_score' => $fraudCheck['risk_score'],
-                            'blocked_at' => now()->toIso8601String()
-                        ])
+                            'blocked_at' => now()->toIso8601String(),
+                        ]),
                     ]);
 
                     return response()->json([
                         'status' => 'error',
-                        'message' => 'Paiement bloqué pour raison de sécurité'
+                        'message' => 'Paiement bloqué pour raison de sécurité',
                     ], 403);
                 }
 
-                // Si REVIEW requis, logger mais continuer
                 if ($fraudCheck['recommendation'] === 'REVIEW') {
                     Log::warning('Paiement nécessite révision manuelle', [
                         'payment_id' => $payment->id,
                         'risk_score' => $fraudCheck['risk_score'],
-                        'reasons' => $fraudCheck['reasons']
+                        'reasons' => $fraudCheck['reasons'],
                     ]);
                 }
             }
 
-            // 4. Traiter le callback ($callbackPayload déjà construit ci-dessus,
-            // avant la vérification de signature)
-            $this->paymentService->handleCallback($provider, $callbackPayload);
+            $this->paymentService->handleCallback($normalizedProvider, $callbackPayload);
 
-            // La réponse exacte dépend du PSP
-            // MoMo attend généralement un JSON avec status
             return response()->json([
                 'status' => 'success',
-                'message' => 'Callback traité avec succès'
-            ], 200);
-
+                'message' => 'Callback traité avec succès',
+            ]);
         } catch (\RuntimeException $e) {
             Log::error('Payment callback error', [
-                'provider' => $provider,
+                'provider' => $normalizedProvider,
                 'error' => $e->getMessage(),
-                'payload' => $request->all()
+                'references' => $this->extractReferenceCandidates($request),
             ]);
 
-            // Si le paiement existe, planifier un retry
-            if (isset($payment) && $payment) {
-                try {
-                    app(\App\Services\ModuleQueueService::class)->enqueueJob('food', 'retry_payment_callback', [
-                        'payment' => $payment,
-                        'callback_data' => $request->all(),
-                        '_delay' => now()->addMinutes(1),
-                    ]);
-                } catch (\Exception $retryException) {
-                    Log::error('Erreur lors de la planification du retry', [
-                        'payment_id' => $payment->id,
-                        'error' => $retryException->getMessage()
-                    ]);
-                }
-            }
+            $this->scheduleRetry($payment, $normalizedProvider, $request, 1);
 
             return response()->json([
                 'status' => 'error',
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ], 400);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             Log::error('Payment callback exception', [
-                'provider' => $provider,
+                'provider' => $normalizedProvider,
                 'error' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
+                'trace' => $e->getTraceAsString(),
             ]);
 
-            // Si le paiement existe, planifier un retry
-            if (isset($payment) && $payment) {
-                try {
-                    app(\App\Services\ModuleQueueService::class)->enqueueJob('food', 'retry_payment_callback', [
-                        'payment' => $payment,
-                        'callback_data' => $request->all(),
-                        '_delay' => now()->addMinutes(5),
-                    ]);
-                } catch (\Exception $retryException) {
-                    Log::error('Erreur lors de la planification du retry', [
-                        'payment_id' => $payment->id,
-                        'error' => $retryException->getMessage()
-                    ]);
-                }
-            }
+            $this->scheduleRetry($payment, $normalizedProvider, $request, 5);
 
             return response()->json([
                 'status' => 'error',
-                'message' => 'Erreur lors du traitement du callback'
+                'message' => 'Erreur lors du traitement du callback',
             ], 500);
+        }
+    }
+
+    private function normalizeProvider(string $provider): string
+    {
+        return match (strtolower(trim($provider))) {
+            'mtn', 'mtn_momo', 'momo' => 'momo',
+            'airtel', 'airtel_money' => 'airtel',
+            'paypal' => 'paypal',
+            default => strtolower(trim($provider)),
+        };
+    }
+
+    private function providerAliases(string $provider): array
+    {
+        return match ($provider) {
+            'momo' => ['momo', 'mtn_momo', 'mtn'],
+            'airtel' => ['airtel', 'airtel_money'],
+            default => [$provider],
+        };
+    }
+
+    private function extractReferenceCandidates(Request $request): array
+    {
+        $payload = $request->all();
+        $candidates = [
+            $request->header('X-Reference-Id'),
+            data_get($payload, 'referenceId'),
+            data_get($payload, 'reference'),
+            data_get($payload, 'transaction_id'),
+            data_get($payload, 'transaction.id'),
+            data_get($payload, 'data.transaction.id'),
+            data_get($payload, 'externalId'),
+            data_get($payload, 'external_id'),
+            data_get($payload, 'id'),
+        ];
+
+        return array_values(array_unique(array_filter(array_map(
+            static fn($value) => trim((string) $value),
+            $candidates
+        ), static fn($value) => $value !== '')));
+    }
+
+    private function resolvePayment(string $provider, array $references): ?Payment
+    {
+        $aliases = $this->providerAliases($provider);
+
+        $payment = Payment::query()
+            ->whereIn('provider', $aliases)
+            ->whereIn('provider_reference', $references)
+            ->latest('id')
+            ->first();
+
+        if ($payment) {
+            return $payment;
+        }
+
+        // Certains PSP renvoient l'externalId métier au lieu du X-Reference-Id.
+        // Le fallback reste borné aux paiements récents du provider concerné.
+        return Payment::query()
+            ->whereIn('provider', $aliases)
+            ->latest('id')
+            ->limit(500)
+            ->get()
+            ->first(function (Payment $candidate) use ($references) {
+                $metaReferences = array_filter([
+                    data_get($candidate->meta, 'external_id'),
+                    data_get($candidate->meta, 'externalId'),
+                    data_get($candidate->meta, 'bridge.external_reference'),
+                ]);
+
+                return array_intersect($references, array_map('strval', $metaReferences)) !== [];
+            });
+    }
+
+    private function buildCallbackPayload(Request $request, string $provider): array
+    {
+        $paypalHeaders = [];
+
+        if ($provider === 'paypal') {
+            foreach ([
+                'PAYPAL-TRANSMISSION-ID',
+                'PAYPAL-TRANSMISSION-TIME',
+                'PAYPAL-CERT-URL',
+                'PAYPAL-TRANSMISSION-SIG',
+                'PAYPAL-AUTH-ALGO',
+            ] as $header) {
+                $value = $request->header($header);
+                if ($value !== null) {
+                    $paypalHeaders[$header] = $value;
+                }
+            }
+        }
+
+        return array_merge($request->all(), [
+            '_headers' => $paypalHeaders,
+            '_raw_body' => $request->getContent(),
+        ]);
+    }
+
+    private function scheduleRetry(?Payment $payment, string $provider, Request $request, int $delayMinutes): void
+    {
+        if (!$payment) {
+            return;
+        }
+
+        try {
+            app(\App\Services\ModuleQueueService::class)->enqueueJob('food', 'retry_payment_callback', [
+                'payment_id' => $payment->id,
+                'provider' => $provider,
+                'callback_data' => $request->all(),
+                '_delay' => now()->addMinutes($delayMinutes),
+            ]);
+        } catch (\Throwable $retryException) {
+            Log::error('Erreur lors de la planification du retry callback', [
+                'payment_id' => $payment->id,
+                'error' => $retryException->getMessage(),
+            ]);
         }
     }
 }
