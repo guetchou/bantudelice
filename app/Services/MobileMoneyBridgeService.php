@@ -3,13 +3,13 @@
 namespace App\Services;
 
 use App\Payment;
-use App\Services\DisbursementService;
 use App\User;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class MobileMoneyBridgeService
 {
@@ -21,16 +21,31 @@ class MobileMoneyBridgeService
 
     public function initiate(array $payload, array $bridgeClient): array
     {
-        $existing = $this->findByExternalReference((string) $payload['external_reference'], (string) $bridgeClient['key']);
+        $existing = $this->findByExternalReference(
+            (string) $payload['external_reference'],
+            (string) $bridgeClient['key']
+        );
+
         if ($existing) {
-            return $this->buildPaymentPayload($existing, false, 'Paiement déjà existant pour cette référence externe.');
+            return $this->buildPaymentPayload(
+                $existing,
+                false,
+                'Paiement déjà existant pour cette référence externe.'
+            );
         }
 
         $user = $this->resolveBridgeUser();
         $operator = $payload['operator'] === 'auto'
             ? DisbursementService::detectOperator((string) $payload['phone'])
             : $payload['operator'];
-        $provider = 'momo';
+
+        if (!in_array($operator, ['mtn', 'airtel'], true)) {
+            throw ValidationException::withMessages([
+                'phone' => ['Impossible de déterminer un opérateur Mobile Money compatible pour ce numéro.'],
+            ]);
+        }
+
+        $provider = $operator === 'airtel' ? 'airtel' : 'momo';
 
         $result = $this->paymentService->startManagedPayment(
             [
@@ -47,12 +62,15 @@ class MobileMoneyBridgeService
                         'client_name' => $bridgeClient['name'],
                         'metadata' => $payload['metadata'] ?? [],
                     ],
+                    'requested_operator' => $payload['operator'],
+                    'resolved_operator' => $operator,
                 ],
             ],
             [
                 'phone' => (string) $payload['phone'],
                 'source' => 'mobile_money_bridge',
                 'external_reference' => (string) $payload['external_reference'],
+                'operator' => $operator,
             ],
             [
                 'bridge' => [
@@ -97,7 +115,12 @@ class MobileMoneyBridgeService
         $payment = $payment->fresh();
         $this->notifyCallbackIfNeeded($payment, 'reconcile');
 
-        return $this->buildPaymentPayload($payment, false, $reconciliation['message'] ?? null, $reconciliation);
+        return $this->buildPaymentPayload(
+            $payment,
+            false,
+            $reconciliation['message'] ?? null,
+            $reconciliation
+        );
     }
 
     protected function resolveBridgeUser(): User
@@ -161,8 +184,12 @@ class MobileMoneyBridgeService
         return 'MMB-' . str_pad((string) $payment->id, 8, '0', STR_PAD_LEFT);
     }
 
-    protected function buildPaymentPayload(Payment $payment, bool $created = false, ?string $message = null, ?array $reconciliation = null): array
-    {
+    protected function buildPaymentPayload(
+        Payment $payment,
+        bool $created = false,
+        ?string $message = null,
+        ?array $reconciliation = null
+    ): array {
         $payment->refresh();
         $experience = $this->paymentExperienceService->describe($payment);
         $bridge = data_get($payment->meta, 'bridge', []);
@@ -179,8 +206,11 @@ class MobileMoneyBridgeService
                 'status' => $payment->status,
                 'amount' => (int) $payment->amount,
                 'currency' => $payment->currency,
-                'phone' => data_get($payment->meta, 'momo.phone'),
-                'operator' => data_get($payment->meta, 'momo.operator'),
+                'phone' => data_get($payment->meta, 'phone')
+                    ?? data_get($payment->meta, 'checkout_data.phone'),
+                'operator' => data_get($payment->meta, 'operator')
+                    ?? data_get($payment->meta, 'resolved_operator')
+                    ?? ($payment->provider === 'airtel' ? 'airtel' : 'mtn'),
                 'created_at' => optional($payment->created_at)->toIso8601String(),
                 'updated_at' => optional($payment->updated_at)->toIso8601String(),
             ],
@@ -212,13 +242,18 @@ class MobileMoneyBridgeService
         ];
 
         try {
-            Http::timeout(10)->post($callbackUrl, $payload);
+            $response = Http::timeout(10)->post($callbackUrl, $payload);
+
+            if (!$response->successful()) {
+                return;
+            }
+
             $meta = $payment->meta ?? [];
             data_set($meta, 'bridge.last_notified_status', $status);
             data_set($meta, 'bridge.last_callback_at', Carbon::now()->toIso8601String());
             $payment->update(['meta' => $meta]);
         } catch (\Throwable $e) {
-            // Passive notification only; gateway core flow must not fail on client callback.
+            // Notification passive : le flux de paiement ne doit pas échouer.
         }
     }
 }
