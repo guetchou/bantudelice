@@ -8,9 +8,8 @@ use RuntimeException;
 
 class FoodIntegrityConstraintService
 {
-    public const PAYMENT_INDEX = 'payments_order_provider_active_unique';
+    public const PAYMENT_INDEX = 'payments_order_provider_unique';
     public const DELIVERY_INDEX = 'deliveries_order_unique';
-    public const MYSQL_ACTIVE_KEY = 'active_order_provider_key';
 
     public function __construct(
         protected FoodIntegrityReportService $reports
@@ -25,7 +24,7 @@ class FoodIntegrityConstraintService
             'driver' => $driver,
             'audit_status' => $audit['status'],
             'violations_count' => $audit['violations_count'],
-            'payments_ready' => $this->paymentsSchemaReady($driver),
+            'payments_ready' => $this->paymentsSchemaReady(),
             'deliveries_ready' => Schema::hasTable('deliveries')
                 && Schema::hasColumn('deliveries', 'order_id'),
             'payment_constraint_active' => $this->indexExists('payments', self::PAYMENT_INDEX),
@@ -73,36 +72,25 @@ class FoodIntegrityConstraintService
         ];
     }
 
-    private function paymentsSchemaReady(string $driver): bool
+    private function paymentsSchemaReady(): bool
     {
-        if (! Schema::hasTable('payments')
-            || ! Schema::hasColumn('payments', 'order_id')
-            || ! Schema::hasColumn('payments', 'provider')) {
-            return false;
-        }
-
-        return ! ($driver === 'mysql'
-            && Schema::hasColumn('payments', 'deleted_at')
-            && ! Schema::hasColumn('payments', self::MYSQL_ACTIVE_KEY));
+        return Schema::hasTable('payments')
+            && Schema::hasColumn('payments', 'order_id')
+            && Schema::hasColumn('payments', 'provider');
     }
 
     private function createPaymentIndex(string $driver): void
     {
-        $hasDeletedAt = Schema::hasColumn('payments', 'deleted_at');
-
         if ($driver === 'mysql') {
-            $columnList = $hasDeletedAt
-                ? self::MYSQL_ACTIVE_KEY
-                : 'order_id, provider';
             DB::statement(
                 'CREATE UNIQUE INDEX ' . self::PAYMENT_INDEX
-                . ' ON payments (' . $columnList . ')'
+                . ' ON payments (order_id, provider)'
             );
             return;
         }
 
         $filter = 'order_id IS NOT NULL AND provider IS NOT NULL';
-        if ($hasDeletedAt) {
+        if (Schema::hasColumn('payments', 'deleted_at')) {
             $filter .= ' AND deleted_at IS NULL';
         }
 
