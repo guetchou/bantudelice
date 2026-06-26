@@ -105,7 +105,18 @@ class GePayGateway
             return $transaction;
         }
 
-        return $this->applyProviderResult($transaction, $this->provider($transaction->provider)->checkStatus($transaction));
+        try {
+            $result = $this->provider($transaction->provider)->checkStatus($transaction);
+        } catch (\Throwable $exception) {
+            $result = new ProviderResult(
+                TransactionStatus::UNKNOWN,
+                providerReference: $transaction->provider_reference,
+                failureCode: 'RECONCILIATION_EXCEPTION',
+                failureMessage: $exception->getMessage()
+            );
+        }
+
+        return $this->applyProviderResult($transaction, $result);
     }
 
     private function applyProviderResult(GePayTransaction $transaction, ProviderResult $result): GePayTransaction
