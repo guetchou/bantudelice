@@ -48,8 +48,8 @@ class DisbursementReconciliationService
             foreach ($rows as $row) {
                 $reference = trim((string) $row->transaction_id);
 
-                // Les références manuelles ou les identifiants de demande REQ-* ne
-                // doivent pas être envoyés à l'endpoint de statut MTN.
+                // Les références manuelles, REQ-* et FAILED:* ne doivent pas être
+                // envoyées à l'endpoint de statut MTN.
                 if (!Str::isUuid($reference)) {
                     continue;
                 }
@@ -61,13 +61,13 @@ class DisbursementReconciliationService
                     $normalized = strtoupper((string) ($status['status'] ?? 'UNKNOWN'));
 
                     if ($this->isSuccessful($normalized)) {
-                        $this->updateStatus($table, (int) $row->id, 'paid');
+                        $this->markPaid($table, (int) $row->id);
                         $result['paid']++;
                         continue;
                     }
 
                     if ($this->isFailed($normalized)) {
-                        $this->updateStatus($table, (int) $row->id, 'failed');
+                        $this->markFailedForRetry($table, (int) $row->id, $reference, $normalized);
                         $result['failed']++;
                         continue;
                     }
@@ -131,9 +131,9 @@ class DisbursementReconciliationService
             $normalized = strtoupper((string) ($providerStatus['status'] ?? 'UNKNOWN'));
 
             if ($this->isSuccessful($normalized)) {
-                $this->updateStatus($table, (int) $row->id, 'paid');
+                $this->markPaid($table, (int) $row->id);
             } elseif ($this->isFailed($normalized)) {
-                $this->updateStatus($table, (int) $row->id, 'failed');
+                $this->markFailedForRetry($table, (int) $row->id, $reference, $normalized);
             }
 
             Log::info('Callback de décaissement réconcilié', [
@@ -156,21 +156,44 @@ class DisbursementReconciliationService
         return null;
     }
 
-    private function updateStatus(string $table, int $id, string $status): void
+    private function markPaid(string $table, int $id): void
     {
         $updates = [
-            'status' => $status,
+            'status' => 'paid',
             'updated_at' => now(),
         ];
 
-        if ($status === 'paid' && Schema::hasColumn($table, 'paid_at')) {
+        if (Schema::hasColumn($table, 'paid_at')) {
             $updates['paid_at'] = now();
         }
 
         DB::table($table)
             ->where('id', $id)
-            ->whereIn('status', ['pending', 'processing', 'failed'])
+            ->where('status', 'pending')
             ->update($updates);
+    }
+
+    private function markFailedForRetry(string $table, int $id, string $reference, string $providerStatus): void
+    {
+        // Le back-office historique n'affiche que pending/paid. On conserve donc
+        // la demande dans pending, mais on préfixe la référence terminale afin :
+        //  - d'arrêter le polling automatique de cette tentative ;
+        //  - de rendre l'échec visible ;
+        //  - de permettre au contrôleur admin de lancer une nouvelle tentative.
+        DB::table($table)
+            ->where('id', $id)
+            ->where('status', 'pending')
+            ->update([
+                'transaction_id' => 'FAILED:' . $reference,
+                'updated_at' => now(),
+            ]);
+
+        Log::warning('Décaissement MTN terminal en échec, demande maintenue pour reprise', [
+            'table' => $table,
+            'payout_id' => $id,
+            'reference' => $reference,
+            'provider_status' => $providerStatus,
+        ]);
     }
 
     private function isSuccessful(string $status): bool
