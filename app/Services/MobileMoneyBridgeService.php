@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Payment;
 use App\User;
 use Carbon\Carbon;
+use Illuminate\Database\QueryException;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
@@ -28,10 +29,12 @@ class MobileMoneyBridgeService
             ]);
         }
 
-        $existing = $this->findByExternalReference(
-            (string) $payload['external_reference'],
-            (string) $bridgeClient['key']
-        );
+        $externalReference = (string) $payload['external_reference'];
+        $clientKey = (string) $bridgeClient['key'];
+        $idempotencyKey = $this->buildIdempotencyKey($clientKey, $externalReference);
+
+        $existing = Payment::where('idempotency_key', $idempotencyKey)->first()
+            ?? $this->findByExternalReference($externalReference, $clientKey);
 
         if ($existing) {
             return $this->buildPaymentPayload(
@@ -54,37 +57,54 @@ class MobileMoneyBridgeService
 
         $provider = $operator === 'airtel' ? 'airtel' : 'momo';
 
-        $result = $this->paymentService->startManagedPayment(
-            [
-                'user_id' => $user->id,
-                'provider' => $provider,
-                'amount' => (int) $payload['amount'],
-                'currency' => strtoupper((string) ($payload['currency'] ?? 'XAF')),
-                'meta' => [
-                    'bridge' => [
-                        'external_reference' => (string) $payload['external_reference'],
-                        'gateway_reference' => null,
-                        'callback_url' => $callbackUrl !== '' ? $callbackUrl : null,
-                        'client_key' => $bridgeClient['key'],
-                        'client_name' => $bridgeClient['name'],
-                        'metadata' => $payload['metadata'] ?? [],
+        try {
+            $result = $this->paymentService->startManagedPayment(
+                [
+                    'user_id' => $user->id,
+                    'provider' => $provider,
+                    'amount' => (int) $payload['amount'],
+                    'currency' => strtoupper((string) ($payload['currency'] ?? 'XAF')),
+                    'idempotency_key' => $idempotencyKey,
+                    'meta' => [
+                        'bridge' => [
+                            'external_reference' => $externalReference,
+                            'gateway_reference' => null,
+                            'callback_url' => $callbackUrl !== '' ? $callbackUrl : null,
+                            'client_key' => $clientKey,
+                            'client_name' => $bridgeClient['name'],
+                            'metadata' => $payload['metadata'] ?? [],
+                        ],
+                        'requested_operator' => $payload['operator'],
+                        'resolved_operator' => $operator,
                     ],
-                    'requested_operator' => $payload['operator'],
-                    'resolved_operator' => $operator,
                 ],
-            ],
-            [
-                'phone' => (string) $payload['phone'],
-                'source' => 'mobile_money_bridge',
-                'external_reference' => (string) $payload['external_reference'],
-                'operator' => $operator,
-            ],
-            [
-                'bridge' => [
-                    'customer_name' => $payload['customer_name'] ?? null,
+                [
+                    'phone' => (string) $payload['phone'],
+                    'source' => 'mobile_money_bridge',
+                    'external_reference' => $externalReference,
+                    'operator' => $operator,
                 ],
-            ]
-        );
+                [
+                    'bridge' => [
+                        'customer_name' => $payload['customer_name'] ?? null,
+                    ],
+                ]
+            );
+        } catch (QueryException $e) {
+            // Deux requêtes concurrentes peuvent franchir la lecture initiale.
+            // La contrainte UNIQUE tranche alors définitivement sans créer un
+            // deuxième paiement ni un deuxième Request to Pay.
+            $existing = Payment::where('idempotency_key', $idempotencyKey)->first();
+            if ($existing) {
+                return $this->buildPaymentPayload(
+                    $existing,
+                    false,
+                    'Paiement déjà existant pour cette référence externe.'
+                );
+            }
+
+            throw $e;
+        }
 
         /** @var Payment $payment */
         $payment = $result['payment']->fresh();
@@ -279,6 +299,11 @@ class MobileMoneyBridgeService
         } catch (\Throwable $e) {
             // Notification passive : le flux de paiement ne doit pas échouer.
         }
+    }
+
+    private function buildIdempotencyKey(string $clientKey, string $externalReference): string
+    {
+        return 'bridge:' . hash('sha256', $clientKey . '|' . $externalReference);
     }
 
     private function resolveBridgeClientSecret(Payment $payment): ?string
