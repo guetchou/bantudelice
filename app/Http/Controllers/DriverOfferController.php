@@ -2,127 +2,125 @@
 
 namespace App\Http\Controllers;
 
-use App\Driver;
 use App\Delivery;
 use App\DeliveryOffer;
 use App\Services\DeliveryService;
+use App\Support\Auth\AuthenticatedDriverResolver;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Facades\Schema;
 
 class DriverOfferController extends Controller
 {
-    public function __construct()
-    {
-        // Route web : le livreur est connecté via session (guard 'web'), pas 'driver' (Passport mobile)
+    public function __construct(
+        protected DeliveryService $deliveryService,
+        protected AuthenticatedDriverResolver $driverResolver
+    ) {
         $this->middleware('auth');
     }
 
-    /**
-     * Résoudre le Driver depuis l'utilisateur connecté (session web).
-     */
-    private function resolveDriver(): ?Driver
-    {
-        $user = auth()->user();
-        if (!$user) return null;
-
-        $d = Driver::where('user_id', $user->id)->first();
-        if ($d) return $d;
-
-        // email ET téléphone doivent correspondre tous les deux (l'orWhere
-        // permettait un IDOR par correspondance partielle).
-        $d = Driver::where('email', $user->email)
-            ->where('phone', $user->phone)
-            ->first();
-
-        if ($d && !$d->user_id) {
-            $d->update(['user_id' => $user->id]);
-        }
-
-        return $d;
-    }
-
-    /**
-     * Accepter une offre de livraison.
-     */
     public function accept(Request $request, int $deliveryId)
     {
-        $driver = $this->resolveDriver();
-        if (!$driver) {
-            return $this->respond($request, false, 'Compte livreur introuvable.');
+        $driver = $this->driverResolver->current();
+        if (! $driver) {
+            return $this->respond($request, false, 'Compte livreur approuvé introuvable.', 403);
         }
 
-        $delivery = Delivery::find($deliveryId);
-        if (!$delivery || $delivery->status !== 'PENDING') {
-            return $this->respond($request, false, 'Cette livraison n\'est plus disponible.');
+        try {
+            $accepted = DB::transaction(function () use ($deliveryId, $driver): bool {
+                $delivery = Delivery::query()->lockForUpdate()->find($deliveryId);
+                if (! $delivery || $delivery->status !== 'PENDING') {
+                    return false;
+                }
+
+                $offer = DeliveryOffer::query()
+                    ->where('delivery_id', $deliveryId)
+                    ->where('driver_id', $driver->id)
+                    ->where('status', 'pending')
+                    ->lockForUpdate()
+                    ->first();
+
+                if (! $offer || ! $offer->expires_at || $offer->expires_at->isPast()) {
+                    if ($offer) {
+                        $offer->update([
+                            'status' => 'expired',
+                            'responded_at' => now(),
+                        ]);
+                    }
+                    return false;
+                }
+
+                $this->deliveryService->assignDriver($delivery, $driver);
+
+                $offer->update([
+                    'status' => 'accepted',
+                    'responded_at' => now(),
+                ]);
+
+                DeliveryOffer::where('delivery_id', $deliveryId)
+                    ->where('id', '!=', $offer->id)
+                    ->where('status', 'pending')
+                    ->update([
+                        'status' => 'expired',
+                        'responded_at' => now(),
+                    ]);
+
+                return true;
+            }, 3);
+        } catch (\Throwable $e) {
+            Log::warning('DriverOffer: acceptation refusée', [
+                'delivery_id' => $deliveryId,
+                'driver_id' => $driver->id,
+                'error' => $e->getMessage(),
+            ]);
+
+            return $this->respond($request, false, $e->getMessage(), 422);
         }
 
-        $offer = DeliveryOffer::where('delivery_id', $deliveryId)
-            ->where('driver_id', $driver->id)
-            ->where('status', 'pending')
-            ->where('expires_at', '>', now())
-            ->first();
-
-        if (!$offer) {
-            return $this->respond($request, false, 'Offre expirée ou introuvable.');
+        if (! $accepted) {
+            return $this->respond($request, false, 'Offre expirée ou mission déjà attribuée.', 409);
         }
 
-        // Verrouillage pessimiste — race condition multi-driver
-        $locked = DB::transaction(function () use ($delivery, $driver, $offer) {
-            $fresh = Delivery::lockForUpdate()->find($delivery->id);
-            if ($fresh->status !== 'PENDING') return false;
+        Log::info('DriverOffer: offre acceptée', [
+            'delivery_id' => $deliveryId,
+            'driver_id' => $driver->id,
+        ]);
 
-            $offer->update(['status' => 'accepted', 'responded_at' => now()]);
-
-            DeliveryOffer::where('delivery_id', $delivery->id)
-                ->where('id', '!=', $offer->id)
-                ->where('status', 'pending')
-                ->update(['status' => 'expired']);
-
-            app(DeliveryService::class)->assignDriver($fresh, $driver);
-            return true;
-        });
-
-        if (!$locked) {
-            return $this->respond($request, false, 'Un autre livreur a déjà accepté cette mission.');
-        }
-
-        Log::info('DriverOffer: offre acceptée', ['delivery_id' => $deliveryId, 'driver_id' => $driver->id]);
-        return $this->respond($request, true, 'Mission acceptée ! Rendez-vous au restaurant.');
+        return $this->respond($request, true, 'Mission acceptée. Rendez-vous au restaurant.');
     }
 
-    /**
-     * Refuser une offre de livraison.
-     */
     public function decline(Request $request, int $deliveryId)
     {
-        $driver = $this->resolveDriver();
-        if (!$driver) {
-            return $this->respond($request, false, 'Compte livreur introuvable.');
+        $request->validate([
+            'reason' => 'nullable|string|max:100',
+        ]);
+
+        $driver = $this->driverResolver->current();
+        if (! $driver) {
+            return $this->respond($request, false, 'Compte livreur approuvé introuvable.', 403);
         }
 
-        $offer = DeliveryOffer::where('delivery_id', $deliveryId)
+        DeliveryOffer::where('delivery_id', $deliveryId)
             ->where('driver_id', $driver->id)
             ->where('status', 'pending')
-            ->first();
-
-        if ($offer) {
-            $offer->update([
-                'status'         => 'declined',
-                'responded_at'   => now(),
+            ->update([
+                'status' => 'declined',
+                'responded_at' => now(),
                 'decline_reason' => $request->input('reason', 'driver_declined'),
             ]);
-        }
 
         return $this->respond($request, true, 'Mission refusée.');
     }
 
-    protected function respond(Request $request, bool $ok, string $message)
+    protected function respond(Request $request, bool $ok, string $message, int $status = 200)
     {
         if ($request->expectsJson() || $request->ajax()) {
-            return response()->json(['status' => $ok, 'message' => $message]);
+            return response()->json([
+                'status' => $ok,
+                'message' => $message,
+            ], $status);
         }
+
         return redirect()->route('driver.deliveries')
             ->with($ok ? 'success' : 'error', $message);
     }

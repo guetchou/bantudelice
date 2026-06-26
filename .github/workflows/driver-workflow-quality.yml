@@ -1,0 +1,53 @@
+name: Driver Workflow Quality
+
+on:
+  pull_request:
+    paths:
+      - 'app/**'
+      - 'routes/api.php'
+      - 'database/migrations/**'
+      - 'resources/views/driver/**'
+      - 'tests/Unit/DriverWorkflowSecurityTest.php'
+      - 'tests/driver_workflow_security_check.php'
+      - '.github/workflows/driver-workflow-quality.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  php-quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+          extensions: mbstring, xml, ctype, json, tokenizer, fileinfo, openssl
+          coverage: none
+
+      - name: Validate Composer metadata
+        run: composer validate --no-check-publish
+
+      - name: Lint changed PHP files
+        shell: bash
+        run: |
+          set -euo pipefail
+          git diff --name-only "origin/${GITHUB_BASE_REF}...HEAD" -- '*.php' > /tmp/changed-php.txt
+          if [ ! -s /tmp/changed-php.txt ]; then
+            echo 'No changed PHP files.'
+            exit 0
+          fi
+          while IFS= read -r file; do
+            [ -f "$file" ] || continue
+            php -l "$file"
+          done < /tmp/changed-php.txt
+
+      - name: Run dependency-free driver workflow checks
+        run: php tests/driver_workflow_security_check.php

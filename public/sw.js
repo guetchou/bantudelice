@@ -2,12 +2,12 @@
  * BantuDelice Service Worker — T1.3 Offline-first + Checkout retry
  *
  * Stratégie :
- * - Assets statiques (CSS/JS/fonts/images) → Cache First (stale-while-revalidate)
+ * - Assets statiques (CSS/JS/fonts/images) → Network First avec fallback cache
  * - Pages HTML → Network First avec fallback offline
  * - POST /checkout/api → Background Sync (retry quand réseau disponible)
  */
 
-const CACHE_VERSION   = '20260527-5';
+const CACHE_VERSION   = '20260625-1';
 const CACHE_NAME      = 'bd-shell-' + CACHE_VERSION;
 const OFFLINE_URL     = '/offline';
 const CHECKOUT_QUEUE  = 'bd-checkout-queue';

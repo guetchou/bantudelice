@@ -529,6 +529,9 @@
     </div>
     @endif
 
+    {{-- ── Historique horodaté de la commande ─────────────────────────── --}}
+    @include('frontend.partials.order_status_history', ['statusHistory' => $statusHistory])
+
     {{-- ── Contacts : livreur + restaurant ───────────────────────────── --}}
     <div class="trk-contacts">
 
@@ -1470,11 +1473,28 @@ function toggleCard(id) {
         }
     });
 
-    var presenceChannel = pusher.subscribe('presence-food.order.' + ORDER_NO + '.presence');
-    presenceChannel.bind('food.driver.location.updated', function (data) {
-        if (data.latitude && data.longitude && typeof updateDriverMarker === 'function') {
-            updateDriverMarker(data.latitude, data.longitude);
+    var lastPresenceRecordedAt = null;
+    var presenceChannel = pusher.subscribe('private-food.order.' + ORDER_NO + '.presence');
+    presenceChannel.bind('food.order.presence.updated', function (data) {
+        var location = data && data.location ? data.location : null;
+        if (!location || location.lat === null || location.lng === null) return;
+
+        var recordedAt = location.recorded_at ? Date.parse(location.recorded_at) : Date.now();
+        if (lastPresenceRecordedAt !== null && recordedAt < lastPresenceRecordedAt) return;
+        lastPresenceRecordedAt = recordedAt;
+
+        latestDriverCoords = { lat: Number(location.lat), lng: Number(location.lng) };
+        if (!Number.isFinite(latestDriverCoords.lat) || !Number.isFinite(latestDriverCoords.lng)) return;
+
+        if (driverMarker && map) {
+            _animateMarker(driverMarker, latestDriverCoords.lat, latestDriverCoords.lng);
+        } else if (map) {
+            driverMarker = L.marker([latestDriverCoords.lat, latestDriverCoords.lng], {
+                icon: _makeIcon('#009543','🛵'), title: 'Livreur', zIndexOffset: 300
+            }).addTo(map);
+            _drawDriverRoute();
         }
+        updateDistanceSummaries();
     });
 
     pusher.connection.bind('error', function (err) {

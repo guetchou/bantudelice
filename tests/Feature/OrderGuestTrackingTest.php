@@ -2,25 +2,88 @@
 
 namespace Tests\Feature;
 
-use App\Delivery;
+use App\Http\Middleware\EnsureModuleEnabled;
 use App\Order;
 use App\Services\OrderTrackingTokenService;
 use App\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\URL;
 use Tests\TestCase;
 
 class OrderGuestTrackingTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_signed_link_displays_only_minimal_tracking_data(): void
+    {
+        $order = $this->createOrder();
+        $url = app(OrderTrackingTokenService::class)
+            ->publicUrlForOrder($order, now()->addHour());
+
+        $response = $this->withoutMiddleware(EnsureModuleEnabled::class)->get($url);
+
+        $response->assertOk();
+        $response->assertSee('TD-GUEST-0001');
+        $response->assertDontSee('Adresse client confidentielle', false);
+        $response->assertDontSee('0699999999', false);
+    }
+
+    public function test_unsigned_link_is_forbidden(): void
+    {
+        $order = $this->createOrder();
+        $key = app(OrderTrackingTokenService::class)->generateForOrder($order);
+
+        $this->withoutMiddleware(EnsureModuleEnabled::class)
+            ->get(route('track.order.guest', ['guestKey' => $key]))
+            ->assertForbidden();
+    }
+
+    public function test_signed_unknown_key_is_not_found(): void
+    {
+        $this->createOrder();
+        $url = URL::temporarySignedRoute(
+            'track.order.guest',
+            now()->addHour(),
+            ['guestKey' => str_repeat('A', 64)]
+        );
+
+        $this->withoutMiddleware(EnsureModuleEnabled::class)
+            ->get($url)
+            ->assertNotFound();
+    }
+
+    public function test_expired_signed_link_is_forbidden(): void
+    {
+        $order = $this->createOrder();
+        $url = app(OrderTrackingTokenService::class)
+            ->publicUrlForOrder($order, now()->addSecond());
+
+        $this->travel(2)->seconds();
+
+        $this->withoutMiddleware(EnsureModuleEnabled::class)
+            ->get($url)
+            ->assertForbidden();
+    }
+
+    public function test_order_number_alone_remains_protected(): void
+    {
+        $order = $this->createOrder();
+
+        $this->get(route('track.order', ['orderNo' => $order->order_no]))
+            ->assertRedirect(route('login'));
+    }
+
     private function createOrder(): Order
     {
-        $owner = User::factory()->create(['type' => 'user', 'phone' => '0600011111']);
-        $restUserId = User::factory()->create(['type' => 'restaurant', 'phone' => '0600022222'])->id;
+        $owner = User::factory()->create([
+            'type' => 'user',
+            'phone' => '0699999999',
+        ]);
+        $restaurantUser = User::factory()->create(['type' => 'restaurant']);
 
         $restaurantId = DB::table('restaurants')->insertGetId([
-            'user_id' => $restUserId,
+            'user_id' => $restaurantUser->id,
             'name' => 'Restaurant Guest Tracking',
             'user_name' => 'restaurant-guest-tracking',
             'email' => 'guest-tracking@example.com',
@@ -39,26 +102,10 @@ class OrderGuestTrackingTest extends TestCase
             'updated_at' => now(),
         ]);
 
-        $driverId = DB::table('drivers')->insertGetId([
-            'restaurant_id' => $restaurantId,
-            'name' => 'Driver Guest Tracking',
-            'user_name' => 'driver-guest-tracking',
-            'phone' => '0600044444',
-            'email' => 'driver-guest-tracking@example.com',
-            'password' => bcrypt('secret'),
-            'hourly_pay' => 0,
-            'address' => 'Adresse driver',
-            'cnic' => 'CNIC-GUEST-001',
-            'approved' => 1,
-            'created_at' => now(),
-            'updated_at' => now(),
-        ]);
-
         $orderId = DB::table('orders')->insertGetId([
             'order_no' => 'TD-GUEST-0001',
             'user_id' => $owner->id,
             'restaurant_id' => $restaurantId,
-            'driver_id' => $driverId,
             'qty' => 1,
             'price' => 3000,
             'total_items' => 1,
@@ -82,55 +129,6 @@ class OrderGuestTrackingTest extends TestCase
             'updated_at' => now(),
         ]);
 
-        Delivery::create([
-            'order_id' => $orderId,
-            'restaurant_id' => $restaurantId,
-            'driver_id' => $driverId,
-            'status' => 'ON_THE_WAY',
-            'delivery_fee' => 500,
-            'delivery_otp_code' => '4173',
-            'delivery_otp_expires_at' => now()->addHour(),
-            'assigned_at' => now()->subMinutes(30),
-            'picked_up_at' => now()->subMinutes(15),
-        ]);
-
         return Order::findOrFail($orderId);
-    }
-
-    public function test_guest_key_allows_minimal_tracking(): void
-    {
-        $order = $this->createOrder();
-        $key = app(OrderTrackingTokenService::class)->generateForOrder($order);
-
-        $response = $this->get(route('track.order.guest', [$key]));
-
-        $response->assertOk();
-        $response->assertSee('TD-GUEST-0001');
-        $response->assertDontSee('Adresse client confidentielle', false);
-        $response->assertDontSee('0600044444', false);
-        $response->assertDontSee('4173', false);
-    }
-
-    public function test_invalid_guest_key_is_not_found(): void
-    {
-        $this->createOrder();
-
-        $this->get('/t/' . str_repeat('A', 64))->assertNotFound();
-    }
-
-    public function test_order_number_alone_stays_protected(): void
-    {
-        $order = $this->createOrder();
-
-        $this->get(route('track.order', ['orderNo' => $order->order_no]))
-            ->assertRedirect(route('login'));
-    }
-
-    public function test_expired_guest_key_is_not_found(): void
-    {
-        $order = $this->createOrder();
-        $key = app(OrderTrackingTokenService::class)->generateForOrder($order, now()->subMinute());
-
-        $this->get(route('track.order.guest', [$key]))->assertNotFound();
     }
 }

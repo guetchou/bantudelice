@@ -8,7 +8,14 @@ class PlaceOrderRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return auth()->check();
+        if (! auth()->check()) {
+            return false;
+        }
+
+        // /checkout/order utilise l'ancien contrôleur qui créait une livraison avant
+        // l'acceptation du restaurant. Le checkout actif passe exclusivement par
+        // POST /checkout/api et CheckoutService.
+        return ! $this->routeIs('place.order');
     }
 
     public function rules(): array
@@ -38,7 +45,7 @@ class PlaceOrderRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'phone.required'            => 'Le numéro Mobile Money est obligatoire pour ce mode de paiement.',
+            'phone.required' => 'Le numéro Mobile Money est obligatoire pour ce mode de paiement.',
             'delivery_address.required_without' => "L'adresse de livraison est obligatoire.",
         ];
     }

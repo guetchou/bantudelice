@@ -30,7 +30,16 @@ class NotificationLog extends Model
 
     public function orderNo(): ?string
     {
-        return data_get($this->context, 'order_no');
+        $orderNo = data_get($this->context, 'order_no');
+        if ($orderNo) {
+            return (string) $orderNo;
+        }
+
+        if (preg_match('/#([A-Z0-9-]+)/i', (string) $this->body, $matches)) {
+            return $matches[1];
+        }
+
+        return null;
     }
 
     public function module(): string

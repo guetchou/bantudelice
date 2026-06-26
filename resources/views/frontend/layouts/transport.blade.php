@@ -77,100 +77,30 @@
             letter-spacing:.08em;
         }
         .module-shell__brand span{color:var(--module-primary)}
-        .module-shell__nav{
-            display:flex;
-            align-items:center;
-            gap:10px;
-            flex-wrap:wrap;
-        }
+        .module-shell__nav{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
         .module-shell__nav a{
-            display:inline-flex;
-            align-items:center;
-            min-height:42px;
-            padding:0 16px;
-            border-radius:999px;
-            color:var(--module-ink);
-            text-decoration:none;
-            font-weight:700;
-            font-size:.92rem;
+            display:inline-flex;align-items:center;min-height:42px;padding:0 16px;border-radius:999px;
+            color:var(--module-ink);text-decoration:none;font-weight:700;font-size:.92rem;
         }
-        .module-shell__nav a.is-active,
-        .module-shell__nav a:hover{
-            background:rgba(255,107,0,.10);
-            color:var(--module-primary);
-        }
-        .module-shell__actions{
-            display:flex;
-            align-items:center;
-            gap:10px;
-            flex-wrap:wrap;
-        }
+        .module-shell__nav a.is-active,.module-shell__nav a:hover{background:rgba(255,107,0,.10);color:var(--module-primary);}
+        .module-shell__actions{display:flex;align-items:center;gap:10px;flex-wrap:wrap;}
         .module-shell__button{
-            display:inline-flex;
-            align-items:center;
-            justify-content:center;
-            min-height:44px;
-            padding:0 18px;
-            border-radius:999px;
-            text-decoration:none;
-            font-weight:800;
-            font-size:.9rem;
+            display:inline-flex;align-items:center;justify-content:center;min-height:44px;padding:0 18px;
+            border-radius:999px;text-decoration:none;font-weight:800;font-size:.9rem;
         }
-        .module-shell__button--ghost{
-            color:var(--module-ink);
-            border:1px solid var(--module-line);
-            background:#fff;
-        }
-        .module-shell__button--primary{
-            color:#fff;
-            background:var(--module-primary);
-            box-shadow:0 14px 28px rgba(255,107,0,.18);
-        }
-        .module-shell__main{
-            min-height:calc(100vh - 220px);
-        }
-        .module-shell__footer{
-            margin-top:48px;
-            background:#fff;
-            border-top:1px solid var(--module-line);
-        }
-        .module-shell__footer-inner{
-            padding-top:28px;
-            padding-bottom:28px;
-        }
-        .module-shell__footer-grid{
-            display:grid;
-            grid-template-columns:1.2fr 1fr 1fr;
-            gap:24px;
-        }
-        .module-shell__footer h4{
-            margin:0 0 12px;
-            font-size:1rem;
-            font-weight:800;
-        }
-        .module-shell__footer p,
-        .module-shell__footer a{
-            color:var(--module-muted);
-            font-size:.92rem;
-            line-height:1.7;
-            text-decoration:none;
-        }
-        .module-shell__footer-links{
-            display:flex;
-            flex-direction:column;
-            gap:6px;
-        }
+        .module-shell__button--ghost{color:var(--module-ink);border:1px solid var(--module-line);background:#fff;}
+        .module-shell__button--primary{color:#fff;background:var(--module-primary);box-shadow:0 14px 28px rgba(255,107,0,.18);}
+        .module-shell__main{min-height:calc(100vh - 220px);}
+        .module-shell__footer{margin-top:48px;background:#fff;border-top:1px solid var(--module-line);}
+        .module-shell__footer-inner{padding-top:28px;padding-bottom:28px;}
+        .module-shell__footer-grid{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:24px;}
+        .module-shell__footer h4{margin:0 0 12px;font-size:1rem;font-weight:800;}
+        .module-shell__footer p,.module-shell__footer a{color:var(--module-muted);font-size:.92rem;line-height:1.7;text-decoration:none;}
+        .module-shell__footer-links{display:flex;flex-direction:column;gap:6px;}
         .module-shell__footer-bottom{
-            margin-top:22px;
-            padding-top:18px;
-            border-top:1px solid var(--module-line);
-            display:flex;
-            align-items:center;
-            justify-content:space-between;
-            gap:16px;
-            flex-wrap:wrap;
-            color:var(--module-muted);
-            font-size:.88rem;
+            margin-top:22px;padding-top:18px;border-top:1px solid var(--module-line);
+            display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;
+            color:var(--module-muted);font-size:.88rem;
         }
         @media (max-width: 992px){
             .module-shell__header-inner{padding-top:14px;padding-bottom:14px;align-items:flex-start;flex-direction:column}
@@ -245,7 +175,7 @@
                     <a href="{{ route('contact.us', ['brand' => 'kende']) }}">Nous contacter</a>
                     <a href="{{ route('terms.conditions', ['brand' => 'kende']) }}">Conditions générales</a>
                     <a href="{{ route('privacy.policy', ['brand' => 'kende']) }}">Confidentialité</a>
-                    <a href="{{ route('cookies.policy', ['brand' => 'kende']) }}">Cookies</a>
+                    <a href="{{ route('cookies.policy') }}">Cookies</a>
                 </div>
             </div>
         </div>
@@ -259,5 +189,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
 @yield('scripts')
+@include('frontend.transport.partials.taxi_recovery_patch')
+@include('frontend.transport.partials.booking_cancel_action')
 </body>
 </html>

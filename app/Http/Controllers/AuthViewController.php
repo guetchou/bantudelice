@@ -20,13 +20,13 @@ class AuthViewController extends Controller
     {
         if ($request->filled('redirect')) {
             $redirectTarget = (string) $request->query('redirect');
-            if (\Illuminate\Support\Str::startsWith($redirectTarget, ['/'])) {
+            if (\Illuminate\Support\Str::startsWith($redirectTarget, ['/']) && $this->redirectPath($redirectTarget) !== '/profile') {
                 session()->put('url.intended', $redirectTarget);
             }
         }
 
         if (auth()->check()) {
-            return redirect()->intended('/');
+            return $this->redirectAuthenticatedUser();
         }
 
         return view('frontend.login');
@@ -36,13 +36,13 @@ class AuthViewController extends Controller
     {
         if ($request->filled('redirect')) {
             $redirectTarget = (string) $request->query('redirect');
-            if (\Illuminate\Support\Str::startsWith($redirectTarget, ['/'])) {
+            if (\Illuminate\Support\Str::startsWith($redirectTarget, ['/']) && $this->redirectPath($redirectTarget) !== '/profile') {
                 session()->put('url.intended', $redirectTarget);
             }
         }
 
         if (auth()->check()) {
-            return redirect('/');
+            return $this->redirectAuthenticatedUser();
         }
 
         return view('frontend.signup');
@@ -52,7 +52,7 @@ class AuthViewController extends Controller
     {
         if ($request->filled('redirect')) {
             $redirectTarget = (string) $request->query('redirect');
-            if (\Illuminate\Support\Str::startsWith($redirectTarget, ['/'])) {
+            if (\Illuminate\Support\Str::startsWith($redirectTarget, ['/']) && $this->redirectPath($redirectTarget) !== '/profile') {
                 session()->put('url.intended', $redirectTarget);
             }
         }
@@ -68,5 +68,28 @@ class AuthViewController extends Controller
         $request->session()->regenerateToken();
 
         return redirect('/');
+    }
+
+    private function redirectAuthenticatedUser(): RedirectResponse
+    {
+        return match (auth()->user()->type ?? null) {
+            'admin' => redirect()->route('admin.portal'),
+            'restaurant' => redirect()->route('restaurant.dashboard'),
+            'driver' => redirect()->route('driver.deliveries'),
+            'delivery' => redirect()->route('delivery.dashboard'),
+            default => redirect()->route('user.dashboard'),
+        };
+    }
+
+    private function redirectPath(string $target): string
+    {
+        $path = parse_url($target, PHP_URL_PATH);
+        if (!is_string($path) || $path === '') {
+            $path = $target;
+        }
+
+        $path = '/' . ltrim($path, '/');
+
+        return rtrim($path, '/') ?: '/';
     }
 }

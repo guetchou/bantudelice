@@ -5,8 +5,10 @@ namespace App\Http\Controllers\api\Transport;
 use App\Driver;
 use App\Http\Controllers\Controller;
 use App\Domain\Transport\Events\TransportMissionPresenceUpdated;
+use App\Domain\Transport\Events\TransportTrackingUpdated;
 use App\Domain\Transport\Models\TransportBooking;
 use App\Domain\Transport\Enums\TransportStatus;
+use App\Services\DriverLocationIngestionService;
 use App\Support\Auth\AuthenticatedDriverResolver;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -16,9 +18,9 @@ class DriverTransportController extends Controller
 {
     public function __construct(
         protected \App\Domain\Transport\Services\TransportService $transportService,
-        protected AuthenticatedDriverResolver $authenticatedDriverResolver
-    )
-    {
+        protected AuthenticatedDriverResolver $authenticatedDriverResolver,
+        protected DriverLocationIngestionService $driverLocations
+    ) {
     }
 
     public function nearby(Request $request)
@@ -38,6 +40,10 @@ class DriverTransportController extends Controller
 
         $requests = TransportBooking::where('status', TransportStatus::REQUESTED)
             ->whereNull('driver_id')
+            ->where(function ($query) {
+                $query->whereNull('scheduled_at')
+                    ->orWhere('scheduled_at', '<=', now()->addMinutes(5));
+            })
             ->whereBetween('pickup_lat', [$lat - $latDelta, $lat + $latDelta])
             ->whereBetween('pickup_lng', [$lng - $lngDelta, $lng + $lngDelta])
             ->orderBy('created_at', 'desc')
@@ -78,6 +84,10 @@ class DriverTransportController extends Controller
                     return null;
                 }
 
+                if (! $this->isDispatchableNow($booking)) {
+                    return 'scheduled_not_ready';
+                }
+
                 $booking->update([
                     'driver_id' => $driver->id,
                     'vehicle_id' => $vehicle->id,
@@ -87,6 +97,12 @@ class DriverTransportController extends Controller
             });
         } catch (\Illuminate\Database\Eloquent\ModelNotFoundException $exception) {
             return response()->json(['error' => 'Course introuvable'], 404);
+        }
+
+        if ($booking === 'scheduled_not_ready') {
+            return response()->json([
+                'error' => 'Cette course est programmée pour plus tard. Elle sera disponible quelques minutes avant le départ.',
+            ], 409);
         }
 
         if (! $booking) {
@@ -131,32 +147,69 @@ class DriverTransportController extends Controller
             return response()->json(['error' => 'Vous ne pouvez pas mettre à jour cette course'], 403);
         }
 
-        $request->validate([
-            'lat' => 'required|numeric',
-            'lng' => 'required|numeric',
-            'speed' => 'sometimes|numeric',
+        $validated = $request->validate([
+            'lat' => ['required', 'numeric', 'between:-90,90'],
+            'lng' => ['required', 'numeric', 'between:-180,180'],
+            'accuracy' => ['nullable', 'numeric', 'between:0,5000'],
+            'heading' => ['nullable', 'numeric', 'between:0,360'],
+            'speed' => ['nullable', 'numeric', 'between:0,100'],
+            'recorded_at' => ['nullable', 'date'],
         ]);
 
-        $driver->update([
-            'latitude' => $request->lat,
-            'longitude' => $request->lng,
+        $locationResult = $this->driverLocations->ingest($driver, [
+            'latitude' => $validated['lat'],
+            'longitude' => $validated['lng'],
+            'accuracy' => $validated['accuracy'] ?? null,
+            'heading' => $validated['heading'] ?? null,
+            'speed' => $validated['speed'] ?? null,
+            'recorded_at' => $validated['recorded_at'] ?? null,
+        ], markOnline: false, broadcast: false);
+
+        if (! $locationResult['accepted']) {
+            return response()->json([
+                'message' => $locationResult['stale']
+                    ? 'Position ancienne ignorée'
+                    : 'Position déjà reçue',
+                'accepted' => false,
+                'stale' => $locationResult['stale'],
+                'duplicate' => $locationResult['duplicate'],
+                'recorded_at' => optional($locationResult['location']?->timestamp)->toIso8601String(),
+            ], $locationResult['stale'] ? 202 : 200);
+        }
+
+        $recordedAt = $locationResult['location']->timestamp;
+        $trackingPoint = $booking->trackingPoints()->create([
+            'lat' => $validated['lat'],
+            'lng' => $validated['lng'],
+            'speed' => $validated['speed'] ?? null,
+            'recorded_at' => $recordedAt,
         ]);
 
-        $booking->trackingPoints()->create([
-            'lat' => $request->lat,
-            'lng' => $request->lng,
-            'speed' => $request->speed,
-            'recorded_at' => now(),
-        ]);
-
-        event(new \App\Domain\Transport\Events\TransportTrackingUpdated($booking, $request->lat, $request->lng, $request->speed));
+        event(new TransportTrackingUpdated(
+            $booking,
+            (float) $validated['lat'],
+            (float) $validated['lng'],
+            isset($validated['speed']) ? (float) $validated['speed'] : null,
+            $recordedAt,
+            $trackingPoint->id
+        ));
         event(new TransportMissionPresenceUpdated($booking->fresh(['driver', 'vehicle', 'trackingPoints'])));
 
-        return response()->json(['message' => 'Position mise à jour']);
+        return response()->json([
+            'message' => 'Position mise à jour',
+            'accepted' => true,
+            'recorded_at' => $recordedAt->toIso8601String(),
+            'tracking_point_id' => $trackingPoint->id,
+        ]);
     }
 
     protected function resolveDriverFromAuthUser(): ?Driver
     {
         return $this->authenticatedDriverResolver->current();
+    }
+
+    protected function isDispatchableNow(TransportBooking $booking): bool
+    {
+        return ! $booking->scheduled_at || $booking->scheduled_at->lte(now()->addMinutes(5));
     }
 }

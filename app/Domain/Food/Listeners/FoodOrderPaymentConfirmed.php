@@ -29,12 +29,9 @@ class FoodOrderPaymentConfirmed
         }
 
         if (! $payment->order_id) {
-            // Chemin legacy — dans le nouveau flux, le Payment est créé avec order_id renseigné
-            // dès l'acceptation restaurant (OrderAcceptanceService). Si on arrive ici sans order_id,
-            // c'est un paiement orphelin ou un bug d'un autre flux.
             Log::warning('FoodOrderPaymentConfirmed: paiement sans order_id reçu — chemin legacy ignoré', [
                 'payment_id' => $payment->id,
-                'provider'   => $payment->provider,
+                'provider' => $payment->provider,
             ]);
             return;
         }
@@ -46,11 +43,12 @@ class FoodOrderPaymentConfirmed
     {
         $order = $payment->order;
         if (! $order) {
-            Log::warning('FoodOrderPaymentConfirmed: order introuvable pour payment', ['payment_id' => $payment->id]);
+            Log::warning('FoodOrderPaymentConfirmed: order introuvable pour payment', [
+                'payment_id' => $payment->id,
+            ]);
             return;
         }
 
-        // 1. Marquer le paiement comme réglé sur la commande
         \App\Order::where('order_no', $order->order_no)->update([
             'payment_status' => OrderPaymentStatus::PAID->value,
         ]);
@@ -60,12 +58,10 @@ class FoodOrderPaymentConfirmed
             'payment_id' => $payment->id,
         ]);
 
-        // 2. Transition accepted_awaiting_payment → confirmed (ou pending_restaurant_acceptance → confirmed
-        //    si jamais le business_status n'a pas encore bougé, tolérance).
         $currentStatus = $freshOrder->business_status ?? 'pending_restaurant_acceptance';
         $transitionContext = [
-            'actor_type'  => 'system',
-            'actor_id'    => null,
+            'actor_type' => 'system',
+            'actor_id' => null,
             'reason_code' => 'payment_confirmed',
         ];
 
@@ -73,30 +69,28 @@ class FoodOrderPaymentConfirmed
             $this->stateMachine->transitionOrderGroup($freshOrder->order_no, 'confirmed', $transitionContext);
         }
 
-        // 3. Auto-avance confirmed → in_kitchen (dans le même appel — confirmed est transitoire)
         $this->stateMachine->transitionOrderGroup($freshOrder->order_no, 'in_kitchen', $transitionContext);
 
-        // 4. Créer la livraison si nécessaire (idempotent — ne crée jamais une 2e Delivery)
         $fulfillmentMode = $this->resolveFulfillmentMode(
             (array) ($freshOrder->checkout_snapshot['checkout_data'] ?? []),
             $freshOrder->fulfillment_mode ?? 'delivery'
         );
+
         if ($fulfillmentMode !== 'pickup') {
-            $this->createDeliveryAndDispatch($freshOrder);
+            $this->createDelivery($freshOrder);
         }
 
-        // 5. Notifications + ledger + signaux métier
         $checkoutSnapshot = (array) ($freshOrder->checkout_snapshot ?? []);
         $checkoutData = (array) ($checkoutSnapshot['checkout_data'] ?? $payment->meta['checkout_data'] ?? []);
         $totals = (array) ($checkoutSnapshot['totals'] ?? $payment->meta['totals'] ?? []);
         if (empty($totals)) {
             $totals = [
-                'sub_total'    => (float) ($freshOrder->sub_total ?? 0),
-                'tax'          => (float) ($freshOrder->tax ?? 0),
+                'sub_total' => (float) ($freshOrder->sub_total ?? 0),
+                'tax' => (float) ($freshOrder->tax ?? 0),
                 'delivery_fee' => (float) ($freshOrder->delivery_charges ?? 0),
-                'service_fee'  => 0,
-                'discount'     => (float) ($freshOrder->offer_discount ?? 0),
-                'total'        => (float) ($freshOrder->total ?? $payment->amount ?? 0),
+                'service_fee' => 0,
+                'discount' => (float) ($freshOrder->offer_discount ?? 0),
+                'total' => (float) ($freshOrder->total ?? $payment->amount ?? 0),
             ];
         }
 
@@ -112,21 +106,20 @@ class FoodOrderPaymentConfirmed
     }
 
     /**
-     * Idempotent : ne crée jamais une 2e Delivery pour le même order_id.
+     * La livraison est préparée ici, mais les offres ne démarrent qu'au passage ready_for_pickup.
      */
-    private function createDeliveryAndDispatch(\App\Order $order): void
+    private function createDelivery(\App\Order $order): void
     {
         if (Delivery::where('order_id', $order->id)->exists()) {
             return;
         }
 
         try {
-            $delivery = $this->deliveryService->createForOrder($order);
-            enqueue_job('food', 'auto_assign_delivery', ['delivery' => $delivery]);
-        } catch (\Exception $e) {
+            $this->deliveryService->createForOrder($order);
+        } catch (\Throwable $e) {
             Log::error('FoodOrderPaymentConfirmed: erreur création livraison', [
                 'order_id' => $order->id,
-                'error'    => $e->getMessage(),
+                'error' => $e->getMessage(),
             ]);
         }
     }

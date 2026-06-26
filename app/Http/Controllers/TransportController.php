@@ -118,12 +118,15 @@ class TransportController extends Controller
      */
     public function showBooking($id)
     {
+        abort_unless($this->looksLikeUuid($id), 404);
+
         $booking = TransportBooking::where('uuid', $id)
-            ->orWhere('id', $id)
             ->with(['driver', 'vehicle', 'trackingPoints', 'payments' => function ($query) {
                 $query->latest('id');
             }])
             ->firstOrFail();
+
+        $this->authorize('view', $booking);
 
         $paymentExperience = app(PaymentExperienceService::class)->describe($booking->payments->first());
 
@@ -156,6 +159,10 @@ class TransportController extends Controller
             
         $nearbyRequests = TransportBooking::where('status', 'requested')
             ->whereNull('driver_id')
+            ->where(function ($query) {
+                $query->whereNull('scheduled_at')
+                    ->orWhere('scheduled_at', '<=', now()->addMinutes(5));
+            })
             ->orderBy('created_at', 'desc')
             ->get();
 
@@ -181,5 +188,10 @@ class TransportController extends Controller
         }
 
         return $driver;
+    }
+
+    protected function looksLikeUuid(string $value): bool
+    {
+        return (bool) preg_match('/^[0-9a-fA-F-]{36}$/', $value);
     }
 }

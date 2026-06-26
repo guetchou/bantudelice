@@ -2,94 +2,53 @@
 
 namespace App\Http\Controllers;
 
-use App\Driver;
 use App\Delivery;
 use App\DeliveryOffer;
 use App\Services\DeliveryService;
 use App\Services\OrderChatService;
 use App\Services\PartnerFinancialDashboardService;
+use App\Support\Auth\AuthenticatedDriverResolver;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Schema;
 
 /**
- * Controller pour la gestion des livraisons côté livreur (interface web)
+ * Gestion des livraisons depuis le portail web livreur.
  */
 class DriverDeliveriesController extends Controller
 {
     public function __construct(
-        protected DeliveryService $deliveryService
-    ) {}
-
-    /**
-     * S3.4 — Résolution Driver depuis l'User connecté.
-     * Priorité : user_id → (email ET phone, avec auto-liaison de user_id).
-     */
-    private function resolveDriverFromUser($user): ?Driver
-    {
-        $d = Driver::where('user_id', $user->id)->first();
-        if ($d) return $d;
-
-        // email ET téléphone doivent correspondre tous les deux (l'orWhere et le
-        // fallback par nom permettaient un IDOR par correspondance partielle/faible).
-        $d = Driver::where('email', $user->email)
-                   ->where('phone', $user->phone)
-                   ->first();
-
-        if ($d && !$d->user_id) {
-            $d->update(['user_id' => $user->id]);
-        }
-
-        return $d;
+        protected DeliveryService $deliveryService,
+        protected AuthenticatedDriverResolver $driverResolver
+    ) {
+        $this->middleware('auth');
     }
 
-    /**
-     * Afficher la page des livraisons pour le livreur
-     * 
-     * @param Request $request
-     * @return \Illuminate\View\View|\Illuminate\Http\JsonResponse
-     */
     public function index(Request $request)
     {
-        // Vérifier que l'utilisateur est connecté
-        if (!auth()->check()) {
+        $driver = $this->driverResolver->current();
+
+        if (! $driver) {
             if ($request->has('json')) {
                 return response()->json([
                     'status' => false,
-                    'message' => 'Non authentifié'
-                ], 401);
+                    'message' => 'Compte livreur approuvé introuvable.',
+                ], 403);
             }
-            return redirect()->route('user.login')->with('alert', [
-                'type' => 'warning',
-                'message' => 'Veuillez vous connecter pour accéder à cette page'
-            ]);
-        }
-        
-        $user = auth()->user();
-        
-        $driver = $this->resolveDriverFromUser($user);
-        
-        if (!$driver) {
-            if ($request->has('json')) {
-                return response()->json([
-                    'status' => false,
-                    'message' => 'Aucun compte livreur associé à votre profil'
-                ], 404);
-            }
+
             return redirect()->route('home')->with('alert', [
                 'type' => 'warning',
-                'message' => 'Aucun compte livreur associé à votre profil'
+                'message' => 'Votre compte livreur n’est pas approuvé ou n’est pas correctement associé.',
             ]);
         }
-        
-        // Récupérer les livraisons actives
+
         $deliveries = Delivery::with(['order.user', 'restaurant'])
             ->where('driver_id', $driver->id)
             ->whereIn('status', ['ASSIGNED', 'PICKED_UP', 'ON_THE_WAY'])
-            ->orderBy('created_at', 'desc')
+            ->orderByDesc('created_at')
             ->get();
 
+        $user = auth()->user();
         $chatService = app(OrderChatService::class);
-        $deliveries = $deliveries->map(function ($delivery) use ($user, $chatService) {
+        $deliveries = $deliveries->map(function (Delivery $delivery) use ($user, $chatService) {
             if ($delivery->order) {
                 $delivery->chatBadge = $chatService->badgeDataForOrder($delivery->order, $user);
                 $delivery->chatData = $chatService->viewDataForOrder($delivery->order, $user, false);
@@ -97,16 +56,19 @@ class DriverDeliveriesController extends Controller
 
             return $delivery;
         });
-        
-        // Si requête JSON (AJAX), retourner JSON
+
         if ($request->has('json')) {
-            $data = $deliveries->map(function($delivery) {
+            $data = $deliveries->map(function (Delivery $delivery) {
+                $order = $delivery->order;
+
                 return [
                     'id' => $delivery->id,
                     'order_id' => $delivery->order_id,
-                    'order_no' => $delivery->order->order_no ?? null,
+                    'order_no' => $order->order_no ?? null,
                     'status' => $delivery->status,
-                    'business_status' => method_exists($delivery->order, 'resolveEffectiveBusinessStatus') ? $delivery->order->resolveEffectiveBusinessStatus() : null,
+                    'business_status' => $order && method_exists($order, 'resolveEffectiveBusinessStatus')
+                        ? $order->resolveEffectiveBusinessStatus()
+                        : null,
                     'restaurant' => [
                         'id' => $delivery->restaurant->id ?? null,
                         'name' => $delivery->restaurant->name ?? null,
@@ -114,24 +76,23 @@ class DriverDeliveriesController extends Controller
                         'phone' => $delivery->restaurant->phone ?? null,
                     ],
                     'customer' => [
-                        'name' => $delivery->order->user->name ?? null,
-                        'phone' => $delivery->order->user->phone ?? null,
+                        'name' => $order->user->name ?? null,
+                        'phone' => $order->user->phone ?? null,
                     ],
-                    'delivery_address' => $delivery->order->delivery_address ?? null,
+                    'delivery_address' => $order->delivery_address ?? null,
                     'delivery_fee' => $delivery->delivery_fee,
-                    'total' => $delivery->order->total ?? null,
+                    'total' => $order->total ?? null,
                     'assigned_at' => $delivery->assigned_at?->toIso8601String(),
                     'picked_up_at' => $delivery->picked_up_at?->toIso8601String(),
                     'delivered_at' => $delivery->delivered_at?->toIso8601String(),
                     'customer_confirmed_at' => $delivery->customer_confirmed_at?->toIso8601String(),
-                    'delivery_otp_required' => method_exists($delivery, 'requiresOtp') ? $delivery->requiresOtp() : false,
-                    'delivery_otp_code' => $delivery->delivery_otp_code,
+                    'delivery_otp_required' => $delivery->requiresOtp(),
                     'pickup_proof_url' => $delivery->pickup_proof_path ? asset($delivery->pickup_proof_path) : null,
                     'delivery_proof_url' => $delivery->delivery_proof_path ? asset($delivery->delivery_proof_path) : null,
                     'created_at' => $delivery->created_at->toIso8601String(),
                 ];
             });
-            
+
             return response()->json([
                 'status' => true,
                 'data' => $data,
@@ -139,54 +100,38 @@ class DriverDeliveriesController extends Controller
         }
 
         $financialDashboard = app(PartnerFinancialDashboardService::class)->forDeliveryDriver($driver);
-        
-        return view('driver.deliveries', compact('deliveries', 'driver', 'financialDashboard'));
+
+        return view('driver.deliveries-secure', compact('deliveries', 'driver', 'financialDashboard'));
     }
-    
-    /**
-     * Mettre à jour le statut d'une livraison (route web)
-     * 
-     * @param Request $request
-     * @param int $deliveryId
-     * @return \Illuminate\Http\RedirectResponse
-     */
+
     public function updateStatus(Request $request, $deliveryId)
     {
         $request->validate([
             'status' => 'required|in:PICKED_UP,ON_THE_WAY,DELIVERED',
             'pickup_notes' => 'nullable|string|max:1000',
             'delivery_notes' => 'nullable|string|max:1000',
-            'customer_confirmed' => 'nullable|boolean',
             'delivery_otp' => 'nullable|string|max:12',
             'pickup_proof' => 'nullable|file|image|max:4096',
             'delivery_proof' => 'nullable|file|image|max:4096',
-            'pickup_latitude' => 'nullable|numeric',
-            'pickup_longitude' => 'nullable|numeric',
-            'delivery_latitude' => 'nullable|numeric',
-            'delivery_longitude' => 'nullable|numeric',
+            'pickup_latitude' => 'nullable|numeric|between:-90,90',
+            'pickup_longitude' => 'nullable|numeric|between:-180,180',
+            'delivery_latitude' => 'nullable|numeric|between:-90,90',
+            'delivery_longitude' => 'nullable|numeric|between:-180,180',
+            'cash_collection_outcome' => 'nullable|in:collected,collection_failed',
         ]);
-        
-        $user = auth()->user();
-        
-        if (!$user) {
+
+        $driver = $this->driverResolver->current();
+        if (! $driver) {
             return redirect()->back()->with('alert', [
                 'type' => 'danger',
-                'message' => 'Non authentifié'
+                'message' => 'Compte livreur non autorisé.',
             ]);
         }
-        
-        $driver = $this->resolveDriverFromUser($user);
-        if (!$driver) {
-            return redirect()->back()->with('alert', [
-                'type' => 'danger',
-                'message' => 'Aucun compte livreur associé'
-            ]);
-        }
-        
-        $delivery = Delivery::where('id', $deliveryId)
+
+        $delivery = Delivery::whereKey($deliveryId)
             ->where('driver_id', $driver->id)
             ->firstOrFail();
-        
+
         try {
             $pickupProofPath = $request->hasFile('pickup_proof')
                 ? $this->deliveryService->storeProofFile($request->file('pickup_proof'), 'pickup')
@@ -194,10 +139,12 @@ class DriverDeliveriesController extends Controller
             $deliveryProofPath = $request->hasFile('delivery_proof')
                 ? $this->deliveryService->storeProofFile($request->file('delivery_proof'), 'delivery')
                 : null;
+
             $this->deliveryService->updateStatus($delivery, $request->input('status'), [
+                'actor_type' => 'driver',
+                'actor_id' => $driver->id,
                 'pickup_notes' => $request->input('pickup_notes'),
                 'delivery_notes' => $request->input('delivery_notes'),
-                'customer_confirmed' => $request->boolean('customer_confirmed'),
                 'delivery_otp' => $request->input('delivery_otp'),
                 'pickup_proof_path' => $pickupProofPath,
                 'delivery_proof_path' => $deliveryProofPath,
@@ -205,33 +152,26 @@ class DriverDeliveriesController extends Controller
                 'pickup_longitude' => $request->input('pickup_longitude'),
                 'delivery_latitude' => $request->input('delivery_latitude'),
                 'delivery_longitude' => $request->input('delivery_longitude'),
+                'cash_collection_outcome' => $request->input('cash_collection_outcome'),
             ]);
-            
+
             return redirect()->back()->with('alert', [
                 'type' => 'success',
-                'message' => 'Statut mis à jour avec succès'
+                'message' => 'Statut mis à jour avec succès.',
             ]);
-        } catch (\Exception $e) {
+        } catch (\Throwable $e) {
             return redirect()->back()->with('alert', [
                 'type' => 'danger',
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ]);
         }
     }
 
-    /**
-     * Endpoint AJAX de polling pour le livreur : retourne le nombre de livraisons ASSIGNED en attente.
-     */
     public function pollAssignments()
     {
-        $user = auth()->user();
-        if (!$user) {
-            return response()->json(['status' => false], 401);
-        }
-
-        $driver = $this->resolveDriverFromUser($user);
-        if (!$driver) {
-            return response()->json(['status' => false, 'count' => 0]);
+        $driver = $this->driverResolver->current();
+        if (! $driver) {
+            return response()->json(['status' => false, 'count' => 0], 403);
         }
 
         $count = Delivery::where('driver_id', $driver->id)
@@ -242,33 +182,33 @@ class DriverDeliveriesController extends Controller
             ->where('status', 'ASSIGNED')
             ->count();
 
-        // Offre pendante pour ce livreur (broadcast offer model)
         $pendingOffer = null;
-        if (true) {
+
+        if ($driver->status === 'online') {
             $offer = DeliveryOffer::with(['delivery.order.restaurant'])
                 ->where('driver_id', $driver->id)
                 ->where('status', 'pending')
                 ->where('expires_at', '>', now())
-                ->orderBy('created_at', 'desc')
+                ->orderByDesc('created_at')
                 ->first();
 
             if ($offer && $offer->delivery) {
                 $order = $offer->delivery->order;
                 $pendingOffer = [
-                    'offer_id'        => $offer->id,
-                    'delivery_id'     => $offer->delivery_id,
-                    'order_no'        => $order->order_no ?? '—',
+                    'offer_id' => $offer->id,
+                    'delivery_id' => $offer->delivery_id,
+                    'order_no' => $order->order_no ?? '—',
                     'restaurant_name' => $order->restaurant->name ?? 'Restaurant',
-                    'distance_km'     => $offer->distance_km,
-                    'expires_at'      => $offer->expires_at->toIso8601String(),
-                    'expires_in_sec'  => max(0, (int) now()->diffInSeconds($offer->expires_at, false)),
+                    'distance_km' => $offer->distance_km,
+                    'expires_at' => $offer->expires_at->toIso8601String(),
+                    'expires_in_sec' => max(0, (int) now()->diffInSeconds($offer->expires_at, false)),
                 ];
             }
         }
 
         return response()->json([
-            'status'       => true,
-            'count'        => $count,
+            'status' => true,
+            'count' => $count,
             'new_assigned' => $newAssigned,
             'pending_offer' => $pendingOffer,
         ]);
@@ -281,23 +221,15 @@ class DriverDeliveriesController extends Controller
             'notes' => 'nullable|string|max:1000',
         ]);
 
-        $user = auth()->user();
-        if (!$user) {
+        $driver = $this->driverResolver->current();
+        if (! $driver) {
             return redirect()->back()->with('alert', [
                 'type' => 'danger',
-                'message' => 'Non authentifié'
+                'message' => 'Compte livreur non autorisé.',
             ]);
         }
 
-        $driver = $this->resolveDriverFromUser($user);
-        if (!$driver) {
-            return redirect()->back()->with('alert', [
-                'type' => 'danger',
-                'message' => 'Aucun compte livreur associé'
-            ]);
-        }
-
-        $delivery = Delivery::where('id', $deliveryId)
+        $delivery = Delivery::whereKey($deliveryId)
             ->where('driver_id', $driver->id)
             ->firstOrFail();
 
@@ -310,12 +242,12 @@ class DriverDeliveriesController extends Controller
 
             return redirect()->back()->with('alert', [
                 'type' => 'warning',
-                'message' => 'Incident signalé. Le support peut maintenant intervenir.'
+                'message' => 'Incident signalé. Le support peut maintenant intervenir.',
             ]);
         } catch (\Throwable $e) {
             return redirect()->back()->with('alert', [
                 'type' => 'danger',
-                'message' => $e->getMessage()
+                'message' => $e->getMessage(),
             ]);
         }
     }

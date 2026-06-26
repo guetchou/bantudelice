@@ -48,9 +48,14 @@ class PartnerFinancialDashboardService
             ->where('deliveries.driver_id', $driver->id)
             ->where('deliveries.status', 'DELIVERED')
             ->where(function ($query) {
-                $query->where('orders.payment_status', 'paid')
-                    ->orWhereNotNull('deliveries.cash_collected_at')
-                    ->orWhere('orders.payment_method', 'cash');
+                $query->where(function ($onlinePayment) {
+                    $onlinePayment->where('orders.payment_method', '!=', 'cash')
+                        ->where('orders.payment_status', 'paid');
+                })->orWhere(function ($cashPayment) {
+                    $cashPayment->where('orders.payment_method', 'cash')
+                        ->where('orders.cash_collection_status', 'collected')
+                        ->whereNotNull('deliveries.cash_collected_at');
+                });
             })
             ->sum('deliveries.delivery_fee');
 
