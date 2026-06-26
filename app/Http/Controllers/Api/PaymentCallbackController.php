@@ -145,7 +145,7 @@ class PaymentCallbackController extends Controller
                 'references' => $this->extractReferenceCandidates($request),
             ]);
 
-            $this->scheduleRetry($payment, $normalizedProvider, $request, 1);
+            $this->scheduleRetry($payment, $request, 1);
 
             return response()->json([
                 'status' => 'error',
@@ -158,7 +158,7 @@ class PaymentCallbackController extends Controller
                 'trace' => $e->getTraceAsString(),
             ]);
 
-            $this->scheduleRetry($payment, $normalizedProvider, $request, 5);
+            $this->scheduleRetry($payment, $request, 5);
 
             return response()->json([
                 'status' => 'error',
@@ -264,7 +264,7 @@ class PaymentCallbackController extends Controller
         ]);
     }
 
-    private function scheduleRetry(?Payment $payment, string $provider, Request $request, int $delayMinutes): void
+    private function scheduleRetry(?Payment $payment, Request $request, int $delayMinutes): void
     {
         if (!$payment) {
             return;
@@ -272,8 +272,7 @@ class PaymentCallbackController extends Controller
 
         try {
             app(\App\Services\ModuleQueueService::class)->enqueueJob('food', 'retry_payment_callback', [
-                'payment_id' => $payment->id,
-                'provider' => $provider,
+                'payment' => $payment,
                 'callback_data' => $request->all(),
                 '_delay' => now()->addMinutes($delayMinutes),
             ]);
