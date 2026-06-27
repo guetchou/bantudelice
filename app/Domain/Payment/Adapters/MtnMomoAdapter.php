@@ -8,8 +8,8 @@ use App\Domain\Payment\ValueObjects\GatewayResult;
 use App\Domain\Payment\ValueObjects\GatewayStatus;
 use App\Payment;
 use App\Services\ConfigService;
+use App\Services\MtnAccessTokenService;
 use App\Services\SmsService;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -256,44 +256,11 @@ final class MtnMomoAdapter implements PaymentGatewayAdapterInterface
 
     private function getAccessToken(array $credentials, string $baseUrl, string $scope): ?string
     {
-        $cacheKey = 'mtn_momo_' . $scope . '_access_token';
+        $config            = $this->config();
+        $environment       = $config['environment'];
+        $targetEnvironment = $config['target_environment'] ?? ($environment === 'sandbox' ? 'sandbox' : 'mtncongo');
 
-        if (Cache::has($cacheKey)) {
-            return Cache::get($cacheKey);
-        }
-
-        if (empty($credentials['api_user']) || empty($credentials['api_key']) || empty($credentials['subscription_key'])) {
-            Log::warning('MtnMomoAdapter: configuration incomplète pour le token', ['scope' => $scope]);
-            return null;
-        }
-
-        try {
-            $tokenPath = $scope === 'disbursements' ? '/disbursement/token/' : '/collection/token/';
-
-            $response = Http::withBasicAuth($credentials['api_user'], $credentials['api_key'])
-                ->timeout(30)
-                ->connectTimeout(10)
-                ->withHeaders([
-                    'Ocp-Apim-Subscription-Key' => $credentials['subscription_key'],
-                    'Content-Length'            => '0',
-                ])
-                ->withBody('', 'application/json')
-                ->post($baseUrl . $tokenPath);
-
-            if ($response->successful()) {
-                $data      = $response->json();
-                $token     = $data['access_token'];
-                $expiresIn = $data['expires_in'] ?? 3600;
-                Cache::put($cacheKey, $token, now()->addSeconds($expiresIn - 60));
-                return $token;
-            }
-
-            Log::error('MtnMomoAdapter: échec token', ['response' => $response->json()]);
-            return null;
-        } catch (\Throwable $e) {
-            Log::error('MtnMomoAdapter: exception token', ['error' => $e->getMessage()]);
-            return null;
-        }
+        return app(MtnAccessTokenService::class)->getToken($scope, $credentials, $baseUrl, $targetEnvironment);
     }
 
     private function validateAccountHolder(

@@ -7,8 +7,9 @@ $resolveMomoSubscriptionKey = static function (string $prefix): ?string {
         ?: env("{$prefix}_PRIMARY_KEY")
         ?: env("{$prefix}_SECONDARY_KEY");
 };
-$collectionsSubscriptionKey = $resolveMomoSubscriptionKey('MOMO_COLLECTIONS');
+$collectionsSubscriptionKey   = $resolveMomoSubscriptionKey('MOMO_COLLECTIONS');
 $disbursementsSubscriptionKey = $resolveMomoSubscriptionKey('MOMO_DISBURSEMENTS');
+$remittancesSubscriptionKey   = $resolveMomoSubscriptionKey('MOMO_REMITTANCES');
 
 return [
 
@@ -64,6 +65,16 @@ return [
                 'production' => 'https://proxy.momoapi.mtn.com',
             ],
             'currency' => 'XAF',
+            // Remittances — non utilisé en production BantuDelice pour l'instant.
+            // Configurer uniquement si MTN Congo active ce produit.
+            'remittances' => [
+                'primary_key'      => env('MOMO_REMITTANCES_PRIMARY_KEY'),
+                'secondary_key'    => env('MOMO_REMITTANCES_SECONDARY_KEY'),
+                'subscription_key' => $remittancesSubscriptionKey,
+                'api_user'         => env('MOMO_REMITTANCES_API_USER'),
+                'api_key'          => env('MOMO_REMITTANCES_API_KEY'),
+                'configured'       => false,
+            ],
         ],
 
         // Mobile Money - Airtel
