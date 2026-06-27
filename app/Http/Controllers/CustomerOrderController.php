@@ -439,6 +439,18 @@ class CustomerOrderController extends Controller
             }
         }
 
+        if ($order->fresh()->resolveEffectiveBusinessStatus() === 'delivered') {
+            try {
+                app(\App\Services\FoodOrderStateMachineService::class)->transitionOrderGroup($orderNo, 'closed', [
+                    'actor_type' => 'customer',
+                    'actor_id' => auth()->id(),
+                    'notes' => 'Réception confirmée côté client.',
+                ]);
+            } catch (\Throwable $e) {
+                return back()->with('message', $e->getMessage());
+            }
+        }
+
         return back()->with('success', 'Réception confirmée avec succès.');
     }
 

@@ -232,6 +232,18 @@ class CheckoutApiTest extends TestCase
             'approved' => true,
         ]);
 
+        DB::table('driver_locations')->insert([
+            'driver_id' => $driver->id,
+            'latitude' => -4.2635,
+            'longitude' => 15.2430,
+            'accuracy' => 10,
+            'heading' => 0,
+            'speed' => 0,
+            'timestamp' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
         $categoryId = DB::table('categories')->insertGetId([
             'restaurant_id' => $restaurantId,
             'name' => 'Plats',
@@ -270,6 +282,7 @@ class CheckoutApiTest extends TestCase
             ->postJson('/api/checkout', [
                 'payment_method' => 'cash',
                 'delivery_address' => 'Avenue de la Paix',
+                'delivery_address_confirmed' => true,
                 'd_lat' => -4.2700,
                 'd_lng' => 15.2800,
             ]);
@@ -317,7 +330,8 @@ class CheckoutApiTest extends TestCase
         $this->assertDatabaseHas('orders', [
             'order_no' => $orderNo,
             'business_status' => 'in_kitchen',
-            'payment_status' => 'paid',
+            'payment_status' => 'cash_due',
+            'cash_collection_status' => 'pending_collection',
         ]);
 
         $this->assertDatabaseHas('deliveries', [

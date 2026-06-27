@@ -357,7 +357,7 @@ class PartnerFinancialDashboardServiceTest extends TestCase
         string $paymentMethod,
         float $total
     ): array {
-        return [
+        $payload = [
             'user_id' => $userId,
             'restaurant_id' => $restaurantId,
             'driver_id' => $driverId,
@@ -382,5 +382,12 @@ class PartnerFinancialDashboardServiceTest extends TestCase
             'created_at' => now(),
             'updated_at' => now(),
         ];
+
+        if ($paymentMethod === 'cash') {
+            $payload['cash_collection_status'] = 'collected';
+            $payload['cash_collection_confirmed_at'] = now();
+        }
+
+        return $payload;
     }
 }

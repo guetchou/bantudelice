@@ -224,6 +224,14 @@ class OrderTrackingController extends Controller
             'delivery_confirmation_method' => $request->filled('delivery_otp') ? 'otp' : 'customer_button',
         ]);
 
+        if ($order->fresh()->resolveEffectiveBusinessStatus() === 'delivered') {
+            app(\App\Services\FoodOrderStateMachineService::class)->transitionOrderGroup($order->order_no, 'closed', [
+                'actor_type' => 'customer',
+                'actor_id' => $user->id,
+                'notes' => 'Réception confirmée côté client.',
+            ]);
+        }
+
         return response()->json([
             'status' => true,
             'message' => 'Réception confirmée',

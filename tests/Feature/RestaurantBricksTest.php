@@ -213,10 +213,10 @@ class RestaurantBricksTest extends TestCase
             ->assertJsonFragment(['order_no' => $orderNo]);
 
         $this->patchJson(route('restaurant.kitchen.orders.status', ['orderNo' => $orderNo]), [
-            'status' => 'prepairing',
+            'status' => 'in_kitchen',
         ])->assertOk();
 
-        $this->assertDatabaseHas('orders', ['order_no' => $orderNo, 'status' => 'prepairing']);
+        $this->assertDatabaseHas('orders', ['order_no' => $orderNo, 'business_status' => 'in_kitchen']);
     }
 
     public function test_add_to_cart_is_blocked_for_unavailable_product()
@@ -241,5 +241,4 @@ class RestaurantBricksTest extends TestCase
         ])->assertStatus(422);
     }
 }
-
 

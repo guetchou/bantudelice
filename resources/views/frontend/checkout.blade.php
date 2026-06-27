@@ -323,7 +323,7 @@
                 <button type="button" id="locateDeliveryBtn" class="co-map-btn">
                   <i class="fas fa-location-arrow"></i> Me localiser
                 </button>
-                <button type="button" id="usePinBtn" class="co-map-btn">
+                <button type="button" id="usePinBtn" class="co-map-btn" onclick="confirmCheckoutManualPin(event)">
                   <i class="fas fa-map-pin"></i> Placer repère
                 </button>
                 <button type="button" id="clearDeliveryBtn" class="co-map-btn">
@@ -1133,7 +1133,10 @@ document.getElementById('checkoutForm')?.addEventListener('submit', async functi
     const hasDefaultCoordinates = String(latitude) === String(CHECKOUT_DEFAULT_LOCATION.lat)
         && String(longitude) === String(CHECKOUT_DEFAULT_LOCATION.lng);
 
-    if (fulfillmentMode === 'delivery' && deliveryAddress && (!latitude || !longitude || hasDefaultCoordinates)) {
+    if (fulfillmentMode === 'delivery'
+        && deliveryAddress
+        && !checkoutAddressState.confirmed
+        && (!latitude || !longitude || hasDefaultCoordinates)) {
         const geocodedResults = await checkoutSearch(deliveryAddress, 1);
         if (geocodedResults[0]) {
             applyCheckoutAddress(geocodedResults[0], {
@@ -1451,6 +1454,32 @@ function applySavedCheckoutAddress(option) {
     updateCheckoutStatus('Adresse enregistrée appliquée.');
 }
 
+function confirmCheckoutManualPin(event) {
+    event?.preventDefault?.();
+    const latitude = document.getElementById('latitude')?.value;
+    const longitude = document.getElementById('longitude')?.value;
+
+    if (checkoutMap) {
+        updateCheckoutStatus('Cliquez sur la carte pour placer le repère de livraison.');
+        return false;
+    }
+
+    if (!latitude || !longitude) {
+        updateCheckoutStatus('Coordonnées indisponibles. Utilisez la géolocalisation ou saisissez une adresse plus précise.', true);
+        return false;
+    }
+
+    setCheckoutAddressState({
+        precisionLevel: 'point',
+        confirmed: true,
+        source: 'manual-pin-confirmation',
+    });
+    updateCheckoutStatus('Repère de livraison confirmé pour cette adresse.');
+    return false;
+}
+window.confirmCheckoutManualPin = confirmCheckoutManualPin;
+document.getElementById('usePinBtn')?.addEventListener('click', confirmCheckoutManualPin);
+
 function initMap() {
     const mapBox = document.getElementById('map');
     if (!mapBox) return;
@@ -1524,10 +1553,6 @@ function initMap() {
             timeout: 12000,
             maximumAge: 0
         });
-    });
-
-    document.getElementById('usePinBtn')?.addEventListener('click', function() {
-        updateCheckoutStatus('Cliquez sur la carte pour placer le repère de livraison.');
     });
 
     if (savedAddressSelect) {

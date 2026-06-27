@@ -1,5 +1,7 @@
 <?php
 
+$moduleQueueDriver = env('APP_ENV') === 'testing' ? 'sync' : 'redis';
+
 return [
 
     /*
@@ -44,7 +46,7 @@ return [
 
         // S7.1 — Redis queues par module (remplace database_*)
         'database_food' => [
-            'driver'       => 'redis',
+            'driver'       => $moduleQueueDriver,
             'connection'   => 'default',
             'queue'        => env('QUEUE_FOOD', 'food'),
             'retry_after'  => 90,
@@ -53,7 +55,7 @@ return [
         ],
 
         'database_colis' => [
-            'driver'       => 'redis',
+            'driver'       => $moduleQueueDriver,
             'connection'   => 'default',
             'queue'        => env('QUEUE_COLIS', 'colis'),
             'retry_after'  => 90,
@@ -62,7 +64,7 @@ return [
         ],
 
         'database_transport' => [
-            'driver'       => 'redis',
+            'driver'       => $moduleQueueDriver,
             'connection'   => 'default',
             'queue'        => env('QUEUE_TRANSPORT', 'transport'),
             'retry_after'  => 90,

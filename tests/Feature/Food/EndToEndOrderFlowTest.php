@@ -84,6 +84,18 @@ class EndToEndOrderFlowTest extends TestCase
             'approved'      => true,
         ]);
 
+        DB::table('driver_locations')->insert([
+            'driver_id' => $driver->id,
+            'latitude' => -4.2635,
+            'longitude' => 15.2430,
+            'accuracy' => 10,
+            'heading' => 0,
+            'speed' => 0,
+            'timestamp' => now(),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
         // ── Catalogue ────────────────────────────────────────────────────────
         $categoryId = DB::table('categories')->insertGetId([
             'restaurant_id' => $restaurantId,
@@ -125,8 +137,13 @@ class EndToEndOrderFlowTest extends TestCase
             ->postJson('/api/checkout', [
                 'payment_method'   => 'cash',
                 'delivery_address' => 'Avenue de la Paix',
+                'delivery_area' => 'Moungali',
+                'delivery_city' => 'Brazzaville',
+                'delivery_department' => 'Brazzaville',
+                'delivery_address_confirmed' => true,
                 'd_lat'            => -4.2700,
                 'd_lng'            => 15.2800,
+                'pickup_note' => 'Repère E2E',
             ])
             ->assertOk()
             ->json();
@@ -152,7 +169,8 @@ class EndToEndOrderFlowTest extends TestCase
         $this->assertDatabaseHas('orders', [
             'order_no'        => $orderNo,
             'business_status' => 'in_kitchen',
-            'payment_status'  => 'paid',
+            'payment_status'  => 'cash_due',
+            'cash_collection_status' => 'pending_collection',
         ]);
 
         $delivery = Delivery::where('order_id', $order->id)->first();
@@ -165,6 +183,7 @@ class EndToEndOrderFlowTest extends TestCase
             'actor_type' => 'restaurant',
             'actor_id' => $owner->id,
             'reason_code' => 'kitchen_ready',
+            'suppress_realtime' => true,
         ]);
 
         // ── Étape 1.d : le livreur accepte l'offre de livraison ────────────────
@@ -214,12 +233,19 @@ class EndToEndOrderFlowTest extends TestCase
         ]);
 
         // ── Étape 4 : Livreur livre (DELIVERED + confirmation client) ─────────
-        $this->actingAs($driver, 'driver_api')
+        DB::table('deliveries')->where('id', $deliveryId)->update([
+            'delivery_proof_path' => 'images/delivery_proofs/test-proof.jpg',
+        ]);
+
+        $response = $this->actingAs($driver, 'driver_api')
             ->patchJson("/api/driver/deliveries/{$deliveryId}/status", [
                 'status'             => 'DELIVERED',
-                'customer_confirmed' => true,
-            ])
-            ->assertOk()
+                'delivery_latitude'  => -4.2700,
+                'delivery_longitude' => 15.2800,
+                'cash_collection_outcome' => 'collected',
+            ]);
+
+        $response->assertOk()
             ->assertJsonPath('data.status', 'DELIVERED');
 
         $this->assertDatabaseHas('orders', [
@@ -235,7 +261,7 @@ class EndToEndOrderFlowTest extends TestCase
 
         $delivery = \App\Delivery::find($deliveryId);
         $this->assertNotNull($delivery->delivered_at);
-        $this->assertNotNull($delivery->customer_confirmed_at);
+        $this->assertSame('photo_geolocated', $delivery->delivery_confirmation_method);
 
         // ── cash_collection_status (issue #3 / lacune L1) ──────────────────────
         $finalOrder = Order::where('order_no', $orderNo)->first();

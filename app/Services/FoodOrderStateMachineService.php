@@ -192,23 +192,27 @@ class FoodOrderStateMachineService
     }
 
     /**
-     * Règle dure : in_kitchen exige business_status=confirmed ET payment_status=paid.
-     * Override possible uniquement via context['force_admin']=true, avec audit log obligatoire
-     * (action distincte 'status_transition_forced_unpaid' pour traçabilité/alerting).
+     * Règle dure : in_kitchen exige business_status=confirmed.
+     * - Paiement électronique : payment_status=paid obligatoire.
+     * - Cash : payment_status reste pending et cash_collection_status=pending_collection.
+     * Override possible uniquement via context['force_admin']=true, avec audit log obligatoire.
      */
     protected function guardInKitchenRequiresConfirmedAndPaid(Order $order, string $currentBusinessStatus, array $context): void
     {
         $isConfirmed = $currentBusinessStatus === 'confirmed';
         $isPaid = ((string) $order->payment_status) === OrderPaymentStatus::PAID->value;
+        $isCashPendingCollection = ((string) $order->payment_method) === 'cash'
+            && ((string) $order->payment_status) === OrderPaymentStatus::PENDING->value
+            && ((string) $order->cash_collection_status) === 'pending_collection';
 
-        if ($isConfirmed && $isPaid) {
+        if ($isConfirmed && ($isPaid || $isCashPendingCollection)) {
             return;
         }
 
         if (empty($context['force_admin'])) {
             throw new RuntimeException(
-                "Transition in_kitchen refusée : business_status doit être 'confirmed' et payment_status 'paid' "
-                . "(actuel: {$currentBusinessStatus}/{$order->payment_status})."
+                "Transition in_kitchen refusée : business_status doit être 'confirmed' et paiement électronique 'paid' "
+                . "ou cash en attente de collecte (actuel: {$currentBusinessStatus}/{$order->payment_status}/{$order->cash_collection_status})."
             );
         }
 

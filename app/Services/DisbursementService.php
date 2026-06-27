@@ -35,6 +35,50 @@ class DisbursementService
         return MtnErrorCatalog::all();
     }
 
+    public static function getMtnBalance(): ?array
+    {
+        $config = config('external-services.payments.mtn_momo');
+        $disbursements = $config['disbursements'] ?? [];
+        $isConfigured = ! empty($disbursements['subscription_key'])
+            && ! empty($disbursements['api_user'])
+            && ! empty($disbursements['api_key']);
+
+        if (! $isConfigured) {
+            return null;
+        }
+
+        try {
+            $environment = $config['environment'] ?? 'sandbox';
+            $targetEnvironment = $config['target_environment'] ?? ($environment === 'sandbox' ? 'sandbox' : 'mtncongo');
+            $baseUrl = $config['base_url'][$environment] ?? $config['base_url']['sandbox'];
+            $accessToken = self::getMtnAccessToken($disbursements, $baseUrl, 'disbursements');
+
+            if (! $accessToken) {
+                return null;
+            }
+
+            $response = Http::timeout(10)
+                ->withHeaders([
+                    'Authorization' => 'Bearer ' . $accessToken,
+                    'X-Target-Environment' => $targetEnvironment,
+                    'Ocp-Apim-Subscription-Key' => $disbursements['subscription_key'],
+                ])
+                ->get(rtrim($baseUrl, '/') . '/disbursement/v1_0/account/balance');
+
+            if (! $response->successful()) {
+                return null;
+            }
+
+            return $response->json() ?: null;
+        } catch (\Throwable $exception) {
+            Log::warning('MTN MoMo disbursement balance unavailable', [
+                'error' => $exception->getMessage(),
+            ]);
+
+            return null;
+        }
+    }
+
     public static function detectOperator(string $phone): string
     {
         $phone  = SmsService::normalizePhone($phone);
