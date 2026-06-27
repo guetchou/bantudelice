@@ -8,6 +8,9 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::getConnection()->getDriverName() === 'sqlite') {
+            return;
+        }
         Schema::table('gepay_transactions', function (Blueprint $table) {
             $table->dropForeign(['client_id']);
             $table->foreign('client_id')->references('id')->on('gepay_clients')->restrictOnDelete();
@@ -16,6 +19,9 @@ return new class extends Migration
 
     public function down(): void
     {
+        if (Schema::getConnection()->getDriverName() === 'sqlite') {
+            return;
+        }
         Schema::table('gepay_transactions', function (Blueprint $table) {
             $table->dropForeign(['client_id']);
             $table->foreign('client_id')->references('id')->on('gepay_clients')->cascadeOnDelete();
