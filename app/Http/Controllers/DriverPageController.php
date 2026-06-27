@@ -93,7 +93,7 @@ class DriverPageController extends Controller
         return response()->json([
             'success' => true,
             'amount'  => $available,
-            'message' => number_format($available, 0, ',', ' ') . ' FCFA — demande envoyée. L\'équipe vous contactera sous 48h.',
+            'message' => number_format($available, 0, ',', ' ') . ' FCFA — demande envoyée. L\'administrateur traitera le reversement depuis le tableau de bord Finance.',
         ]);
     }
 

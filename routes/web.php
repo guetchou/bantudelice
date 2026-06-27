@@ -206,6 +206,8 @@ Route::middleware([ResolveSiteContext::class])->group(function () {
     Route::get('driver/documents/{id}/view', 'DriverDocumentController@show')   ->name('driver.documents.view');
     Route::get('driver/gains',      'DriverPageController@gains')     ->name('driver.gains');
     Route::post('driver/payout/request', 'DriverPageController@requestPayout')->name('driver.payout.request')->middleware('throttle:3,60');
+    Route::post('driver/withdrawals', 'DriverWithdrawController@store')->name('driver.withdrawals.store')->middleware('throttle:3,10');
+    Route::get('withdrawals/{withdrawal}/status', 'WithdrawalStatusController@show')->name('withdrawals.status')->middleware('throttle:30,1');
     Route::get('driver/historique', 'DriverPageController@historique')->name('driver.historique');
     Route::get('driver/note',       'DriverPageController@note')      ->name('driver.note');
     Route::get('driver/support',    'DriverPageController@support')   ->name('driver.support');
@@ -481,6 +483,7 @@ Route::group(['prefix' => 'restaurant', 'namespace' => 'restaurant', 'middleware
     Route::post('orders/{orderNo}/cash-dispute', 'OrderController@disputeCashCollection')->name('restaurant.orders.cash_dispute');
     //payment
     Route::resource('r_earnings', 'PaymentHistoryController');
+    Route::post('withdrawals', 'WithdrawController@store')->name('restaurant.withdrawals.store')->middleware('throttle:3,10');
     //employee
     Route::resource('employee', 'EmployeeController');
     //working hours

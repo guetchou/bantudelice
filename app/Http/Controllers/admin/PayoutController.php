@@ -25,7 +25,9 @@ class PayoutController extends Controller
         $requests = $this->getPendingPayouts($config);
         $history = $this->getPaidPayouts($config);
 
-        return view('admin.payouts.restaurant_payout', compact('requests', 'history'));
+        $mtnBalance = DisbursementService::getMtnBalance();
+
+        return view('admin.payouts.restaurant_payout', compact('requests', 'history', 'mtnBalance'));
     }
 
     public function driver_payout()
@@ -40,7 +42,9 @@ class PayoutController extends Controller
         $requests = $this->getPendingPayouts($config);
         $history = $this->getPaidPayouts($config);
 
-        return view('admin.payouts.driver_payout', compact('requests', 'history'));
+        $mtnBalance = DisbursementService::getMtnBalance();
+
+        return view('admin.payouts.driver_payout', compact('requests', 'history', 'mtnBalance'));
     }
 
     public function exportRestaurantBulkCsv()

@@ -134,11 +134,11 @@
             @if($finAvailable >= 500)
             <button id="gnPayoutBtn" onclick="gnRequestPayout()"
                 style="margin-top:12px;padding:8px 18px;background:#fff;color:#007836;border:none;border-radius:20px;font-size:.78rem;font-weight:800;cursor:pointer;letter-spacing:.02em;display:flex;align-items:center;gap:6px;">
-                <i class="fas fa-money-bill-transfer"></i> Demander un versement
+                <i class="fas fa-arrow-up-from-bracket"></i> Retirer des fonds
             </button>
             @else
             <div style="margin-top:10px;font-size:.72rem;color:rgba(255,255,255,.35);">
-                Minimum 500 FCFA pour demander un versement
+                Minimum 500 FCFA — retrait instantané MTN MoMo
             </div>
             @endif
         </div>
@@ -247,7 +247,12 @@ function gnRequestPayout() {
     btn.disabled = true;
     btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Envoi en cours…';
 
-    fetch('{{ route("driver.payout.request") }}', {
+    var availableCard = null;
+    // Compute amount from dashboard
+    var amountInput = document.getElementById('wd-driver-amount');
+    var amount = amountInput ? parseInt(amountInput.value, 10) : 0;
+    if (!amount || amount < 500) { alert('Montant minimum 500 FCFA'); btn.disabled = false; btn.innerHTML = '<i class="fas fa-arrow-up-from-bracket"></i> Retirer des fonds'; return; }
+    fetch('{{ route("driver.withdrawals.store") }}', {
         method: 'POST',
         headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}', 'Accept': 'application/json', 'Content-Type': 'application/json' },
         credentials: 'same-origin'
@@ -263,14 +268,14 @@ function gnRequestPayout() {
             else alert(d.message);
         } else {
             btn.disabled = false;
-            btn.innerHTML = '<i class="fas fa-money-bill-transfer"></i> Demander un versement';
+            btn.innerHTML = '<i class="fas fa-arrow-up-from-bracket"></i> Retirer des fonds';
             if (typeof window.showDriverToast === 'function') window.showDriverToast(d.message, 'error');
             else alert(d.message);
         }
     })
     .catch(function() {
         btn.disabled = false;
-        btn.innerHTML = '<i class="fas fa-money-bill-transfer"></i> Demander un versement';
+        btn.innerHTML = '<i class="fas fa-arrow-up-from-bracket"></i> Retirer des fonds';
     });
 }
 
