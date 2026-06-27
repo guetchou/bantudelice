@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Domain\Payment\MtnErrorCatalog;
+use App\Services\MtnAccessTokenService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
@@ -312,32 +313,11 @@ class DisbursementService
 
     protected static function getMtnAccessToken(array $credentials, string $baseUrl, string $scope = 'collections'): ?string
     {
-        $cacheKey = 'mtn_momo_' . $scope . '_access_token';
-        if (Cache::has($cacheKey)) {
-            return Cache::get($cacheKey);
-        }
-        if (empty($credentials['api_user']) || empty($credentials['api_key']) || empty($credentials['subscription_key'])) {
-            return null;
-        }
-        try {
-            $tokenPath = $scope === 'disbursements' ? '/disbursement/token/' : '/collection/token/';
-            $response  = Http::withBasicAuth($credentials['api_user'], $credentials['api_key'])
-                ->timeout(30)->connectTimeout(10)
-                ->withHeaders(['Ocp-Apim-Subscription-Key' => $credentials['subscription_key'], 'Content-Length' => '0'])
-                ->withBody('', 'application/json')
-                ->post($baseUrl . $tokenPath);
-            if ($response->successful()) {
-                $data      = $response->json();
-                $token     = $data['access_token'];
-                $expiresIn = $data['expires_in'] ?? 3600;
-                Cache::put($cacheKey, $token, now()->addSeconds($expiresIn - 60));
-                return $token;
-            }
-            return null;
-        } catch (\Exception $e) {
-            Log::error('MTN access token exception', ['error' => $e->getMessage()]);
-            return null;
-        }
+        $config            = config('external-services.payments.mtn_momo');
+        $environment       = $config['environment'];
+        $targetEnvironment = $config['target_environment'] ?? ($environment === 'sandbox' ? 'sandbox' : 'mtncongo');
+
+        return app(MtnAccessTokenService::class)->getToken($scope, $credentials, $baseUrl, $targetEnvironment);
     }
 
     protected static function validateMtnAccountHolder(string $baseUrl, string $accessToken, string $targetEnvironment, array $credentials, string $partyId, string $scope = 'collections'): array
