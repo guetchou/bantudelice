@@ -55,16 +55,22 @@ class PaymentHistoryController extends Controller
      */
     public function store(Request $request)
     {
-        $payment = new RestaurantPayment;
+        // SECURITY: restaurant_id always from auth, never from request body
+        $restaurant = auth()->user()->restaurant()->first();
+        if (!$restaurant) {
+            abort(403, 'Restaurant introuvable.');
+        }
 
-        $payment->restaurant_id = $request->restaurant_id;
-        $payment->payout_amount = $request->amount;
+        $validated = $request->validate([
+            'amount' => 'required|numeric|min:500',
+        ]);
+
+        $payment = new RestaurantPayment;
+        $payment->restaurant_id = $restaurant->id;
+        $payment->payout_amount = (int) round((float) $validated['amount']);
         $payment->save();
 
-        $alert = [];
-        $alert['type'] = 'success';
-        $alert['message'] = 'Demande envoyée avec succès !';
-        return redirect()->back()->with('alert', $alert);
+        return redirect()->back()->with('alert', ['type' => 'success', 'message' => 'Demande de reversement enregistrée.']);
     }
 
     /**

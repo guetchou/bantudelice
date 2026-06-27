@@ -62,6 +62,13 @@
 .pay-invoice-block address { font-size:13px; color:#374151; font-style:normal; line-height:1.6; }
 .pay-invoice-block p { font-size:13px; color:#374151; margin:0; line-height:1.8; }
 @media (max-width:640px) { .pay-invoice-grid { grid-template-columns:1fr; } }
+.pay-balance-widget{display:flex;align-items:center;gap:16px;padding:16px 20px;background:linear-gradient(135deg,#1e3a5f 0%,#2563eb 100%);border-radius:10px;margin-bottom:20px;color:#fff;}
+.pay-balance-widget__icon{font-size:28px;opacity:.85;}
+.pay-balance-widget__label{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;opacity:.75;margin-bottom:4px;}
+.pay-balance-widget__amount{font-size:24px;font-weight:700;}
+.pay-balance-widget__status{font-size:11px;margin-top:4px;}
+.pay-balance-widget__status--ok{color:#86efac;}
+.pay-balance-widget__status--warn{color:#fcd34d;}
 </style>
 @endsection
 
@@ -74,7 +81,20 @@
         </div>
     @endif
 
-    <div class="pay-card">
+        <div class="pay-balance-widget">
+        <div class="pay-balance-widget__icon"><i class="fas fa-wallet"></i></div>
+        <div class="pay-balance-widget__content">
+            <div class="pay-balance-widget__label">Solde MTN disbursement</div>
+            @if($mtnBalance && isset($mtnBalance['availableBalance']))
+                <div class="pay-balance-widget__amount">{{ number_format((float)$mtnBalance['availableBalance'], 0, ',', ' ') }} {{ $mtnBalance['currency'] ?? 'XAF' }}</div>
+                <div class="pay-balance-widget__status pay-balance-widget__status--ok"><i class="fas fa-circle" style="font-size:7px;vertical-align:middle;"></i> API temps r&#233;el active</div>
+            @else
+                <div class="pay-balance-widget__amount" style="color:#bfdbfe;">Indisponible</div>
+                <div class="pay-balance-widget__status pay-balance-widget__status--warn"><i class="fas fa-exclamation-circle"></i> V&#233;rifier la connexion MTN</div>
+            @endif
+        </div>
+    </div>
+<div class="pay-card">
         <div class="pay-card__body">
 
             <div class="pay-alert pay-alert--info" style="margin-bottom:20px;">
@@ -91,8 +111,8 @@
             <div id="pay-panel-requests" class="pay-tab-panel active">
                 <div class="pay-fallback">
                     <div class="pay-fallback__text">
-                        <h5><i class="fas fa-file-csv" style="color:#16a34a;margin-right:6px;"></i>Fallback bulk MTN</h5>
-                        <p>Si le <code>transfer</code> temps réel MTN reste refusé, exportez les demandes <code>pending</code> en CSV minimal pour le portail bulk payment.</p>
+                        <h5><i class="fas fa-file-csv" style="color:#16a34a;margin-right:6px;"></i>Backup bulk MTN</h5>
+                        <p>Backup : exportez les demandes <code>pending</code> en CSV pour le portail bulk payment MTN si l'API temps réel est indisponible.</p>
                         <small>Colonnes exportées : <code>Payee Name</code>, <code>MSISDN</code>, <code>Amount (FCFA)</code>.</small>
                     </div>
                     <a href="{{ route('restaurant_payout.export_csv') }}"
@@ -157,8 +177,6 @@
                                             </div>
                                             @if($hasAutoRef)
                                                 <div class="pay-hint">Référence MTN en cours : {{ $request->transaction_id }}</div>
-                                            @else
-                                                <div class="pay-hint">Si l'API reste refusée, utilisez plutôt l'export CSV bulk MTN.</div>
                                             @endif
                                         </div>
                                     </div>

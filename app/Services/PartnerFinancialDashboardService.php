@@ -21,11 +21,17 @@ class PartnerFinancialDashboardService
             ->where('restaurant_id', $restaurant->id)
             ->where('status', 'paid')
             ->sum('payout_amount');
+        $alreadyPaid += (float) DB::table('partner_withdrawals')
+            ->where('partner_type', 'restaurant')->where('partner_id', $restaurant->id)
+            ->where('status', 'paid')->sum('net_amount');
 
         $pendingPayouts = (float) DB::table('restaurant_payments')
             ->where('restaurant_id', $restaurant->id)
             ->where('status', 'pending')
             ->sum('payout_amount');
+        $pendingPayouts += (float) DB::table('partner_withdrawals')
+            ->where('partner_type', 'restaurant')->where('partner_id', $restaurant->id)
+            ->whereIn('status', ['created', 'reserved', 'submitted', 'pending'])->sum('net_amount');
 
         return $this->buildDashboard(
             $gross,
@@ -63,11 +69,17 @@ class PartnerFinancialDashboardService
             ->where('driver_id', $driver->id)
             ->where('status', 'paid')
             ->sum('payout_amount');
+        $alreadyPaid += (float) DB::table('partner_withdrawals')
+            ->where('partner_type', 'driver')->where('partner_id', $driver->id)
+            ->where('status', 'paid')->sum('net_amount');
 
         $pendingPayouts = (float) DB::table('driver_payments')
             ->where('driver_id', $driver->id)
             ->where('status', 'pending')
             ->sum('payout_amount');
+        $pendingPayouts += (float) DB::table('partner_withdrawals')
+            ->where('partner_type', 'driver')->where('partner_id', $driver->id)
+            ->whereIn('status', ['created', 'reserved', 'submitted', 'pending'])->sum('net_amount');
 
         return $this->buildDashboard(
             $gross,
