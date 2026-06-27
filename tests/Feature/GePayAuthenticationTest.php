@@ -32,7 +32,7 @@ class GePayAuthenticationTest extends TestCase
             'X-GePay-Key' => $client->api_key,
             'X-GePay-Timestamp' => $timestamp,
             'X-GePay-Signature' => $signature,
-        ])->getJson($uri)
+        ])->get($uri)
             ->assertOk()
             ->assertJsonPath('client.uuid', $client->uuid);
     }

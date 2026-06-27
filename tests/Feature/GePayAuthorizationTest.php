@@ -103,14 +103,14 @@ class GePayAuthorizationTest extends TestCase
             'X-GePay-Timestamp' => $ts,
             'X-GePay-Signature' => $sig,
             'X-GePay-Nonce' => $nonce,
-        ])->getJson($uri)->assertOk();
+        ])->get($uri)->assertOk();
 
         $this->withHeaders([
             'X-GePay-Key' => $this->client->api_key,
             'X-GePay-Timestamp' => $ts,
             'X-GePay-Signature' => $sig,
             'X-GePay-Nonce' => $nonce,
-        ])->getJson($uri)->assertUnauthorized();
+        ])->get($uri)->assertUnauthorized();
     }
 
     public function test_body_modification_invalidates_signature(): void
@@ -145,7 +145,7 @@ class GePayAuthorizationTest extends TestCase
             'X-GePay-Key' => $client2->api_key,
             'X-GePay-Timestamp' => $ts,
             'X-GePay-Signature' => GePaySigner::sign($secret2, $ts, 'GET', $uri, ''),
-        ])->getJson($uri)->assertOk();
+        ])->get($uri)->assertOk();
 
         $this->assertSame($client2->uuid, $resp->json('client.uuid'));
         $this->assertNotSame($this->client->uuid, $resp->json('client.uuid'));
@@ -155,7 +155,7 @@ class GePayAuthorizationTest extends TestCase
     {
         $uri = '/api/gepay/v1/client';
         $resp = $this->withHeaders($this->signedHeaders('GET', $uri, ''))
-            ->getJson($uri)
+            ->get($uri)
             ->assertOk();
 
         $content = json_encode($resp->json()) ?: '';

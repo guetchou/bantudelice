@@ -103,7 +103,9 @@ class GePayDisbursementTest extends TestCase
     {
         Http::fake([
             'https://mtn.test/disbursement/token/' => Http::response(['access_token' => 'tok', 'expires_in' => 3600], 200),
-            'https://mtn.test/disbursement/v1_0/transfer' => Http::throw(new \Illuminate\Http\Client\ConnectionException('timeout')),
+            'https://mtn.test/disbursement/v1_0/transfer' => function () {
+                throw new \Illuminate\Http\Client\ConnectionException('timeout');
+            },
         ]);
 
         $payload = ['amount' => 10000, 'phone' => '24206005555', 'external_reference' => 'DIS-003'];

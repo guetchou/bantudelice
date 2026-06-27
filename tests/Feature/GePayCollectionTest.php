@@ -122,7 +122,9 @@ class GePayCollectionTest extends TestCase
     {
         Http::fake([
             'https://mtn.test/collection/token/' => Http::response(['access_token' => 'tok', 'expires_in' => 3600], 200),
-            'https://mtn.test/collection/v1_0/requesttopay' => Http::throw(new \Illuminate\Http\Client\ConnectionException('cURL error 28: Timeout')),
+            'https://mtn.test/collection/v1_0/requesttopay' => function () {
+                throw new \Illuminate\Http\Client\ConnectionException('cURL error 28: Timeout');
+            },
         ]);
 
         $payload = ['amount' => 5000, 'phone' => '24206001234', 'external_reference' => 'COL-004'];
