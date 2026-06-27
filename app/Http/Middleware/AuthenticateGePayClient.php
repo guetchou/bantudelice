@@ -6,6 +6,7 @@ use App\Domain\GePay\Models\GePayClient;
 use App\Domain\GePay\Services\GePaySigner;
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Symfony\Component\HttpFoundation\Response;
 
 class AuthenticateGePayClient
@@ -33,6 +34,15 @@ class AuthenticateGePayClient
         $allowedIps = array_values(array_filter($client->allowed_ips ?? []));
         if ($allowedIps !== [] && ! in_array($request->ip(), $allowedIps, true)) {
             return response()->json(['success' => false, 'message' => 'Adresse IP non autorisée.'], 403);
+        }
+
+        $nonce = trim((string) $request->header('X-GePay-Nonce', ''));
+        if ($nonce !== '') {
+            $nonceKey = 'gepay:nonce:'.$client->id.':'.hash('sha256', $nonce);
+            if (Cache::has($nonceKey)) {
+                return response()->json(['success' => false, 'message' => 'Requête GePay dupliquée (nonce rejoué).'], 401);
+            }
+            Cache::put($nonceKey, 1, now()->addSeconds($tolerance * 2));
         }
 
         $expected = GePaySigner::sign(

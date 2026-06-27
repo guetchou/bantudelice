@@ -27,7 +27,7 @@ class MtnMomoProvider implements PaymentProviderInterface
     public function initiate(GePayTransaction $transaction): ProviderResult
     {
         if (! config('gepay.providers.mtn_momo.enabled')) {
-            return new ProviderResult(TransactionStatus::FAILED, failureCode: 'PROVIDER_DISABLED', failureMessage: 'MTN MoMo n’est pas activé dans GePay.');
+            return new ProviderResult(TransactionStatus::FAILED, failureCode: 'PROVIDER_DISABLED', failureMessage: "MTN MoMo n'est pas activé dans GePay.");
         }
 
         return match ($transaction->type) {
@@ -151,31 +151,38 @@ class MtnMomoProvider implements PaymentProviderInterface
         $targetEnvironment = $this->targetEnvironment();
         $cacheKey = 'gepay:mtn:token:'.$product.':'.$targetEnvironment.':'.hash('sha256', (string) $credentials['api_user']);
 
-        return Cache::remember($cacheKey, now()->addMinutes(50), function () use ($product, $credentials, $targetEnvironment): string {
-            $tokenPath = match ($product) {
-                'collections' => '/collection/token/',
-                'disbursements' => '/disbursement/token/',
-                default => throw new RuntimeException('Produit MTN non supporté pour le token.'),
-            };
+        $cached = Cache::get($cacheKey);
+        if (is_string($cached) && $cached !== '') {
+            return $cached;
+        }
 
-            $response = Http::withBasicAuth($credentials['api_user'], $credentials['api_key'])
-                ->timeout(30)
-                ->connectTimeout(10)
-                ->withHeaders([
-                    'Ocp-Apim-Subscription-Key' => $credentials['subscription_key'],
-                    'X-Target-Environment' => $targetEnvironment,
-                    'Content-Type' => 'application/json',
-                    'Content-Length' => '0',
-                ])
-                ->withBody('', 'application/json')
-                ->post($this->baseUrl().$tokenPath);
+        $tokenPath = match ($product) {
+            'collections' => '/collection/token/',
+            'disbursements' => '/disbursement/token/',
+            default => throw new RuntimeException('Produit MTN non supporté pour le token.'),
+        };
 
-            if (! $response->successful() || ! is_string($response->json('access_token'))) {
-                throw new RuntimeException('Impossible d’obtenir le token MTN '.$product.'.');
-            }
+        $response = Http::withBasicAuth($credentials['api_user'], $credentials['api_key'])
+            ->timeout(30)
+            ->connectTimeout(10)
+            ->withHeaders([
+                'Ocp-Apim-Subscription-Key' => $credentials['subscription_key'],
+                'X-Target-Environment' => $targetEnvironment,
+                'Content-Type' => 'application/json',
+                'Content-Length' => '0',
+            ])
+            ->withBody('', 'application/json')
+            ->post($this->baseUrl().$tokenPath);
 
-            return (string) $response->json('access_token');
-        });
+        if (! $response->successful() || ! is_string($response->json('access_token'))) {
+            throw new RuntimeException("Impossible d'obtenir le token MTN {$product}.");
+        }
+
+        $token = (string) $response->json('access_token');
+        $expiresIn = max(30, (int) $response->json('expires_in', 3600));
+        Cache::put($cacheKey, $token, now()->addSeconds($expiresIn - 60));
+
+        return $token;
     }
 
     private function normalizeStatus(string $rawStatus, array $metadata): ProviderResult

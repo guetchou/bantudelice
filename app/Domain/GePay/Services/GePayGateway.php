@@ -25,7 +25,7 @@ class GePayGateway
     public function initiate(GePayClient $client, TransactionType $type, array $payload, string $idempotencyKey): GePayTransaction
     {
         if (! $client->can($type->value)) {
-            throw new RuntimeException('Cette capacité GePay n’est pas autorisée pour ce client.');
+            throw new RuntimeException("Cette capacité GePay n'est pas autorisée pour ce client.");
         }
 
         $providerCode = (string) ($payload['provider'] ?? config('gepay.default_provider', 'mtn_momo'));
@@ -45,7 +45,7 @@ class GePayGateway
 
             if ($existing) {
                 if (! hash_equals((string) $existing->request_hash, $requestHash)) {
-                    throw new RuntimeException('Cette clé d’idempotence a déjà été utilisée avec une requête différente.');
+                    throw new RuntimeException("Cette clé d'idempotence a déjà été utilisée avec une requête différente.");
                 }
                 return $existing;
             }
@@ -121,6 +121,10 @@ class GePayGateway
 
     private function applyProviderResult(GePayTransaction $transaction, ProviderResult $result): GePayTransaction
     {
+        if ($transaction->status->isTerminal() && $result->status !== $transaction->status) {
+            return $transaction;
+        }
+
         $payload = [
             'status' => $result->status,
             'failure_code' => $result->failureCode,
@@ -132,7 +136,7 @@ class GePayGateway
         if ($result->providerReference) {
             $payload['provider_reference'] = $result->providerReference;
         }
-        if ($result->status->isTerminal()) {
+        if ($result->status->isTerminal() && ! $transaction->completed_at) {
             $payload['completed_at'] = now();
         }
 
