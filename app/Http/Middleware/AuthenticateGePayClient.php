@@ -18,7 +18,7 @@ class AuthenticateGePayClient
         $signature = strtolower(trim((string) $request->header('X-GePay-Signature')));
         $nonce = trim((string) $request->header('X-GePay-Nonce'));
         $idempotencyKey = trim((string) $request->header('Idempotency-Key', ''));
-        $nonceRequired = (bool) config('gepay.require_nonce', true);
+        $nonceRequired = (bool) config('gepay.require_nonce', true) || $request->isMethod('GET');
         $invalidNonce = $nonce !== '' && (
             strlen($nonce) > 128
             || ! preg_match('/^[A-Za-z0-9._:-]+$/', $nonce)
