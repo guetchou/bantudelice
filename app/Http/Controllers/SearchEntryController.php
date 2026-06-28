@@ -35,12 +35,23 @@ class SearchEntryController extends Controller
                 $parameters['query'] = $search;
             }
 
-            if ($request->filled('city')) {
-                $parameters['city'] = $request->query('city');
+            $legacyFilters = [
+                'city' => 'city',
+                'cuisine' => 'cuisine_id',
+                'min_rating' => 'min_rating',
+                'max_delivery_fee' => 'max_delivery_fee',
+                'featured' => 'featured',
+            ];
+
+            foreach ($legacyFilters as $legacyKey => $canonicalKey) {
+                if ($request->filled($legacyKey)) {
+                    $parameters[$canonicalKey] = $request->query($legacyKey);
+                }
             }
 
-            if ($request->filled('cuisine')) {
-                $parameters['cuisine_id'] = $request->query('cuisine');
+            if ($request->filled('sort')) {
+                $sort = strtolower(trim((string) $request->query('sort')));
+                $parameters['sort'] = $sort === 'popular' ? 'recommended' : $sort;
             }
 
             return redirect()->route('search', $parameters);
