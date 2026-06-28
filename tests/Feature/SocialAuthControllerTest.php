@@ -13,7 +13,6 @@ class SocialAuthControllerTest extends TestCase
             'external-services.social_auth.google.client_id' => 'client-id.apps.googleusercontent.com',
             'external-services.social_auth.google.client_secret' => 'secret',
             'external-services.social_auth.google.redirect' => '/auth/google/callback',
-            'app.url' => 'https://bantudelice.cg',
         ]);
 
         $response = $this
@@ -30,7 +29,7 @@ class SocialAuthControllerTest extends TestCase
         $this->assertStringContainsString('https://accounts.google.com/o/oauth2/v2/auth', $redirectUrl);
 
         parse_str((string) parse_url($redirectUrl, PHP_URL_QUERY), $query);
-        $this->assertSame('https://bantudelice.cg/auth/google/callback', $query['redirect_uri'] ?? null);
+        $this->assertSame(url('/auth/google/callback'), $query['redirect_uri'] ?? null);
 
         $state = session('social_auth.google.state');
         $this->assertIsString($state);
