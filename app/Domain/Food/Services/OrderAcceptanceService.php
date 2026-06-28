@@ -7,6 +7,7 @@ use App\Domain\Food\Enums\OrderPaymentStatus;
 use App\Order;
 use App\Payment;
 use App\Services\DeliveryService;
+use App\Services\DisbursementService;
 use App\Services\FoodOrderStateMachineService;
 use App\Services\PaymentService;
 use Illuminate\Support\Facades\DB;
@@ -152,6 +153,7 @@ class OrderAcceptanceService
     protected function triggerOnlinePayment(Order $order, array $snapshot, string $paymentMethod): void
     {
         $orderNo = $order->order_no;
+        $provider = $this->resolvePaymentProvider($paymentMethod, $snapshot);
 
         Order::where('order_no', $orderNo)->update([
             'payment_status' => OrderPaymentStatus::NOT_STARTED->value,
@@ -169,7 +171,7 @@ class OrderAcceptanceService
         $payment = Payment::firstOrCreate(
             [
                 'order_id' => $freshOrder->id,
-                'provider' => $paymentMethod,
+                'provider' => $provider,
             ],
             [
                 'user_id'  => $freshOrder->user_id,
@@ -189,19 +191,23 @@ class OrderAcceptanceService
         $orderLines = Order::where('order_no', $orderNo)->get();
 
         try {
-            // Ne relancer le provider que lors de la création effective du paiement.
             if ($payment->wasRecentlyCreated) {
                 $this->paymentService->prepareExternalPayment(
                     $payment,
                     $orderLines,
                     (array) ($snapshot['checkout_data'] ?? []),
-                    ['totals' => (array) ($snapshot['totals'] ?? [])]
+                    [
+                        'totals' => (array) ($snapshot['totals'] ?? []),
+                        'requested_payment_method' => $paymentMethod,
+                        'resolved_provider' => $provider,
+                    ]
                 );
             }
         } catch (\Throwable $e) {
             Log::error('OrderAcceptanceService: erreur déclenchement paiement en ligne après acceptation', [
                 'order_no' => $orderNo,
                 'payment_id' => $payment->id,
+                'provider' => $provider,
                 'error' => $e->getMessage(),
             ]);
             $payment->update(['status' => 'FAILED']);
@@ -209,6 +215,38 @@ class OrderAcceptanceService
                 'payment_status' => OrderPaymentStatus::FAILED->value,
             ]);
         }
+    }
+
+    private function resolvePaymentProvider(string $paymentMethod, array $snapshot): string
+    {
+        $normalized = strtolower(trim($paymentMethod));
+
+        if (in_array($normalized, ['mtn', 'mtn_momo'], true)) {
+            return 'momo';
+        }
+
+        if (in_array($normalized, ['airtel', 'airtel_money'], true)) {
+            return 'airtel';
+        }
+
+        if ($normalized === 'momo') {
+            $phone = (string) data_get($snapshot, 'checkout_data.phone', '');
+            $operator = DisbursementService::detectOperator($phone);
+
+            return match ($operator) {
+                'mtn'    => 'momo',
+                'airtel' => 'airtel',
+                default  => throw new RuntimeException(
+                    'Impossible de déterminer l\'opérateur Mobile Money à partir du numéro fourni.'
+                ),
+            };
+        }
+
+        if ($normalized === 'paypal') {
+            return 'paypal';
+        }
+
+        throw new RuntimeException('Mode de paiement en ligne non pris en charge : ' . $paymentMethod);
     }
 
     /**

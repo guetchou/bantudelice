@@ -9,7 +9,6 @@ use App\Domain\Payment\Adapters\MtnMomoAdapter;
 use App\Domain\Payment\Adapters\PayPalAdapter;
 use App\Domain\Payment\Contracts\PaymentGatewayAdapterInterface;
 use App\Services\DisbursementService;
-use Illuminate\Support\Facades\Log;
 
 /**
  * Résout l'adapter approprié à partir de la valeur Payment::provider.
@@ -20,7 +19,7 @@ use Illuminate\Support\Facades\Log;
 final class PaymentGatewayFactory
 {
     public function __construct(
-        private readonly MtnMomoAdapter     $mtn,
+        private readonly MtnMomoAdapter      $mtn,
         private readonly AirtelMoneyAdapter $airtel,
         private readonly PayPalAdapter      $paypal,
         private readonly CashDemoAdapter    $cash,
@@ -30,19 +29,10 @@ final class PaymentGatewayFactory
     /**
      * Résoudre l'adapter pour un provider donné.
      *
-     * La valeur $provider correspond à Payment::provider stocké en base
-     * (ex: 'momo', 'airtel', 'paypal', 'cash').
-     *
-     * L'opérateur MoMo (mtn|airtel) est détecté à l'initiation via
-     * DisbursementService::detectOperator() et non ici — la factory
-     * résout le provider de haut niveau, pas l'opérateur réseau.
-     *
-     * Quand le provider est 'momo', on retourne l'adapter MTN ;
-     * DisbursementService détectera l'opérateur (06→MTN, 05→Airtel).
-     *
-     * @throws \InvalidArgumentException si le provider est inconnu et $strict = true.
+     * Un provider inconnu est toujours une erreur. Un système financier ne doit
+     * jamais transformer une faute de configuration en paiement cash simulé.
      */
-    public function for(string $provider, bool $strict = false): PaymentGatewayAdapterInterface
+    public function for(string $provider, bool $strict = true): PaymentGatewayAdapterInterface
     {
         $normalized = strtolower(trim($provider));
 
@@ -60,22 +50,14 @@ final class PaymentGatewayFactory
         };
 
         if ($adapter === null) {
-            Log::warning('PaymentGatewayFactory : provider inconnu, fallback CashDemoAdapter', [
-                'provider' => $provider,
-            ]);
-
-            if ($strict) {
-                throw new \InvalidArgumentException("Provider de paiement inconnu : {$provider}");
-            }
-
-            return $this->cash;
+            throw new \InvalidArgumentException("Provider de paiement inconnu : {$provider}");
         }
 
         return $adapter;
     }
 
     /**
-     * Vrai si le provider donné est connu et a un adapter dédié (non fallback).
+     * Vrai si le provider donné est connu et a un adapter dédié.
      */
     public function supports(string $provider): bool
     {
@@ -91,15 +73,17 @@ final class PaymentGatewayFactory
 
     /**
      * Retourne l'adapter MoMo en tenant compte du numéro de téléphone.
-     * Utile quand on veut router après détection de l'opérateur.
      */
     public function forMomoPhone(string $phone): PaymentGatewayAdapterInterface
     {
         $operator = DisbursementService::detectOperator($phone);
 
         return match ($operator) {
+            'mtn'    => $this->mtn,
             'airtel' => $this->airtel,
-            default  => $this->mtn,
+            default  => throw new \InvalidArgumentException(
+                'Impossible de déterminer l\'opérateur Mobile Money pour ce numéro.'
+            ),
         };
     }
 }

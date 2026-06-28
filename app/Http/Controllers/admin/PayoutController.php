@@ -5,13 +5,15 @@ namespace App\Http\Controllers\admin;
 use App\Http\Controllers\Controller;
 use App\Services\DisbursementService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
-use DB;
 
 class PayoutController extends Controller
 {
     private const AUTO_SETTLEMENT_ATTEMPTS = 3;
     private const AUTO_SETTLEMENT_DELAY_MS = 1500;
+    private const PAYOUT_LOCK_SECONDS = 180;
 
     public function restaurant_payout()
     {
@@ -100,18 +102,42 @@ class PayoutController extends Controller
             'transaction_id' => 'nullable|string|max:255',
         ]);
 
+        $requestId = (int) $payload['request_id'];
+        $lock = Cache::lock(
+            'payout-execution:' . $config['table'] . ':' . $requestId,
+            self::PAYOUT_LOCK_SECONDS
+        );
+
+        if (!$lock->get()) {
+            return redirect()
+                ->route($config['route'])
+                ->with('alert', $this->buildAlert(
+                    'info',
+                    'Cette demande de paiement est déjà en cours de traitement.'
+                ));
+        }
+
+        try {
+            return $this->handleLockedPayout($payload, $config, $requestId);
+        } finally {
+            $lock->release();
+        }
+    }
+
+    private function handleLockedPayout(array $payload, array $config, int $requestId)
+    {
         $manualTransactionId = trim((string) ($payload['transaction_id'] ?? ''));
 
         if ($manualTransactionId !== '') {
             return $this->markPayoutAsPaid(
                 $config['table'],
-                (int) $payload['request_id'],
+                $requestId,
                 $manualTransactionId,
                 $config['route']
             );
         }
 
-        $payout = $this->findPayoutRecord($config, (int) $payload['request_id']);
+        $payout = $this->findPayoutRecord($config, $requestId);
 
         if (!$payout) {
             return redirect()
@@ -134,18 +160,19 @@ class PayoutController extends Controller
                 $this->autoSettlementAttempts(),
                 $this->autoSettlementDelayMs()
             );
+            $normalizedExistingStatus = strtoupper((string) ($existingStatus['status'] ?? 'UNKNOWN'));
 
-            if ($this->isSuccessfulProviderStatus($existingStatus['status'] ?? null)) {
+            if ($this->isSuccessfulProviderStatus($normalizedExistingStatus)) {
                 return $this->markPayoutAsPaid(
                     $config['table'],
-                    (int) $payout->request_id,
+                    $requestId,
                     $existingReference,
                     $config['route'],
                     'Décaissement MTN confirmé avec succès.'
                 );
             }
 
-            if ($this->isPendingProviderStatus($existingStatus['status'] ?? null)) {
+            if ($this->isPendingProviderStatus($normalizedExistingStatus)) {
                 return redirect()
                     ->route($config['route'])
                     ->with('alert', $this->buildAlert(
@@ -154,7 +181,7 @@ class PayoutController extends Controller
                     ));
             }
 
-            if (strtoupper((string) ($existingStatus['status'] ?? '')) === 'ERROR') {
+            if ($normalizedExistingStatus === 'ERROR') {
                 return redirect()
                     ->route($config['route'])
                     ->with('alert', $this->buildAlert(
@@ -162,13 +189,28 @@ class PayoutController extends Controller
                         $this->formatProviderMessage($existingStatus, 'Impossible de vérifier le décaissement en cours.')
                     ));
             }
+
+            // Une nouvelle tentative n'est permise que si MTN a explicitement
+            // déclaré la tentative précédente terminalement échouée.
+            if (!$this->isFailedProviderStatus($normalizedExistingStatus)) {
+                return redirect()
+                    ->route($config['route'])
+                    ->with('alert', $this->buildAlert(
+                        'danger',
+                        'Le statut MTN de la tentative précédente est indéterminé. Aucun nouveau transfert n’a été lancé.'
+                    ));
+            }
         }
 
-        $disbursement = DisbursementService::initiateDisbursement((string) $payout->phone, (int) $payout->payout_amount, [
-            'external_reference' => $config['external_reference_prefix'] . '-' . $payout->request_id . '-' . time(),
-            'payer_message' => $config['payer_message'] . ' ' . $payout->request_id,
-            'payee_note' => $config['payee_note'],
-        ]);
+        $disbursement = DisbursementService::initiateDisbursement(
+            (string) $payout->phone,
+            (int) $payout->payout_amount,
+            [
+                'external_reference' => $config['external_reference_prefix'] . '-' . $requestId . '-' . time(),
+                'payer_message' => $config['payer_message'] . ' ' . $requestId,
+                'payee_note' => $config['payee_note'],
+            ]
+        );
 
         if (!($disbursement['success'] ?? false)) {
             return redirect()
@@ -181,12 +223,32 @@ class PayoutController extends Controller
 
         $providerReference = trim((string) ($disbursement['provider_reference'] ?? ''));
 
-        if ($providerReference === '') {
+        if ($providerReference === '' || !Str::isUuid($providerReference)) {
             return redirect()
                 ->route($config['route'])
                 ->with('alert', $this->buildAlert(
                     'danger',
                     'Le provider n\'a pas renvoyé de référence de décaissement exploitable.'
+                ));
+        }
+
+        // Persister immédiatement la référence avant toute attente réseau. En cas
+        // de timeout HTTP ou de redémarrage du processus, le prochain passage
+        // réconciliera cette même tentative au lieu d'en créer une seconde.
+        $stored = DB::table($config['table'])
+            ->where('id', $requestId)
+            ->where('status', 'pending')
+            ->update([
+                'transaction_id' => $providerReference,
+                'updated_at' => now(),
+            ]);
+
+        if ($stored < 1) {
+            return redirect()
+                ->route($config['route'])
+                ->with('alert', $this->buildAlert(
+                    'danger',
+                    'La demande a changé pendant le traitement. Le statut MTN doit être réconcilié avant toute nouvelle action.'
                 ));
         }
 
@@ -196,31 +258,24 @@ class PayoutController extends Controller
             $this->autoSettlementAttempts(),
             $this->autoSettlementDelayMs()
         );
+        $normalizedSettlementStatus = strtoupper((string) ($settlement['status'] ?? 'UNKNOWN'));
 
-        if ($this->isSuccessfulProviderStatus($settlement['status'] ?? null)) {
+        if ($this->isSuccessfulProviderStatus($normalizedSettlementStatus)) {
             return $this->markPayoutAsPaid(
                 $config['table'],
-                (int) $payout->request_id,
+                $requestId,
                 $providerReference,
                 $config['route'],
                 'Décaissement MTN confirmé avec succès.'
             );
         }
 
-        DB::table($config['table'])
-            ->where('id', $payout->request_id)
-            ->where('status', 'pending')
-            ->update([
-                'transaction_id' => $providerReference,
-                'updated_at' => now(),
-            ]);
-
-        if ($this->isPendingProviderStatus($settlement['status'] ?? null)) {
+        if ($this->isPendingProviderStatus($normalizedSettlementStatus)) {
             return redirect()
                 ->route($config['route'])
                 ->with('alert', $this->buildAlert(
                     'info',
-                    'Décaissement MTN lancé pour ' . $payout->name . ' (réf. ' . $providerReference . '). Revenez vérifier dans quelques instants.'
+                    'Décaissement MTN lancé pour ' . $payout->name . ' (réf. ' . $providerReference . '). La réconciliation automatique suivra son statut.'
                 ));
         }
 
@@ -365,12 +420,23 @@ class PayoutController extends Controller
 
     private function isSuccessfulProviderStatus(?string $status): bool
     {
-        return in_array(strtoupper((string) $status), ['SUCCESSFUL', 'SUCCESS', 'PAID', 'COMPLETED', 'APPROVED'], true);
+        return in_array(strtoupper((string) $status), [
+            'SUCCESSFUL', 'SUCCESS', 'PAID', 'COMPLETED', 'APPROVED',
+        ], true);
     }
 
     private function isPendingProviderStatus(?string $status): bool
     {
-        return in_array(strtoupper((string) $status), ['PENDING', 'INITIATED', 'PROCESSING'], true);
+        return in_array(strtoupper((string) $status), [
+            'PENDING', 'INITIATED', 'PROCESSING',
+        ], true);
+    }
+
+    private function isFailedProviderStatus(?string $status): bool
+    {
+        return in_array(strtoupper((string) $status), [
+            'FAILED', 'REJECTED', 'DECLINED', 'CANCELLED', 'EXPIRED',
+        ], true);
     }
 
     private function formatProviderMessage(array $payload, string $fallback): string

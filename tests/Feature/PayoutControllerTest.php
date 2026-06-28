@@ -194,10 +194,12 @@ class PayoutControllerTest extends TestCase
             'external-services.payments.mtn_momo.disbursement_proxy.source_ip' => '164.68.106.186',
         ]);
 
+        $proxyUuid = \Illuminate\Support\Str::uuid()->toString();
+
         Http::fake([
             'https://164.68.106.186/api/disbursements' => Http::response([
                 'success' => true,
-                'provider_reference' => 'proxy-ref-001',
+                'provider_reference' => $proxyUuid,
                 'status' => 'PENDING',
                 'message' => 'Décaissement transmis à la gateway proxy',
             ], 202),
@@ -221,7 +223,7 @@ class PayoutControllerTest extends TestCase
         $this->assertDatabaseHas('restaurant_payments', [
             'id' => $requestId,
             'status' => 'paid',
-            'transaction_id' => 'proxy-ref-001',
+            'transaction_id' => $proxyUuid,
         ]);
     }
 

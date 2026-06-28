@@ -25,6 +25,15 @@ class Kernel extends ConsoleKernel
             \Log::info('Réconciliation automatique exécutée', $result);
         })->name('reconciliation-automatique')->everyMinute()->withoutOverlapping();
 
+        $schedule->call(function () {
+            $result = app(\App\Services\DisbursementReconciliationService::class)
+                ->reconcilePending(50);
+
+            if (($result['processed'] ?? 0) > 0 || ($result['errors'] ?? 0) > 0) {
+                \Log::info('Réconciliation automatique des décaissements exécutée', $result);
+            }
+        })->name('reconciliation-decaissements-mtn')->everyMinute()->withoutOverlapping();
+
         $schedule->command('metrics:generate-daily')
             ->dailyAt('01:00')
             ->name('metrics-quotidiennes')

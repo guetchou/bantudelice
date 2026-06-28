@@ -70,17 +70,10 @@ class PaymentGatewayFactoryTest extends TestCase
     }
 
     /** @test */
-    public function it_falls_back_to_cash_for_unknown_provider()
-    {
-        $adapter = $this->factory->for('unknown_provider_xyz');
-        $this->assertInstanceOf(CashDemoAdapter::class, $adapter);
-    }
-
-    /** @test */
-    public function it_throws_for_unknown_provider_in_strict_mode()
+    public function it_throws_for_unknown_provider()
     {
         $this->expectException(\InvalidArgumentException::class);
-        $this->factory->for('unknown_provider_xyz', strict: true);
+        $this->factory->for('unknown_provider_xyz');
     }
 
     /** @test */
