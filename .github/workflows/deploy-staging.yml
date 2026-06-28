@@ -1,0 +1,87 @@
+name: Deploy Staging
+
+on:
+  workflow_run:
+    workflows: ["BantuDelice CI"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: "SHA de main à déployer"
+        required: false
+        type: string
+
+concurrency:
+  group: staging-deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.head_branch == 'main' &&
+       github.event.workflow_run.event == 'push')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: staging
+    env:
+      APP_URL: ${{ secrets.STAGING_APP_URL }}
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Resolve verified SHA
+        id: target
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_run" ]; then
+            SHA="${{ github.event.workflow_run.head_sha }}"
+          elif [ -n "${{ inputs.sha }}" ]; then
+            SHA="${{ inputs.sha }}"
+          else
+            SHA=$(git rev-parse origin/main)
+          fi
+          git fetch origin main --prune
+          git cat-file -e "${SHA}^{commit}"
+          git merge-base --is-ancestor "$SHA" origin/main
+          echo "sha=$SHA" >> "$GITHUB_OUTPUT"
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@dc588b651fe13675774614f8e6a936a468676387
+        with:
+          ssh-private-key: ${{ secrets.STAGING_DEPLOY_SSH_KEY }}
+
+      - name: Trust staging host
+        run: ssh-keyscan -H "${{ secrets.STAGING_DEPLOY_HOST }}" >> ~/.ssh/known_hosts
+
+      - name: Deploy exact SHA
+        run: |
+          ssh "${{ secrets.STAGING_DEPLOY_USER }}@${{ secrets.STAGING_DEPLOY_HOST }}" \
+            DEPLOY_SHA="${{ steps.target.outputs.sha }}" \
+            DEPLOY_ENV="staging" \
+            PROJECT_PATH="${{ secrets.STAGING_DEPLOY_PATH }}" \
+            BACKUPS_ROOT="${{ secrets.STAGING_BACKUPS_ROOT }}" \
+            DB_CONTAINER="${{ secrets.STAGING_DB_CONTAINER }}" \
+            'bash -s' < scripts/deploy/production.sh
+
+      - name: Verify exact SHA
+        run: |
+          ACTUAL=$(ssh "${{ secrets.STAGING_DEPLOY_USER }}@${{ secrets.STAGING_DEPLOY_HOST }}" \
+            "cd '${{ secrets.STAGING_DEPLOY_PATH }}' && git rev-parse HEAD")
+          test "$ACTUAL" = "${{ steps.target.outputs.sha }}"
+
+      - name: Smoke tests
+        run: |
+          test "$(curl -sS -o /dev/null -w '%{http_code}' "$APP_URL/")" = "200"
+          test "$(curl -sS -o /dev/null -w '%{http_code}' "$APP_URL/login")" = "200"
+          BODY=$(curl -sS "$APP_URL/api/health/modules")
+          echo "$BODY" | grep -Eq '"status"[[:space:]]*:[[:space:]]*"ok"'
