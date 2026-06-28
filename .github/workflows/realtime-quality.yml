@@ -7,7 +7,7 @@ permissions:
 jobs:
   test:
     name: ${{ matrix.suite }} / ${{ matrix.db }}
-    runs-on: self-hosted
+    runs-on: [self-hosted, ci, isolated]
     services:
       mysql:
         image: mysql:8.0
@@ -48,11 +48,16 @@ jobs:
             db: mysql
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - uses: shivammathur/setup-php@cf4cade2721270509d5b1c766ab3549210a39a2a
-        with:
-          php-version: '8.3'
-          extensions: pdo, pdo_mysql, pdo_sqlite, redis, mbstring, xml, ctype, json, tokenizer, bcmath, openssl, fileinfo
-          coverage: none
+      - name: Verify isolated runner toolchain
+        run: |
+          set -euo pipefail
+          php -v | grep -q 'PHP 8.3'
+          composer --version
+          docker version >/dev/null
+          if sudo -n true 2>/dev/null; then
+            echo 'Le runner CI ne doit pas disposer de sudo sans mot de passe.'
+            exit 1
+          fi
       - name: Prepare Laravel
         run: |
           mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/framework/testing storage/logs
