@@ -20,6 +20,7 @@ final class GePayAdapter implements PaymentGatewayAdapterInterface
     public function __construct(
         private readonly GePayGateway $gateway,
         private readonly GePayInternalClientResolver $resolver,
+        private readonly MtnMomoAdapter $legacyMtn,
     ) {}
 
     public function provider(): string
@@ -102,19 +103,30 @@ final class GePayAdapter implements PaymentGatewayAdapterInterface
     }
 
     /**
-     * $providerReference = GePayTransaction::uuid (pas la référence MTN).
-     * BantuDelice stocke l'UUID GePay dans Payment::provider_reference.
+     * Les nouvelles transactions stockent GePayTransaction::uuid.
+     * Les transactions historiques peuvent encore contenir directement l'UUID MTN.
      */
     public function checkStatus(string $providerReference): GatewayStatus
     {
         $transaction = GePayTransaction::where('uuid', $providerReference)->first();
 
         if (! $transaction) {
-            Log::warning('GePayAdapter::checkStatus — transaction introuvable', ['gepay_uuid' => $providerReference]);
-            return GatewayStatus::unknown('GEPAY_NOT_FOUND', [
-                'error'      => 'Transaction GePay introuvable : ' . $providerReference,
-                'gepay_uuid' => $providerReference,
+            Log::info('GePayAdapter::checkStatus — fallback vers MTN historique', [
+                'provider_reference' => $providerReference,
             ]);
+
+            $legacyStatus = $this->legacyMtn->checkStatus($providerReference);
+
+            return new GatewayStatus(
+                status: $legacyStatus->status,
+                providerStatus: $legacyStatus->providerStatus,
+                failureReason: $legacyStatus->failureReason,
+                failureAction: $legacyStatus->failureAction,
+                meta: array_merge($legacyStatus->meta, [
+                    'legacy_mtn_fallback' => true,
+                    'provider_reference' => $providerReference,
+                ]),
+            );
         }
 
         if (! $transaction->status->isTerminal()) {
@@ -138,7 +150,8 @@ final class GePayAdapter implements PaymentGatewayAdapterInterface
 
     public function verifySignature(array $payload): bool
     {
-        // La vérification HMAC MTN est faite dans GePayWebhookController.
+        // Durci dans un correctif séparé : aucun callback MTN brut ne doit être
+        // accepté par la route historique lorsque GePay est actif.
         return true;
     }
 
