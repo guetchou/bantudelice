@@ -16,6 +16,8 @@ use App\Services\CheckoutService;
 use App\Services\DeliveryService;
 use App\Services\DispatchService;
 use App\Services\FoodOrderStateMachineService;
+use App\Services\PartnerWithdrawalService;
+use App\Services\ResilientPartnerWithdrawalService;
 use App\Services\SecureDeliveryService;
 use App\Services\SecureDispatchService;
 use App\Services\WorkflowCheckoutService;
@@ -31,6 +33,7 @@ class AppServiceProvider extends ServiceProvider
         $this->app->bind(CheckoutOrchestratorInterface::class, WorkflowCheckoutService::class);
         $this->app->singleton(DeliveryService::class, SecureDeliveryService::class);
         $this->app->singleton(DispatchService::class, SecureDispatchService::class);
+        $this->app->bind(PartnerWithdrawalService::class, ResilientPartnerWithdrawalService::class);
         $this->app->singleton(
             FoodOrderStateMachineService::class,
             WorkflowFoodOrderStateMachineService::class
@@ -60,6 +63,11 @@ class AppServiceProvider extends ServiceProvider
             $schedule->command('gepay:reconcile --limit=100')
                 ->everyMinute()
                 ->name('gepay-reconcile')
+                ->withoutOverlapping();
+
+            $schedule->command('gepay:reconcile-withdrawals --limit=100')
+                ->everyMinute()
+                ->name('gepay-reconcile-withdrawals')
                 ->withoutOverlapping();
         });
 
