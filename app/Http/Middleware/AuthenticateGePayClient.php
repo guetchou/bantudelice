@@ -18,15 +18,19 @@ class AuthenticateGePayClient
         $signature = strtolower(trim((string) $request->header('X-GePay-Signature')));
         $nonce = trim((string) $request->header('X-GePay-Nonce'));
         $idempotencyKey = trim((string) $request->header('Idempotency-Key', ''));
+        $nonceRequired = (bool) config('gepay.require_nonce', true);
+        $invalidNonce = $nonce !== '' && (
+            strlen($nonce) > 128
+            || ! preg_match('/^[A-Za-z0-9._:-]+$/', $nonce)
+        );
 
         if (
             $apiKey === ''
             || $timestamp === ''
             || $signature === ''
-            || $nonce === ''
             || ! ctype_digit($timestamp)
-            || strlen($nonce) > 128
-            || ! preg_match('/^[A-Za-z0-9._:-]+$/', $nonce)
+            || ($nonceRequired && $nonce === '')
+            || $invalidNonce
         ) {
             return response()->json([
                 'success' => false,
@@ -53,28 +57,38 @@ class AuthenticateGePayClient
             return response()->json(['success' => false, 'message' => 'Adresse IP non autorisée.'], 403);
         }
 
-        $expected = GePaySigner::sign(
-            (string) $client->api_secret,
-            $timestamp,
-            $request->method(),
-            $request->getRequestUri(),
-            (string) $request->getContent(),
-            $nonce,
-            $idempotencyKey
-        );
+        $expected = $nonce === ''
+            ? GePaySigner::sign(
+                (string) $client->api_secret,
+                $timestamp,
+                $request->method(),
+                $request->getRequestUri(),
+                (string) $request->getContent()
+            )
+            : GePaySigner::sign(
+                (string) $client->api_secret,
+                $timestamp,
+                $request->method(),
+                $request->getRequestUri(),
+                (string) $request->getContent(),
+                $nonce,
+                $idempotencyKey
+            );
 
         if (! hash_equals($expected, $signature)) {
             return response()->json(['success' => false, 'message' => 'Signature GePay invalide.'], 401);
         }
 
-        $nonceKey = 'gepay:nonce:'.$client->id.':'.hash('sha256', $nonce);
-        $stored = Cache::add($nonceKey, 1, now()->addSeconds($tolerance * 2));
+        if ($nonce !== '') {
+            $nonceKey = 'gepay:nonce:'.$client->id.':'.hash('sha256', $nonce);
+            $stored = Cache::add($nonceKey, 1, now()->addSeconds($tolerance * 2));
 
-        if (! $stored) {
-            return response()->json([
-                'success' => false,
-                'message' => 'Requête GePay dupliquée (nonce rejoué).',
-            ], 401);
+            if (! $stored) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Requête GePay dupliquée (nonce rejoué).',
+                ], 401);
+            }
         }
 
         $request->attributes->set('gepayClient', $client);
