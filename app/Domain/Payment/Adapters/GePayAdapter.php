@@ -43,7 +43,11 @@ final class GePayAdapter implements PaymentGatewayAdapterInterface
         try {
             $client = $this->resolver->resolve();
         } catch (RuntimeException $e) {
-            Log::error('GePayAdapter::initiate — client resolver failed', ['payment_id' => $payment->id, 'error' => $e->getMessage()]);
+            Log::error('GePayAdapter::initiate — client resolver failed', [
+                'payment_id' => $payment->id,
+                'error' => $e->getMessage(),
+            ]);
+
             return GatewayResult::failure($e->getMessage());
         }
 
@@ -66,7 +70,11 @@ final class GePayAdapter implements PaymentGatewayAdapterInterface
                 idempotencyKey: $idempotencyKey,
             );
         } catch (RuntimeException $e) {
-            Log::error('GePayAdapter::initiate — gateway exception', ['payment_id' => $payment->id, 'error' => $e->getMessage()]);
+            Log::error('GePayAdapter::initiate — gateway exception', [
+                'payment_id' => $payment->id,
+                'error' => $e->getMessage(),
+            ]);
+
             return GatewayResult::failure($e->getMessage());
         }
 
@@ -106,22 +114,32 @@ final class GePayAdapter implements PaymentGatewayAdapterInterface
         $transaction = GePayTransaction::where('uuid', $providerReference)->first();
 
         if (! $transaction) {
-            Log::info('GePayAdapter::checkStatus — fallback vers MTN historique', [
-                'provider_reference' => $providerReference,
+            return $this->checkLegacyMtnStatus($providerReference);
+        }
+
+        try {
+            $client = $this->resolver->resolve();
+        } catch (RuntimeException $exception) {
+            Log::error('GePayAdapter::checkStatus — client resolver failed', [
+                'gepay_uuid' => $providerReference,
+                'error' => $exception->getMessage(),
             ]);
 
-            $legacyStatus = $this->legacyMtn->checkStatus($providerReference);
+            return GatewayStatus::unknown('GEPAY_CLIENT_UNAVAILABLE', [
+                'error' => $exception->getMessage(),
+                'gepay_uuid' => $providerReference,
+            ]);
+        }
 
-            return new GatewayStatus(
-                status: $legacyStatus->status,
-                providerStatus: $legacyStatus->providerStatus,
-                failureReason: $legacyStatus->failureReason,
-                failureAction: $legacyStatus->failureAction,
-                meta: array_merge($legacyStatus->meta, [
-                    'legacy_mtn_fallback' => true,
-                    'provider_reference' => $providerReference,
-                ]),
-            );
+        if ((int) $transaction->client_id !== (int) $client->id) {
+            Log::warning('GePayAdapter::checkStatus — client mismatch', [
+                'gepay_uuid' => $providerReference,
+                'expected_client_id' => $client->id,
+            ]);
+
+            return GatewayStatus::unknown('GEPAY_CLIENT_MISMATCH', [
+                'gepay_uuid' => $providerReference,
+            ]);
         }
 
         if (! $transaction->status->isTerminal()) {
@@ -141,6 +159,26 @@ final class GePayAdapter implements PaymentGatewayAdapterInterface
     public function verifySignature(array $payload): bool
     {
         return false;
+    }
+
+    private function checkLegacyMtnStatus(string $providerReference): GatewayStatus
+    {
+        Log::info('GePayAdapter::checkStatus — fallback vers MTN historique', [
+            'provider_reference' => $providerReference,
+        ]);
+
+        $legacyStatus = $this->legacyMtn->checkStatus($providerReference);
+
+        return new GatewayStatus(
+            status: $legacyStatus->status,
+            providerStatus: $legacyStatus->providerStatus,
+            failureReason: $legacyStatus->failureReason,
+            failureAction: $legacyStatus->failureAction,
+            meta: array_merge($legacyStatus->meta, [
+                'legacy_mtn_fallback' => true,
+                'provider_reference' => $providerReference,
+            ]),
+        );
     }
 
     private function mapToGatewayStatus(GePayTransaction $transaction): GatewayStatus
