@@ -14,17 +14,7 @@ env:
 jobs:
   quality_gate:
     name: Quality Gate
-    runs-on: ubuntu-latest
-    services:
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+    runs-on: self-hosted
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
@@ -100,13 +90,15 @@ jobs:
           ! git ls-files | grep -q '^storage/'
 
       - name: Secret scan for this push
+        env:
+          GIT_BEFORE: ${{ github.event.before }}
+          GIT_SHA: ${{ github.sha }}
         run: |
           set -e
-          BEFORE="${{ github.event.before }}"
-          if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
-            RANGE="${{ github.sha }}~1..${{ github.sha }}"
+          if [ -z "$GIT_BEFORE" ] || [ "$GIT_BEFORE" = "0000000000000000000000000000000000000000" ]; then
+            RANGE="${GIT_SHA}~1..${GIT_SHA}"
           else
-            RANGE="$BEFORE..${{ github.sha }}"
+            RANGE="${GIT_BEFORE}..${GIT_SHA}"
           fi
           PATTERN='-----BEGIN (RSA|EC|OPENSSH|DSA|PGP) PRIVATE KEY-----|AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{30,}|glpat-[A-Za-z0-9_-]{20,}|sk_live_[A-Za-z0-9]{20,}|AIza[0-9A-Za-z_-]{30,}'
           ! git diff "$RANGE" | grep -E "$PATTERN"
@@ -121,7 +113,7 @@ jobs:
   deploy:
     name: Deploy to Production
     needs: [quality_gate]
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     environment: production
     steps:
       - name: Checkout deployment scripts
@@ -144,7 +136,7 @@ jobs:
   smoke_test:
     name: Smoke Tests
     needs: [deploy]
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     environment: production
     steps:
       - name: Setup SSH
@@ -180,7 +172,7 @@ jobs:
     name: Rollback Code
     needs: [deploy, smoke_test]
     if: needs.deploy.result == 'failure' || needs.smoke_test.result == 'failure'
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     environment: production
     steps:
       - name: Checkout rollback script

@@ -25,7 +25,7 @@ jobs:
       (github.event.workflow_run.conclusion == 'success' &&
        github.event.workflow_run.head_branch == 'main' &&
        github.event.workflow_run.event == 'push')
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     timeout-minutes: 20
     environment: staging
     env:
