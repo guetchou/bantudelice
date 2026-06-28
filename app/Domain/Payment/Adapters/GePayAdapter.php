@@ -48,8 +48,7 @@ final class GePayAdapter implements PaymentGatewayAdapterInterface
         }
 
         $externalReference = 'PAYMENT-' . $payment->id;
-        $idempotencyKey    = 'payment:' . $payment->id . ':collection';
-
+        $idempotencyKey = 'payment:' . $payment->id . ':collection';
         $orderNo = optional($payment->order)->order_no ?? (string) $payment->id;
 
         try {
@@ -57,12 +56,12 @@ final class GePayAdapter implements PaymentGatewayAdapterInterface
                 client: $client,
                 type: TransactionType::COLLECTION,
                 payload: [
-                    'amount'             => (int) round((float) $payment->amount),
-                    'phone'              => $phone,
-                    'currency'           => 'XAF',
+                    'amount' => (int) round((float) $payment->amount),
+                    'phone' => $phone,
+                    'currency' => 'XAF',
                     'external_reference' => $externalReference,
-                    'payer_message'      => 'Commande BantuDelice ' . $orderNo,
-                    'payee_note'         => 'Paiement commande',
+                    'payer_message' => 'Commande BantuDelice ' . $orderNo,
+                    'payee_note' => 'Paiement commande',
                 ],
                 idempotencyKey: $idempotencyKey,
             );
@@ -71,28 +70,28 @@ final class GePayAdapter implements PaymentGatewayAdapterInterface
             return GatewayResult::failure($e->getMessage());
         }
 
-        $status = $transaction->status;
-
-        if (in_array($status, [TransactionStatus::FAILED, TransactionStatus::CANCELLED, TransactionStatus::EXPIRED], true)) {
+        if (in_array($transaction->status, [
+            TransactionStatus::FAILED,
+            TransactionStatus::CANCELLED,
+            TransactionStatus::EXPIRED,
+        ], true)) {
             return GatewayResult::failure(
                 $transaction->failure_message ?? 'Le paiement GePay a échoué.',
                 ['gepay' => $this->gePayMeta($transaction)]
             );
         }
 
-        // created / submitted / pending / successful / unknown → réussite d'initiation
-        // unknown inclus : l'appel a peut-être atteint MTN, un retry créerait un double paiement
         return GatewayResult::success($transaction->uuid, [
-            'provider'    => 'momo',
-            'demo'        => false,
-            'amount'      => (int) $transaction->amount,
-            'currency'    => $transaction->currency,
-            'phone'       => $phone,
-            'operator'    => 'mtn',
-            'gepay'       => $this->gePayMeta($transaction),
-            'gepay_reference'      => $transaction->uuid,
-            'gepay_status'         => $transaction->status->value,
-            'provider_reference'   => $transaction->provider_reference,
+            'provider' => 'momo',
+            'demo' => false,
+            'amount' => (int) $transaction->amount,
+            'currency' => $transaction->currency,
+            'phone' => $phone,
+            'operator' => 'mtn',
+            'gepay' => $this->gePayMeta($transaction),
+            'gepay_reference' => $transaction->uuid,
+            'gepay_status' => $transaction->status->value,
+            'provider_reference' => $transaction->provider_reference,
             'instructions' => [
                 'Vous allez recevoir une notification sur votre téléphone',
                 'Entrez votre code PIN MTN MoMo pour confirmer',
@@ -102,10 +101,6 @@ final class GePayAdapter implements PaymentGatewayAdapterInterface
         ]);
     }
 
-    /**
-     * Les nouvelles transactions stockent GePayTransaction::uuid.
-     * Les transactions historiques peuvent encore contenir directement l'UUID MTN.
-     */
     public function checkStatus(string $providerReference): GatewayStatus
     {
         $transaction = GePayTransaction::where('uuid', $providerReference)->first();
@@ -136,11 +131,6 @@ final class GePayAdapter implements PaymentGatewayAdapterInterface
         return $this->mapToGatewayStatus($transaction);
     }
 
-    /**
-     * Les webhooks MTN entrent via /api/gepay/v1/webhooks/mtn.
-     * GePayAdapter ne traite pas les callbacks directs : la réconciliation
-     * passe par PaymentReconciliationService → checkStatus() → refresh().
-     */
     public function handleCallback(array $payload): GatewayStatus
     {
         return GatewayStatus::unknown('CALLBACK_ROUTED_TO_GEPAY', [
@@ -150,9 +140,7 @@ final class GePayAdapter implements PaymentGatewayAdapterInterface
 
     public function verifySignature(array $payload): bool
     {
-        // Durci dans un correctif séparé : aucun callback MTN brut ne doit être
-        // accepté par la route historique lorsque GePay est actif.
-        return true;
+        return false;
     }
 
     private function mapToGatewayStatus(GePayTransaction $transaction): GatewayStatus
@@ -160,47 +148,32 @@ final class GePayAdapter implements PaymentGatewayAdapterInterface
         $meta = ['gepay' => $this->gePayMeta($transaction)];
 
         return match ($transaction->status) {
-            TransactionStatus::SUCCESSFUL =>
-                GatewayStatus::paid($meta, 'SUCCESSFUL'),
-
-            TransactionStatus::FAILED =>
-                GatewayStatus::failed('FAILED', $transaction->failure_code, null, $meta),
-
-            TransactionStatus::CANCELLED =>
-                GatewayStatus::failed('CANCELLED', $transaction->failure_code, null, $meta),
-
-            TransactionStatus::EXPIRED =>
-                GatewayStatus::failed('EXPIRED', $transaction->failure_code, null, $meta),
-
-            TransactionStatus::REVERSED =>
-                GatewayStatus::failed('REVERSED', null, null, [
-                    ...$meta,
-                    'financial_reversal' => true,
-                    'gepay_status'       => 'reversed',
-                ]),
-
-            TransactionStatus::REFUNDED =>
-                GatewayStatus::failed('REFUNDED', null, null, [
-                    ...$meta,
-                    'financial_reversal' => true,
-                    'gepay_status'       => 'refunded',
-                ]),
-
-            TransactionStatus::UNKNOWN =>
-                GatewayStatus::unknown('UNKNOWN', $meta),
-
-            default => // created / submitted / pending
-                GatewayStatus::pending($transaction->status->value, $meta),
+            TransactionStatus::SUCCESSFUL => GatewayStatus::paid($meta, 'SUCCESSFUL'),
+            TransactionStatus::FAILED => GatewayStatus::failed('FAILED', $transaction->failure_code, null, $meta),
+            TransactionStatus::CANCELLED => GatewayStatus::failed('CANCELLED', $transaction->failure_code, null, $meta),
+            TransactionStatus::EXPIRED => GatewayStatus::failed('EXPIRED', $transaction->failure_code, null, $meta),
+            TransactionStatus::REVERSED => GatewayStatus::failed('REVERSED', null, null, [
+                ...$meta,
+                'financial_reversal' => true,
+                'gepay_status' => 'reversed',
+            ]),
+            TransactionStatus::REFUNDED => GatewayStatus::failed('REFUNDED', null, null, [
+                ...$meta,
+                'financial_reversal' => true,
+                'gepay_status' => 'refunded',
+            ]),
+            TransactionStatus::UNKNOWN => GatewayStatus::unknown('UNKNOWN', $meta),
+            default => GatewayStatus::pending($transaction->status->value, $meta),
         };
     }
 
     private function gePayMeta(GePayTransaction $transaction): array
     {
         return [
-            'reference'          => $transaction->uuid,
+            'reference' => $transaction->uuid,
             'provider_reference' => $transaction->provider_reference,
-            'provider'           => $transaction->provider,
-            'status'             => $transaction->status->value,
+            'provider' => $transaction->provider,
+            'status' => $transaction->status->value,
         ];
     }
 }
