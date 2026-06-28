@@ -8,6 +8,7 @@ $envBool = static fn (string $key, bool $default = false): bool => filter_var(
 return [
     'enabled' => $envBool('GEPAY_ENABLED', true),
     'signature_tolerance_seconds' => (int) env('GEPAY_SIGNATURE_TOLERANCE_SECONDS', 300),
+    'submission_claim_timeout_seconds' => (int) env('GEPAY_SUBMISSION_CLAIM_TIMEOUT_SECONDS', 120),
     'default_provider' => env('GEPAY_DEFAULT_PROVIDER', 'mtn_momo'),
 
     'internal_client_uuid' => env('GEPAY_INTERNAL_CLIENT_UUID'),
