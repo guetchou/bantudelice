@@ -9,22 +9,13 @@ jobs:
     name: ${{ matrix.suite }} / ${{ matrix.db }}
     runs-on: ubuntu-latest
     services:
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd="redis-cli ping"
-          --health-interval=5s
-          --health-timeout=3s
-          --health-retries=10
       mysql:
         image: mysql:8.0
         env:
           MYSQL_DATABASE: bantudelice_testing
           MYSQL_ROOT_PASSWORD: root
         ports:
-          - 3306:3306
+          - 33306:3306
         options: >-
           --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
           --health-interval=5s
@@ -57,16 +48,25 @@ jobs:
             db: mysql
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-      - uses: shivammathur/setup-php@cf4cade2721270509d5b1c766ab3549210a39a2a
+      - name: Setup PHP 8.3
+        uses: shivammathur/setup-php@v2
         with:
           php-version: '8.3'
-          extensions: pdo, pdo_mysql, pdo_sqlite, redis, mbstring, xml, ctype, json, tokenizer, bcmath, openssl, fileinfo
+          extensions: mbstring, xml, curl, sqlite3, pdo_sqlite, mysql, bcmath, intl, zip, gd
           coverage: none
+          tools: composer:v2
+
+      - name: Verify GitHub-hosted toolchain
+        run: |
+          set -euo pipefail
+          php -v | grep -q 'PHP 8.3'
+          composer --version
+          docker version >/dev/null
       - name: Prepare Laravel
         run: |
           mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/framework/testing storage/logs
           if [ "${{ matrix.db }}" = "mysql" ]; then
-            printf '%s\n' 'APP_ENV=testing' 'APP_KEY=' 'APP_URL=http://localhost' 'DB_CONNECTION=mysql' 'DB_HOST=127.0.0.1' 'DB_PORT=3306' 'DB_DATABASE=bantudelice_testing' 'DB_USERNAME=root' 'DB_PASSWORD=root' 'CACHE_DRIVER=array' 'SESSION_DRIVER=array' 'QUEUE_CONNECTION=sync' 'BROADCAST_DRIVER=log' 'REDIS_HOST=127.0.0.1' 'REDIS_PORT=6379' > .env
+            printf '%s\n' 'APP_ENV=testing' 'APP_KEY=' 'APP_URL=http://localhost' 'DB_CONNECTION=mysql' 'DB_HOST=127.0.0.1' 'DB_PORT=33306' 'DB_DATABASE=bantudelice_testing' 'DB_USERNAME=root' 'DB_PASSWORD=root' 'CACHE_DRIVER=array' 'SESSION_DRIVER=array' 'QUEUE_CONNECTION=sync' 'BROADCAST_DRIVER=log' 'REDIS_HOST=127.0.0.1' 'REDIS_PORT=6379' > .env
           else
             printf '%s\n' 'APP_ENV=testing' 'APP_KEY=' 'APP_URL=http://localhost' 'DB_CONNECTION=sqlite' 'DB_DATABASE=:memory:' 'CACHE_DRIVER=array' 'SESSION_DRIVER=array' 'QUEUE_CONNECTION=sync' 'BROADCAST_DRIVER=log' 'REDIS_HOST=127.0.0.1' 'REDIS_PORT=6379' > .env
           fi

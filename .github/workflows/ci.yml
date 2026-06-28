@@ -1,0 +1,134 @@
+name: BantuDelice CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          fetch-depth: 0
+
+      - name: Setup PHP 8.3
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, xml, curl, sqlite3, pdo_sqlite, mysql, bcmath, intl, zip, gd
+          coverage: none
+          tools: composer:v2
+
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install YAML parser
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-yaml
+
+      - name: Verify GitHub-hosted toolchain
+        run: |
+          set -euo pipefail
+          php -v | grep -q 'PHP 8.3'
+          composer --version
+          node --version | grep -Eq '^v20\.'
+          npm --version
+          python3 -c 'import yaml'
+
+      - name: Validate scripts and workflows
+        run: |
+          bash -n scripts/ci/verify_frontend_build.sh
+          bash -n scripts/deploy/production.sh
+          bash -n scripts/deploy/rollback.sh
+          python3 - <<'PY'
+          import pathlib, yaml
+          for path in [
+              '.github/workflows/ci.yml',
+              '.github/workflows/deploy.yml',
+              '.github/workflows/deploy-staging.yml',
+              '.github/workflows/frontend-quality.yml',
+          ]:
+              yaml.safe_load(pathlib.Path(path).read_text(encoding='utf-8'))
+              print(f'{path}: YAML valide')
+          PY
+
+      - name: Validate Composer
+        run: composer validate --strict
+
+      - name: Prepare test environment
+        run: |
+          mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/framework/testing storage/logs database
+          rm -f database/testing.sqlite
+          touch database/testing.sqlite
+          chmod -R 775 storage
+          cat > .env <<'ENVEOF'
+          APP_NAME=BantuDelice
+          APP_ENV=testing
+          APP_KEY=
+          APP_DEBUG=false
+          APP_URL=http://localhost
+          LOG_CHANNEL=stack
+          DB_CONNECTION=sqlite
+          DB_DATABASE=database/testing.sqlite
+          CACHE_DRIVER=array
+          SESSION_DRIVER=array
+          QUEUE_CONNECTION=sync
+          MAIL_MAILER=array
+          BROADCAST_DRIVER=log
+          GEPAY_REQUIRE_NONCE=false
+          ENVEOF
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist --optimize-autoloader
+
+      - name: Prepare Laravel
+        run: |
+          php artisan key:generate --ansi
+          php artisan passport:keys --force
+          php artisan optimize:clear
+
+      - name: PHP syntax
+        run: find app config database routes tests -name '*.php' -print0 | xargs -0 -n1 php -l
+
+      - name: Migrations
+        run: |
+          php artisan migrate:fresh --force
+          php artisan migrate:status
+
+      - name: Tests
+        run: php artisan test
+
+      - name: Laravel checks
+        run: |
+          php artisan route:list > /dev/null
+          php artisan schedule:list > /dev/null
+          php artisan config:cache
+          php artisan config:clear
+
+      - name: Frontend build
+        run: MIN_NODE_MAJOR=20 REQUIRE_EXACT_NODE_MAJOR=1 bash scripts/ci/verify_frontend_build.sh
+
+      - name: Repository guards
+        run: |
+          bash scripts/check_restaurant_legacy_assets.sh
+          ! git ls-files | grep -qx '.env'
+          ! git ls-files | grep -q '^storage/'
+
+      - name: Record verified SHA
+        run: echo "VERIFIED_SHA=${{ github.sha }}" >> "$GITHUB_STEP_SUMMARY"
