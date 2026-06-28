@@ -29,10 +29,14 @@ final class GePayAdapter implements PaymentGatewayAdapterInterface
 
     public function initiate(Payment $payment, array $context): GatewayResult
     {
-        $phone = trim((string) SmsService::normalizePhone(data_get($context, 'phone', '')));
-
-        if ($phone === '') {
+        $rawPhone = trim((string) data_get($context, 'phone', ''));
+        if ($rawPhone === '') {
             return GatewayResult::failure('Numéro de téléphone manquant pour le paiement GePay.');
+        }
+
+        $phone = trim((string) SmsService::normalizePhone($rawPhone));
+        if ($phone === '') {
+            return GatewayResult::failure('Numéro de téléphone invalide pour le paiement GePay.');
         }
 
         try {

@@ -78,9 +78,13 @@ class PartnerWithdrawalService
                 }
 
                 $useGePay    = config('gepay.bantudelice.withdrawals_enabled', false);
-                $externalRef = $useGePay ? null : 'WD-' . strtoupper(Str::random(12)) . '-' . time();
+                $uuid        = (string) Str::uuid();
+                $externalRef = $useGePay
+                    ? 'WITHDRAWAL-' . $uuid
+                    : 'WD-' . strtoupper(Str::random(12)) . '-' . time();
 
                 return PartnerWithdrawal::create([
+                    'uuid'              => $uuid,
                     'partner_type'      => $partnerType,
                     'partner_id'        => $partnerId,
                     'operator'          => $operator,
@@ -188,11 +192,9 @@ class PartnerWithdrawalService
             return $this->formatResponse($withdrawal->fresh());
         }
 
-        $gePayExternalRef = 'WITHDRAWAL-' . $withdrawal->uuid;
+        // external_reference est déjà 'WITHDRAWAL-{uuid}' depuis la création
+        $gePayExternalRef = $withdrawal->external_reference;
         $gePayIdemKey     = 'partner-withdrawal:' . $withdrawal->uuid . ':disbursement';
-
-        // Mettre à jour l'external_reference avec la valeur GePay déterministe
-        $withdrawal->update(['external_reference' => $gePayExternalRef]);
 
         try {
             $transaction = $this->gePayGateway->initiate(

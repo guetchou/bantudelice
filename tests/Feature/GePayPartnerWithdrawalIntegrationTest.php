@@ -204,7 +204,7 @@ class GePayPartnerWithdrawalIntegrationTest extends TestCase
             'net_amount'         => $amount,
             'currency'           => 'XAF',
             'status'             => 'reserved',
-            'external_reference' => $provider === 'gepay' ? null : 'WD-LEGACY-001',
+            'external_reference' => $provider === 'gepay' ? 'WITHDRAWAL-' . $uuid : 'WD-LEGACY-001',
             'idempotency_key'    => 'wd-test-' . Str::random(8),
             'source'             => 'self_service',
             'initiated_at'       => now(),
