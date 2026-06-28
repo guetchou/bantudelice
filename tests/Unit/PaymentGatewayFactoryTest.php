@@ -16,6 +16,8 @@ class PaymentGatewayFactoryTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        // GePay flag off so these tests validate direct MTN/Airtel routing
+        config(['gepay.bantudelice.collections_enabled' => false]);
         $this->factory = $this->app->make(PaymentGatewayFactory::class);
     }
 

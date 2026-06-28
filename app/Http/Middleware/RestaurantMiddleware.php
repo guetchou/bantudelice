@@ -29,7 +29,8 @@ class RestaurantMiddleware
         [$restaurant, $membership, $role, $permissions] = $this->resolveRestaurantContext($user);
 
         if (! $restaurant) {
-            return $this->deny($request, 'Aucun restaurant actif n’est associé à ce compte.', 403);
+            return redirect()->route('restaurant.dashboard')
+                ->with('alert', ['type' => 'warning', 'message' => "Aucun restaurant actif n'est associé à ce compte."]);
         }
 
         $user->setRelation('restaurant', $restaurant);
