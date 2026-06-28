@@ -119,7 +119,7 @@ class FoodOrderNotificationService
         return match ($businessStatus) {
             'accepted'                      => 'confirmed',
             'in_kitchen'                    => 'preparing',
-            'ready_for_pickup', 'driver_assigned' => 'ready',
+            'ready_for_pickup', 'driver_assigned', 'driver_arrived_at_restaurant' => 'ready',
             'picked_up'                     => 'picked_up',
             'out_for_delivery'              => 'on_the_way',
             'delivered'                     => 'delivered',
@@ -190,6 +190,11 @@ class FoodOrderNotificationService
             'driver_assigned' => [
                 'user'   => ['Livreur assigné', "Un livreur a été assigné à votre commande #{$order->order_no}."],
                 'driver' => ['Nouvelle mission', "Une livraison vous a été assignée pour la commande #{$order->order_no}."],
+            ],
+            'driver_arrived_at_restaurant' => [
+                'user'       => ['Livreur au restaurant', "Votre livreur est arrivé au restaurant pour la commande #{$order->order_no}."],
+                'restaurant' => ['Livreur arrivé', "Le livreur est arrivé pour récupérer la commande #{$order->order_no}."],
+                'driver'     => ['Arrivée enregistrée', "Votre arrivée au restaurant est enregistrée pour la commande #{$order->order_no}."],
             ],
             'picked_up' => [
                 'user' => ['Commande récupérée', "Le livreur a récupéré votre commande #{$order->order_no}."],

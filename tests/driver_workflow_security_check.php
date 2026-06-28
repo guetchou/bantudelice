@@ -35,8 +35,8 @@ $contains($routes, 'driver/offers/{delivery}/accept', 'La route mobile d’accep
 
 $apiController = $source('app/Http/Controllers/Api/DriverDeliveriesController.php');
 $webController = $source('app/Http/Controllers/DriverDeliveriesController.php');
-$contains($apiController, 'required|in:PICKED_UP,ON_THE_WAY,DELIVERED', 'L’API livreur autorise un statut interdit.');
-$contains($webController, 'required|in:PICKED_UP,ON_THE_WAY,DELIVERED', 'Le portail livreur autorise un statut interdit.');
+$contains($apiController, 'required|in:ARRIVED_AT_RESTAURANT,PICKED_UP,ON_THE_WAY,DELIVERED', 'L’API livreur autorise un statut interdit.');
+$contains($webController, 'required|in:ARRIVED_AT_RESTAURANT,PICKED_UP,ON_THE_WAY,DELIVERED', 'Le portail livreur autorise un statut interdit.');
 $notContains($apiController, "'customer_confirmed' => \$request", 'Le livreur peut encore fabriquer une confirmation client via API.');
 $notContains($webController, "'customer_confirmed' => \$request", 'Le livreur peut encore fabriquer une confirmation client via le portail.');
 $notContains($webController, "'delivery_otp_code' =>", 'Le code OTP est encore exposé au livreur.');

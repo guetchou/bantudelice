@@ -95,6 +95,10 @@ class SecureDeliveryService extends DeliveryService
 
     public function updateStatus(Delivery $delivery, string $status, array $context = []): Delivery
     {
+        if ($status === 'ARRIVED_AT_RESTAURANT') {
+            return $this->markArrivedAtRestaurant($delivery, $context);
+        }
+
         $allowedStatuses = ['ASSIGNED', 'PICKED_UP', 'ON_THE_WAY', 'DELIVERED', 'CANCELLED'];
         if (! in_array($status, $allowedStatuses, true)) {
             throw new \RuntimeException('Statut invalide : ' . $status);
