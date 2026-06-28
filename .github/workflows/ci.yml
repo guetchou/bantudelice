@@ -41,6 +41,10 @@ jobs:
           bash -n scripts/ci/verify_frontend_build.sh
           bash -n scripts/deploy/production.sh
           bash -n scripts/deploy/rollback.sh
+          if ! python3 -m pip --version >/dev/null 2>&1; then
+            sudo apt-get update
+            sudo apt-get install -y python3-pip
+          fi
           python3 -m pip install --quiet pyyaml
           python3 - <<'PY'
           import pathlib, yaml
