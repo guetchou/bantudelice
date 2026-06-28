@@ -27,11 +27,13 @@ jobs:
 
       - name: Validate workflow YAML
         run: |
-          if ! python3 -m pip --version >/dev/null 2>&1; then
+          if ! python3 - <<'PY'
+          import yaml
+          PY
+          then
             sudo apt-get update
-            sudo apt-get install -y python3-pip
+            sudo apt-get install -y python3-yaml
           fi
-          python3 -m pip install --quiet pyyaml
           python3 - <<'PY'
           import yaml
           for path in [
