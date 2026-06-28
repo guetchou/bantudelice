@@ -4,20 +4,36 @@ namespace Tests\Feature;
 
 use App\Domain\GePay\Enums\TransactionStatus;
 use App\Domain\GePay\Enums\TransactionType;
+use App\Domain\GePay\Models\GePayClient;
 use App\Domain\GePay\Models\GePayTransaction;
 use App\Domain\GePay\Services\MtnMomoProvider;
+use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class GePayMtnTokenHeaderTest extends TestCase
 {
+    use RefreshDatabase;
+
+    private GePayClient $client;
+
     protected function setUp(): void
     {
         parent::setUp();
 
         Cache::flush();
+
+        $this->client = GePayClient::create([
+            'uuid'         => (string) Str::uuid(),
+            'name'         => 'Token Header Test',
+            'api_key'      => 'gpk_token_header_test',
+            'api_secret'   => Str::random(64),
+            'capabilities' => ['collection', 'disbursement'],
+            'is_active'    => true,
+        ]);
         config([
             'gepay.providers.mtn_momo.enabled' => true,
             'gepay.providers.mtn_momo.environment' => 'production',
@@ -79,16 +95,20 @@ class GePayMtnTokenHeaderTest extends TestCase
 
     private function transaction(TransactionType $type): GePayTransaction
     {
-        $transaction = new GePayTransaction();
-        $transaction->forceFill([
-            'type' => $type,
-            'amount' => 500,
-            'currency' => 'XAF',
-            'phone' => '242061234567',
+        return GePayTransaction::create([
+            'uuid'               => (string) Str::uuid(),
+            'client_id'          => $this->client->id,
+            'type'               => $type,
+            'provider'           => 'mtn_momo',
             'external_reference' => 'TEST-'.strtoupper($type->value),
-            'metadata' => [],
+            'idempotency_key'    => 'token-header-'.strtolower($type->value),
+            'request_hash'       => hash('sha256', 'TEST-'.strtoupper($type->value)),
+            'amount'             => 500,
+            'currency'           => 'XAF',
+            'phone'              => '242061234567',
+            'phone_masked'       => '242••••567',
+            'status'             => TransactionStatus::CREATED,
+            'metadata'           => [],
         ]);
-
-        return $transaction;
     }
 }

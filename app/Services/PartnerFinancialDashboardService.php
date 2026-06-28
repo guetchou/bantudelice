@@ -126,8 +126,8 @@ class PartnerFinancialDashboardService
         float $pendingPayouts,
         array $overrides = []
     ): array {
-        $net = max($gross - $commission, 0);
-        $available = max($net - $alreadyPaid - $pendingPayouts, 0);
+        $net = (float) max($gross - $commission, 0);
+        $available = (float) max($net - $alreadyPaid - $pendingPayouts, 0);
 
         $cards = [
             [
