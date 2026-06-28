@@ -1,9 +1,6 @@
 name: Deploy Staging
 
 on:
-  workflow_run:
-    workflows: ["BantuDelice CI"]
-    types: [completed]
   workflow_dispatch:
     inputs:
       sha:
@@ -20,11 +17,6 @@ permissions:
 
 jobs:
   deploy:
-    if: >-
-      github.event_name == 'workflow_dispatch' ||
-      (github.event.workflow_run.conclusion == 'success' &&
-       github.event.workflow_run.head_branch == 'main' &&
-       github.event.workflow_run.event == 'push')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     environment: staging
@@ -43,9 +35,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          if [ "${{ github.event_name }}" = "workflow_run" ]; then
-            SHA="${{ github.event.workflow_run.head_sha }}"
-          elif [ -n "${{ inputs.sha }}" ]; then
+          if [ -n "${{ inputs.sha }}" ]; then
             SHA="${{ inputs.sha }}"
           else
             SHA=$(git rev-parse origin/main)
