@@ -68,25 +68,48 @@ class GePayRollbackTest extends TestCase
 
         $gePayUuid = $result->providerReference;
 
-        // Simuler un rollback : désactiver le flag
         config(['gepay.bantudelice.collections_enabled' => false]);
 
-        // La transaction GePay existante reste réconciliable via checkStatus direct
         $status = $adapter->checkStatus($gePayUuid);
         $this->assertArrayHasKey('gepay', $status->meta);
         $this->assertSame($gePayUuid, $status->meta['gepay']['reference']);
     }
 
-    public function test_old_payments_with_mtn_ref_not_broken_by_gepay_activation(): void
+    public function test_old_mtn_reference_is_reconciled_while_gepay_flag_is_enabled(): void
     {
-        // Un ancien Payment avec provider_reference = UUID MTN (pas GePay)
-        // doit toujours être reconcilié via MtnMomoAdapter sans planter
-        config(['gepay.bantudelice.collections_enabled' => false]);
+        $legacyReference = '3bd47b87-28f8-4f9d-84c8-f537efb5068c';
 
-        $mtnAdapter = app(MtnMomoAdapter::class);
-        $status     = $mtnAdapter->checkStatus('DEMO-mtn-old-ref-12345');
+        config([
+            'gepay.bantudelice.collections_enabled' => true,
+            'external-services.payments.mtn_momo.enabled' => true,
+            'external-services.payments.mtn_momo.environment' => 'sandbox',
+            'external-services.payments.mtn_momo.target_environment' => 'sandbox',
+            'external-services.payments.mtn_momo.base_url.sandbox' => 'https://legacy-mtn.test',
+            'external-services.payments.mtn_momo.collections' => [
+                'subscription_key' => 'legacy-sub',
+                'api_user' => 'legacy-user',
+                'api_key' => 'legacy-key',
+            ],
+        ]);
 
-        $this->assertNotNull($status->status);
+        Http::fake([
+            'https://legacy-mtn.test/collection/token/' => Http::response([
+                'access_token' => 'legacy-token',
+                'expires_in' => 3600,
+            ], 200),
+            'https://legacy-mtn.test/collection/v1_0/requesttopay/'.$legacyReference => Http::response([
+                'status' => 'SUCCESSFUL',
+            ], 200),
+        ]);
+
+        $adapter = app(PaymentGatewayFactory::class)->for('momo');
+        $this->assertInstanceOf(GePayAdapter::class, $adapter);
+
+        $status = $adapter->checkStatus($legacyReference);
+
+        $this->assertTrue($status->isPaid());
+        $this->assertTrue($status->meta['legacy_mtn_fallback'] ?? false);
+        $this->assertSame($legacyReference, $status->meta['provider_reference'] ?? null);
     }
 
     public function test_client_isolation_between_gepay_clients(): void
@@ -109,7 +132,6 @@ class GePayRollbackTest extends TestCase
             'is_active'    => true,
         ]);
 
-        // L'internal resolver retourne toujours le client configuré
         config(['gepay.internal_client_uuid' => $client1->uuid]);
         $resolved = app(\App\Domain\GePay\Services\GePayInternalClientResolver::class)->resolve();
         $this->assertSame($client1->uuid, $resolved->uuid);
