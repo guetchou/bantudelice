@@ -16,19 +16,22 @@ permissions:
 
 jobs:
   integrity-tests:
-    runs-on: self-hosted
+    runs-on: [self-hosted, ci, isolated]
     timeout-minutes: 15
 
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 
-      - name: Setup PHP 8.3
-        uses: shivammathur/setup-php@cf4cade2721270509d5b1c766ab3549210a39a2a
-        with:
-          php-version: '8.3'
-          extensions: mbstring, dom, fileinfo, sqlite, pdo_sqlite, gd, curl, intl, xml, zip
-          coverage: none
+      - name: Verify isolated runner toolchain
+        run: |
+          set -euo pipefail
+          php -v | grep -q 'PHP 8.3'
+          composer --version
+          if sudo -n true 2>/dev/null; then
+            echo 'Le runner CI ne doit pas disposer de sudo sans mot de passe.'
+            exit 1
+          fi
 
       - name: Validate PHP syntax
         run: |
