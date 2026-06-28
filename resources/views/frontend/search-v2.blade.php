@@ -330,7 +330,7 @@
                 @endif
             </aside>
 
-            <main id="searchResults" class="search-results" tabindex="-1">
+            <div id="searchResults" class="search-results" tabindex="-1" role="region" aria-label="Résultats de recherche">
                 <div class="search-results-toolbar">
                     <div>
                         <div class="search-results-kicker">Catalogue BantuDelice</div>
@@ -516,7 +516,7 @@
                         </div>
                     </section>
                 @endif
-            </main>
+            </div>
         </div>
     </div>
 </section>
