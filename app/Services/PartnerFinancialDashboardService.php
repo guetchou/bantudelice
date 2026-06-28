@@ -31,7 +31,8 @@ class PartnerFinancialDashboardService
             ->sum('payout_amount');
         $pendingPayouts += (float) DB::table('partner_withdrawals')
             ->where('partner_type', 'restaurant')->where('partner_id', $restaurant->id)
-            ->whereIn('status', ['created', 'reserved', 'submitted', 'pending'])->sum('net_amount');
+            ->whereIn('status', ['created', 'reserved', 'submitted', 'pending', 'unknown'])
+            ->sum('net_amount');
 
         return $this->buildDashboard(
             $gross,
@@ -79,7 +80,8 @@ class PartnerFinancialDashboardService
             ->sum('payout_amount');
         $pendingPayouts += (float) DB::table('partner_withdrawals')
             ->where('partner_type', 'driver')->where('partner_id', $driver->id)
-            ->whereIn('status', ['created', 'reserved', 'submitted', 'pending'])->sum('net_amount');
+            ->whereIn('status', ['created', 'reserved', 'submitted', 'pending', 'unknown'])
+            ->sum('net_amount');
 
         return $this->buildDashboard(
             $gross,
