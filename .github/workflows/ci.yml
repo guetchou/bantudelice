@@ -65,7 +65,9 @@ jobs:
 
       - name: Prepare test environment
         run: |
-          mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/framework/testing storage/logs
+          mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/framework/testing storage/logs database
+          rm -f database/testing.sqlite
+          touch database/testing.sqlite
           chmod -R 775 storage
           cat > .env <<'ENVEOF'
           APP_NAME=BantuDelice
@@ -75,7 +77,7 @@ jobs:
           APP_URL=http://localhost
           LOG_CHANNEL=stack
           DB_CONNECTION=sqlite
-          DB_DATABASE=:memory:
+          DB_DATABASE=database/testing.sqlite
           CACHE_DRIVER=array
           SESSION_DRIVER=array
           QUEUE_CONNECTION=sync
