@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Domain\GePay\Enums\TransactionStatus;
 use App\Domain\GePay\Enums\TransactionType;
+use App\Domain\GePay\Models\GePayClient;
 use App\Domain\GePay\Models\GePayTransaction;
 use App\Domain\GePay\Services\GePayGateway;
 use App\Domain\GePay\Services\GePayInternalClientResolver;
@@ -23,7 +24,8 @@ final class GePayWithdrawalReconciler
             return $withdrawal;
         }
 
-        $transaction = $this->findTransaction($withdrawal);
+        $client = $this->resolveClient($withdrawal);
+        $transaction = $client ? $this->findTransaction($withdrawal, $client) : null;
 
         if (! $transaction) {
             $metadata = array_merge($withdrawal->metadata ?? [], [
@@ -63,21 +65,10 @@ final class GePayWithdrawalReconciler
         return $withdrawal->fresh();
     }
 
-    private function findTransaction(PartnerWithdrawal $withdrawal): ?GePayTransaction
+    private function resolveClient(PartnerWithdrawal $withdrawal): ?GePayClient
     {
-        if ($withdrawal->provider_reference) {
-            $byUuid = GePayTransaction::query()
-                ->where('uuid', $withdrawal->provider_reference)
-                ->where('type', TransactionType::DISBURSEMENT->value)
-                ->first();
-
-            if ($byUuid) {
-                return $byUuid;
-            }
-        }
-
         try {
-            $client = $this->clientResolver->resolve();
+            return $this->clientResolver->resolve();
         } catch (\Throwable $exception) {
             Log::warning('GePayWithdrawalReconciler: client interne indisponible', [
                 'withdrawal_id' => $withdrawal->id,
@@ -85,6 +76,23 @@ final class GePayWithdrawalReconciler
             ]);
 
             return null;
+        }
+    }
+
+    private function findTransaction(
+        PartnerWithdrawal $withdrawal,
+        GePayClient $client
+    ): ?GePayTransaction {
+        if ($withdrawal->provider_reference) {
+            $byUuid = GePayTransaction::query()
+                ->where('client_id', $client->id)
+                ->where('uuid', $withdrawal->provider_reference)
+                ->where('type', TransactionType::DISBURSEMENT->value)
+                ->first();
+
+            if ($byUuid) {
+                return $byUuid;
+            }
         }
 
         return GePayTransaction::query()
