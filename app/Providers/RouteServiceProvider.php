@@ -27,6 +27,7 @@ class RouteServiceProvider extends ServiceProvider
         $this->mapAdminCashRoutes();
         $this->mapAdminReportRoutes();
         $this->mapRestaurantStaffRoutes();
+        $this->mapCatalogSearchRoutes();
     }
 
     protected function mapWebRoutes()
@@ -72,6 +73,12 @@ class RouteServiceProvider extends ServiceProvider
     {
         Route::middleware('web')
             ->group(base_path('routes/restaurant-staff.php'));
+    }
+
+    protected function mapCatalogSearchRoutes()
+    {
+        Route::middleware('web')
+            ->group(base_path('routes/search.php'));
     }
 
     protected function mapApiRoutes()

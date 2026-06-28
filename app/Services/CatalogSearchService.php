@@ -28,6 +28,10 @@ class CatalogSearchService
             ->withCount('ratings')
             ->withAvg('ratings', 'rating');
 
+        if (Schema::hasColumn('restaurants', 'approved')) {
+            $builder->where('approved', true);
+        }
+
         if (!empty($filters['city'])) {
             $builder->where('city', 'like', '%' . $filters['city'] . '%');
         }
@@ -66,6 +70,13 @@ class CatalogSearchService
 
         $restaurants = $builder->limit($candidateLimit)->get();
 
+        if (isset($filters['min_rating']) && $filters['min_rating'] !== '') {
+            $minimumRating = (float) $filters['min_rating'];
+            $restaurants = $restaurants
+                ->filter(fn ($restaurant) => (float) ($restaurant->ratings_avg_rating ?? 0) >= $minimumRating)
+                ->values();
+        }
+
         return $this->ranking->rankRestaurants($restaurants, array_merge($filters, [
             'query' => $queryText,
             'limit' => $limit,
@@ -85,6 +96,10 @@ class CatalogSearchService
                 $q->whereNull('is_available')
                     ->orWhere('is_available', true);
             });
+        }
+
+        if (Schema::hasColumn('restaurants', 'approved')) {
+            $builder->whereHas('restaurants', fn ($q) => $q->where('approved', true));
         }
 
         if (!empty($filters['restaurant_id'])) {
@@ -120,7 +135,14 @@ class CatalogSearchService
         if ($queryText !== '') {
             $builder->where(function ($q) use ($queryText) {
                 $q->where('name', 'like', '%' . $queryText . '%')
-                    ->orWhere('description', 'like', '%' . $queryText . '%');
+                    ->orWhere('description', 'like', '%' . $queryText . '%')
+                    ->orWhereHas('restaurants', function ($restaurantQuery) use ($queryText) {
+                        $restaurantQuery->where('name', 'like', '%' . $queryText . '%')
+                            ->orWhere('city', 'like', '%' . $queryText . '%');
+                    })
+                    ->orWhereHas('categories', function ($categoryQuery) use ($queryText) {
+                        $categoryQuery->where('name', 'like', '%' . $queryText . '%');
+                    });
             });
         }
 
@@ -131,8 +153,6 @@ class CatalogSearchService
             'limit' => $limit,
         ]));
     }
-
-    // Backward-compatibility delegates — callers (IndexController) keep working unchanged
 
     public function rankRestaurants(Collection $restaurants, array $context = []): Collection
     {

@@ -25,12 +25,19 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Setup PHP
+      - name: Setup PHP 8.3
         uses: shivammathur/setup-php@v2
         with:
-          php-version: '8.2'
-          extensions: mbstring, xml, ctype, json, tokenizer, fileinfo, openssl
+          php-version: '8.3'
+          extensions: mbstring, xml, curl, sqlite3, pdo_sqlite, mysql, bcmath, intl, zip, gd
           coverage: none
+          tools: composer:v2
+
+      - name: Verify GitHub-hosted toolchain
+        run: |
+          set -euo pipefail
+          php -v | grep -q 'PHP 8.3'
+          composer --version
 
       - name: Validate Composer metadata
         run: composer validate --no-check-publish
