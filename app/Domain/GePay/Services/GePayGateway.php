@@ -97,14 +97,26 @@ class GePayGateway
         }
 
         if ($transaction->status === TransactionStatus::SUBMITTED && ! $transaction->provider_reference) {
+            $claimTimeout = max(30, (int) config('gepay.submission_claim_timeout_seconds', 120));
+            $staleBefore = now()->subSeconds($claimTimeout);
+
+            $isStale = ! $transaction->submitted_at || $transaction->submitted_at->lte($staleBefore);
+            if (! $isStale) {
+                return $transaction;
+            }
+
             $reset = GePayTransaction::query()
                 ->whereKey($transaction->id)
                 ->where('status', TransactionStatus::SUBMITTED->value)
                 ->whereNull('provider_reference')
+                ->where(function ($query) use ($staleBefore) {
+                    $query->whereNull('submitted_at')
+                        ->orWhere('submitted_at', '<=', $staleBefore);
+                })
                 ->update([
                     'status' => TransactionStatus::CREATED->value,
-                    'failure_code' => 'SUBMISSION_NOT_STARTED',
-                    'failure_message' => 'La soumission fournisseur n’a pas commencé. Nouvelle tentative autorisée.',
+                    'failure_code' => 'STALE_SUBMISSION_CLAIM',
+                    'failure_message' => 'Le processus de soumission a expiré avant l’enregistrement de la référence fournisseur.',
                     'updated_at' => now(),
                 ]);
 
@@ -112,7 +124,7 @@ class GePayGateway
                 return $this->claimAndInitiate($transaction->fresh(), $this->provider($transaction->provider));
             }
 
-            $transaction = $transaction->fresh();
+            return $transaction->fresh();
         }
 
         try {
