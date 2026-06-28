@@ -31,7 +31,9 @@ jobs:
           python3 - <<'PY'
           import yaml
           for path in [
+              '.github/workflows/ci.yml',
               '.github/workflows/deploy.yml',
+              '.github/workflows/deploy-staging.yml',
               '.github/workflows/frontend-quality.yml',
           ]:
               with open(path, encoding='utf-8') as handle:
