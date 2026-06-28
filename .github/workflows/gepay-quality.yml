@@ -1,0 +1,66 @@
+name: GePay Quality
+
+on:
+  pull_request:
+    paths:
+      - 'app/Domain/GePay/**'
+      - 'app/Domain/Payment/Adapters/GePayAdapter.php'
+      - 'app/Http/Middleware/AuthenticateGePayClient.php'
+      - 'app/Services/GePayWithdrawalReconciler.php'
+      - 'app/Services/ResilientPartnerWithdrawalService.php'
+      - 'app/Services/PartnerFinancialDashboardService.php'
+      - 'app/Console/Commands/GePay*.php'
+      - 'config/gepay.php'
+      - 'routes/gepay.php'
+      - 'tests/**/GePay*Test.php'
+      - '.github/workflows/gepay-quality.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gepay-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, intl, bcmath, sqlite3, pdo_sqlite
+          coverage: none
+          tools: composer:v2
+
+      - name: Cache Composer packages
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: ${{ runner.os }}-php83-${{ hashFiles('composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-php83-
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Prepare application
+        run: |
+          cp .env.example .env
+          php artisan key:generate
+          php artisan optimize:clear
+
+      - name: Validate PHP syntax
+        run: |
+          find app/Domain/GePay app/Http/Controllers/Api/GePay app/Console/Commands \
+            -name '*.php' -print0 | xargs -0 -n1 php -l
+          php -l app/Domain/Payment/Adapters/GePayAdapter.php
+          php -l app/Http/Middleware/AuthenticateGePayClient.php
+          php -l app/Services/GePayWithdrawalReconciler.php
+          php -l app/Services/ResilientPartnerWithdrawalService.php
+
+      - name: Run GePay tests
+        run: php artisan test --filter=GePay
