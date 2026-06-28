@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   php-quality:
-    runs-on: [self-hosted, ci, isolated]
+    runs-on: ubuntu-latest
     timeout-minutes: 10
 
     steps:
@@ -25,15 +25,19 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Verify isolated runner toolchain
+      - name: Setup PHP 8.3
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, xml, curl, sqlite3, pdo_sqlite, mysql, bcmath, intl, zip, gd
+          coverage: none
+          tools: composer:v2
+
+      - name: Verify GitHub-hosted toolchain
         run: |
           set -euo pipefail
           php -v | grep -q 'PHP 8.3'
           composer --version
-          if sudo -n true 2>/dev/null; then
-            echo 'Le runner CI ne doit pas disposer de sudo sans mot de passe.'
-            exit 1
-          fi
 
       - name: Validate Composer metadata
         run: composer validate --no-check-publish

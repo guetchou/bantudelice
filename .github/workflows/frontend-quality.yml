@@ -9,21 +9,27 @@ permissions:
 
 jobs:
   build:
-    runs-on: [self-hosted, ci, isolated]
+    runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 
-      - name: Verify isolated runner toolchain
+      - name: Setup Node.js 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install YAML parser
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-yaml
+
+      - name: Verify GitHub-hosted toolchain
         run: |
           set -euo pipefail
           node --version | grep -Eq '^v20\.'
           npm --version
           python3 -c 'import yaml'
-          if sudo -n true 2>/dev/null; then
-            echo 'Le runner CI ne doit pas disposer de sudo sans mot de passe.'
-            exit 1
-          fi
 
       - name: Validate deployment scripts
         run: |

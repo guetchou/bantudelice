@@ -30,21 +30,13 @@ branche dédiée → commits → push GitHub → Pull Request → CI verte → r
 
 ## Runners obligatoires
 
-Les Pull Requests et contrôles qualité utilisent exclusivement :
+Les Pull Requests, contrôles qualité et déploiements utilisent les runners éphémères gérés par GitHub :
 
 ```yaml
-runs-on: [self-hosted, ci, isolated]
+runs-on: ubuntu-latest
 ```
 
-Ce runner doit être installé sur une machine ou VM dédiée, distincte de la production, sans secret de production et sans sudo.
-
-Les déploiements utilisent exclusivement :
-
-```yaml
-runs-on: [self-hosted, deploy, isolated]
-```
-
-Le runner de déploiement doit être distinct du runner CI et ne doit jamais exécuter un workflow `pull_request`.
+Aucun runner GitHub Actions ne doit être installé sur le VPS de production. Les déploiements utilisent un compte SSH non-root et une empreinte d'hôte fournie par un secret GitHub Environment.
 
 ## Pipelines
 

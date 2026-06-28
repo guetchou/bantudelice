@@ -9,17 +9,10 @@ permissions:
 
 jobs:
   audit:
-    runs-on: [self-hosted, ci, isolated]
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 
-      - name: Verify isolated runner
-        run: |
-          set -euo pipefail
-          if sudo -n true 2>/dev/null; then
-            echo 'Le runner CI ne doit pas disposer de sudo sans mot de passe.'
-            exit 1
-          fi
 
       - name: Locate notification routes, views and producers
         run: |
