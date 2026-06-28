@@ -144,6 +144,9 @@ class CashCollectionStatusTest extends TestCase
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+        DB::table('deliveries')->where('id', $deliveryId)->update([
+            'customer_confirmed_at' => now(),
+        ]);
 
         $this->actingAs($driver, 'driver_api')
             ->patchJson("/api/driver/deliveries/{$deliveryId}/status", [
@@ -190,11 +193,17 @@ class CashCollectionStatusTest extends TestCase
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+        DB::table('deliveries')->where('id', $deliveryId)->update([
+            'customer_confirmed_at' => now(),
+            'delivery_proof_path' => 'images/delivery_proofs/test-proof.jpg',
+        ]);
 
         $this->actingAs($driver, 'driver_api')
             ->patchJson("/api/driver/deliveries/{$deliveryId}/status", [
                 'status' => 'DELIVERED',
                 'customer_confirmed' => true,
+                'delivery_latitude' => -4.27,
+                'delivery_longitude' => 15.28,
             ])
             ->assertOk();
 
@@ -233,11 +242,17 @@ class CashCollectionStatusTest extends TestCase
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+        DB::table('deliveries')->where('id', $deliveryId)->update([
+            'customer_confirmed_at' => now(),
+            'delivery_proof_path' => 'images/delivery_proofs/test-proof.jpg',
+        ]);
 
         $this->actingAs($driver, 'driver_api')
             ->patchJson("/api/driver/deliveries/{$deliveryId}/status", [
                 'status' => 'DELIVERED',
                 'customer_confirmed' => true,
+                'delivery_latitude' => -4.27,
+                'delivery_longitude' => 15.28,
             ])
             ->assertOk();
 
@@ -272,11 +287,18 @@ class CashCollectionStatusTest extends TestCase
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+        DB::table('deliveries')->where('id', $deliveryId)->update([
+            'customer_confirmed_at' => now(),
+            'delivery_proof_path' => 'images/delivery_proofs/test-proof.jpg',
+        ]);
 
         $this->actingAs($driver, 'driver_api')
             ->patchJson("/api/driver/deliveries/{$deliveryId}/status", [
                 'status' => 'DELIVERED',
                 'customer_confirmed' => true,
+                'delivery_latitude' => -4.27,
+                'delivery_longitude' => 15.28,
+                'cash_collection_outcome' => 'collected',
             ])
             ->assertOk();
 

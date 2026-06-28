@@ -1,0 +1,20 @@
+{
+  "base_url": "http://127.0.0.1:8015",
+  "sessions": ["bd-client", "bd-restaurant", "bd-driver"],
+  "main_order_no": "TD-20260627-5317",
+  "verified_routes": [
+    "POST /checkout/api",
+    "GET /restaurant/all_orders",
+    "PATCH /restaurant/kitchen/orders/{orderNo}/status",
+    "POST /driver/deliveries/{delivery}/status",
+    "POST /driver/location",
+    "GET /track-order/{orderNo}",
+    "POST /track-order/{orderNo}/confirm"
+  ],
+  "notes": [
+    "Browser network capture did not retain all fetch entries; DB/API/UI checks were used after each transition.",
+    "GPS was sent through the authenticated browser session, not direct SQL.",
+    "Map provider unavailable in lab because no public token was configured."
+  ]
+}
+

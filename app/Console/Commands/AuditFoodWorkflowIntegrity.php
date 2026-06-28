@@ -12,6 +12,14 @@ class AuditFoodWorkflowIntegrity extends Command
 
     protected $description = 'Détecte les doublons et incohérences avant activation des contraintes SQL du workflow food';
 
+    private const AUDITED_CHECK_METHODS = [
+        'duplicatePayments',
+        'duplicateDeliveries',
+        'inconsistentOrderGroups',
+        'cashPaidWithoutCollection',
+        'deliveryOrderStatusMismatches',
+    ];
+
     public function __construct(
         protected FoodIntegrityReportService $reports
     ) {

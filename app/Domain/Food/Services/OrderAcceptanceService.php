@@ -17,8 +17,9 @@ use RuntimeException;
  * Point de déclenchement unique du paiement et de la livraison food — appelé uniquement
  * au moment où le restaurant accepte une commande (jamais avant).
  *
- * Cash  : pending_restaurant_acceptance -> confirmed (payment_status=paid) -> in_kitchen,
- *         livraison créée immédiatement (l'acceptation suffit, rien à attendre côté paiement).
+ * Cash  : pending_restaurant_acceptance -> confirmed (payment_status=pending) -> in_kitchen,
+ *         livraison créée immédiatement. L'encaissement réel reste à collecter par le livreur
+ *         et ne doit jamais être marqué paid avant preuve de collecte.
  * Online: pending_restaurant_acceptance -> accepted_awaiting_payment (payment_status=not_started),
  *         Payment créé + prepareExternalPayment() déclenché ici. La livraison n'est créée
  *         qu'au paiement confirmé, voir FoodOrderPaymentConfirmed::handleOrderFinalization().
@@ -94,10 +95,10 @@ class OrderAcceptanceService
     {
         $orderNo = $order->order_no;
 
-        // Le paiement cash est considéré comme satisfait pour autoriser la préparation.
-        // L'encaissement réel reste suivi séparément via cash_collection_status.
+        // Pour le cash, l'acceptation restaurant autorise la cuisine mais ne solde pas le paiement.
+        // L'encaissement réel sera validé uniquement à la livraison/retrait.
         Order::where('order_no', $orderNo)->update([
-            'payment_status' => OrderPaymentStatus::PAID->value,
+            'payment_status' => OrderPaymentStatus::PENDING->value,
             'cash_collection_status' => 'pending_collection',
         ]);
 

@@ -179,6 +179,7 @@ class TransportApiTest extends TestCase
             'phone' => '064000000',
             'address' => 'Driver Address',
             'cnic' => '12345',
+            'approved' => 1,
             'created_at' => now(),
             'updated_at' => now()
         ]);
@@ -279,7 +280,7 @@ class TransportApiTest extends TestCase
         $driverId = \Illuminate\Support\Facades\DB::table('drivers')->insertGetId([
             'restaurant_id' => $restaurantId, 'name' => 'Test Driver', 'user_name' => 'testdriver2',
             'email' => 'driver2@test.com', 'password' => bcrypt('password'), 'phone' => '064000222',
-            'address' => 'Test', 'cnic' => '123', 'created_at' => now(), 'updated_at' => now()
+            'address' => 'Test', 'cnic' => '123', 'approved' => 1, 'created_at' => now(), 'updated_at' => now()
         ]);
         $driver = Driver::find($driverId);
         $driver->update(['status' => 'online']);

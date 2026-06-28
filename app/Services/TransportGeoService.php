@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use Illuminate\Support\Facades\Http;
+use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Str;
 
 class TransportGeoService
@@ -107,34 +108,38 @@ class TransportGeoService
 
     public function route(float $pickupLat, float $pickupLng, float $dropoffLat, float $dropoffLng): array
     {
-        $response = Http::timeout(15)
-            ->withHeaders([
-                'Accept' => 'application/json',
-                'User-Agent' => 'Kende Transport/1.0',
-            ])
-            ->get(sprintf(
-                'https://router.project-osrm.org/route/v1/driving/%s,%s;%s,%s',
-                $pickupLng,
-                $pickupLat,
-                $dropoffLng,
-                $dropoffLat
-            ), [
-                'overview' => 'full',
-                'geometries' => 'geojson',
-                'steps' => 'false',
-            ]);
+        try {
+            $response = Http::timeout(15)
+                ->withHeaders([
+                    'Accept' => 'application/json',
+                    'User-Agent' => 'Kende Transport/1.0',
+                ])
+                ->get(sprintf(
+                    'https://router.project-osrm.org/route/v1/driving/%s,%s;%s,%s',
+                    $pickupLng,
+                    $pickupLat,
+                    $dropoffLng,
+                    $dropoffLat
+                ), [
+                    'overview' => 'full',
+                    'geometries' => 'geojson',
+                    'steps' => 'false',
+                ]);
 
-        if ($response->successful()) {
-            $route = $response->json('routes.0');
+            if ($response->successful()) {
+                $route = $response->json('routes.0');
 
-            if ($route && isset($route['geometry'])) {
-                return [
-                    'distance_km' => round(((float) ($route['distance'] ?? 0)) / 1000, 2),
-                    'duration_minutes' => (int) ceil(((float) ($route['duration'] ?? 0)) / 60),
-                    'geometry' => $route['geometry'],
-                    'mode' => 'osrm',
-                ];
+                if ($route && isset($route['geometry'])) {
+                    return [
+                        'distance_km' => round(((float) ($route['distance'] ?? 0)) / 1000, 2),
+                        'duration_minutes' => (int) ceil(((float) ($route['duration'] ?? 0)) / 60),
+                        'geometry' => $route['geometry'],
+                        'mode' => 'osrm',
+                    ];
+                }
             }
+        } catch (ConnectionException $exception) {
+            report($exception);
         }
 
         $distanceKm = $this->haversineKm($pickupLat, $pickupLng, $dropoffLat, $dropoffLng);

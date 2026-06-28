@@ -14,16 +14,24 @@ class FoodIntegrityReportService
             'duplicate_deliveries' => $this->duplicateDeliveries(),
             'inconsistent_order_groups' => $this->inconsistentOrderGroups(),
             'cash_paid_without_collection' => $this->cashPaidWithoutCollection(),
+            'delivery_order_status_mismatches' => $this->deliveryOrderStatusMismatches(),
             'scheduled_orders_without_date' => $this->scheduledOrdersWithoutDate(),
             'orphan_restaurant_staff' => $this->orphanRestaurantStaff(),
         ];
 
         $total = collect($checks)->sum(fn (array $rows) => count($rows));
+        $violations = collect($checks)
+            ->flatMap(fn (array $rows, string $check) => collect($rows)->map(function (array $row) use ($check) {
+                return ['type' => $check] + $row;
+            }))
+            ->values()
+            ->all();
 
         return [
             'generated_at' => now()->toIso8601String(),
             'status' => $total === 0 ? 'clean' : 'violations_detected',
             'violations_count' => $total,
+            'violations' => $violations,
             'checks' => $checks,
         ];
     }
@@ -157,6 +165,56 @@ class FoodIntegrityReportService
             ->limit(500)
             ->get()
             ->map(fn ($row) => (array) $row)
+            ->all();
+    }
+
+    public function deliveryOrderStatusMismatches(): array
+    {
+        if (! Schema::hasTable('deliveries') || ! Schema::hasTable('orders')) {
+            return [];
+        }
+
+        foreach (['order_id', 'status'] as $column) {
+            if (! Schema::hasColumn('deliveries', $column)) {
+                return [];
+            }
+        }
+
+        foreach (['id', 'order_no', 'business_status'] as $column) {
+            if (! Schema::hasColumn('orders', $column)) {
+                return [];
+            }
+        }
+
+        $expected = [
+            'PENDING' => ['ready_for_pickup', 'dispatching'],
+            'ASSIGNED' => ['driver_assigned'],
+            'PICKED_UP' => ['picked_up'],
+            'ON_THE_WAY' => ['out_for_delivery'],
+            'DELIVERED' => ['delivered', 'closed'],
+        ];
+
+        return DB::table('deliveries')
+            ->join('orders', 'orders.id', '=', 'deliveries.order_id')
+            ->select(
+                'deliveries.id as delivery_id',
+                'deliveries.order_id',
+                'orders.order_no',
+                'deliveries.status as delivery_status',
+                'orders.business_status'
+            )
+            ->whereIn('deliveries.status', array_keys($expected))
+            ->get()
+            ->filter(function ($row) use ($expected) {
+                return ! in_array((string) $row->business_status, $expected[(string) $row->delivery_status] ?? [], true);
+            })
+            ->map(function ($row) use ($expected) {
+                $payload = (array) $row;
+                $payload['expected_business_status'] = $expected[(string) $row->delivery_status] ?? [];
+
+                return $payload;
+            })
+            ->values()
             ->all();
     }
 
