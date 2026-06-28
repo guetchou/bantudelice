@@ -1,20 +1,25 @@
-name: BantuDelice - CI/CD Production
+name: BantuDelice CI
 
 on:
+  pull_request:
+    branches: [main]
   push:
     branches: [main]
+  workflow_dispatch:
 
 concurrency:
-  group: production-deploy
-  cancel-in-progress: false
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
 
-env:
-  APP_URL: https://bantudelice.cg
+permissions:
+  contents: read
 
 jobs:
   quality_gate:
     name: Quality Gate
     runs-on: ubuntu-latest
+    timeout-minutes: 25
+
     services:
       redis:
         image: redis:7-alpine
@@ -25,21 +30,48 @@ jobs:
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+
     steps:
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           fetch-depth: 0
 
-      - name: 🧩 Vérifier les assets legacy du Dashboard Restaurant
-        run: bash scripts/check_restaurant_legacy_assets.sh
-
       - name: Setup PHP 8.3
         uses: shivammathur/setup-php@cf4cade2721270509d5b1c766ab3549210a39a2a
         with:
           php-version: '8.3'
-          extensions: pdo, pdo_mysql, mysqli, mbstring, xml, ctype, json, tokenizer, bcmath, openssl, fileinfo
+          extensions: pdo, pdo_mysql, pdo_sqlite, sqlite3, mysqli, mbstring, xml, ctype, json, tokenizer, bcmath, openssl, fileinfo, intl
           coverage: none
+          tools: composer:v2
+
+      - name: Setup Node 20
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Validate deployment assets
+        run: |
+          bash -n scripts/ci/verify_frontend_build.sh
+          bash -n scripts/deploy/production.sh
+          bash -n scripts/deploy/rollback.sh
+          python3 -m pip install --quiet pyyaml
+          python3 - <<'PY'
+          import pathlib
+          import yaml
+
+          paths = [
+              '.github/workflows/deploy.yml',
+              '.github/workflows/deploy-staging.yml',
+              '.github/workflows/deploy-production.yml',
+              '.github/workflows/rollback-production.yml',
+              '.github/workflows/frontend-quality.yml',
+          ]
+          for path in paths:
+              yaml.safe_load(pathlib.Path(path).read_text(encoding='utf-8'))
+              print(f'{path}: YAML valide')
+          PY
 
       - name: Validate Composer
         run: composer validate --strict
@@ -64,6 +96,7 @@ jobs:
           BROADCAST_DRIVER=log
           REDIS_HOST=127.0.0.1
           REDIS_PORT=6379
+          GEPAY_REQUIRE_NONCE=false
           ENVEOF
 
       - name: Install PHP dependencies
@@ -73,23 +106,28 @@ jobs:
         run: |
           php artisan key:generate --ansi
           php artisan passport:keys --force
+          php artisan optimize:clear
 
       - name: PHP syntax
         run: find app config database routes tests -name '*.php' -print0 | xargs -0 -n1 php -l
 
+      - name: Database migrations
+        run: |
+          php artisan migrate:fresh --force
+          php artisan migrate:status
+
       - name: Test suite
         run: php artisan test
 
-      - name: Route and configuration checks
+      - name: Route, schedule and configuration checks
         run: |
           php artisan route:list > /dev/null
+          php artisan schedule:list > /dev/null
           php artisan config:cache
           php artisan config:clear
 
-      - name: Setup Node 20
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e
-        with:
-          node-version: '20'
+      - name: Restaurant legacy assets guard
+        run: bash scripts/check_restaurant_legacy_assets.sh
 
       - name: Deterministic frontend build
         run: MIN_NODE_MAJOR=20 REQUIRE_EXACT_NODE_MAJOR=1 bash scripts/ci/verify_frontend_build.sh
@@ -99,15 +137,18 @@ jobs:
           ! git ls-files | grep -qx '.env'
           ! git ls-files | grep -q '^storage/'
 
-      - name: Secret scan for this push
+      - name: Secret scan for changed commits
+        shell: bash
         run: |
-          set -e
-          BEFORE="${{ github.event.before }}"
-          if [ -z "$BEFORE" ] || [ "$BEFORE" = "0000000000000000000000000000000000000000" ]; then
-            RANGE="${{ github.sha }}~1..${{ github.sha }}"
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            RANGE="${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"
+          elif [ -n "${{ github.event.before || '' }}" ] && [ "${{ github.event.before || '' }}" != "0000000000000000000000000000000000000000" ]; then
+            RANGE="${{ github.event.before }}..${{ github.sha }}"
           else
-            RANGE="$BEFORE..${{ github.sha }}"
+            RANGE="${{ github.sha }}~1..${{ github.sha }}"
           fi
+
           PATTERN='-----BEGIN (RSA|EC|OPENSSH|DSA|PGP) PRIVATE KEY-----|AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{30,}|glpat-[A-Za-z0-9_-]{20,}|sk_live_[A-Za-z0-9]{20,}|AIza[0-9A-Za-z_-]{30,}'
           ! git diff "$RANGE" | grep -E "$PATTERN"
 
@@ -118,90 +159,5 @@ jobs:
           echo "$LINE" | grep -q "'auth'"
           echo "$LINE" | grep -q "'module:food'"
 
-  deploy:
-    name: Deploy to Production
-    needs: [quality_gate]
-    runs-on: ubuntu-latest
-    environment: production
-    steps:
-      - name: Checkout deployment scripts
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-
-      - name: Setup SSH
-        uses: webfactory/ssh-agent@dc588b651fe13675774614f8e6a936a468676387
-        with:
-          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
-
-      - name: Trust production host
-        run: ssh-keyscan -H ${{ secrets.DEPLOY_HOST }} >> ~/.ssh/known_hosts
-
-      - name: Deploy verified commit
-        run: |
-          ssh ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} \
-            DEPLOY_SHA="${{ github.sha }}" \
-            'bash -s' < scripts/deploy/production.sh
-
-  smoke_test:
-    name: Smoke Tests
-    needs: [deploy]
-    runs-on: ubuntu-latest
-    environment: production
-    steps:
-      - name: Setup SSH
-        uses: webfactory/ssh-agent@dc588b651fe13675774614f8e6a936a468676387
-        with:
-          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
-
-      - name: Trust production host
-        run: ssh-keyscan -H ${{ secrets.DEPLOY_HOST }} >> ~/.ssh/known_hosts
-
-      - name: Public HTTP checks
-        run: |
-          test "$(curl -sS -o /dev/null -w '%{http_code}' "$APP_URL/")" = "200"
-          test "$(curl -sS -o /dev/null -w '%{http_code}' "$APP_URL/login")" = "200"
-          test "$(curl -sS -o /dev/null -w '%{http_code}' "$APP_URL/restaurants")" = "200"
-          CHECKOUT_CODE=$(curl -sS -o /dev/null -w '%{http_code}' "$APP_URL/checkout")
-          test "$CHECKOUT_CODE" -lt 500
-          TRACK_CODE=$(curl -sS -o /dev/null -w '%{http_code}' "$APP_URL/track-order")
-          test "$TRACK_CODE" = "301" -o "$TRACK_CODE" = "302"
-
-      - name: API health
-        run: |
-          BODY=$(curl -sS "$APP_URL/api/health/modules")
-          echo "$BODY"
-          echo "$BODY" | grep -Eq '"status"[[:space:]]*:[[:space:]]*"ok"'
-
-      - name: Recent production errors
-        run: |
-          ssh ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} \
-            "tail -n 200 /opt/bantudelice/storage/logs/laravel.log 2>/dev/null | grep -c '\.ERROR:' || true"
-
-  rollback:
-    name: Rollback Code
-    needs: [deploy, smoke_test]
-    if: needs.deploy.result == 'failure' || needs.smoke_test.result == 'failure'
-    runs-on: ubuntu-latest
-    environment: production
-    steps:
-      - name: Checkout rollback script
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
-
-      - name: Setup SSH
-        uses: webfactory/ssh-agent@dc588b651fe13675774614f8e6a936a468676387
-        with:
-          ssh-private-key: ${{ secrets.DEPLOY_SSH_KEY }}
-
-      - name: Trust production host
-        run: ssh-keyscan -H ${{ secrets.DEPLOY_HOST }} >> ~/.ssh/known_hosts
-
-      - name: Restore previous code
-        run: |
-          ssh ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} \
-            DEPLOY_SHA="${{ github.sha }}" \
-            'bash -s' < scripts/deploy/rollback.sh
-
-      - name: Verify rollback
-        run: test "$(curl -sS -o /dev/null -w '%{http_code}' "$APP_URL/")" = "200"
-
-      - name: Preserve failed workflow status
-        run: exit 1
+      - name: Record verified commit
+        run: echo "VERIFIED_SHA=${{ github.sha }}" >> "$GITHUB_STEP_SUMMARY"
