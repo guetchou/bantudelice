@@ -42,10 +42,13 @@
     }
 
     function setExpanded(isOpen) {
+        const isHidden = !isOpen && isMobileDrawer();
         openButton?.setAttribute('aria-expanded', String(isOpen));
-        sidebar?.setAttribute('aria-hidden', String(!isOpen && isMobileDrawer()));
+        sidebar?.setAttribute('aria-hidden', String(isHidden));
 
         if (!sidebar) return;
+        sidebar.inert = isHidden;
+
         if (isOpen && isMobileDrawer()) {
             sidebar.setAttribute('role', 'dialog');
             sidebar.setAttribute('aria-modal', 'true');
@@ -138,8 +141,10 @@
         if (!isMobileDrawer()) {
             closeFilters({ restoreFocus: false });
             sidebar.setAttribute('aria-hidden', 'false');
+            sidebar.inert = false;
         } else if (!sidebar.classList.contains('is-open')) {
             sidebar.setAttribute('aria-hidden', 'true');
+            sidebar.inert = true;
         }
     });
 
