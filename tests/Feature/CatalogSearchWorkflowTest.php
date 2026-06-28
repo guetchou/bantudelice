@@ -23,7 +23,24 @@ class CatalogSearchWorkflowTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('name="query"', false);
-        $response->assertSee('Commencez votre recherche');
+        $response->assertSee('Trouvez votre');
+        $response->assertSee('Une envie particulière ?');
+        $response->assertSee('frontend/css/pages/search.css', false);
+        $response->assertSee('frontend/js/pages/search.js', false);
+    }
+
+    public function test_search_page_exposes_accessible_mobile_filters(): void
+    {
+        $this->bindEmptyCatalog();
+
+        $response = $this->get('/search');
+
+        $response->assertOk();
+        $response->assertSee('id="searchFiltersOpen"', false);
+        $response->assertSee('aria-controls="searchFiltersPanel"', false);
+        $response->assertSee('id="searchFiltersClose"', false);
+        $response->assertSee('id="searchLiveRegion"', false);
+        $response->assertSee('href="#searchResults"', false);
     }
 
     public function test_legacy_qurey_parameter_is_still_supported(): void
@@ -40,6 +57,7 @@ class CatalogSearchWorkflowTest extends TestCase
 
         $response->assertOk();
         $response->assertSee('value="pondu"', false);
+        $response->assertSee('Résultats pour');
     }
 
     public function test_home_restaurant_search_is_redirected_to_the_global_search(): void
