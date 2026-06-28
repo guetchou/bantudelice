@@ -4,6 +4,7 @@ namespace App\Domain\Payment;
 
 use App\Domain\Payment\Adapters\AirtelMoneyAdapter;
 use App\Domain\Payment\Adapters\CashDemoAdapter;
+use App\Domain\Payment\Adapters\GePayAdapter;
 use App\Domain\Payment\Adapters\MtnMomoAdapter;
 use App\Domain\Payment\Adapters\PayPalAdapter;
 use App\Domain\Payment\Contracts\PaymentGatewayAdapterInterface;
@@ -23,6 +24,7 @@ final class PaymentGatewayFactory
         private readonly AirtelMoneyAdapter $airtel,
         private readonly PayPalAdapter      $paypal,
         private readonly CashDemoAdapter    $cash,
+        private readonly GePayAdapter       $gepay,
     ) {}
 
     /**
@@ -43,6 +45,11 @@ final class PaymentGatewayFactory
     public function for(string $provider, bool $strict = false): PaymentGatewayAdapterInterface
     {
         $normalized = strtolower(trim($provider));
+
+        if (in_array($normalized, ['momo', 'mtn_momo', 'mtn'], true)
+            && config('gepay.bantudelice.collections_enabled', false)) {
+            return $this->gepay;
+        }
 
         $adapter = match ($normalized) {
             'momo', 'mtn_momo', 'mtn' => $this->mtn,
