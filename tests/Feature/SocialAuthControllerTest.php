@@ -16,7 +16,12 @@ class SocialAuthControllerTest extends TestCase
             'app.url' => 'https://bantudelice.cg',
         ]);
 
-        $response = $this->get('/auth/google?redirect=/checkout');
+        $response = $this
+            ->withServerVariables([
+                'HTTP_HOST' => 'bantudelice.cg',
+                'HTTPS' => 'on',
+            ])
+            ->get('/auth/google?redirect=/checkout');
 
         $response->assertRedirect();
 
