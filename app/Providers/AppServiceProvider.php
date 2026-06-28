@@ -7,6 +7,7 @@ use App\Domain\Food\Services\OrderAcceptanceService;
 use App\Domain\Food\Services\WorkflowOrderAcceptanceService;
 use App\Domain\Payment\Adapters\AirtelMoneyAdapter;
 use App\Domain\Payment\Adapters\CashDemoAdapter;
+use App\Domain\Payment\Adapters\GePayAdapter;
 use App\Domain\Payment\Adapters\MtnMomoAdapter;
 use App\Domain\Payment\Adapters\PayPalAdapter;
 use App\Domain\Payment\PaymentGatewayFactory;
@@ -45,6 +46,7 @@ class AppServiceProvider extends ServiceProvider
                 airtel: $app->make(AirtelMoneyAdapter::class),
                 paypal: $app->make(PayPalAdapter::class),
                 cash: $app->make(CashDemoAdapter::class),
+                gepay: $app->make(GePayAdapter::class),
             );
         });
     }

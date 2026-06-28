@@ -10,6 +10,13 @@ return [
     'signature_tolerance_seconds' => (int) env('GEPAY_SIGNATURE_TOLERANCE_SECONDS', 300),
     'default_provider' => env('GEPAY_DEFAULT_PROVIDER', 'mtn_momo'),
 
+    'internal_client_uuid' => env('GEPAY_INTERNAL_CLIENT_UUID'),
+
+    'bantudelice' => [
+        'collections_enabled' => $envBool('GEPAY_BANTUDELICE_COLLECTIONS_ENABLED', false),
+        'withdrawals_enabled' => $envBool('GEPAY_BANTUDELICE_WITHDRAWALS_ENABLED', false),
+    ],
+
     'providers' => [
         'mtn_momo' => [
             'enabled' => $envBool('GEPAY_MTN_ENABLED', false),

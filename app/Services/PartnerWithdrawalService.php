@@ -2,15 +2,26 @@
 
 namespace App\Services;
 
-use App\PartnerWithdrawal;
+use App\Domain\GePay\Enums\TransactionStatus;
+use App\Domain\GePay\Enums\TransactionType;
+use App\Domain\GePay\Models\GePayTransaction;
+use App\Domain\GePay\Services\GePayGateway;
+use App\Domain\GePay\Services\GePayInternalClientResolver;
 use App\Jobs\ReconcileWithdrawalJob;
+use App\PartnerWithdrawal;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
+use RuntimeException;
 
 class PartnerWithdrawalService
 {
     const MIN_AMOUNT = 500;
+
+    public function __construct(
+        private readonly GePayGateway $gePayGateway,
+        private readonly GePayInternalClientResolver $gePayResolver,
+    ) {}
 
     // ─── Public entry point ────────────────────────────────────────────────
 
@@ -66,13 +77,18 @@ class PartnerWithdrawalService
                     throw new \DomainException('Un retrait est déjà en cours de traitement. Veuillez patienter.');
                 }
 
-                $externalRef = 'WD-' . strtoupper(Str::random(12)) . '-' . time();
+                $useGePay    = config('gepay.bantudelice.withdrawals_enabled', false);
+                $uuid        = (string) Str::uuid();
+                $externalRef = $useGePay
+                    ? 'WITHDRAWAL-' . $uuid
+                    : 'WD-' . strtoupper(Str::random(12)) . '-' . time();
 
                 return PartnerWithdrawal::create([
+                    'uuid'              => $uuid,
                     'partner_type'      => $partnerType,
                     'partner_id'        => $partnerId,
                     'operator'          => $operator,
-                    'provider'          => 'mtn_momo',
+                    'provider'          => $useGePay ? 'gepay' : 'mtn_momo',
                     'phone'             => $phone,
                     'requested_amount'  => $amount,
                     'fee_amount'        => 0,
@@ -93,42 +109,19 @@ class PartnerWithdrawalService
             return $this->error('Une erreur technique est survenue. Veuillez réessayer.', 500);
         }
 
-        // 5. Call MTN outside the transaction (network I/O)
-        try {
-            $disbursement = DisbursementService::initiateDisbursement($phone, $amount, [
-                'external_reference' => $withdrawal->external_reference,
-                'payer_message'      => 'Retrait ' . $partnerType . ' BantuDelice',
-                'payee_note'         => 'Retrait BantuDelice',
-            ]);
-        } catch (\Exception $e) {
-            Log::error('PartnerWithdrawalService: MTN call failed', ['id' => $withdrawal->id, 'error' => $e->getMessage()]);
-            $this->markUnknown($withdrawal, 'Exception lors de l\'appel MTN: ' . $e->getMessage());
-            ReconcileWithdrawalJob::dispatch($withdrawal->id)->delay(now()->addMinutes(2));
-            return $this->formatResponse($withdrawal->fresh());
+        // 5. Appel réseau hors transaction — routé selon feature flag
+        if ($withdrawal->provider === 'gepay') {
+            return $this->initiateViaGePay($withdrawal, $phone, $amount, $partnerType);
         }
 
-        if (!($disbursement['success'] ?? false)) {
-            $this->markFailed($withdrawal, $disbursement);
-            return $this->formatResponse($withdrawal->fresh());
-        }
+        return $this->initiateViaDisbursement($withdrawal, $phone, $amount);
+    }
 
-        // 6. Record MTN reference and mark submitted
-        $providerRef = $disbursement['provider_reference'] ?? null;
-        $withdrawal->update([
-            'status'             => 'submitted',
-            'provider_reference' => $providerRef,
-        ]);
+    // ─── Testable GePay path (also used internally) ────────────────────────
 
-        // 7. Quick poll (2 attempts × 1.5s = 3s max) — best-effort only
-        if ($providerRef) {
-            $settlement = DisbursementService::waitForDisbursementFinalStatus('mtn_momo', $providerRef, 2, 1500);
-            $this->applySettlementStatus($withdrawal, $settlement);
-        }
-
-        // 8. Dispatch async reconciliation job regardless
-        ReconcileWithdrawalJob::dispatch($withdrawal->id)->delay(now()->addMinutes(3));
-
-        return $this->formatResponse($withdrawal->fresh());
+    public function initiateForWithdrawal(PartnerWithdrawal $withdrawal, string $phone, int $amount, string $partnerType): array
+    {
+        return $this->initiateViaGePay($withdrawal, $phone, $amount, $partnerType);
     }
 
     // ─── Called by ReconcileWithdrawalJob ──────────────────────────────────
@@ -136,25 +129,161 @@ class PartnerWithdrawalService
     public function reconcile(int $withdrawalId): void
     {
         $withdrawal = PartnerWithdrawal::find($withdrawalId);
-        if (!$withdrawal || $withdrawal->isPaid() || $withdrawal->isFailed()) {
-            return; // already terminal
+        if (! $withdrawal || $withdrawal->isPaid() || $withdrawal->isFailed()) {
+            return;
         }
 
+        if ($withdrawal->provider === 'gepay') {
+            $this->reconcileViaGePay($withdrawal);
+        } else {
+            $this->reconcileViaDisbursement($withdrawal);
+        }
+
+        $withdrawal->update(['reconciled_at' => now()]);
+
+        Log::info('PartnerWithdrawalService: reconcile', [
+            'id'       => $withdrawal->id,
+            'provider' => $withdrawal->provider,
+            'status'   => $withdrawal->fresh()->status,
+        ]);
+    }
+
+    private function reconcileViaGePay(PartnerWithdrawal $withdrawal): void
+    {
+        $gePayUuid = $withdrawal->provider_reference;
+        if (! $gePayUuid) {
+            $this->markFailed($withdrawal, ['error' => 'Aucune référence GePay — impossible de réconcilier.', 'failure_code' => 'NO_GEPAY_REF']);
+            return;
+        }
+
+        $transaction = GePayTransaction::where('uuid', $gePayUuid)->first();
+        if (! $transaction) {
+            $this->markFailed($withdrawal, ['error' => 'Transaction GePay introuvable : ' . $gePayUuid, 'failure_code' => 'GEPAY_NOT_FOUND']);
+            return;
+        }
+
+        if (! $transaction->status->isTerminal()) {
+            $transaction = $this->gePayGateway->refresh($transaction);
+        }
+
+        $this->applyGePayStatus($withdrawal, $transaction);
+    }
+
+    private function reconcileViaDisbursement(PartnerWithdrawal $withdrawal): void
+    {
         $ref = $withdrawal->provider_reference;
-        if (!$ref) {
+        if (! $ref) {
             $this->markFailed($withdrawal, ['error' => 'Aucune référence MTN — impossible de réconcilier.', 'failure_code' => 'NO_PROVIDER_REF']);
             return;
         }
 
         $status = DisbursementService::checkDisbursementStatus('mtn_momo', $ref);
         $this->applySettlementStatus($withdrawal, $status);
+    }
 
-        $withdrawal->update(['reconciled_at' => now()]);
+    private function initiateViaGePay(PartnerWithdrawal $withdrawal, string $phone, int $amount, string $partnerType): array
+    {
+        try {
+            $client = $this->gePayResolver->resolve();
+        } catch (RuntimeException $e) {
+            Log::error('PartnerWithdrawalService: GePay resolver failed', ['id' => $withdrawal->id, 'error' => $e->getMessage()]);
+            $this->markUnknown($withdrawal, 'GePay non configuré : ' . $e->getMessage());
+            ReconcileWithdrawalJob::dispatch($withdrawal->id)->delay(now()->addMinutes(2));
+            return $this->formatResponse($withdrawal->fresh());
+        }
 
-        Log::info('PartnerWithdrawalService: reconcile', [
-            'id'     => $withdrawal->id,
-            'status' => $withdrawal->fresh()->status,
+        // external_reference est déjà 'WITHDRAWAL-{uuid}' depuis la création
+        $gePayExternalRef = $withdrawal->external_reference;
+        $gePayIdemKey     = 'partner-withdrawal:' . $withdrawal->uuid . ':disbursement';
+
+        try {
+            $transaction = $this->gePayGateway->initiate(
+                client: $client,
+                type: TransactionType::DISBURSEMENT,
+                payload: [
+                    'amount'             => $amount,
+                    'phone'              => $phone,
+                    'currency'           => 'XAF',
+                    'external_reference' => $gePayExternalRef,
+                    'payer_message'      => 'Retrait ' . $partnerType . ' BantuDelice',
+                    'payee_note'         => 'Retrait BantuDelice',
+                ],
+                idempotencyKey: $gePayIdemKey,
+            );
+        } catch (RuntimeException $e) {
+            Log::error('PartnerWithdrawalService: GePay initiate failed', ['id' => $withdrawal->id, 'error' => $e->getMessage()]);
+            $this->markUnknown($withdrawal, 'Exception GePay : ' . $e->getMessage());
+            ReconcileWithdrawalJob::dispatch($withdrawal->id)->delay(now()->addMinutes(2));
+            return $this->formatResponse($withdrawal->fresh());
+        }
+
+        // Stocker l'UUID GePay (pas la référence MTN) dans provider_reference
+        $withdrawal->update([
+            'status'             => 'submitted',
+            'provider_reference' => $transaction->uuid,
         ]);
+
+        // Appliquer immédiatement le statut GePay reçu
+        $this->applyGePayStatus($withdrawal, $transaction);
+
+        ReconcileWithdrawalJob::dispatch($withdrawal->id)->delay(now()->addMinutes(3));
+
+        return $this->formatResponse($withdrawal->fresh());
+    }
+
+    private function initiateViaDisbursement(PartnerWithdrawal $withdrawal, string $phone, int $amount): array
+    {
+        try {
+            $disbursement = DisbursementService::initiateDisbursement($phone, $amount, [
+                'external_reference' => $withdrawal->external_reference,
+                'payer_message'      => 'Retrait partenaire BantuDelice',
+                'payee_note'         => 'Retrait BantuDelice',
+            ]);
+        } catch (\Exception $e) {
+            Log::error('PartnerWithdrawalService: MTN call failed', ['id' => $withdrawal->id, 'error' => $e->getMessage()]);
+            $this->markUnknown($withdrawal, 'Exception lors de l\'appel MTN : ' . $e->getMessage());
+            ReconcileWithdrawalJob::dispatch($withdrawal->id)->delay(now()->addMinutes(2));
+            return $this->formatResponse($withdrawal->fresh());
+        }
+
+        if (! ($disbursement['success'] ?? false)) {
+            $this->markFailed($withdrawal, $disbursement);
+            return $this->formatResponse($withdrawal->fresh());
+        }
+
+        $providerRef = $disbursement['provider_reference'] ?? null;
+        $withdrawal->update([
+            'status'             => 'submitted',
+            'provider_reference' => $providerRef,
+        ]);
+
+        if ($providerRef) {
+            $settlement = DisbursementService::waitForDisbursementFinalStatus('mtn_momo', $providerRef, 2, 1500);
+            $this->applySettlementStatus($withdrawal, $settlement);
+        }
+
+        ReconcileWithdrawalJob::dispatch($withdrawal->id)->delay(now()->addMinutes(3));
+
+        return $this->formatResponse($withdrawal->fresh());
+    }
+
+    private function applyGePayStatus(PartnerWithdrawal $withdrawal, GePayTransaction $transaction): void
+    {
+        match ($transaction->status) {
+            TransactionStatus::SUCCESSFUL =>
+                $withdrawal->update(['status' => 'paid', 'paid_at' => now()]),
+
+            TransactionStatus::FAILED,
+            TransactionStatus::CANCELLED,
+            TransactionStatus::EXPIRED =>
+                $this->markFailed($withdrawal, [
+                    'failure_code'    => $transaction->failure_code ?? $transaction->status->value,
+                    'failure_message' => $transaction->failure_message ?? 'Décaissement GePay échoué.',
+                ]),
+
+            // unknown, reversed, refunded, created, submitted, pending → ne pas libérer le solde
+            default => null,
+        };
     }
 
     // ─── Balance ───────────────────────────────────────────────────────────
