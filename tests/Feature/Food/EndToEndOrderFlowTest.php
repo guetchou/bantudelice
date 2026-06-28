@@ -201,6 +201,23 @@ class EndToEndOrderFlowTest extends TestCase
             'status'    => 'ASSIGNED',
         ]);
 
+        // ── Étape 1.e : le livreur signale son arrivée au restaurant ─────────
+        $this->actingAs($driver, 'driver_api')
+            ->patchJson("/api/driver/deliveries/{$deliveryId}/status", [
+                'status' => 'ARRIVED_AT_RESTAURANT',
+                'restaurant_arrival_latitude' => -4.2634,
+                'restaurant_arrival_longitude' => 15.2429,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.status', 'ASSIGNED');
+
+        $this->assertDatabaseHas('orders', [
+            'order_no' => $orderNo,
+            'business_status' => 'driver_arrived_at_restaurant',
+        ]);
+
+        $this->assertNotNull(Delivery::whereKey($deliveryId)->value('restaurant_arrived_at'));
+
         // ── Étape 2 : Livreur prend en charge (PICKED_UP) ───────────────────
         $this->actingAs($driver, 'driver_api')
             ->patchJson("/api/driver/deliveries/{$deliveryId}/status", [

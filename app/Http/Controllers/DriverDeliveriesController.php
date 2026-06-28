@@ -107,12 +107,14 @@ class DriverDeliveriesController extends Controller
     public function updateStatus(Request $request, $deliveryId)
     {
         $request->validate([
-            'status' => 'required|in:PICKED_UP,ON_THE_WAY,DELIVERED',
+            'status' => 'required|in:ARRIVED_AT_RESTAURANT,PICKED_UP,ON_THE_WAY,DELIVERED',
             'pickup_notes' => 'nullable|string|max:1000',
             'delivery_notes' => 'nullable|string|max:1000',
             'delivery_otp' => 'nullable|string|max:12',
             'pickup_proof' => 'nullable|file|image|max:4096',
             'delivery_proof' => 'nullable|file|image|max:4096',
+            'restaurant_arrival_latitude' => 'nullable|numeric|between:-90,90',
+            'restaurant_arrival_longitude' => 'nullable|numeric|between:-180,180',
             'pickup_latitude' => 'nullable|numeric|between:-90,90',
             'pickup_longitude' => 'nullable|numeric|between:-180,180',
             'delivery_latitude' => 'nullable|numeric|between:-90,90',
@@ -148,6 +150,8 @@ class DriverDeliveriesController extends Controller
                 'delivery_otp' => $request->input('delivery_otp'),
                 'pickup_proof_path' => $pickupProofPath,
                 'delivery_proof_path' => $deliveryProofPath,
+                'restaurant_arrival_latitude' => $request->input('restaurant_arrival_latitude'),
+                'restaurant_arrival_longitude' => $request->input('restaurant_arrival_longitude'),
                 'pickup_latitude' => $request->input('pickup_latitude'),
                 'pickup_longitude' => $request->input('pickup_longitude'),
                 'delivery_latitude' => $request->input('delivery_latitude'),
