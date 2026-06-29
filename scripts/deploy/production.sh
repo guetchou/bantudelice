@@ -90,8 +90,7 @@ supervisorctl restart bantudelice-worker:* \
 
 # Dernière opération : restaurer les droits après les commandes artisan.
 # Le wrapper sudo est nécessaire quand le déploiement tourne sous un compte non-root.
-sudo /usr/local/bin/bantudelice-storage-chown.sh \
-  || chown -R www-data:www-data "$PROJECT_PATH/storage/" \
-  || echo "Avertissement : restauration des droits storage/ impossible."
+sudo /usr/local/bin/bantudelice-fix-permissions.sh \
+  || echo "Avertissement : restauration des droits impossible (vérifier sudoers)."
 
 echo "Déploiement terminé. HEAD=$(git rev-parse HEAD)"
