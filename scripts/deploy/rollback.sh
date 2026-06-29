@@ -34,7 +34,9 @@ php artisan queue:restart || true
 supervisorctl restart bantudelice-worker:* \
   || sudo supervisorctl restart bantudelice-worker:* \
   || true
-chown -R www-data:www-data "$PROJECT_PATH/storage/" || true
+sudo /usr/local/bin/bantudelice-storage-chown.sh \
+  || chown -R www-data:www-data "$PROJECT_PATH/storage/" \
+  || true
 
 echo "============================================================"
 echo "ROLLBACK CODE TERMINÉ — DÉCISION HUMAINE REQUISE POUR LA DB"

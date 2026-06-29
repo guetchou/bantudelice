@@ -88,7 +88,10 @@ supervisorctl restart bantudelice-worker:* \
   || sudo supervisorctl restart bantudelice-worker:* \
   || echo "Avertissement : redémarrage des workers impossible."
 
-# Dernière opération : restaurer les droits de PHP-FPM après les commandes artisan.
-chown -R www-data:www-data "$PROJECT_PATH/storage/" || true
+# Dernière opération : restaurer les droits après les commandes artisan.
+# Le wrapper sudo est nécessaire quand le déploiement tourne sous un compte non-root.
+sudo /usr/local/bin/bantudelice-storage-chown.sh \
+  || chown -R www-data:www-data "$PROJECT_PATH/storage/" \
+  || echo "Avertissement : restauration des droits storage/ impossible."
 
 echo "Déploiement terminé. HEAD=$(git rev-parse HEAD)"
