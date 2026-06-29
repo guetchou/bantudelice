@@ -56,12 +56,13 @@ final class PaymentOperatingModel
         return in_array(self::canonicalCollection($status), self::COLLECTION_UNRESOLVED, true);
     }
 
+    /**
+     * Le service de rapprochement actuel traite uniquement PAID et PENDING.
+     * Les autres statuts restent visibles mais n’exposent pas une action trompeuse.
+     */
     public static function canReconcileCollection(?string $status): bool
     {
-        return in_array(strtoupper(trim((string) $status)), [
-            'PAID', 'SUCCESS', 'SUCCESSFUL',
-            'INITIATED', 'PENDING', 'AUTHORIZED', 'PROCESSING', 'UNKNOWN',
-        ], true);
+        return in_array(strtoupper(trim((string) $status)), ['PAID', 'PENDING'], true);
     }
 
     public static function canonicalWithdrawal(?string $status): string
