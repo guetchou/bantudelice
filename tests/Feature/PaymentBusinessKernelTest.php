@@ -167,6 +167,12 @@ class PaymentBusinessKernelTest extends TestCase
             'min_order' => 0,
             'avg_delivery_time' => 30,
             'services' => 'delivery,pickup',
+            'service_charges' => 0,
+            'delivery_charges' => 0,
+            'tax' => 0,
+            'admin_commission' => 0,
+            'account_name' => 'Compte test',
+            'account_number' => '0000000000',
         ]);
         $category = Category::create([
             'restaurant_id' => $restaurant->id,
@@ -178,6 +184,7 @@ class PaymentBusinessKernelTest extends TestCase
             'restaurant_id' => $restaurant->id,
             'category_id' => $category->id,
             'name' => 'Produit test',
+            'image' => 'test-product.jpg',
             'price' => $total,
             'discount_price' => 0,
             'description' => 'Produit de test métier paiement',
