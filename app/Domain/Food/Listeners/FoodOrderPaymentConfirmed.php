@@ -55,6 +55,26 @@ class FoodOrderPaymentConfirmed
             return;
         }
 
+        $paymentAllocated = (int) $payment->allocations()
+            ->where('status', 'allocated')
+            ->sum('amount');
+
+        if ($paymentAllocated <= 0) {
+            $this->financialEvents->recordForOrder($order, 'order_payment_unallocated', [
+                'payment_id' => $payment->id,
+                'payment_amount' => (int) round((float) $payment->amount),
+                'reason' => 'order_already_funded_or_no_remaining_due',
+            ]);
+
+            Log::warning('FoodOrderPaymentConfirmed: paiement confirmé non affecté, finalisation ignorée', [
+                'payment_id' => $payment->id,
+                'order_no' => $order->order_no,
+                'payment_amount' => $payment->amount,
+            ]);
+
+            return;
+        }
+
         $funding = $this->paymentAllocations->fundingStatusForFoodOrderGroup((string) $order->order_no);
 
         if (! $funding['fully_funded']) {
@@ -64,6 +84,7 @@ class FoodOrderPaymentConfirmed
 
             $this->financialEvents->recordForOrder($order->fresh(), 'order_payment_partially_funded', [
                 'payment_id' => $payment->id,
+                'payment_allocated_amount' => $paymentAllocated,
                 'due_amount' => $funding['due_amount'],
                 'allocated_amount' => $funding['allocated_amount'],
                 'remaining_amount' => $funding['remaining_amount'],
@@ -87,6 +108,7 @@ class FoodOrderPaymentConfirmed
 
         $this->financialEvents->recordForOrder($freshOrder, 'order_payment_marked_paid', [
             'payment_id' => $payment->id,
+            'payment_allocated_amount' => $paymentAllocated,
             'due_amount' => $funding['due_amount'],
             'allocated_amount' => $funding['allocated_amount'],
         ]);
