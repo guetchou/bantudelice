@@ -20,6 +20,12 @@ class PaymentBusinessDashboardService
         if (Schema::hasColumn('payments', 'deleted_at')) {
             $paymentQuery->whereNull('deleted_at');
         }
+        if (Schema::hasColumn('payments', 'financial_state')) {
+            $paymentQuery->where(function ($query): void {
+                $query->whereNull('financial_state')
+                    ->orWhere('financial_state', 'confirmed');
+            });
+        }
 
         $this->applyPaymentFilters($paymentQuery, $filters);
         $confirmedPayments = $paymentQuery->get(['id', 'amount', 'currency']);
@@ -42,7 +48,9 @@ class PaymentBusinessDashboardService
 
         $unallocatedAmount = max(0, $confirmedAmount - $allocatedAmount);
         $openCases = $this->openCases();
-        $openCaseAmount = (float) $openCases->sum(fn ($case) => (float) ($case->observed_amount ?? 0));
+        $openCaseAmount = (float) $openCases
+            ->groupBy(fn ($case) => $case->payment_id ?: ('case:' . $case->id))
+            ->sum(fn (Collection $group) => (float) $group->max('observed_amount'));
         $criticalCases = $openCases->where('severity', 'critical')->count();
 
         $reservedWithdrawals = 0.0;
@@ -110,7 +118,7 @@ class PaymentBusinessDashboardService
                 'payment_id' => $case->payment_id,
                 'payment_reference' => $payment?->provider_reference ?: ('PAY-' . ($case->payment_id ?? '—')),
                 'provider' => $payment?->provider ?? $case->provider ?? '—',
-                'internal_status' => $payment?->status ?? '—',
+                'internal_status' => $payment?->financialState() ?? '—',
                 'expected_amount' => (float) ($case->expected_amount ?? 0),
                 'observed_amount' => (float) ($case->observed_amount ?? 0),
                 'currency' => $case->currency ?: 'XAF',
