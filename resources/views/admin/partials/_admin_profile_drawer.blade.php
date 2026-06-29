@@ -14,15 +14,15 @@
     </header>
 
     <nav class="adm-profile-nav">
-        <a href="{{ route('admin.profile') }}">
+        <a href="{{ route('admin.profile', ['workspace' => $activeWorkspace]) }}">
             <i class="fas fa-user-circle"></i>
             Mon profil
         </a>
-        <a href="{{ route('admin.portal') }}">
+        <a href="{{ route('admin.portal', ['workspace' => $activeWorkspace]) }}">
             <i class="fas fa-border-all"></i>
             Portail des applications
         </a>
-        <a href="{{ route('admin.audit_trail') }}">
+        <a href="{{ route('admin.audit_trail', ['workspace' => $activeWorkspace]) }}">
             <i class="fas fa-shield-halved"></i>
             Journal d’audit
         </a>
