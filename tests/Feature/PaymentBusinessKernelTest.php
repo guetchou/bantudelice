@@ -166,6 +166,7 @@ class PaymentBusinessKernelTest extends TestCase
             'longitude' => '0',
             'min_order' => 0,
             'avg_delivery_time' => 30,
+            'services' => 'delivery,pickup',
         ]);
         $category = Category::create([
             'restaurant_id' => $restaurant->id,
