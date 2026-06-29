@@ -3,6 +3,7 @@
 namespace App\Domain\Payment\Models;
 
 use App\Domain\Payment\Enums\FinancialAccountType;
+use App\Domain\Payment\Enums\JournalEntryStatus;
 use App\Domain\Payment\Enums\LedgerDirection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -50,10 +51,18 @@ class FinancialAccount extends Model
 
     public function balance(): int
     {
-        $normal = $this->lines()
+        $baseQuery = fn () => $this->lines()
+            ->whereHas('journalEntry', function ($query): void {
+                $query->whereIn('status', [
+                    JournalEntryStatus::POSTED->value,
+                    JournalEntryStatus::REVERSED->value,
+                ]);
+            });
+
+        $normal = $baseQuery()
             ->where('direction', $this->normal_balance->value)
             ->sum('amount');
-        $opposite = $this->lines()
+        $opposite = $baseQuery()
             ->where('direction', $this->normal_balance->opposite()->value)
             ->sum('amount');
 
