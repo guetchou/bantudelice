@@ -24,57 +24,100 @@ final class PaymentStateMachine
             ? $target
             : PaymentStatus::fromRaw($target);
 
+        if (! $payment->exists) {
+            return $this->transitionDetachedSnapshot(
+                $payment,
+                $targetStatus,
+                $metaPatch,
+                $reason
+            );
+        }
+
         return DB::transaction(function () use ($payment, $targetStatus, $metaPatch, $reason) {
             $locked = Payment::query()
                 ->lockForUpdate()
                 ->findOrFail($payment->getKey());
 
-            $currentStatus = PaymentStatus::fromRaw($locked->status);
+            return $this->applyTransition(
+                $locked,
+                $targetStatus,
+                $metaPatch,
+                $reason,
+                true
+            );
+        });
+    }
 
-            if ($currentStatus === $targetStatus) {
-                if ($metaPatch !== []) {
-                    $locked->update([
-                        'meta' => $this->mergeMeta($locked->meta ?? [], $metaPatch),
-                    ]);
-                }
+    private function transitionDetachedSnapshot(
+        Payment $payment,
+        PaymentStatus $targetStatus,
+        array $metaPatch,
+        string $reason
+    ): Payment {
+        return $this->applyTransition(
+            $payment,
+            $targetStatus,
+            $metaPatch,
+            $reason,
+            false
+        );
+    }
 
-                return $locked->fresh();
+    private function applyTransition(
+        Payment $payment,
+        PaymentStatus $targetStatus,
+        array $metaPatch,
+        string $reason,
+        bool $recordFinancialEvent
+    ): Payment {
+        $currentStatus = PaymentStatus::fromRaw($payment->status);
+
+        if ($currentStatus === $targetStatus) {
+            if ($metaPatch !== []) {
+                $payment->update([
+                    'meta' => $this->mergeMeta($payment->meta ?? [], $metaPatch),
+                ]);
             }
 
-            if (! $currentStatus->canTransitionTo($targetStatus)) {
-                throw new \DomainException(
-                    'Transition de paiement interdite : '
-                    . $currentStatus->value
-                    . ' vers '
-                    . $targetStatus->value
-                );
-            }
+            return $payment->fresh() ?? $payment;
+        }
 
-            $transition = [
-                'from' => $currentStatus->value,
-                'to' => $targetStatus->value,
-                'reason' => $reason,
-                'at' => now()->toIso8601String(),
-            ];
+        if (! $currentStatus->canTransitionTo($targetStatus)) {
+            throw new \DomainException(
+                'Transition de paiement interdite : '
+                . $currentStatus->value
+                . ' vers '
+                . $targetStatus->value
+            );
+        }
 
-            $locked->update([
-                'status' => $targetStatus->value,
-                'meta' => $this->mergeMeta(
-                    $locked->meta ?? [],
-                    $metaPatch,
-                    ['last_transition' => $transition]
-                ),
-            ]);
+        $transition = [
+            'from' => $currentStatus->value,
+            'to' => $targetStatus->value,
+            'reason' => $reason,
+            'at' => now()->toIso8601String(),
+        ];
 
-            $fresh = $locked->fresh();
+        $payment->update([
+            'status' => $targetStatus->value,
+            'meta' => $this->mergeMeta(
+                $payment->meta ?? [],
+                $metaPatch,
+                ['last_transition' => $transition]
+            ),
+        ]);
+
+        $fresh = $payment->fresh() ?? $payment;
+
+        if ($recordFinancialEvent) {
             $this->financialEvents->recordForPayment(
                 $fresh,
                 'payment_status_changed',
                 ['transition' => $transition]
             );
+        }
 
-            return $fresh;
-        });
+        return $fresh;
     }
 
     private function mergeMeta(array ...$segments): array
