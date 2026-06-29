@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers\admin;
 
+use App\Domain\Payment\PaymentOperatingModel;
 use App\Http\Controllers\Controller;
 use App\Payment;
 use App\Services\PaymentDashboardService;
@@ -17,12 +18,10 @@ class PaymentDashboardController extends Controller
         PaymentDashboardService $dashboard,
         PaymentIndustrialControlService $industrialControl
     ) {
-        $hours = $this->resolveHours($request);
-        $filters = $request->only(['provider', 'status']);
-
-        return view('admin.payments.dashboard', array_merge(
-            $dashboard->build($hours, $filters),
-            $industrialControl->build($filters)
+        return view('admin.payments.dashboard', $this->dashboardPayload(
+            $request,
+            $dashboard,
+            $industrialControl
         ));
     }
 
@@ -31,15 +30,9 @@ class PaymentDashboardController extends Controller
         PaymentDashboardService $dashboard,
         PaymentIndustrialControlService $industrialControl
     ) {
-        $hours = $this->resolveHours($request);
-        $filters = $request->only(['provider', 'status']);
-
         return response()->json([
             'status' => true,
-            'data' => array_merge(
-                $dashboard->build($hours, $filters),
-                $industrialControl->build($filters)
-            ),
+            'data' => $this->dashboardPayload($request, $dashboard, $industrialControl),
         ]);
     }
 
@@ -127,6 +120,13 @@ class PaymentDashboardController extends Controller
         Payment $payment,
         PaymentReconciliationService $reconciliationService
     ) {
+        if (! PaymentOperatingModel::canReconcileCollection($payment->status)) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Ce statut exige une revue manuelle. Le rapprochement automatique n’est pas autorisé.',
+            ], 422);
+        }
+
         $result = $reconciliationService->reconcile($payment);
         $payment->refresh();
 
@@ -142,6 +142,32 @@ class PaymentDashboardController extends Controller
                 'updated_at' => $payment->updated_at?->toIso8601String(),
             ],
         ]);
+    }
+
+    private function dashboardPayload(
+        Request $request,
+        PaymentDashboardService $dashboard,
+        PaymentIndustrialControlService $industrialControl
+    ): array {
+        $hours = $this->resolveHours($request);
+        $filters = $request->only(['provider', 'status']);
+        $operational = $dashboard->build($hours, $filters);
+
+        foreach (['tablePayments', 'livePayments'] as $key) {
+            if (! isset($operational[$key])) {
+                continue;
+            }
+
+            $operational[$key] = collect($operational[$key])->map(function (array $payment) {
+                $payment['can_reconcile'] = PaymentOperatingModel::canReconcileCollection(
+                    $payment['raw_status'] ?? strtoupper((string) ($payment['status'] ?? ''))
+                );
+
+                return $payment;
+            });
+        }
+
+        return array_merge($operational, $industrialControl->build($filters));
     }
 
     private function resolveHours(Request $request): int
