@@ -150,8 +150,9 @@ class PaymentDashboardController extends Controller
         PaymentIndustrialControlService $industrialControl
     ): array {
         $hours = $this->resolveHours($request);
-        $filters = $request->only(['provider', 'status']);
-        $operational = $dashboard->build($hours, $filters);
+        $requestedFilters = $request->only(['provider', 'status']);
+        $operational = $dashboard->build($hours, $requestedFilters);
+        $normalizedFilters = $operational['filters'] ?? $requestedFilters;
 
         foreach (['tablePayments', 'livePayments'] as $key) {
             if (! isset($operational[$key])) {
@@ -167,7 +168,7 @@ class PaymentDashboardController extends Controller
             });
         }
 
-        return array_merge($operational, $industrialControl->build($filters));
+        return array_merge($operational, $industrialControl->build($normalizedFilters));
     }
 
     private function resolveHours(Request $request): int
