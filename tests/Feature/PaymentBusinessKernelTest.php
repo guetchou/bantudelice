@@ -2,15 +2,19 @@
 
 namespace Tests\Feature;
 
+use App\Category;
 use App\Domain\Payment\Enums\PaymentStatus;
 use App\Domain\Payment\Services\PaymentAllocationService;
 use App\Domain\Payment\Services\PaymentStateMachine;
 use App\Order;
 use App\Payment;
+use App\Product;
+use App\Restaurant;
 use App\Services\PaymentReconciliationService;
 use App\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use Tests\TestCase;
 
 class PaymentBusinessKernelTest extends TestCase
@@ -119,7 +123,11 @@ class PaymentBusinessKernelTest extends TestCase
         $result = $service->reconcile($payment);
 
         $this->assertFalse($result['reconciled']);
-        $this->assertSame('UNKNOWN', $result['status']);
+        $this->assertSame(
+            'UNKNOWN',
+            $result['status'],
+            json_encode($result, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+        );
         $this->assertSame('UNKNOWN', $payment->fresh()->status);
     }
 
@@ -144,10 +152,43 @@ class PaymentBusinessKernelTest extends TestCase
 
     private function createOrder(User $user, string $orderNo, int $total): Order
     {
-        return Order::create([
-            'restaurant_id' => 1,
+        $suffix = Str::lower(Str::random(8));
+        $restaurant = Restaurant::create([
             'user_id' => $user->id,
-            'product_id' => 1,
+            'name' => 'Restaurant test ' . $suffix,
+            'email' => 'restaurant-' . $suffix . '@example.test',
+            'password' => bcrypt('test-password'),
+            'city' => 'Brazzaville',
+            'address' => 'Adresse test',
+            'phone' => '0600020002',
+            'user_name' => 'restaurant_' . $suffix,
+            'latitude' => '0',
+            'longitude' => '0',
+            'min_order' => 0,
+            'avg_delivery_time' => 30,
+        ]);
+        $category = Category::create([
+            'restaurant_id' => $restaurant->id,
+            'name' => 'Catégorie test',
+            'is_available' => 1,
+            'sort_order' => 1,
+        ]);
+        $product = Product::create([
+            'restaurant_id' => $restaurant->id,
+            'category_id' => $category->id,
+            'name' => 'Produit test',
+            'price' => $total,
+            'discount_price' => 0,
+            'description' => 'Produit de test métier paiement',
+            'is_available' => 1,
+            'sort_order' => 1,
+            'featured' => 0,
+        ]);
+
+        return Order::create([
+            'restaurant_id' => $restaurant->id,
+            'user_id' => $user->id,
+            'product_id' => $product->id,
             'qty' => 1,
             'price' => $total,
             'total_items' => 1,
