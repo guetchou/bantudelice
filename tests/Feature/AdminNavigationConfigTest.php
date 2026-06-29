@@ -51,7 +51,7 @@ class AdminNavigationConfigTest extends TestCase
 
             $this->assertNotNull($route, "Route plateforme [{$item['route']}] absente.");
             $workspaceMiddleware = collect($route->gatherMiddleware())
-                ->filter(fn (string $middleware) => str_starts_with($middleware, 'admin.workspace:'));
+                ->filter(fn ($middleware) => is_string($middleware) && str_starts_with($middleware, 'admin.workspace:'));
 
             $this->assertTrue(
                 $workspaceMiddleware->isEmpty(),
@@ -108,14 +108,14 @@ class AdminNavigationConfigTest extends TestCase
         $this->assertStringContainsString('admProfileOpen', $compiled);
     }
 
-    public function test_admin_profile_drawer_does_not_link_to_food_settings(): void
+    public function test_admin_profile_drawer_is_workspace_neutral_and_preserves_context(): void
     {
         $source = file_get_contents(resource_path('views/admin/partials/_admin_profile_drawer.blade.php'));
 
         $this->assertIsString($source);
         $this->assertStringNotContainsString("route('charge.index')", $source);
-        $this->assertStringContainsString("route('admin.profile')", $source);
-        $this->assertStringContainsString("route('admin.portal')", $source);
-        $this->assertStringContainsString("route('admin.audit_trail')", $source);
+        $this->assertStringContainsString("route('admin.profile', ['workspace' => $activeWorkspace])", $source);
+        $this->assertStringContainsString("route('admin.portal', ['workspace' => $activeWorkspace])", $source);
+        $this->assertStringContainsString("route('admin.audit_trail', ['workspace' => $activeWorkspace])", $source);
     }
 }
