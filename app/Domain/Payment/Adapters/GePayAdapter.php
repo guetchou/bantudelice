@@ -13,7 +13,6 @@ use App\Domain\Payment\ValueObjects\GatewayStatus;
 use App\Payment;
 use App\Services\SmsService;
 use Illuminate\Support\Facades\Log;
-use Illuminate\Support\Str;
 use RuntimeException;
 
 final class GePayAdapter implements PaymentGatewayAdapterInterface
@@ -115,14 +114,6 @@ final class GePayAdapter implements PaymentGatewayAdapterInterface
         $transaction = GePayTransaction::where('uuid', $providerReference)->first();
 
         if (! $transaction) {
-            // UUID format → référence GePay introuvable → UNKNOWN sans fallback MTN.
-            // Format non-UUID → référence MTN historique → déléguer au legacy adapter.
-            if (Str::isUuid($providerReference)) {
-                return GatewayStatus::unknown('GEPAY_TRANSACTION_NOT_FOUND', [
-                    'gepay_uuid' => $providerReference,
-                ]);
-            }
-
             return $this->checkLegacyMtnStatus($providerReference);
         }
 
@@ -176,7 +167,18 @@ final class GePayAdapter implements PaymentGatewayAdapterInterface
             'provider_reference' => $providerReference,
         ]);
 
-        $legacyStatus = $this->legacyMtn->checkStatus($providerReference);
+        try {
+            $legacyStatus = $this->legacyMtn->checkStatus($providerReference);
+        } catch (\Throwable $e) {
+            Log::warning('GePayAdapter::checkLegacyMtnStatus — fallback indisponible', [
+                'provider_reference' => $providerReference,
+                'error' => $e->getMessage(),
+            ]);
+
+            return GatewayStatus::unknown('LEGACY_MTN_FALLBACK_UNAVAILABLE', [
+                'provider_reference' => $providerReference,
+            ]);
+        }
 
         return new GatewayStatus(
             status: $legacyStatus->status,

@@ -26,6 +26,7 @@ class GePayAdapterTest extends TestCase
     {
         parent::setUp();
         Cache::flush();
+        Http::preventStrayRequests();
 
         $this->client = GePayClient::create([
             'uuid'         => (string) Str::uuid(),
