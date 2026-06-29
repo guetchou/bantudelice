@@ -18,6 +18,8 @@ class Payment extends Model
         'provider_reference',
         'idempotency_key',
         'status',
+        'financial_state',
+        'financial_state_changed_at',
         'amount',
         'currency',
         'meta',
@@ -25,6 +27,7 @@ class Payment extends Model
 
     protected $casts = [
         'meta' => 'array',
+        'financial_state_changed_at' => 'datetime',
     ];
 
     public function user()
@@ -75,5 +78,21 @@ class Payment extends Model
     public function isFailed(): bool
     {
         return strtoupper((string) $this->status) === 'FAILED';
+    }
+
+    public function financialState(): string
+    {
+        $state = strtolower(trim((string) $this->financial_state));
+
+        if ($state !== '') {
+            return $state;
+        }
+
+        return match (strtoupper((string) $this->status)) {
+            'PAID', 'SUCCESS', 'SUCCESSFUL' => 'confirmed',
+            'FAILED', 'REJECTED', 'DECLINED' => 'failed',
+            'CANCELLED', 'CANCELED' => 'cancelled',
+            default => 'pending',
+        };
     }
 }
