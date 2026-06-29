@@ -82,6 +82,11 @@ class Kernel extends ConsoleKernel
             ->name('food-audit-integrity')
             ->withoutOverlapping();
 
+        $schedule->command('payments:backfill-business --days=7 --limit=1000')
+            ->dailyAt('02:35')
+            ->name('payments-business-integrity')
+            ->withoutOverlapping();
+
         $schedule->command('payments:check-fraud')
             ->hourly()
             ->name('fraud-check')
