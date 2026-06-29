@@ -47,18 +47,33 @@ class Payment extends Model
         return $this->belongsTo(\App\Domain\Transport\Models\TransportBooking::class, 'transport_booking_id');
     }
 
+    public function allocations()
+    {
+        return $this->hasMany(PaymentAllocation::class);
+    }
+
+    public function reconciliationCases()
+    {
+        return $this->hasMany(PaymentReconciliationCase::class);
+    }
+
+    public function ledgerEntries()
+    {
+        return $this->hasMany(FinancialLedgerEntry::class);
+    }
+
     public function isPaid(): bool
     {
-        return $this->status === 'PAID';
+        return strtoupper((string) $this->status) === 'PAID';
     }
 
     public function isPending(): bool
     {
-        return $this->status === 'PENDING';
+        return strtoupper((string) $this->status) === 'PENDING';
     }
 
     public function isFailed(): bool
     {
-        return $this->status === 'FAILED';
+        return strtoupper((string) $this->status) === 'FAILED';
     }
 }

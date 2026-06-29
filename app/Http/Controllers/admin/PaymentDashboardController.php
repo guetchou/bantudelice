@@ -4,41 +4,49 @@ namespace App\Http\Controllers\admin;
 
 use App\Http\Controllers\Controller;
 use App\Payment;
+use App\Services\PaymentBusinessDashboardService;
 use App\Services\PaymentDashboardService;
-use App\Services\PaymentReconciliationService;
+use App\Services\PaymentOperationsReconciliationService;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class PaymentDashboardController extends Controller
 {
-    public function index(Request $request, PaymentDashboardService $dashboard)
-    {
+    public function index(
+        Request $request,
+        PaymentDashboardService $dashboard,
+        PaymentBusinessDashboardService $businessDashboard
+    ) {
         $hours = in_array((int) $request->query('hours', 12), [6, 12, 24], true)
             ? (int) $request->query('hours', 12)
             : 12;
+        $filters = $request->only(['provider', 'status']);
 
-        return view('admin.payments.dashboard', $dashboard->build(
-            $hours,
-            $request->only(['provider', 'status'])
+        return view('admin.payments.dashboard', array_merge(
+            $dashboard->build($hours, $filters),
+            $businessDashboard->build($filters)
         ));
     }
 
-    public function data(Request $request, PaymentDashboardService $dashboard)
-    {
+    public function data(
+        Request $request,
+        PaymentDashboardService $dashboard,
+        PaymentBusinessDashboardService $businessDashboard
+    ) {
         $hours = in_array((int) $request->query('hours', 12), [6, 12, 24], true)
             ? (int) $request->query('hours', 12)
             : 12;
+        $filters = $request->only(['provider', 'status']);
 
         return response()->json([
             'status' => true,
-            'data' => $dashboard->build($hours, $request->only(['provider', 'status'])),
+            'data' => array_merge(
+                $dashboard->build($hours, $filters),
+                $businessDashboard->build($filters)
+            ),
         ]);
     }
 
-    /**
-     * Export CSV des paiements pour la réconciliation comptable.
-     * Les filtres utilisent les mêmes valeurs normalisées que le cockpit.
-     */
     public function exportCsv(Request $request): StreamedResponse
     {
         $request->validate([
@@ -100,7 +108,7 @@ class PaymentDashboardController extends Controller
                         $payment->provider_reference ?? '',
                         $payment->status,
                         number_format((float) $payment->amount, 0, ',', ' '),
-                        $payment->currency ?? 'FCFA',
+                        $payment->currency ?? 'XAF',
                         $payment->created_at?->format('d/m/Y H:i'),
                         $payment->updated_at?->format('d/m/Y H:i'),
                     ], ';');
@@ -117,13 +125,13 @@ class PaymentDashboardController extends Controller
     public function reconcile(
         Request $request,
         Payment $payment,
-        PaymentReconciliationService $reconciliationService
+        PaymentOperationsReconciliationService $reconciliationService
     ) {
         $result = $reconciliationService->reconcile($payment);
         $payment->refresh();
 
         return response()->json([
-            'status' => true,
+            'status' => (bool) ($result['reconciled'] ?? false),
             'message' => $result['message'] ?? 'Réconciliation terminée',
             'result' => $result,
             'payment' => [
