@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use Carbon\Carbon;
+use Illuminate\Database\Query\Builder;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
@@ -26,24 +27,21 @@ class PaymentDashboardService
         $bucketSize = $hours >= 12 ? 2 : 1;
 
         $todayPayments = $this->applyFilters(
-            DB::table('payments')
-                ->whereNull('deleted_at')
+            $this->paymentQuery()
                 ->where('created_at', '>=', $todayStart)
                 ->orderByDesc('updated_at'),
             $filters
         )->get();
 
         $windowPayments = $this->applyFilters(
-            DB::table('payments')
-                ->whereNull('deleted_at')
+            $this->paymentQuery()
                 ->where('created_at', '>=', $windowStart)
                 ->orderBy('created_at'),
             $filters
         )->get();
 
         $recentPayments = $this->applyFilters(
-            DB::table('payments')
-                ->whereNull('deleted_at')
+            $this->paymentQuery()
                 ->orderByDesc('updated_at')
                 ->limit(40),
             $filters
@@ -63,7 +61,6 @@ class PaymentDashboardService
         });
         $unknownToday = $todayPayments->filter(fn ($payment) => $this->canonicalStatus($payment->status) === 'unknown');
         $reversedToday = $todayPayments->filter(fn ($payment) => $this->canonicalStatus($payment->status) === 'reversed');
-
         $exceptions = $todayPayments
             ->filter(fn ($payment) => $this->needsAttention($payment, $now))
             ->unique('id')
@@ -79,13 +76,15 @@ class PaymentDashboardService
                 'turnover' => $successfulAmount,
                 'transactions' => (int) $transactionCount,
                 'success_rate' => $transactionCount > 0 ? round(($successCount / $transactionCount) * 100, 1) : 0.0,
-                'pending' => (int) collect(self::UNRESOLVED_STATUSES)->sum(fn ($status) => $statusBreakdown[$status] ?? 0),
+                'pending' => (int) collect(self::UNRESOLVED_STATUSES)
+                    ->sum(fn ($status) => $statusBreakdown[$status] ?? 0),
                 'exceptions' => (int) $exceptions->count(),
             ],
             'statusBreakdown' => $statusBreakdown,
             'providerBreakdown' => $this->providerBreakdown($todayPayments),
-            'hourlySeries' => $this->hourlySeries($windowPayments, $windowStart, $hours, $bucketSize),
-            'workQueue' => $this->workQueue($recentPayments, $now),
+            'hourlySeries' => $this->hourlySeries($windowPayments, $windowStart, $bucketSize),
+            'workQueue' => $this->workQueue($exceptions, $now),
+            'livePayments' => $this->transformPayments($recentPayments->take(6), $now),
             'tablePayments' => $this->transformPayments($recentPayments->take(30), $now),
             'alerts' => $this->alerts(
                 $stalePayments->count(),
@@ -96,6 +95,17 @@ class PaymentDashboardService
         ];
     }
 
+    protected function paymentQuery(): Builder
+    {
+        $query = DB::table('payments');
+
+        if (Schema::hasColumn('payments', 'deleted_at')) {
+            $query->whereNull('deleted_at');
+        }
+
+        return $query;
+    }
+
     protected function emptyDashboard(int $hours, array $filters): array
     {
         return [
@@ -103,7 +113,11 @@ class PaymentDashboardService
             'hours' => $hours,
             'filters' => $filters,
             'filterOptions' => $this->filterOptions(),
-            'health' => ['tone' => 'neutral', 'label' => 'Aucune donnée', 'message' => 'Aucun paiement disponible.'],
+            'health' => [
+                'tone' => 'neutral',
+                'label' => 'Aucune donnée',
+                'message' => 'Aucun paiement disponible.',
+            ],
             'kpis' => [
                 'turnover' => 0,
                 'transactions' => 0,
@@ -115,6 +129,7 @@ class PaymentDashboardService
             'providerBreakdown' => collect(),
             'hourlySeries' => ['labels' => [], 'amounts' => [], 'counts' => []],
             'workQueue' => collect(),
+            'livePayments' => collect(),
             'tablePayments' => collect(),
             'alerts' => [],
         ];
@@ -152,21 +167,20 @@ class PaymentDashboardService
 
     protected function providerBreakdown(Collection $payments): Collection
     {
+        $now = now();
         $items = $payments
             ->groupBy(fn ($payment) => $this->providerLabel($payment->provider))
-            ->map(function (Collection $group, string $provider) {
-                $successCount = $group
-                    ->filter(fn ($payment) => in_array($this->canonicalStatus($payment->status), ['success', 'paid'], true))
-                    ->count();
+            ->map(function (Collection $group, string $provider) use ($now) {
+                $confirmed = $group->filter(
+                    fn ($payment) => in_array($this->canonicalStatus($payment->status), ['success', 'paid'], true)
+                );
 
                 return [
                     'provider' => $provider,
                     'count' => $group->count(),
-                    'amount' => (int) $group
-                        ->filter(fn ($payment) => in_array($this->canonicalStatus($payment->status), ['success', 'paid'], true))
-                        ->sum('amount'),
-                    'success_rate' => round(($successCount / max(1, $group->count())) * 100, 1),
-                    'exceptions' => $group->filter(fn ($payment) => $this->needsAttention($payment, now()))->count(),
+                    'amount' => (int) $confirmed->sum('amount'),
+                    'success_rate' => round(($confirmed->count() / max(1, $group->count())) * 100, 1),
+                    'exceptions' => $group->filter(fn ($payment) => $this->needsAttention($payment, $now))->count(),
                 ];
             })
             ->sortByDesc('amount')
@@ -181,7 +195,7 @@ class PaymentDashboardService
         });
     }
 
-    protected function hourlySeries(Collection $payments, Carbon $windowStart, int $hours, int $bucketSize): array
+    protected function hourlySeries(Collection $payments, Carbon $windowStart, int $bucketSize): array
     {
         $labels = [];
         $amounts = [];
@@ -221,7 +235,6 @@ class PaymentDashboardService
     protected function workQueue(Collection $payments, Carbon $now): Collection
     {
         return $payments
-            ->filter(fn ($payment) => $this->needsAttention($payment, $now))
             ->map(function ($payment) use ($now) {
                 $item = $this->transformPayment($payment, $now);
                 $item['priority_score'] = match ($item['status']) {
@@ -249,7 +262,7 @@ class PaymentDashboardService
         $meta = $this->decodeMeta($payment->meta ?? null);
         $status = $this->canonicalStatus($payment->status);
         $activityAt = Carbon::parse($payment->updated_at ?? $payment->created_at);
-        $ageMinutes = max(0, $activityAt->diffInMinutes($now));
+        $ageMinutes = max(0, (int) $activityAt->diffInMinutes($now));
 
         return [
             'id' => 'TX' . str_pad((string) $payment->id, 5, '0', STR_PAD_LEFT),
@@ -267,7 +280,11 @@ class PaymentDashboardService
             'age_label' => $this->ageLabel($ageMinutes),
             'reason' => $this->extractReason($meta),
             'severity' => $this->severity($status, $ageMinutes),
-            'can_reconcile' => in_array($status, ['initiated', 'pending', 'processing', 'failed', 'unknown', 'reversed'], true),
+            'can_reconcile' => in_array(
+                $status,
+                ['initiated', 'pending', 'processing', 'failed', 'unknown', 'reversed'],
+                true
+            ),
         ];
     }
 
@@ -276,20 +293,45 @@ class PaymentDashboardService
         $alerts = [];
 
         if ($unknown > 0) {
-            $alerts[] = ['tone' => 'danger', 'label' => 'Statuts inconnus', 'value' => $unknown, 'message' => 'Confirmation opérateur manquante : revue manuelle prioritaire.'];
+            $alerts[] = [
+                'tone' => 'danger',
+                'label' => 'Statuts inconnus',
+                'value' => $unknown,
+                'message' => 'Confirmation opérateur manquante : revue manuelle prioritaire.',
+            ];
         }
         if ($reversed > 0) {
-            $alerts[] = ['tone' => 'danger', 'label' => 'Inversions financières', 'value' => $reversed, 'message' => 'Des paiements ont été inversés et doivent être rapprochés.'];
+            $alerts[] = [
+                'tone' => 'danger',
+                'label' => 'Inversions financières',
+                'value' => $reversed,
+                'message' => 'Des paiements ont été inversés et doivent être rapprochés.',
+            ];
         }
         if ($stale > 0) {
-            $alerts[] = ['tone' => 'warning', 'label' => 'Attentes prolongées', 'value' => $stale, 'message' => 'Paiements non résolus depuis plus de deux minutes.'];
+            $alerts[] = [
+                'tone' => 'warning',
+                'label' => 'Attentes prolongées',
+                'value' => $stale,
+                'message' => 'Paiements non résolus depuis plus de deux minutes.',
+            ];
         }
         if ($failedLastHour > 0) {
-            $alerts[] = ['tone' => 'warning', 'label' => 'Échecs récents', 'value' => $failedLastHour, 'message' => 'Échecs détectés durant les soixante dernières minutes.'];
+            $alerts[] = [
+                'tone' => 'warning',
+                'label' => 'Échecs récents',
+                'value' => $failedLastHour,
+                'message' => 'Échecs détectés durant les soixante dernières minutes.',
+            ];
         }
 
         if ($alerts === []) {
-            $alerts[] = ['tone' => 'success', 'label' => 'Flux stable', 'value' => 0, 'message' => 'Aucune exception prioritaire sur le périmètre affiché.'];
+            $alerts[] = [
+                'tone' => 'success',
+                'label' => 'Flux stable',
+                'value' => 0,
+                'message' => 'Aucune exception prioritaire sur le périmètre affiché.',
+            ];
         }
 
         return $alerts;
@@ -298,14 +340,26 @@ class PaymentDashboardService
     protected function healthSummary(int $exceptions, int $unknown, int $reversed): array
     {
         if ($unknown > 0 || $reversed > 0) {
-            return ['tone' => 'danger', 'label' => 'Intervention requise', 'message' => 'Des opérations financières non résolues exigent une décision.'];
+            return [
+                'tone' => 'danger',
+                'label' => 'Intervention requise',
+                'message' => 'Des opérations financières non résolues exigent une décision.',
+            ];
         }
 
         if ($exceptions > 0) {
-            return ['tone' => 'warning', 'label' => 'Sous surveillance', 'message' => 'Des paiements doivent être rapprochés.'];
+            return [
+                'tone' => 'warning',
+                'label' => 'Sous surveillance',
+                'message' => 'Des paiements doivent être rapprochés.',
+            ];
         }
 
-        return ['tone' => 'success', 'label' => 'Flux stable', 'message' => 'Aucune exception financière prioritaire.'];
+        return [
+            'tone' => 'success',
+            'label' => 'Flux stable',
+            'message' => 'Aucune exception financière prioritaire.',
+        ];
     }
 
     protected function needsAttention($payment, Carbon $now): bool
@@ -321,7 +375,8 @@ class PaymentDashboardService
         $status = $this->canonicalStatus($payment->status);
 
         return in_array($status, self::UNRESOLVED_STATUSES, true)
-            && Carbon::parse($payment->updated_at ?? $payment->created_at)->lte($now->copy()->subMinutes(2));
+            && Carbon::parse($payment->updated_at ?? $payment->created_at)
+                ->lte($now->copy()->subMinutes(2));
     }
 
     protected function severity(string $status, int $ageMinutes): string
@@ -329,6 +384,7 @@ class PaymentDashboardService
         if (in_array($status, ['unknown', 'reversed', 'disputed'], true)) {
             return 'critical';
         }
+
         if ($status === 'failed' || ($ageMinutes >= 2 && in_array($status, self::UNRESOLVED_STATUSES, true))) {
             return 'warning';
         }
@@ -377,13 +433,16 @@ class PaymentDashboardService
 
         foreach ($candidates as $candidate) {
             $digits = preg_replace('/\D+/', '', (string) $candidate);
-            if ($digits !== '') {
-                if (strlen($digits) > 9) {
-                    $digits = substr($digits, -9);
-                }
 
-                return trim(chunk_split($digits, 2, ' '));
+            if ($digits === '') {
+                continue;
             }
+
+            if (strlen($digits) > 9) {
+                $digits = substr($digits, -9);
+            }
+
+            return trim(chunk_split($digits, 2, ' '));
         }
 
         return 'Non renseigné';
@@ -400,6 +459,7 @@ class PaymentDashboardService
 
         foreach ($candidates as $candidate) {
             $value = trim((string) $candidate);
+
             if ($value !== '') {
                 return $value;
             }
@@ -460,7 +520,6 @@ class PaymentDashboardService
     {
         $provider = strtolower(trim((string) ($filters['provider'] ?? 'all')));
         $status = strtolower(trim((string) ($filters['status'] ?? 'all')));
-
         $allowedProviders = collect($this->filterOptions()['providers'])->pluck('value')->all();
         $allowedStatuses = collect($this->filterOptions()['statuses'])->pluck('value')->all();
 
