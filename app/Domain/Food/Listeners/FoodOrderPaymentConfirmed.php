@@ -6,6 +6,8 @@ use App\Delivery;
 use App\Domain\Food\Enums\OrderPaymentStatus;
 use App\Domain\Food\Services\FoodOrderConfirmationNotifier;
 use App\Domain\Payment\Events\PaymentConfirmed;
+use App\Domain\Payment\Services\PaymentAllocationService;
+use App\Order;
 use App\Services\DeliveryService;
 use App\Services\FinancialEventService;
 use App\Services\FoodOrderStateMachineService;
@@ -17,8 +19,10 @@ class FoodOrderPaymentConfirmed
         protected FoodOrderStateMachineService $stateMachine,
         protected DeliveryService $deliveryService,
         protected FoodOrderConfirmationNotifier $confirmationNotifier,
-        protected FinancialEventService $financialEvents
-    ) {}
+        protected FinancialEventService $financialEvents,
+        protected PaymentAllocationService $paymentAllocations,
+    ) {
+    }
 
     public function handle(PaymentConfirmed $event): void
     {
@@ -33,6 +37,7 @@ class FoodOrderPaymentConfirmed
                 'payment_id' => $payment->id,
                 'provider' => $payment->provider,
             ]);
+
             return;
         }
 
@@ -46,23 +51,51 @@ class FoodOrderPaymentConfirmed
             Log::warning('FoodOrderPaymentConfirmed: order introuvable pour payment', [
                 'payment_id' => $payment->id,
             ]);
+
             return;
         }
 
-        \App\Order::where('order_no', $order->order_no)->update([
+        $funding = $this->paymentAllocations->fundingStatusForFoodOrderGroup((string) $order->order_no);
+
+        if (! $funding['fully_funded']) {
+            Order::where('order_no', $order->order_no)->update([
+                'payment_status' => OrderPaymentStatus::PENDING->value,
+            ]);
+
+            $this->financialEvents->recordForOrder($order->fresh(), 'order_payment_partially_funded', [
+                'payment_id' => $payment->id,
+                'due_amount' => $funding['due_amount'],
+                'allocated_amount' => $funding['allocated_amount'],
+                'remaining_amount' => $funding['remaining_amount'],
+            ]);
+
+            Log::warning('FoodOrderPaymentConfirmed: financement incomplet, commande non confirmée', [
+                'payment_id' => $payment->id,
+                'order_no' => $order->order_no,
+                'due_amount' => $funding['due_amount'],
+                'allocated_amount' => $funding['allocated_amount'],
+                'remaining_amount' => $funding['remaining_amount'],
+            ]);
+
+            return;
+        }
+
+        Order::where('order_no', $order->order_no)->update([
             'payment_status' => OrderPaymentStatus::PAID->value,
         ]);
         $freshOrder = $order->fresh();
 
         $this->financialEvents->recordForOrder($freshOrder, 'order_payment_marked_paid', [
             'payment_id' => $payment->id,
+            'due_amount' => $funding['due_amount'],
+            'allocated_amount' => $funding['allocated_amount'],
         ]);
 
         $currentStatus = $freshOrder->business_status ?? 'pending_restaurant_acceptance';
         $transitionContext = [
             'actor_type' => 'system',
             'actor_id' => null,
-            'reason_code' => 'payment_confirmed',
+            'reason_code' => 'payment_confirmed_and_fully_allocated',
         ];
 
         if (in_array($currentStatus, ['accepted_awaiting_payment', 'pending_restaurant_acceptance'], true)) {
@@ -94,7 +127,7 @@ class FoodOrderPaymentConfirmed
             ];
         }
 
-        $orders = \App\Order::where('order_no', $freshOrder->order_no)->get();
+        $orders = Order::where('order_no', $freshOrder->order_no)->get();
         $this->confirmationNotifier->confirmOrder(
             $payment->fresh(),
             $orders,
@@ -105,10 +138,7 @@ class FoodOrderPaymentConfirmed
         );
     }
 
-    /**
-     * La livraison est préparée ici, mais les offres ne démarrent qu'au passage ready_for_pickup.
-     */
-    private function createDelivery(\App\Order $order): void
+    private function createDelivery(Order $order): void
     {
         if (Delivery::where('order_id', $order->id)->exists()) {
             return;
