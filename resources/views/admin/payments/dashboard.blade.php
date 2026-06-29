@@ -1,1042 +1,805 @@
 @extends('layouts.admin-modern')
 
-@section('title', 'Cockpit Paiements')
-@section('page_title', 'Cockpit Paiements')
+@section('title', 'Opérations de paiement')
+@section('page_title', 'Opérations de paiement')
 @section('nav_active', 'payments')
+
+@php
+    $chartLabels = collect($hourlySeries['labels'] ?? [])->values();
+    $chartAmounts = collect($hourlySeries['amounts'] ?? [])->map(fn ($value) => (float) $value)->values();
+    $chartCounts = collect($hourlySeries['counts'] ?? [])->map(fn ($value) => (int) $value)->values();
+    $chartMax = max(1, (float) $chartAmounts->max());
+    $chartCount = max(1, $chartAmounts->count());
+    $chartPoints = $chartAmounts->map(function ($value, $index) use ($chartMax, $chartCount) {
+        $x = $chartCount <= 1 ? 0 : round(($index / ($chartCount - 1)) * 100, 2);
+        $y = round(92 - (($value / $chartMax) * 76), 2);
+        return $x . ',' . $y;
+    })->implode(' ');
+    $chartArea = $chartPoints !== '' ? '0,100 ' . $chartPoints . ' 100,100' : '';
+    $statusSummary = [
+        ['key' => 'paid', 'label' => 'Confirmés', 'value' => ($statusBreakdown['paid'] ?? 0) + ($statusBreakdown['success'] ?? 0), 'tone' => 'success'],
+        ['key' => 'pending', 'label' => 'Non résolus', 'value' => ($statusBreakdown['initiated'] ?? 0) + ($statusBreakdown['pending'] ?? 0) + ($statusBreakdown['processing'] ?? 0), 'tone' => 'warning'],
+        ['key' => 'failed', 'label' => 'Échecs', 'value' => $statusBreakdown['failed'] ?? 0, 'tone' => 'danger'],
+        ['key' => 'unknown', 'label' => 'Inconnus / inversés', 'value' => ($statusBreakdown['unknown'] ?? 0) + ($statusBreakdown['reversed'] ?? 0), 'tone' => 'critical'],
+    ];
+@endphp
 
 @section('style')
 <style>
-.payment-dashboard {
-    display: grid;
-    gap: .9rem;
+.payops {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    max-width: 1600px;
+    margin: 0 auto;
 }
-.payment-context-band { display: none; }
-.payment-hero { display: none; }
-.payment-filter-group {
-    display: inline-flex;
-    gap: .45rem;
+
+.payops-panel,
+.payops-kpi,
+.payops-filterbar,
+.payops-health {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, .04);
+}
+
+.payops-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 18px;
     flex-wrap: wrap;
 }
-.payment-pill {
-    text-decoration: none !important;
-    display: inline-flex;
-    align-items: center;
-    gap: .4rem;
-    border-radius: 999px;
-    padding: .38rem .7rem;
-    font-size: .72rem;
-    font-weight: 700;
-    letter-spacing: .02em;
-    border: 1px solid #d1d5db;
-    background: #f3f4f6;
-    color: #374151;
-    cursor: pointer;
-}
-.payment-pill:hover { background: #e5e7eb; color: #111827; }
-.payment-pill.active {
-    background: rgba(0,149,67,.1);
-    color: #009543;
-    border-color: rgba(0,149,67,.3);
-}
-.payment-pill--ghost {
-    text-transform: none;
-    letter-spacing: 0;
-    font-weight: 600;
-}
-.payment-kpi-grid {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: .75rem;
-}
-.payment-kpi-card {
-    position: relative;
-    overflow: hidden;
-    border-radius: 16px;
-    padding: .9rem;
-    background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
-    border: 1px solid rgba(255,255,255,.06);
-}
-.payment-kpi-card::after {
-    content: '';
-    position: absolute;
-    inset: auto -35px -35px auto;
-    width: 110px;
-    height: 110px;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(255,255,255,.16), transparent 68%);
-}
-.payment-kpi-label {
-    font-size: .72rem;
-    color: var(--text-3);
-    text-transform: uppercase;
-    letter-spacing: .12em;
-    font-weight: 800;
-}
-.payment-kpi-value {
-    margin-top: .45rem;
-    font-family: var(--f-d);
-    font-size: 1.55rem;
-    line-height: 1;
-    color: var(--text);
-}
-.payment-kpi-meta {
-    margin-top: .3rem;
-    font-size: .74rem;
-    color: var(--text-2);
-    line-height: 1.45;
-}
-.payment-main-grid {
-    display: grid;
-    grid-template-columns: minmax(0, 1.7fr) minmax(320px, .9fr);
-    gap: .9rem;
-}
-.payment-status-grid {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: .6rem;
-}
-.payment-status-card {
-    padding: .75rem .8rem;
-    border-radius: 14px;
-    background: rgba(255,255,255,.035);
-    border: 1px solid rgba(255,255,255,.06);
-}
-.payment-status-name {
-    font-size: .72rem;
-    color: var(--text-3);
-    text-transform: uppercase;
-    letter-spacing: .1em;
-    font-weight: 800;
-}
-.payment-status-value {
-    margin-top: .4rem;
-    font-family: var(--f-d);
-    font-size: 1.28rem;
-    color: var(--text);
-    line-height: 1;
-}
-.payment-card {
-    border-radius: 16px;
-    padding: .95rem;
-    background: linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.025));
-    border: 1px solid rgba(255,255,255,.06);
-}
-.payment-card-header {
+
+.payops-breadcrumb {
     display: flex;
-    justify-content: space-between;
-    gap: 1rem;
+    gap: 6px;
     align-items: center;
-    margin-bottom: .75rem;
-}
-.payment-card-title {
-    font-size: .9rem;
-    font-weight: 800;
-    color: var(--text);
-}
-.payment-card-subtitle {
-    margin-top: .2rem;
-    font-size: .72rem;
-    color: var(--text-3);
-    line-height: 1.45;
-}
-.payment-alert-list,
-.payment-stream,
-.payment-provider-list {
-    display: grid;
-    gap: .6rem;
-}
-.payment-alert {
-    display: grid;
-    gap: .3rem;
-    padding: .75rem .8rem;
-    border-radius: 14px;
-    border: 1px solid transparent;
-}
-.payment-alert--warning { background: rgba(245, 158, 11, .11); border-color: rgba(245, 158, 11, .25); }
-.payment-alert--danger { background: rgba(239, 68, 68, .1); border-color: rgba(239, 68, 68, .2); }
-.payment-alert--success { background: rgba(34, 197, 94, .1); border-color: rgba(34, 197, 94, .18); }
-.payment-alert--info { background: rgba(59, 130, 246, .1); border-color: rgba(59, 130, 246, .2); }
-.payment-alert-top {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    gap: 1rem;
-    color: var(--text);
+    color: #94a3b8;
+    font-size: .68rem;
     font-weight: 700;
 }
-.payment-alert-value {
-    font-size: 1.1rem;
+
+.payops-title {
+    margin-top: 5px;
+    color: #0f172a;
+    font-size: 1.35rem;
+    line-height: 1.2;
+    font-weight: 900;
 }
-.payment-alert-message {
-    color: var(--text-2);
+
+.payops-subtitle {
+    max-width: 740px;
+    margin-top: 6px;
+    color: #64748b;
     font-size: .76rem;
-    line-height: 1.45;
+    line-height: 1.55;
 }
-.payment-provider-row {
-    display: grid;
-    gap: .45rem;
-}
-.payment-provider-top {
+
+.payops-actions {
     display: flex;
-    justify-content: space-between;
-    gap: 1rem;
-    align-items: baseline;
-}
-.payment-provider-name {
-    font-weight: 700;
-    color: var(--text);
-}
-.payment-provider-meta {
-    font-size: .76rem;
-    color: var(--text-3);
-}
-.payment-progress {
-    height: 8px;
-    border-radius: 999px;
-    background: rgba(255,255,255,.06);
-    overflow: hidden;
-}
-.payment-progress > span {
-    display: block;
-    height: 100%;
-    border-radius: inherit;
-    background: linear-gradient(90deg, #1db860, #6ee7b7);
-}
-.payment-stream-item {
-    display: grid;
-    grid-template-columns: auto 1fr auto;
-    gap: .65rem;
+    gap: 8px;
     align-items: center;
-    padding: .7rem .8rem;
-    border-radius: 14px;
-    background: rgba(255,255,255,.03);
-    border: 1px solid rgba(255,255,255,.05);
+    flex-wrap: wrap;
 }
-.payment-stream-dot {
-    width: 12px;
-    height: 12px;
-    border-radius: 50%;
-    box-shadow: 0 0 0 6px rgba(255,255,255,.03);
-}
-.payment-stream-dot--success,
-.status-badge--success,
-.status-badge--paid { background: #22c55e; color: #baf7cd; }
-.payment-stream-dot--pending,
-.status-badge--pending,
-.status-badge--initiated { background: #f59e0b; color: #fde68a; }
-.payment-stream-dot--processing,
-.status-badge--processing { background: #38bdf8; color: #bae6fd; }
-.payment-stream-dot--failed,
-.status-badge--failed { background: #ef4444; color: #fecaca; }
-.payment-stream-dot--cancelled,
-.status-badge--cancelled { background: #a78bfa; color: #ddd6fe; }
-.payment-stream-dot--expired,
-.status-badge--expired { background: #94a3b8; color: #e2e8f0; }
-.payment-stream-dot--refunded,
-.status-badge--refunded { background: #06b6d4; color: #cffafe; }
-.payment-stream-main {
-    min-width: 0;
-}
-.payment-stream-phone {
-    font-weight: 700;
-    color: var(--text);
-}
-.payment-stream-ref {
-    margin-top: .2rem;
-    font-size: .72rem;
-    color: var(--text-3);
-    white-space: normal;
-    overflow: visible;
-    text-overflow: unset;
-    overflow-wrap: anywhere;
-    line-height: 1.4;
-}
-.payment-stream-side {
-    text-align: right;
-}
-.payment-stream-amount {
-    font-weight: 800;
-    color: var(--text);
-}
-.payment-stream-time {
-    margin-top: .2rem;
-    font-size: .72rem;
-    color: var(--text-3);
-}
-.status-badge {
+
+.payops-btn {
+    min-height: 36px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    min-width: 92px;
-    padding: .35rem .6rem;
-    border-radius: 999px;
-    font-size: .68rem;
+    gap: 7px;
+    padding: 0 13px;
+    border: 1px solid #dbe3ea;
+    border-radius: 9px;
+    background: #fff;
+    color: #334155;
+    text-decoration: none;
+    font: 750 .7rem 'Poppins', sans-serif;
+    cursor: pointer;
+}
+
+.payops-btn:hover { border-color: #94a3b8; color: #0f172a; }
+.payops-btn--primary { background: #009543; border-color: #009543; color: #fff; }
+.payops-btn--primary:hover { background: #007f39; border-color: #007f39; color: #fff; }
+.payops-btn:disabled { opacity: .55; cursor: wait; }
+
+.payops-health {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 14px;
+    border-left-width: 4px;
+}
+
+.payops-health--success { border-left-color: #16a34a; }
+.payops-health--warning { border-left-color: #f59e0b; }
+.payops-health--danger { border-left-color: #dc2626; }
+.payops-health--neutral { border-left-color: #94a3b8; }
+
+.payops-health__icon {
+    width: 34px;
+    height: 34px;
+    flex: 0 0 34px;
+    display: grid;
+    place-items: center;
+    border-radius: 10px;
+    background: #f8fafc;
+    color: #475569;
+}
+
+.payops-health__title { color: #0f172a; font-size: .76rem; font-weight: 850; }
+.payops-health__message { margin-top: 2px; color: #64748b; font-size: .68rem; }
+.payops-health__time { margin-left: auto; color: #94a3b8; font-size: .65rem; white-space: nowrap; }
+
+.payops-filterbar {
+    padding: 12px;
+    display: flex;
+    gap: 10px;
+    align-items: end;
+    flex-wrap: wrap;
+}
+
+.payops-field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.payops-field label {
+    color: #64748b;
+    font-size: .61rem;
     font-weight: 800;
     text-transform: uppercase;
-    letter-spacing: .06em;
-    background: rgba(255,255,255,.08);
+    letter-spacing: .05em;
 }
-.payment-table-wrap {
-    overflow-x: auto;
-}
-.payment-table {
-    width: 100%;
-    border-collapse: collapse;
-}
-.payment-table th,
-.payment-table td {
-    padding: .6rem .55rem;
-    border-bottom: 1px solid rgba(255,255,255,.06);
-    vertical-align: top;
-}
-.payment-table th {
-    font-size: .7rem;
-    color: var(--text-3);
-    text-transform: uppercase;
-    letter-spacing: .12em;
-}
-.payment-table td {
-    color: var(--text-2);
-    font-size: .78rem;
-    line-height: 1.45;
-    word-break: break-word;
-}
-.payment-table strong {
-    color: var(--text);
-}
-.payment-table small {
-    display: block;
-    margin-top: .2rem;
-    color: var(--text-3);
-    line-height: 1.4;
-}
-.payment-action-btn {
-    border: 1px solid rgba(255,255,255,.08);
-    background: rgba(255,255,255,.04);
-    color: var(--text);
-    border-radius: 999px;
-    padding: .45rem .75rem;
-    font-size: .72rem;
-    font-weight: 700;
-}
-.payment-filter-select {
+
+.payops-select {
     min-width: 170px;
+    height: 36px;
+    padding: 0 30px 0 10px;
+    border: 1px solid #dbe3ea;
+    border-radius: 9px;
+    background: #fff;
+    color: #334155;
+    font: 650 .7rem 'Poppins', sans-serif;
 }
-.payment-muted-row {
-    color: var(--text-3);
+
+.payops-periods {
+    display: inline-flex;
+    padding: 3px;
+    border: 1px solid #dbe3ea;
+    border-radius: 9px;
+    background: #f8fafc;
+}
+
+.payops-period {
+    min-width: 48px;
+    height: 28px;
+    display: grid;
+    place-items: center;
+    border-radius: 6px;
+    color: #64748b;
+    text-decoration: none;
+    font-size: .67rem;
+    font-weight: 800;
+}
+
+.payops-period.is-active { background: #fff; color: #009543; box-shadow: 0 1px 3px rgba(15, 23, 42, .1); }
+.payops-filterbar__spacer { flex: 1; }
+
+.payops-kpis {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.payops-kpi {
+    padding: 16px;
+    min-width: 0;
+}
+
+.payops-kpi__top {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    align-items: center;
+}
+
+.payops-kpi__label { color: #64748b; font-size: .66rem; font-weight: 800; }
+.payops-kpi__icon { color: #94a3b8; font-size: .82rem; }
+.payops-kpi__value { margin-top: 10px; color: #0f172a; font-size: 1.42rem; font-weight: 900; line-height: 1; }
+.payops-kpi__meta { margin-top: 6px; color: #94a3b8; font-size: .63rem; line-height: 1.45; }
+
+.payops-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.45fr) minmax(320px, .75fr);
+    gap: 14px;
+}
+
+.payops-panel { overflow: hidden; }
+
+.payops-panel__head {
+    min-height: 58px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 13px 16px;
+    border-bottom: 1px solid #edf2f7;
+}
+
+.payops-panel__title { color: #0f172a; font-size: .8rem; font-weight: 850; }
+.payops-panel__sub { margin-top: 3px; color: #94a3b8; font-size: .64rem; }
+.payops-panel__body { padding: 16px; }
+
+.payops-chart-summary {
+    display: flex;
+    gap: 20px;
+    align-items: center;
+    flex-wrap: wrap;
+    margin-bottom: 12px;
+}
+
+.payops-chart-summary strong { color: #0f172a; font-size: .86rem; }
+.payops-chart-summary span { display: block; margin-top: 2px; color: #94a3b8; font-size: .6rem; }
+
+.payops-chart {
+    width: 100%;
+    height: 220px;
+    border-radius: 10px;
+    background: linear-gradient(180deg, #fbfdfc, #f8fafc);
+    border: 1px solid #edf2f7;
+}
+
+.payops-chart-grid { stroke: #e8edf2; stroke-width: .6; }
+.payops-chart-line { fill: none; stroke: #009543; stroke-width: 2.4; vector-effect: non-scaling-stroke; }
+.payops-chart-area { fill: rgba(0, 149, 67, .08); }
+
+.payops-chart-labels {
+    display: grid;
+    grid-template-columns: repeat(var(--chart-columns), minmax(0, 1fr));
+    gap: 2px;
+    margin-top: 7px;
+}
+
+.payops-chart-label {
+    overflow: hidden;
     text-align: center;
+    color: #94a3b8;
+    font-size: .52rem;
+    white-space: nowrap;
 }
-@media (max-width: 1100px) {
-    .payment-kpi-grid,
-    .payment-main-grid,
-    .payment-status-grid {
-        grid-template-columns: 1fr;
-    }
+
+.payops-provider-list { display: flex; flex-direction: column; }
+
+.payops-provider {
+    padding: 13px 0;
+    border-bottom: 1px solid #edf2f7;
+}
+
+.payops-provider:first-child { padding-top: 0; }
+.payops-provider:last-child { border-bottom: 0; padding-bottom: 0; }
+
+.payops-provider__top {
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+    align-items: flex-start;
+}
+
+.payops-provider__name { color: #0f172a; font-size: .73rem; font-weight: 800; }
+.payops-provider__meta { margin-top: 3px; color: #94a3b8; font-size: .61rem; }
+.payops-provider__amount { color: #0f172a; font-size: .7rem; font-weight: 850; white-space: nowrap; }
+
+.payops-progress { height: 5px; margin-top: 9px; overflow: hidden; border-radius: 999px; background: #edf2f7; }
+.payops-progress span { display: block; height: 100%; border-radius: inherit; background: #009543; }
+
+.payops-status-strip {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    border-bottom: 1px solid #edf2f7;
+}
+
+.payops-status {
+    padding: 11px 14px;
+    border-right: 1px solid #edf2f7;
+}
+
+.payops-status:last-child { border-right: 0; }
+.payops-status__label { color: #94a3b8; font-size: .59rem; font-weight: 800; }
+.payops-status__value { margin-top: 4px; color: #0f172a; font-size: .9rem; font-weight: 900; }
+.payops-status--danger .payops-status__value,
+.payops-status--critical .payops-status__value { color: #dc2626; }
+.payops-status--warning .payops-status__value { color: #d97706; }
+.payops-status--success .payops-status__value { color: #15803d; }
+
+.payops-alerts {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.payops-alert {
+    display: grid;
+    grid-template-columns: 8px minmax(0, 1fr) auto;
+    gap: 10px;
+    align-items: center;
+    padding: 10px 11px;
+    border: 1px solid #edf2f7;
+    border-radius: 10px;
+    background: #fbfcfd;
+}
+
+.payops-alert__rail { width: 8px; height: 34px; border-radius: 999px; background: #16a34a; }
+.payops-alert--warning .payops-alert__rail { background: #f59e0b; }
+.payops-alert--danger .payops-alert__rail { background: #dc2626; }
+.payops-alert__label { color: #0f172a; font-size: .69rem; font-weight: 800; }
+.payops-alert__message { margin-top: 2px; color: #64748b; font-size: .61rem; line-height: 1.45; }
+.payops-alert__value { min-width: 28px; text-align: right; color: #0f172a; font-size: .88rem; font-weight: 900; }
+
+.payops-table-wrap { overflow-x: auto; }
+.payops-table { width: 100%; border-collapse: collapse; }
+
+.payops-table th {
+    padding: 9px 12px;
+    border-bottom: 1px solid #e5e7eb;
+    background: #f8fafc;
+    color: #64748b;
+    font-size: .58rem;
+    font-weight: 850;
+    text-align: left;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    white-space: nowrap;
+}
+
+.payops-table td {
+    padding: 11px 12px;
+    border-bottom: 1px solid #edf2f7;
+    color: #475569;
+    font-size: .68rem;
+    vertical-align: middle;
+}
+
+.payops-table tr:last-child td { border-bottom: 0; }
+.payops-table tbody tr:hover { background: #fbfdfc; }
+.payops-table strong { color: #0f172a; font-weight: 800; }
+.payops-table small { display: block; margin-top: 3px; color: #94a3b8; font-size: .58rem; line-height: 1.35; }
+
+.payops-priority {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: .62rem;
+    font-weight: 800;
+    white-space: nowrap;
+}
+
+.payops-priority::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: #f59e0b; }
+.payops-priority--critical { color: #b91c1c; }
+.payops-priority--critical::before { background: #dc2626; }
+.payops-priority--warning { color: #b45309; }
+
+.payops-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 76px;
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: #f1f5f9;
+    color: #475569;
+    font-size: .59rem;
+    font-weight: 850;
+    white-space: nowrap;
+}
+
+.payops-badge--paid,
+.payops-badge--success { background: #dcfce7; color: #166534; }
+.payops-badge--pending,
+.payops-badge--initiated,
+.payops-badge--processing { background: #fef3c7; color: #92400e; }
+.payops-badge--failed,
+.payops-badge--unknown,
+.payops-badge--reversed,
+.payops-badge--disputed { background: #fee2e2; color: #991b1b; }
+.payops-badge--cancelled,
+.payops-badge--expired,
+.payops-badge--refunded { background: #e2e8f0; color: #475569; }
+
+.payops-search {
+    width: min(100%, 240px);
+    height: 34px;
+    padding: 0 10px 0 32px;
+    border: 1px solid #dbe3ea;
+    border-radius: 8px;
+    background: #fff;
+    color: #334155;
+    font: 650 .66rem 'Poppins', sans-serif;
+}
+
+.payops-search-wrap { position: relative; }
+.payops-search-wrap i { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: #94a3b8; font-size: .68rem; }
+
+.payops-empty { padding: 28px 16px; text-align: center; color: #94a3b8; font-size: .69rem; }
+.payops-empty i { display: block; margin-bottom: 7px; font-size: 1.2rem; }
+.payops-toast { position: fixed; right: 18px; bottom: 18px; z-index: 500; display: none; max-width: 360px; padding: 11px 14px; border-radius: 10px; background: #0f172a; color: #fff; font-size: .68rem; box-shadow: 0 12px 30px rgba(15,23,42,.25); }
+.payops-toast.is-visible { display: block; }
+.payops-toast.is-error { background: #991b1b; }
+
+@media (max-width: 1160px) {
+    .payops-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .payops-grid { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 760px) {
+    .payops-kpis,
+    .payops-status-strip { grid-template-columns: 1fr 1fr; }
+    .payops-status:nth-child(2) { border-right: 0; }
+    .payops-status:nth-child(-n+2) { border-bottom: 1px solid #edf2f7; }
+    .payops-header { align-items: stretch; }
+    .payops-actions { width: 100%; }
+    .payops-actions .payops-btn { flex: 1; }
+    .payops-field { width: 100%; }
+    .payops-select { width: 100%; }
+    .payops-filterbar__spacer { display: none; }
+    .payops-filterbar .payops-btn { flex: 1; }
+}
+
+@media (max-width: 480px) {
+    .payops-kpis { grid-template-columns: 1fr; }
+    .payops-health { align-items: flex-start; }
+    .payops-health__time { display: none; }
 }
 </style>
 @endsection
 
 @section('content')
-<div class="payment-dashboard" style="padding:24px;">
-    @include('admin.partials.control_hub_nav')
-    @php
-        $financeMenus = ['Dashboard', 'Transactions', 'Retraits', 'Rapprochements', 'Remboursements', 'Rapports'];
-        $financeQueues = ['Anomalies', 'Retraits', 'Rapprochements'];
-        $financeAlerts = collect($cards['alerts'] ?? []);
-        $financeTables = collect($tables['recent_transactions']['rows'] ?? []);
-    @endphp
-
-    <div class="adm-page-bar">
-        <div class="adm-page-bar__left">
-            <nav class="adm-page-bar__breadcrumb">
-                <span>Finance</span><span class="sep">/</span><span>Paiements</span>
+<div class="payops">
+    <header class="payops-header">
+        <div>
+            <nav class="payops-breadcrumb" aria-label="Fil d’Ariane">
+                <span>Finance</span><i class="fas fa-chevron-right" aria-hidden="true"></i><span>Paiements</span>
             </nav>
-            <h1 class="adm-page-bar__title">Cockpit Paiements</h1>
+            <h1 class="payops-title">Centre d’opérations de paiement</h1>
+            <p class="payops-subtitle">Surveiller les encaissements confirmés, isoler les exceptions et rapprocher les opérations sans multiplier les écrans.</p>
         </div>
-        <div class="adm-page-bar__right">
-            <span class="adm-page-bar__badge adm-page-bar__badge--warn">{{ number_format($kpis['failed'] ?? 0, 0, ',', ' ') }} anomalies</span>
-            <span class="adm-page-bar__badge adm-page-bar__badge--warn">{{ number_format($kpis['pending'] ?? 0, 0, ',', ' ') }} en attente</span>
+        <div class="payops-actions">
+            <a class="payops-btn" href="{{ route('admin.payments.export-csv', array_filter(['provider' => $filters['provider'] !== 'all' ? $filters['provider'] : null, 'status' => $filters['status'] !== 'all' ? $filters['status'] : null])) }}">
+                <i class="fas fa-file-export"></i> Exporter CSV
+            </a>
+            <a class="payops-btn payops-btn--primary" href="{{ request()->fullUrl() }}">
+                <i class="fas fa-rotate"></i> Actualiser
+            </a>
         </div>
-    </div>
-    <div class="ops-kpi-grid" style="margin-bottom:1rem;">
-        <div class="ops-kpi">
-            <div class="ops-kpi__label">Montants traites</div>
-            <div class="ops-kpi__value">{{ number_format($kpis['turnover'] ?? 0, 0, ',', ' ') }} FCFA</div>
-            <div class="ops-kpi__sub">Jour courant</div>
-        </div>
-        <div class="ops-kpi">
-            <div class="ops-kpi__label">Anomalies paiement</div>
-            <div class="ops-kpi__value">{{ number_format($kpis['failed'] ?? 0, 0, ',', ' ') }}</div>
-            <div class="ops-kpi__sub">A rapprocher</div>
-        </div>
-        <div class="ops-kpi">
-            <div class="ops-kpi__label">Retraits en attente</div>
-            <div class="ops-kpi__value">{{ number_format($cards['pending_statuses']['pending'] ?? 0, 0, ',', ' ') }}</div>
-            <div class="ops-kpi__sub">Flux sous controle</div>
-        </div>
-        <div class="ops-kpi">
-            <div class="ops-kpi__label">Encaissement du jour</div>
-            <div class="ops-kpi__value">{{ number_format($kpis['turnover'] ?? 0, 0, ',', ' ') }} FCFA</div>
-            <div class="ops-kpi__sub">Base de calcul marge</div>
-        </div>
-    </div>
-    <div class="ops-panel ops-alerts" style="margin-bottom:1rem;">
-        @forelse($financeAlerts->take(3) as $alert)
-            <div class="ops-alert">
-                <div class="ops-alert__top">
-                    <h3>{{ $alert['title'] ?? 'Alerte finance' }}</h3>
-                    <span class="ops-pill {{ ($alert['severity'] ?? '') === 'critical' ? 'ops-pill--danger' : 'ops-pill--warn' }}">{{ $alert['value'] ?? 'A surveiller' }}</span>
-                </div>
-                <p>{{ $alert['description'] ?? 'Controle requis sur le flux financier.' }}</p>
-            </div>
-        @empty
-            <div class="ops-alert">
-                <div class="ops-alert__top">
-                    <h3>Aucune alerte critique</h3>
-                    <span class="ops-pill ops-pill--ok">Stable</span>
-                </div>
-                <p>Le cockpit finance ne remonte pas de derive majeure pour la periode selectionnee.</p>
-            </div>
-        @endforelse
-    </div>
+    </header>
 
-    <section class="ops-grid ops-grid--2">
-        <div class="ops-card">
-            <div class="ops-card__header">
-                <div><h2>Incidents a traiter</h2><p>File immediate.</p></div>
-                <span class="ops-pill ops-pill--danger">{{ $financeAlerts->take(3)->count() }} ouverts</span>
-            </div>
-            <div class="ops-queue">
-                @forelse($financeAlerts->take(3) as $alert)
-                    <div class="ops-queue-item">
-                        <div class="ops-queue-dot {{ ($alert['severity'] ?? '') === 'critical' ? 'ops-queue-dot--danger' : 'ops-queue-dot--warn' }}"></div>
-                        <div>
-                            <h3>{{ $alert['title'] ?? 'Incident finance' }}</h3>
-                            <p>{{ $alert['description'] ?? 'Vérification transactionnelle requise.' }}</p>
-                        </div>
-                        <a href="#finance-table">Verifier</a>
-                    </div>
-                @empty
-                    <div class="ops-queue-item">
-                        <div class="ops-queue-dot ops-queue-dot--ok"></div>
-                        <div>
-                            <h3>Pas d'incident prioritaire</h3>
-                            <p>Le périmètre finance reste stable sur la période affichée.</p>
-                        </div>
-                        <a href="#finance-table">Suivre</a>
-                    </div>
-                @endforelse
-            </div>
+    <section class="payops-health payops-health--{{ $health['tone'] ?? 'neutral' }}" aria-label="État du flux financier">
+        <div class="payops-health__icon"><i class="fas fa-shield-halved"></i></div>
+        <div>
+            <div class="payops-health__title">{{ $health['label'] ?? 'État inconnu' }}</div>
+            <div class="payops-health__message">{{ $health['message'] ?? 'Aucune information disponible.' }}</div>
         </div>
-        <div class="ops-card">
-            <div class="ops-card__header">
-                <div><h2>Suivi court</h2><p>Indicateurs secondaires.</p></div>
-            </div>
-            <div class="ops-stats-grid">
-                <div class="ops-stat"><strong>{{ number_format($kpis['success_rate'] ?? 0, 1, ',', ' ') }}%</strong><span>Taux de succes</span></div>
-                <div class="ops-stat"><strong>{{ number_format($kpis['transactions'] ?? 0, 0, ',', ' ') }}</strong><span>Transactions observees</span></div>
-                <div class="ops-stat"><strong>{{ number_format($cards['pending_statuses']['processing'] ?? 0, 0, ',', ' ') }}</strong><span>En traitement</span></div>
-                <div class="ops-stat"><strong>{{ number_format($cards['pending_statuses']['failed'] ?? 0, 0, ',', ' ') }}</strong><span>Echecs recents</span></div>
-            </div>
-            <div class="ops-trend">
-                <svg viewBox="0 0 100 40" preserveAspectRatio="none">
-                    <polyline fill="none" stroke="#009543" stroke-width="2.5" points="0,25 14,22 28,23 42,18 57,16 71,19 85,14 100,11"></polyline>
-                </svg>
-            </div>
-        </div>
+        <div class="payops-health__time">Mis à jour à {{ $generatedAt->format('H:i:s') }}</div>
     </section>
 
-    <section class="ops-grid ops-grid--2">
-        <div class="ops-card">
-            <div class="ops-card__header"><div><h2>Actions requises</h2><p>Validations et arbitrages.</p></div></div>
-            <table class="table">
-                <thead><tr><th>Sujet</th><th>File</th><th>Statut</th></tr></thead>
-                <tbody>
-                    <tr><td><strong>Anomalies du jour</strong><span>Vérifier les paiements en échec et les doublons éventuels</span></td><td>Transactions</td><td><span class="ops-pill ops-pill--warn">Traiter</span></td></tr>
-                    <tr><td><strong>Rapprochement providers</strong><span>Comparer les statuts applicatifs et opérateur</span></td><td>Rapprochements</td><td><span class="ops-pill ops-pill--warn">Verifier</span></td></tr>
-                    <tr><td><strong>Cloture journaliere</strong><span>Préparer les totaux confirmés pour le reporting</span></td><td>Rapports</td><td><span class="ops-pill ops-pill--ok">Planifier</span></td></tr>
-                </tbody>
-            </table>
+    <form class="payops-filterbar" method="GET" action="{{ route('admin.payments.dashboard') }}">
+        <div class="payops-field">
+            <label>Période</label>
+            <div class="payops-periods">
+                @foreach([6, 12, 24] as $period)
+                    <a class="payops-period {{ (int) $hours === $period ? 'is-active' : '' }}" href="{{ route('admin.payments.dashboard', ['hours' => $period, 'provider' => $filters['provider'], 'status' => $filters['status']]) }}">{{ $period }} h</a>
+                @endforeach
+            </div>
         </div>
-        <div class="ops-card" id="finance-table">
-            <div class="ops-card__header"><div><h2>Tableau principal</h2><p>Exceptions et statuts utiles.</p></div></div>
-            <table class="table">
-                <thead><tr><th>Reference</th><th>Type</th><th>Canal</th><th>Montant</th><th>Statut</th></tr></thead>
+        <input type="hidden" name="hours" value="{{ $hours }}">
+        <div class="payops-field">
+            <label for="providerFilter">Canal</label>
+            <select id="providerFilter" name="provider" class="payops-select">
+                @foreach($filterOptions['providers'] as $option)
+                    <option value="{{ $option['value'] }}" {{ $filters['provider'] === $option['value'] ? 'selected' : '' }}>{{ $option['label'] }}</option>
+                @endforeach
+            </select>
+        </div>
+        <div class="payops-field">
+            <label for="statusFilter">Statut</label>
+            <select id="statusFilter" name="status" class="payops-select">
+                @foreach($filterOptions['statuses'] as $option)
+                    <option value="{{ $option['value'] }}" {{ $filters['status'] === $option['value'] ? 'selected' : '' }}>{{ $option['label'] }}</option>
+                @endforeach
+            </select>
+        </div>
+        <div class="payops-filterbar__spacer"></div>
+        <a class="payops-btn" href="{{ route('admin.payments.dashboard') }}">Réinitialiser</a>
+        <button class="payops-btn payops-btn--primary" type="submit">Appliquer</button>
+    </form>
+
+    <section class="payops-kpis" aria-label="Indicateurs financiers principaux">
+        <article class="payops-kpi">
+            <div class="payops-kpi__top"><span class="payops-kpi__label">Encaissement confirmé</span><i class="fas fa-coins payops-kpi__icon"></i></div>
+            <div class="payops-kpi__value">{{ number_format($kpis['turnover'] ?? 0, 0, ',', ' ') }} FCFA</div>
+            <div class="payops-kpi__meta">Uniquement les paiements confirmés aujourd’hui.</div>
+        </article>
+        <article class="payops-kpi">
+            <div class="payops-kpi__top"><span class="payops-kpi__label">Taux de réussite</span><i class="fas fa-chart-line payops-kpi__icon"></i></div>
+            <div class="payops-kpi__value">{{ number_format($kpis['success_rate'] ?? 0, 1, ',', ' ') }} %</div>
+            <div class="payops-kpi__meta">{{ number_format($kpis['transactions'] ?? 0, 0, ',', ' ') }} tentative(s) observée(s).</div>
+        </article>
+        <article class="payops-kpi">
+            <div class="payops-kpi__top"><span class="payops-kpi__label">Non résolus</span><i class="fas fa-hourglass-half payops-kpi__icon"></i></div>
+            <div class="payops-kpi__value">{{ number_format($kpis['pending'] ?? 0, 0, ',', ' ') }}</div>
+            <div class="payops-kpi__meta">Initialisation, attente, traitement ou statut inconnu.</div>
+        </article>
+        <article class="payops-kpi">
+            <div class="payops-kpi__top"><span class="payops-kpi__label">Exceptions à traiter</span><i class="fas fa-triangle-exclamation payops-kpi__icon"></i></div>
+            <div class="payops-kpi__value">{{ number_format($kpis['exceptions'] ?? 0, 0, ',', ' ') }}</div>
+            <div class="payops-kpi__meta">Échecs, inversions et attentes anormalement longues.</div>
+        </article>
+    </section>
+
+    <section class="payops-grid">
+        <article class="payops-panel">
+            <div class="payops-panel__head">
+                <div>
+                    <div class="payops-panel__title">Encaissements confirmés</div>
+                    <div class="payops-panel__sub">Montants confirmés sur les {{ $hours }} dernières heures.</div>
+                </div>
+            </div>
+            <div class="payops-panel__body">
+                <div class="payops-chart-summary">
+                    <div><strong>{{ number_format($chartAmounts->sum(), 0, ',', ' ') }} FCFA</strong><span>Montant confirmé sur la fenêtre</span></div>
+                    <div><strong>{{ number_format($chartCounts->sum(), 0, ',', ' ') }}</strong><span>Tentatives sur la fenêtre</span></div>
+                    <div><strong>{{ number_format($chartMax, 0, ',', ' ') }} FCFA</strong><span>Pic horaire</span></div>
+                </div>
+                @if($chartAmounts->count() > 0)
+                    <svg class="payops-chart" viewBox="0 0 100 100" preserveAspectRatio="none" role="img" aria-label="Évolution des encaissements confirmés">
+                        <line class="payops-chart-grid" x1="0" y1="25" x2="100" y2="25"></line>
+                        <line class="payops-chart-grid" x1="0" y1="50" x2="100" y2="50"></line>
+                        <line class="payops-chart-grid" x1="0" y1="75" x2="100" y2="75"></line>
+                        <polygon class="payops-chart-area" points="{{ $chartArea }}"></polygon>
+                        <polyline class="payops-chart-line" points="{{ $chartPoints }}"></polyline>
+                    </svg>
+                    <div class="payops-chart-labels" style="--chart-columns:{{ max(1, $chartLabels->count()) }}">
+                        @foreach($chartLabels as $label)<span class="payops-chart-label">{{ $label }}</span>@endforeach
+                    </div>
+                @else
+                    <div class="payops-empty"><i class="fas fa-chart-area"></i>Aucune donnée sur cette période.</div>
+                @endif
+            </div>
+        </article>
+
+        <article class="payops-panel">
+            <div class="payops-panel__head">
+                <div>
+                    <div class="payops-panel__title">Santé des canaux</div>
+                    <div class="payops-panel__sub">Volume confirmé, réussite et exceptions.</div>
+                </div>
+            </div>
+            <div class="payops-panel__body">
+                <div class="payops-provider-list">
+                    @forelse($providerBreakdown as $provider)
+                        <div class="payops-provider">
+                            <div class="payops-provider__top">
+                                <div>
+                                    <div class="payops-provider__name">{{ $provider['provider'] }}</div>
+                                    <div class="payops-provider__meta">{{ $provider['count'] }} transaction(s) · {{ number_format($provider['success_rate'], 1, ',', ' ') }} % réussies · {{ $provider['exceptions'] }} exception(s)</div>
+                                </div>
+                                <div class="payops-provider__amount">{{ number_format($provider['amount'], 0, ',', ' ') }} FCFA</div>
+                            </div>
+                            <div class="payops-progress"><span style="width:{{ min(100, max(3, $provider['share_percent'])) }}%"></span></div>
+                        </div>
+                    @empty
+                        <div class="payops-empty"><i class="fas fa-signal"></i>Aucune activité opérateur.</div>
+                    @endforelse
+                </div>
+            </div>
+        </article>
+    </section>
+
+    <section class="payops-panel">
+        <div class="payops-status-strip">
+            @foreach($statusSummary as $status)
+                <div class="payops-status payops-status--{{ $status['tone'] }}">
+                    <div class="payops-status__label">{{ $status['label'] }}</div>
+                    <div class="payops-status__value">{{ number_format($status['value'], 0, ',', ' ') }}</div>
+                </div>
+            @endforeach
+        </div>
+        <div class="payops-panel__head">
+            <div>
+                <div class="payops-panel__title">File de rapprochement</div>
+                <div class="payops-panel__sub">Uniquement les paiements qui exigent une décision ou une vérification.</div>
+            </div>
+            <span class="payops-badge payops-badge--{{ ($kpis['exceptions'] ?? 0) > 0 ? 'failed' : 'paid' }}">{{ $workQueue->count() }} dossier(s)</span>
+        </div>
+        <div class="payops-table-wrap">
+            <table class="payops-table">
+                <thead>
+                    <tr>
+                        <th>Priorité</th>
+                        <th>Transaction</th>
+                        <th>Canal</th>
+                        <th>Montant</th>
+                        <th>Âge</th>
+                        <th>Statut</th>
+                        <th>Action</th>
+                    </tr>
+                </thead>
                 <tbody>
-                    @forelse($financeTables->take(3) as $row)
+                    @forelse($workQueue as $payment)
                         <tr>
-                            <td><strong>{{ $row['reference'] ?? 'N/A' }}</strong><span>{{ $row['secondary'] ?? ($row['phone'] ?? '') }}</span></td>
-                            <td>{{ $row['provider'] ?? ($row['type'] ?? 'Paiement') }}</td>
-                            <td>{{ $row['channel'] ?? ($row['provider_label'] ?? 'Mobile money') }}</td>
-                            <td>{{ $row['amount'] ?? '0 FCFA' }}</td>
-                            <td><span class="ops-pill {{ str_contains(strtolower($row['status'] ?? ''), 'fail') ? 'ops-pill--danger' : (str_contains(strtolower($row['status'] ?? ''), 'pending') ? 'ops-pill--warn' : 'ops-pill--ok') }}">{{ $row['status_label'] ?? ($row['status'] ?? 'Statut') }}</span></td>
+                            <td><span class="payops-priority payops-priority--{{ $payment['severity'] }}">{{ $payment['severity'] === 'critical' ? 'Critique' : 'À vérifier' }}</span></td>
+                            <td><strong>{{ $payment['id'] }}</strong><small>{{ $payment['order_reference'] }} · {{ $payment['phone'] }}</small></td>
+                            <td><strong>{{ $payment['provider'] }}</strong><small>{{ $payment['reference'] }}</small></td>
+                            <td><strong>{{ number_format($payment['amount'], 0, ',', ' ') }} FCFA</strong></td>
+                            <td>{{ $payment['age_label'] }}</td>
+                            <td><span class="payops-badge payops-badge--{{ $payment['status'] }}">{{ $payment['status_label'] }}</span></td>
+                            <td>
+                                @if($payment['can_reconcile'])
+                                    <button type="button" class="payops-btn payops-reconcile" data-reconcile-url="{{ route('admin.payments.reconcile', ['payment' => $payment['raw_id']]) }}">Rapprocher</button>
+                                @else
+                                    <span class="payops-badge">Lecture seule</span>
+                                @endif
+                            </td>
                         </tr>
                     @empty
-                        <tr><td colspan="5"><span>Aucune transaction exploitable pour la période sélectionnée.</span></td></tr>
+                        <tr><td colspan="7"><div class="payops-empty"><i class="fas fa-circle-check"></i>Aucune exception prioritaire.</div></td></tr>
                     @endforelse
                 </tbody>
             </table>
         </div>
     </section>
 
-    <div class="ops-filter-card" style="margin-bottom:1rem;">
-        <div class="ops-filter-row">
-            <span class="ops-label">Periode</span>
-            <div class="payment-filter-group" id="hoursFilterGroup">
-                @foreach([6, 12, 24] as $period)
-                    <a href="{{ route('admin.payments.dashboard', ['hours' => $period, 'provider' => $filters['provider'], 'status' => $filters['status']]) }}" data-hours="{{ $period }}" class="payment-pill {{ (int) $hours === $period ? 'active' : '' }}">
-                        {{ $period }}h
-                    </a>
-                @endforeach
-            </div>
-            <select id="providerFilter" class="ops-filter-input">
-                @foreach($filterOptions['providers'] as $providerOption)
-                    <option value="{{ $providerOption['value'] }}" {{ $filters['provider'] === $providerOption['value'] ? 'selected' : '' }}>
-                        {{ $providerOption['label'] }}
-                    </option>
-                @endforeach
-            </select>
-            <select id="statusFilter" class="ops-filter-input">
-                @foreach($filterOptions['statuses'] as $statusOption)
-                    <option value="{{ $statusOption['value'] }}" {{ $filters['status'] === $statusOption['value'] ? 'selected' : '' }}>
-                        {{ $statusOption['label'] }}
-                    </option>
-                @endforeach
-            </select>
-            <span class="ops-label" id="generatedAtLabel">
-                {{ $generatedAt->format('d/m/Y H:i:s') }}
-            </span>
-            <button type="button" class="ops-primary-btn" id="refreshDashboardBtn">Rafraichir</button>
-        </div>
-    </div>
-
-    <section class="payment-kpi-grid">
-        <article class="payment-kpi-card">
-            <div class="payment-kpi-label">Encaissement confirmé du jour</div>
-            <div class="payment-kpi-value" id="kpiTurnover">{{ number_format($kpis['turnover'], 0, ',', ' ') }}</div>
-            <div class="payment-kpi-meta">FCFA sur paiements déjà confirmés</div>
-        </article>
-        <article class="payment-kpi-card">
-            <div class="payment-kpi-label">Transactions observées</div>
-            <div class="payment-kpi-value" id="kpiTransactions">{{ number_format($kpis['transactions'], 0, ',', ' ') }}</div>
-            <div class="payment-kpi-meta">Toutes tentatives de paiement confondues</div>
-        </article>
-        <article class="payment-kpi-card">
-            <div class="payment-kpi-label">Taux de succès du jour</div>
-            <div class="payment-kpi-value" id="kpiSuccessRate">{{ number_format($kpis['success_rate'], 1, ',', ' ') }}%</div>
-            <div class="payment-kpi-meta">Paiements réussis rapportés au volume observé</div>
-        </article>
-        <article class="payment-kpi-card">
-            <div class="payment-kpi-label">Paiements en attente</div>
-            <div class="payment-kpi-value" id="kpiPending">{{ number_format($kpis['pending'], 0, ',', ' ') }}</div>
-            <div class="payment-kpi-meta">Initialisation + attente + traitement</div>
-        </article>
-    </section>
-
-    <section class="payment-main-grid">
-        <article class="payment-card">
-            <div class="payment-card-header">
+    <section class="payops-grid">
+        <article class="payops-panel">
+            <div class="payops-panel__head">
                 <div>
-                    <div class="payment-card-title">Activité des paiements</div>
-                    <div class="payment-card-subtitle">Montants initiés sur les {{ $hours }} dernières heures pour le pilotage finance</div>
+                    <div class="payops-panel__title">Alertes opérationnelles</div>
+                    <div class="payops-panel__sub">Synthèse sans duplication de la file de rapprochement.</div>
                 </div>
             </div>
-            <div style="height:280px;">
-                <canvas id="paymentsLineChart"></canvas>
-            </div>
-        </article>
-
-        <article class="payment-card">
-            <div class="payment-card-header">
-                <div>
-                    <div class="payment-card-title">Alertes critiques</div>
-                    <div class="payment-card-subtitle">Points à surveiller immédiatement</div>
-                </div>
-            </div>
-            <div class="payment-alert-list" id="paymentAlertsList">
-                @foreach($alerts as $alert)
-                    <div class="payment-alert payment-alert--{{ $alert['tone'] }}">
-                        <div class="payment-alert-top">
-                            <span>{{ $alert['label'] }}</span>
-                            <span class="payment-alert-value">{{ $alert['value'] }}</span>
+            <div class="payops-panel__body">
+                <div class="payops-alerts">
+                    @foreach($alerts as $alert)
+                        <div class="payops-alert payops-alert--{{ $alert['tone'] }}">
+                            <span class="payops-alert__rail"></span>
+                            <div><div class="payops-alert__label">{{ $alert['label'] }}</div><div class="payops-alert__message">{{ $alert['message'] }}</div></div>
+                            <div class="payops-alert__value">{{ $alert['value'] }}</div>
                         </div>
-                        <div class="payment-alert-message">{{ $alert['message'] }}</div>
-                    </div>
-                @endforeach
+                    @endforeach
+                </div>
+            </div>
+        </article>
+
+        <article class="payops-panel">
+            <div class="payops-panel__head">
+                <div>
+                    <div class="payops-panel__title">Règles de lecture</div>
+                    <div class="payops-panel__sub">Ce que les chiffres signifient réellement.</div>
+                </div>
+            </div>
+            <div class="payops-panel__body">
+                <div class="payops-alerts">
+                    <div class="payops-alert"><span class="payops-alert__rail"></span><div><div class="payops-alert__label">Confirmé ≠ initié</div><div class="payops-alert__message">Le chiffre d’affaires affiché exclut les paiements encore en attente.</div></div></div>
+                    <div class="payops-alert payops-alert--warning"><span class="payops-alert__rail"></span><div><div class="payops-alert__label">Statut inconnu</div><div class="payops-alert__message">Aucun nouveau débit ne doit être relancé avant rapprochement.</div></div></div>
+                    <div class="payops-alert payops-alert--danger"><span class="payops-alert__rail"></span><div><div class="payops-alert__label">Inversion financière</div><div class="payops-alert__message">Une opération inversée reste visible et doit être traitée par contre-écriture.</div></div></div>
+                </div>
             </div>
         </article>
     </section>
 
-    <section class="payment-status-grid">
-        @foreach([
-            'initiated' => 'Initialisation',
-            'pending' => 'En attente',
-            'processing' => 'Traitement',
-            'paid' => 'Payé',
-            'failed' => 'Échoué',
-            'cancelled' => 'Annulé',
-            'expired' => 'Expiré',
-            'refunded' => 'Remboursé',
-        ] as $statusKey => $statusLabel)
-            <article class="payment-status-card">
-                <div class="payment-status-name">{{ $statusLabel }}</div>
-                <div class="payment-status-value" data-status-key="{{ $statusKey }}">{{ $statusBreakdown[$statusKey] ?? 0 }}</div>
-            </article>
-        @endforeach
-    </section>
-
-    <section class="payment-main-grid">
-        <article class="payment-card">
-            <div class="payment-card-header">
-                <div>
-                    <div class="payment-card-title">Flux temps réel</div>
-                    <div class="payment-card-subtitle">Dernières transactions mises à jour côté finance</div>
-                </div>
-            </div>
-            <div class="payment-stream" id="paymentLiveStream">
-                @forelse($livePayments as $payment)
-                    <div class="payment-stream-item">
-                        <span class="payment-stream-dot payment-stream-dot--{{ $payment['status'] }}"></span>
-                        <div class="payment-stream-main">
-                            <div class="payment-stream-phone">{{ $payment['phone'] }}</div>
-                            <div class="payment-stream-ref">{{ $payment['provider'] }} · {{ $payment['reference'] }}</div>
-                        </div>
-                        <div class="payment-stream-side">
-                            <div class="payment-stream-amount">{{ number_format($payment['amount'], 0, ',', ' ') }} FCFA</div>
-                            <div class="payment-stream-time">{{ $payment['updated_at_human'] }}</div>
-                        </div>
-                    </div>
-                @empty
-                    <div style="color:#94a3b8;font-size:.83rem;padding:12px 0;">Aucune transaction récente.</div>
-                @endforelse
-            </div>
-        </article>
-
-        <article class="payment-card">
-            <div class="payment-card-header">
-                <div>
-                    <div class="payment-card-title">Répartition opérateurs</div>
-                    <div class="payment-card-subtitle">Volume et performance du jour</div>
-                </div>
-            </div>
-            <div class="payment-provider-list" id="paymentProviderList">
-                @forelse($providerBreakdown as $provider)
-                    <div class="payment-provider-row">
-                        <div class="payment-provider-top">
-                            <div>
-                                <div class="payment-provider-name">{{ $provider['provider'] }}</div>
-                                <div class="payment-provider-meta">{{ $provider['count'] }} transaction(s) · succès {{ number_format($provider['success_rate'], 1, ',', ' ') }}%</div>
-                            </div>
-                            <strong>{{ number_format($provider['amount'], 0, ',', ' ') }} FCFA</strong>
-                        </div>
-                        <div class="payment-progress"><span style="width: {{ max(6, $provider['share_percent']) }}%"></span></div>
-                    </div>
-                @empty
-                    <div style="color:#94a3b8;font-size:.83rem;padding:12px 0;">Aucune donnée opérateur.</div>
-                @endforelse
-            </div>
-        </article>
-    </section>
-
-    <section class="payment-card">
-        <div class="payment-card-header">
+    <section class="payops-panel">
+        <div class="payops-panel__head">
             <div>
-                    <div class="payment-card-title">Journal des transactions</div>
-                    <div class="payment-card-subtitle">Dernières lignes paiements avec statut normalisé et action de vérification</div>
+                <div class="payops-panel__title">Journal des transactions</div>
+                <div class="payops-panel__sub">Trente dernières opérations correspondant aux filtres.</div>
             </div>
-            <div style="display:flex;gap:8px;align-items:center;">
-                <a href="{{ route('admin.payments.export-csv', array_filter(['provider' => request('provider'), 'status' => request('status')])) }}"
-                   style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border:1px solid #16a34a;border-radius:7px;color:#16a34a;font-size:.78rem;font-weight:700;text-decoration:none;"
-                   title="Export CSV pour comptabilité">
-                    <i class="fas fa-file-csv"></i> Export CSV
-                </a>
-                <a href="{{ route('admin.payments.export-csv', ['provider' => 'momo', 'status' => 'paid']) }}"
-                   style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border:1px solid #16a34a;border-radius:7px;background:#16a34a;color:#fff;font-size:.78rem;font-weight:700;text-decoration:none;"
-                   title="Export paiements MoMo confirmés">
-                    <i class="fas fa-download"></i> MoMo payés
-                </a>
+            <div class="payops-search-wrap">
+                <i class="fas fa-search"></i>
+                <input id="paymentSearch" class="payops-search" type="search" placeholder="Rechercher une référence…" autocomplete="off">
             </div>
         </div>
-        <div class="payment-table-wrap">
-            <table class="payment-table">
+        <div class="payops-table-wrap">
+            <table class="payops-table" id="paymentJournalTable">
                 <thead>
                     <tr>
-                        <th>ID</th>
-                        <th>Téléphone</th>
+                        <th>Transaction</th>
+                        <th>Payeur / commande</th>
+                        <th>Canal / référence</th>
                         <th>Montant</th>
-                        <th>Opérateur</th>
                         <th>Statut</th>
-                        <th>Référence</th>
-                        <th>Dernière activité</th>
-                        <th>Actions</th>
+                        <th>Activité</th>
+                        <th>Action</th>
                     </tr>
                 </thead>
-                <tbody id="paymentTableBody">
+                <tbody>
                     @forelse($tablePayments as $payment)
-                        <tr>
-                            <td><strong>{{ $payment['id'] }}</strong></td>
+                        <tr data-search="{{ strtolower($payment['id'] . ' ' . $payment['phone'] . ' ' . $payment['provider'] . ' ' . $payment['reference'] . ' ' . $payment['order_reference']) }}">
+                            <td><strong>{{ $payment['id'] }}</strong><small>{{ $payment['order_reference'] }}</small></td>
+                            <td><strong>{{ $payment['phone'] }}</strong>@if($payment['reason'])<small>{{ $payment['reason'] }}</small>@endif</td>
+                            <td><strong>{{ $payment['provider'] }}</strong><small>{{ $payment['reference'] }}</small></td>
+                            <td><strong>{{ number_format($payment['amount'], 0, ',', ' ') }} FCFA</strong></td>
+                            <td><span class="payops-badge payops-badge--{{ $payment['status'] }}">{{ $payment['status_label'] }}</span></td>
+                            <td>{{ $payment['updated_at_human'] }}<small>{{ $payment['age_label'] }}</small></td>
                             <td>
-                                <strong>{{ $payment['phone'] }}</strong>
-                                @if($payment['reason'])
-                                    <small>{{ $payment['reason'] ?: 'Aucun motif detaille' }}</small>
+                                @if($payment['can_reconcile'])
+                                    <button type="button" class="payops-btn payops-reconcile" data-reconcile-url="{{ route('admin.payments.reconcile', ['payment' => $payment['raw_id']]) }}">Vérifier</button>
+                                @else
+                                    <span class="payops-badge">Clôturé</span>
                                 @endif
                             </td>
-                            <td>{{ number_format($payment['amount'], 0, ',', ' ') }} FCFA</td>
-                            <td>{{ $payment['provider'] }}</td>
-                            <td><span class="status-badge status-badge--{{ $payment['status'] }}">{{ $payment['status_label'] }}</span></td>
-                            <td>{{ $payment['reference'] ?: 'N/A' }}</td>
-                            <td>{{ $payment['updated_at_human'] }}</td>
-                            <td><button type="button" class="payment-action-btn" data-payment-id="{{ (int) str_replace('TX', '', $payment['id']) }}">Vérifier</button></td>
                         </tr>
                     @empty
-                        <tr>
-                            <td colspan="8" class="payment-muted-row">Aucune transaction à afficher.</td>
-                        </tr>
+                        <tr><td colspan="7"><div class="payops-empty"><i class="fas fa-receipt"></i>Aucune transaction à afficher.</div></td></tr>
                     @endforelse
                 </tbody>
             </table>
         </div>
     </section>
 </div>
+
+<div id="payopsToast" class="payops-toast" role="status" aria-live="polite"></div>
 @endsection
 
 @section('script')
 <script>
-Chart.defaults.color = '#6b7280';
-Chart.defaults.font.family = "'Manrope', sans-serif";
-Chart.defaults.font.size = 11;
+(function () {
+    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content || '';
+    const toast = document.getElementById('payopsToast');
+    const search = document.getElementById('paymentSearch');
+    const tableRows = Array.from(document.querySelectorAll('#paymentJournalTable tbody tr[data-search]'));
 
-const dashboardState = {
-    hours: @json($hours),
-    filters: @json($filters),
-    endpoints: {
-        data: @json(route('admin.payments.dashboard.data')),
-        reconcileBase: @json(url('/admin/payments')),
-    },
-    csrfToken: @json(csrf_token()),
-};
+    function showToast(message, isError) {
+        if (!toast) return;
+        toast.textContent = message;
+        toast.classList.toggle('is-error', Boolean(isError));
+        toast.classList.add('is-visible');
+        window.setTimeout(() => toast.classList.remove('is-visible'), 3500);
+    }
 
-const compactFormatter = new Intl.NumberFormat('fr-FR', { notation: 'compact', compactDisplay: 'short', minimumFractionDigits: 0, maximumFractionDigits: 0 });
-const numberFormatter = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
-let paymentsChart = new Chart(document.getElementById('paymentsLineChart'), {
-    type: 'line',
-    data: {
-        labels: @json($hourlySeries['labels']),
-        datasets: [
-            {
-                label: 'Montant',
-                data: @json($hourlySeries['amounts']),
-                borderColor: '#22c55e',
-                backgroundColor: 'rgba(34, 197, 94, 0.16)',
-                fill: true,
-                borderWidth: 3,
-                pointRadius: 0,
-                pointHoverRadius: 4,
-                tension: 0.35,
-                yAxisID: 'y'
-            },
-            {
-                label: 'Transactions',
-                data: @json($hourlySeries['counts']),
-                borderColor: '#38bdf8',
-                backgroundColor: 'rgba(56, 189, 248, 0.10)',
-                fill: false,
-                borderWidth: 2,
-                pointRadius: 0,
-                pointHoverRadius: 4,
-                tension: 0.3,
-                yAxisID: 'y1'
+    async function reconcile(button) {
+        const url = button.dataset.reconcileUrl;
+        if (!url) return;
+
+        const original = button.innerHTML;
+        button.disabled = true;
+        button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Vérification';
+
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Accept': 'application/json',
+                    'X-CSRF-TOKEN': csrfToken,
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok || payload.status !== true) {
+                throw new Error(payload.message || 'Le rapprochement a échoué.');
             }
-        ]
-    },
-    options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        interaction: { mode: 'index', intersect: false },
-        plugins: {
-            legend: {
-                labels: {
-                    boxWidth: 10,
-                    color: '#cbd5e1'
-                }
-            },
-            tooltip: {
-                callbacks: {
-                    label: function(context) {
-                        if (context.dataset.yAxisID === 'y') {
-                            return context.dataset.label + ': ' + numberFormatter.format(Math.round(context.parsed.y || 0)) + ' FCFA';
-                        }
-                        return context.dataset.label + ': ' + numberFormatter.format(Math.round(context.parsed.y || 0));
-                    }
-                }
-            }
-        },
-        scales: {
-            x: {
-                grid: { color: 'rgba(255,255,255,.04)', drawBorder: false },
-                ticks: { color: '#64748b' }
-            },
-            y: {
-                position: 'left',
-                grid: { color: 'rgba(255,255,255,.05)', drawBorder: false },
-                ticks: {
-                    color: '#64748b',
-                    callback: function(value) {
-                        return compactFormatter.format(Math.round(value || 0));
-                    }
-                }
-            },
-            y1: {
-                position: 'right',
-                grid: { drawOnChartArea: false, drawBorder: false },
-                ticks: {
-                    color: '#64748b',
-                    precision: 0
-                }
-            }
-        }
-    }
-});
-
-function renderAlerts(alerts) {
-    const host = document.getElementById('paymentAlertsList');
-    host.innerHTML = alerts.map(alert => `
-        <div class="payment-alert payment-alert--${alert.tone}">
-            <div class="payment-alert-top">
-                <span>${escapeHtml(alert.label)}</span>
-                <span class="payment-alert-value">${escapeHtml(String(alert.value))}</span>
-            </div>
-            <div class="payment-alert-message">${escapeHtml(alert.message)}</div>
-        </div>
-    `).join('');
-}
-
-function renderStatusBreakdown(statusBreakdown) {
-    document.querySelectorAll('[data-status-key]').forEach(node => {
-        node.textContent = numberFormatter.format(statusBreakdown[node.dataset.statusKey] || 0);
-    });
-}
-
-function renderLivePayments(payments) {
-    const host = document.getElementById('paymentLiveStream');
-    if (!payments.length) {
-        host.innerHTML = '<div style="color:#94a3b8;font-size:.83rem;padding:12px 0;">Aucune transaction récente.</div>';
-        return;
-    }
-
-    host.innerHTML = payments.map(payment => `
-        <div class="payment-stream-item">
-            <span class="payment-stream-dot payment-stream-dot--${escapeHtml(payment.status)}"></span>
-            <div class="payment-stream-main">
-                <div class="payment-stream-phone">${escapeHtml(payment.phone)}</div>
-                <div class="payment-stream-ref">${escapeHtml(payment.provider)} · ${escapeHtml(payment.reference)}</div>
-            </div>
-            <div class="payment-stream-side">
-                <div class="payment-stream-amount">${numberFormatter.format(Math.round(payment.amount || 0))} FCFA</div>
-                <div class="payment-stream-time">${escapeHtml(payment.updated_at_human)}</div>
-            </div>
-        </div>
-    `).join('');
-}
-
-function renderProviderBreakdown(providers) {
-    const host = document.getElementById('paymentProviderList');
-    if (!providers.length) {
-        host.innerHTML = '<div style="color:#94a3b8;font-size:.83rem;padding:12px 0;">Aucune donnée opérateur.</div>';
-        return;
-    }
-
-    host.innerHTML = providers.map(provider => `
-        <div class="payment-provider-row">
-            <div class="payment-provider-top">
-                <div>
-                    <div class="payment-provider-name">${escapeHtml(provider.provider)}</div>
-                    <div class="payment-provider-meta">${numberFormatter.format(provider.count)} transaction(s) · succès ${numberFormatter.format(provider.success_rate)}%</div>
-                </div>
-                <strong>${numberFormatter.format(Math.round(provider.amount || 0))} FCFA</strong>
-            </div>
-            <div class="payment-progress"><span style="width:${Math.max(6, provider.share_percent)}%"></span></div>
-        </div>
-    `).join('');
-}
-
-function renderTable(payments) {
-    const host = document.getElementById('paymentTableBody');
-    if (!payments.length) {
-        host.innerHTML = '<tr><td colspan="8" class="payment-muted-row">Aucune transaction à afficher.</td></tr>';
-        return;
-    }
-
-    host.innerHTML = payments.map(payment => `
-        <tr>
-            <td><strong>${escapeHtml(payment.id)}</strong></td>
-            <td>
-                <strong>${escapeHtml(payment.phone)}</strong>
-                ${payment.reason ? `<small>${escapeHtml(payment.reason)}</small>` : ''}
-            </td>
-            <td>${numberFormatter.format(Math.round(payment.amount || 0))} FCFA</td>
-            <td>${escapeHtml(payment.provider)}</td>
-            <td><span class="status-badge status-badge--${escapeHtml(payment.status)}">${escapeHtml(payment.status_label)}</span></td>
-            <td>${escapeHtml(payment.reference)}</td>
-            <td>${escapeHtml(payment.updated_at_human)}</td>
-            <td><button type="button" class="payment-action-btn" data-payment-id="${String(payment.id).replace('TX', '')}">Vérifier</button></td>
-        </tr>
-    `).join('');
-}
-
-function renderKpis(kpis) {
-    document.getElementById('kpiTurnover').textContent = numberFormatter.format(Math.round(kpis.turnover || 0));
-    document.getElementById('kpiTransactions').textContent = numberFormatter.format(Math.round(kpis.transactions || 0));
-    document.getElementById('kpiSuccessRate').textContent = `${numberFormatter.format(kpis.success_rate)}%`;
-    document.getElementById('kpiPending').textContent = numberFormatter.format(Math.round(kpis.pending || 0));
-}
-
-function updateChart(hourlySeries) {
-    paymentsChart.data.labels = hourlySeries.labels;
-    paymentsChart.data.datasets[0].data = hourlySeries.amounts;
-    paymentsChart.data.datasets[1].data = hourlySeries.counts;
-    paymentsChart.update();
-}
-
-function updateHistoryState() {
-    const url = new URL(window.location.href);
-    url.searchParams.set('hours', dashboardState.hours);
-    url.searchParams.set('provider', dashboardState.filters.provider);
-    url.searchParams.set('status', dashboardState.filters.status);
-    window.history.replaceState({}, '', url.toString());
-
-    document.querySelectorAll('#hoursFilterGroup [data-hours]').forEach(link => {
-        link.classList.toggle('active', Number(link.dataset.hours) === Number(dashboardState.hours));
-        const nextUrl = new URL(link.href);
-        nextUrl.searchParams.set('provider', dashboardState.filters.provider);
-        nextUrl.searchParams.set('status', dashboardState.filters.status);
-        link.href = nextUrl.toString();
-    });
-}
-
-function renderDashboard(payload) {
-    renderKpis(payload.kpis);
-    renderAlerts(payload.alerts);
-    renderStatusBreakdown(payload.statusBreakdown);
-    renderLivePayments(payload.livePayments);
-    renderProviderBreakdown(payload.providerBreakdown);
-    renderTable(payload.tablePayments);
-    updateChart(payload.hourlySeries);
-    document.getElementById('generatedAtLabel').textContent = `Dernière génération: ${new Date(payload.generatedAt.date || payload.generatedAt).toLocaleString('fr-FR')}`;
-}
-
-async function fetchDashboardData(showBusy = false) {
-    if (showBusy) {
-        document.getElementById('refreshDashboardBtn').textContent = 'Chargement…';
-    }
-
-    const url = new URL(dashboardState.endpoints.data, window.location.origin);
-    url.searchParams.set('hours', dashboardState.hours);
-    url.searchParams.set('provider', dashboardState.filters.provider);
-    url.searchParams.set('status', dashboardState.filters.status);
-
-    try {
-        const response = await fetch(url.toString(), {
-            headers: {
-                'Accept': 'application/json',
-                'X-Requested-With': 'XMLHttpRequest'
-            },
-            cache: 'no-store'
-        });
-
-        const payload = await response.json();
-        if (!payload.status) {
-            throw new Error('Réponse dashboard invalide');
-        }
-
-        renderDashboard(payload.data);
-        updateHistoryState();
-    } catch (error) {
-        console.error('Dashboard payments refresh failed', error);
-    } finally {
-        if (showBusy) {
-            document.getElementById('refreshDashboardBtn').textContent = 'Rafraîchir';
-        }
-    }
-}
-
-async function reconcilePayment(paymentId, button) {
-    const original = button.textContent;
-    button.disabled = true;
-    button.textContent = 'Vérification…';
-
-    try {
-        const response = await fetch(`${dashboardState.endpoints.reconcileBase}/${paymentId}/reconcile`, {
-            method: 'POST',
-            headers: {
-                'Accept': 'application/json',
-                'Content-Type': 'application/json',
-                'X-CSRF-TOKEN': dashboardState.csrfToken,
-                'X-Requested-With': 'XMLHttpRequest'
-            },
-            body: JSON.stringify({})
-        });
-
-        const payload = await response.json();
-        if (!payload.status) {
-            throw new Error(payload.message || 'Réconciliation impossible');
-        }
-
-        await fetchDashboardData(true);
-    } catch (error) {
-        console.error('Payment reconcile failed', error);
-        button.textContent = 'Échec';
-        setTimeout(() => {
+            showToast(payload.message || 'Rapprochement terminé.', false);
+            window.setTimeout(() => window.location.reload(), 700);
+        } catch (error) {
+            showToast(error.message || 'Erreur pendant le rapprochement.', true);
             button.disabled = false;
-            button.textContent = original;
-        }, 1600);
-        return;
+            button.innerHTML = original;
+        }
     }
 
-    button.disabled = false;
-    button.textContent = original;
-}
-
-function escapeHtml(value) {
-    return String(value ?? '')
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#039;');
-}
-
-document.getElementById('providerFilter').addEventListener('change', (event) => {
-    dashboardState.filters.provider = event.target.value;
-    fetchDashboardData(true);
-});
-
-document.getElementById('statusFilter').addEventListener('change', (event) => {
-    dashboardState.filters.status = event.target.value;
-    fetchDashboardData(true);
-});
-
-document.getElementById('refreshDashboardBtn').addEventListener('click', () => {
-    fetchDashboardData(true);
-});
-
-document.querySelectorAll('#hoursFilterGroup [data-hours]').forEach(link => {
-    link.addEventListener('click', (event) => {
-        event.preventDefault();
-        dashboardState.hours = Number(link.dataset.hours);
-        fetchDashboardData(true);
+    document.addEventListener('click', function (event) {
+        const button = event.target.closest('.payops-reconcile');
+        if (button) reconcile(button);
     });
-});
 
-document.getElementById('paymentTableBody').addEventListener('click', (event) => {
-    const button = event.target.closest('[data-payment-id]');
-    if (!button) {
-        return;
-    }
-
-    reconcilePayment(button.dataset.paymentId, button);
-});
-
-setInterval(() => fetchDashboardData(false), 30000);
+    search?.addEventListener('input', function () {
+        const query = search.value.trim().toLocaleLowerCase('fr');
+        tableRows.forEach(row => {
+            row.hidden = query !== '' && !row.dataset.search.includes(query);
+        });
+    });
+})();
 </script>
 @endsection

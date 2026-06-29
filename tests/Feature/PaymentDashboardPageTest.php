@@ -10,7 +10,7 @@ class PaymentDashboardPageTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_admin_payment_dashboard_keeps_incoming_payments_scope_and_french_labels(): void
+    public function test_admin_payment_dashboard_is_a_decision_first_operations_center(): void
     {
         $admin = User::factory()->create([
             'type' => 'admin',
@@ -21,13 +21,17 @@ class PaymentDashboardPageTest extends TestCase
         $response = $this->actingAs($admin)->get(route('admin.payments.dashboard'));
 
         $response->assertOk();
-        $response->assertSee('Cockpit Paiements');
-        $response->assertSee('Anomalies paiement');
-        $response->assertSee('Initialisation + attente + traitement');
+        $response->assertSee('Centre d’opérations de paiement');
+        $response->assertSee('Encaissement confirmé');
+        $response->assertSee('File de rapprochement');
+        $response->assertSee('Alertes opérationnelles');
+        $response->assertSee('Journal des transactions');
         $response->assertSee('Initialisation');
         $response->assertSee('En attente');
         $response->assertSee('Traitement');
         $response->assertSee('Payé');
         $response->assertSee('Échoué');
+        $response->assertDontSee('Cockpit Paiements');
+        $response->assertDontSee('Anomalies paiement');
     }
 }
