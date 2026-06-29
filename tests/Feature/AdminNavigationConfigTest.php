@@ -61,6 +61,8 @@ class AdminNavigationConfigTest extends TestCase
 
         $this->assertIsString($source);
         $this->assertStringNotContainsString('href="/admin', $source);
+        $this->assertStringNotContainsString("admin.partials._profile_drawer", $source);
+        $this->assertStringContainsString("admin.partials._admin_profile_drawer", $source);
         $this->assertStringContainsString("config('admin_navigation.workspaces.'", $source);
         $this->assertStringContainsString("route('admin.portal'", $source);
 
@@ -68,5 +70,17 @@ class AdminNavigationConfigTest extends TestCase
 
         $this->assertStringContainsString('adm-nav-details', $compiled);
         $this->assertStringContainsString('adm-workspace-pill', $compiled);
+        $this->assertStringContainsString('admProfileOpen', $compiled);
+    }
+
+    public function test_admin_profile_drawer_does_not_link_to_food_settings(): void
+    {
+        $source = file_get_contents(resource_path('views/admin/partials/_admin_profile_drawer.blade.php'));
+
+        $this->assertIsString($source);
+        $this->assertStringNotContainsString("route('charge.index')", $source);
+        $this->assertStringContainsString("route('admin.profile')", $source);
+        $this->assertStringContainsString("route('admin.portal')", $source);
+        $this->assertStringContainsString("route('admin.audit_trail')", $source);
     }
 }
