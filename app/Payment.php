@@ -30,6 +30,36 @@ class Payment extends Model
         'financial_state_changed_at' => 'datetime',
     ];
 
+    public function setStatusAttribute($value): void
+    {
+        $normalized = strtoupper(trim((string) $value));
+
+        if (in_array($normalized, ['REVERSED', 'REVERSAL', 'ROLLED_BACK'], true)) {
+            $this->attributes['financial_state'] = 'reversed';
+            $this->attributes['financial_state_changed_at'] = now();
+            $this->attributes['status'] ??= 'PENDING';
+            return;
+        }
+
+        if (in_array($normalized, ['DISPUTED', 'CHARGEBACK'], true)) {
+            $this->attributes['financial_state'] = 'disputed';
+            $this->attributes['financial_state_changed_at'] = now();
+            $this->attributes['status'] ??= 'PENDING';
+            return;
+        }
+
+        $this->attributes['status'] = $normalized;
+        $this->attributes['financial_state'] = match ($normalized) {
+            'PAID', 'SUCCESS', 'SUCCESSFUL' => 'confirmed',
+            'FAILED', 'REJECTED', 'DECLINED' => 'failed',
+            'CANCELLED', 'CANCELED' => 'cancelled',
+            'EXPIRED', 'TIMEOUT' => 'expired',
+            'REFUNDED', 'PARTIALLY_REFUNDED' => 'refunded',
+            default => 'pending',
+        };
+        $this->attributes['financial_state_changed_at'] = now();
+    }
+
     public function user()
     {
         return $this->belongsTo(User::class);
