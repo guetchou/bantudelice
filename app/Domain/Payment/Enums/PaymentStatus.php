@@ -20,7 +20,7 @@ enum PaymentStatus: string
     public static function fromStorage(?string $status): self
     {
         return match (strtoupper(trim((string) $status))) {
-            'CREATED' => self::CREATED,
+            'CREATED', 'INITIATED' => self::CREATED,
             'SUBMITTED' => self::SUBMITTED,
             'PENDING' => self::PENDING,
             'AUTHORIZED', 'PROCESSING' => self::PROCESSING,
@@ -35,11 +35,33 @@ enum PaymentStatus: string
         };
     }
 
-    public function storageValue(): string
+    public static function fromCanonicalOrStorage(?string $canonical, ?string $legacy): self
+    {
+        $canonicalValue = strtolower(trim((string) $canonical));
+        $canonicalStatus = self::tryFrom($canonicalValue);
+
+        return $canonicalStatus ?? self::fromStorage($legacy);
+    }
+
+    /**
+     * Compatibilité avec la colonne historique `payments.status`.
+     * Le détail industriel reste dans `canonical_status` et l’historique des transitions.
+     */
+    public function legacyStorageValue(): string
     {
         return match ($this) {
+            self::CREATED => 'INITIATED',
+            self::SUBMITTED,
+            self::PENDING,
+            self::PROCESSING,
+            self::UNKNOWN,
+            self::DISPUTED => 'PENDING',
             self::SUCCESSFUL => 'PAID',
-            default => strtoupper($this->value),
+            self::FAILED,
+            self::EXPIRED,
+            self::REVERSED => 'FAILED',
+            self::CANCELLED => 'CANCELLED',
+            self::REFUNDED => 'REFUNDED',
         };
     }
 
