@@ -5,33 +5,41 @@ namespace App\Http\Controllers\admin;
 use App\Http\Controllers\Controller;
 use App\Payment;
 use App\Services\PaymentDashboardService;
+use App\Services\PaymentIndustrialControlService;
 use App\Services\PaymentReconciliationService;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class PaymentDashboardController extends Controller
 {
-    public function index(Request $request, PaymentDashboardService $dashboard)
-    {
-        $hours = in_array((int) $request->query('hours', 12), [6, 12, 24], true)
-            ? (int) $request->query('hours', 12)
-            : 12;
+    public function index(
+        Request $request,
+        PaymentDashboardService $dashboard,
+        PaymentIndustrialControlService $industrialControl
+    ) {
+        $hours = $this->resolveHours($request);
+        $filters = $request->only(['provider', 'status']);
 
-        return view('admin.payments.dashboard', $dashboard->build(
-            $hours,
-            $request->only(['provider', 'status'])
+        return view('admin.payments.dashboard', array_merge(
+            $dashboard->build($hours, $filters),
+            $industrialControl->build($filters)
         ));
     }
 
-    public function data(Request $request, PaymentDashboardService $dashboard)
-    {
-        $hours = in_array((int) $request->query('hours', 12), [6, 12, 24], true)
-            ? (int) $request->query('hours', 12)
-            : 12;
+    public function data(
+        Request $request,
+        PaymentDashboardService $dashboard,
+        PaymentIndustrialControlService $industrialControl
+    ) {
+        $hours = $this->resolveHours($request);
+        $filters = $request->only(['provider', 'status']);
 
         return response()->json([
             'status' => true,
-            'data' => $dashboard->build($hours, $request->only(['provider', 'status'])),
+            'data' => array_merge(
+                $dashboard->build($hours, $filters),
+                $industrialControl->build($filters)
+            ),
         ]);
     }
 
@@ -136,6 +144,13 @@ class PaymentDashboardController extends Controller
         ]);
     }
 
+    private function resolveHours(Request $request): int
+    {
+        $hours = (int) $request->query('hours', 12);
+
+        return in_array($hours, [6, 12, 24], true) ? $hours : 12;
+    }
+
     private function rawProvidersForFilter(string $provider): array
     {
         return match ($provider) {
@@ -149,10 +164,10 @@ class PaymentDashboardController extends Controller
     private function rawStatusesForFilter(string $status): array
     {
         return match ($status) {
-            'initiated' => ['INITIATED'],
+            'initiated' => ['INITIATED', 'CREATED'],
             'pending' => ['PENDING'],
-            'processing' => ['AUTHORIZED', 'PROCESSING'],
-            'success' => ['SUCCESS', 'SUCCESSFUL'],
+            'processing' => ['AUTHORIZED', 'PROCESSING', 'SUBMITTED'],
+            'success' => ['SUCCESS', 'SUCCESSFUL', 'COMPLETED', 'CAPTURED', 'APPROVED'],
             'paid' => ['PAID'],
             'failed' => ['FAILED', 'REJECTED', 'DECLINED'],
             'cancelled' => ['CANCELLED', 'CANCELED'],
