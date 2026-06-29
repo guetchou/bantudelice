@@ -8,7 +8,16 @@ permissions:
   contents: read
 
 jobs:
-  first-failure:
+  payment-rule:
+    strategy:
+      fail-fast: false
+      matrix:
+        test:
+          - test_provider_statuses_are_normalized_without_hiding_unknowns
+          - test_paid_payment_cannot_be_downgraded_directly_to_failed
+          - test_multiple_confirmed_payments_fund_one_order_without_double_allocation
+          - test_unmapped_provider_status_moves_unresolved_payment_to_unknown
+    name: ${{ matrix.test }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -42,5 +51,5 @@ jobs:
           php artisan key:generate --quiet
           php artisan passport:keys --force >/dev/null
           php artisan migrate:fresh --force --quiet
-      - name: Payment business kernel test
-        run: php artisan test --filter=PaymentBusinessKernelTest
+      - name: Run payment rule
+        run: php artisan test --filter=${{ matrix.test }}
