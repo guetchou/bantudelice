@@ -4,6 +4,7 @@ namespace App\Http\Controllers\admin;
 
 use App\Http\Controllers\Controller;
 use App\Payment;
+use App\Services\PaymentBusinessDashboardService;
 use App\Services\PaymentDashboardService;
 use App\Services\PaymentOperationsReconciliationService;
 use Illuminate\Http\Request;
@@ -11,27 +12,38 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class PaymentDashboardController extends Controller
 {
-    public function index(Request $request, PaymentDashboardService $dashboard)
-    {
+    public function index(
+        Request $request,
+        PaymentDashboardService $dashboard,
+        PaymentBusinessDashboardService $businessDashboard
+    ) {
         $hours = in_array((int) $request->query('hours', 12), [6, 12, 24], true)
             ? (int) $request->query('hours', 12)
             : 12;
+        $filters = $request->only(['provider', 'status']);
 
-        return view('admin.payments.dashboard', $dashboard->build(
-            $hours,
-            $request->only(['provider', 'status'])
+        return view('admin.payments.dashboard', array_merge(
+            $dashboard->build($hours, $filters),
+            $businessDashboard->build($filters)
         ));
     }
 
-    public function data(Request $request, PaymentDashboardService $dashboard)
-    {
+    public function data(
+        Request $request,
+        PaymentDashboardService $dashboard,
+        PaymentBusinessDashboardService $businessDashboard
+    ) {
         $hours = in_array((int) $request->query('hours', 12), [6, 12, 24], true)
             ? (int) $request->query('hours', 12)
             : 12;
+        $filters = $request->only(['provider', 'status']);
 
         return response()->json([
             'status' => true,
-            'data' => $dashboard->build($hours, $request->only(['provider', 'status'])),
+            'data' => array_merge(
+                $dashboard->build($hours, $filters),
+                $businessDashboard->build($filters)
+            ),
         ]);
     }
 
