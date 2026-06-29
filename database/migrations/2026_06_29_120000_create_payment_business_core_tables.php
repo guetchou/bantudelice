@@ -57,41 +57,62 @@ return new class extends Migration
             });
         }
 
-        if (! Schema::hasTable('financial_ledger_entries')) {
-            Schema::create('financial_ledger_entries', function (Blueprint $table): void {
-                $table->id();
-                $table->string('entry_key', 191)->unique();
-                $table->string('owner_type', 40)->nullable();
-                $table->unsignedBigInteger('owner_id')->nullable();
-                $table->string('account_code', 80);
-                $table->string('direction', 8);
-                $table->decimal('amount', 14, 2);
-                $table->string('currency', 3)->default('XAF');
-                $table->string('source_type', 60);
-                $table->unsignedBigInteger('source_id')->nullable();
-                $table->unsignedBigInteger('payment_id')->nullable();
-                $table->unsignedBigInteger('withdrawal_id')->nullable();
-                $table->unsignedBigInteger('order_id')->nullable();
-                $table->unsignedBigInteger('reversal_of_id')->nullable();
-                $table->string('status', 16)->default('posted');
-                $table->timestamp('effective_at')->nullable();
-                $table->json('metadata')->nullable();
-                $table->unsignedBigInteger('created_by')->nullable();
-                $table->timestamps();
-
-                $table->index(['owner_type', 'owner_id', 'account_code'], 'ledger_owner_account_idx');
-                $table->index(['payment_id', 'account_code'], 'ledger_payment_account_idx');
-                $table->index(['withdrawal_id', 'account_code'], 'ledger_withdrawal_account_idx');
-                $table->index(['source_type', 'source_id'], 'ledger_source_idx');
-                $table->index(['status', 'effective_at'], 'ledger_status_date_idx');
+        if (Schema::hasTable('financial_ledger_entries')) {
+            Schema::table('financial_ledger_entries', function (Blueprint $table): void {
+                if (! Schema::hasColumn('financial_ledger_entries', 'entry_key')) {
+                    $table->string('entry_key', 191)->nullable()->unique();
+                }
+                if (! Schema::hasColumn('financial_ledger_entries', 'owner_type')) {
+                    $table->string('owner_type', 40)->nullable()->index();
+                }
+                if (! Schema::hasColumn('financial_ledger_entries', 'owner_id')) {
+                    $table->unsignedBigInteger('owner_id')->nullable()->index();
+                }
+                if (! Schema::hasColumn('financial_ledger_entries', 'account_code')) {
+                    $table->string('account_code', 80)->nullable()->index();
+                }
+                if (! Schema::hasColumn('financial_ledger_entries', 'source_type')) {
+                    $table->string('source_type', 60)->nullable()->index();
+                }
+                if (! Schema::hasColumn('financial_ledger_entries', 'source_id')) {
+                    $table->unsignedBigInteger('source_id')->nullable()->index();
+                }
+                if (! Schema::hasColumn('financial_ledger_entries', 'withdrawal_id')) {
+                    $table->unsignedBigInteger('withdrawal_id')->nullable()->index();
+                }
+                if (! Schema::hasColumn('financial_ledger_entries', 'reversal_of_id')) {
+                    $table->unsignedBigInteger('reversal_of_id')->nullable()->index();
+                }
+                if (! Schema::hasColumn('financial_ledger_entries', 'effective_at')) {
+                    $table->timestamp('effective_at')->nullable()->index();
+                }
+                if (! Schema::hasColumn('financial_ledger_entries', 'metadata')) {
+                    $table->json('metadata')->nullable();
+                }
+                if (! Schema::hasColumn('financial_ledger_entries', 'created_by')) {
+                    $table->unsignedBigInteger('created_by')->nullable()->index();
+                }
             });
         }
     }
 
     public function down(): void
     {
-        Schema::dropIfExists('financial_ledger_entries');
         Schema::dropIfExists('payment_reconciliation_cases');
         Schema::dropIfExists('payment_allocations');
+
+        if (Schema::hasTable('financial_ledger_entries')) {
+            $columns = collect([
+                'entry_key', 'owner_type', 'owner_id', 'account_code', 'source_type',
+                'source_id', 'withdrawal_id', 'reversal_of_id', 'effective_at',
+                'metadata', 'created_by',
+            ])->filter(fn (string $column) => Schema::hasColumn('financial_ledger_entries', $column))->all();
+
+            if ($columns !== []) {
+                Schema::table('financial_ledger_entries', function (Blueprint $table) use ($columns): void {
+                    $table->dropColumn($columns);
+                });
+            }
+        }
     }
 };
