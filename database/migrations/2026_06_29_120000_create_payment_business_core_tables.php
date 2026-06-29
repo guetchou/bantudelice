@@ -8,6 +8,17 @@ return new class extends Migration
 {
     public function up(): void
     {
+        if (Schema::hasTable('payments')) {
+            Schema::table('payments', function (Blueprint $table): void {
+                if (! Schema::hasColumn('payments', 'financial_state')) {
+                    $table->string('financial_state', 24)->nullable()->index();
+                }
+                if (! Schema::hasColumn('payments', 'financial_state_changed_at')) {
+                    $table->timestamp('financial_state_changed_at')->nullable()->index();
+                }
+            });
+        }
+
         if (! Schema::hasTable('payment_allocations')) {
             Schema::create('payment_allocations', function (Blueprint $table): void {
                 $table->id();
@@ -110,6 +121,18 @@ return new class extends Migration
 
             if ($columns !== []) {
                 Schema::table('financial_ledger_entries', function (Blueprint $table) use ($columns): void {
+                    $table->dropColumn($columns);
+                });
+            }
+        }
+
+        if (Schema::hasTable('payments')) {
+            $columns = collect(['financial_state', 'financial_state_changed_at'])
+                ->filter(fn (string $column) => Schema::hasColumn('payments', $column))
+                ->all();
+
+            if ($columns !== []) {
+                Schema::table('payments', function (Blueprint $table) use ($columns): void {
                     $table->dropColumn($columns);
                 });
             }
