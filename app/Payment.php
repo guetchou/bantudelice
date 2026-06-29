@@ -2,12 +2,14 @@
 
 namespace App;
 
+use App\Domain\Payment\Enums\PaymentStatus;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Payment extends Model
 {
     use SoftDeletes;
+
     protected $fillable = [
         'user_id',
         'order_id',
@@ -25,61 +27,62 @@ class Payment extends Model
         'meta' => 'array',
     ];
 
-    /**
-     * Relation avec l'utilisateur
-     */
     public function user()
     {
         return $this->belongsTo(User::class);
     }
 
-    /**
-     * Relation avec la commande
-     */
     public function order()
     {
         return $this->belongsTo(Order::class);
     }
 
-    /**
-     * Relation avec le colis
-     */
     public function shipment()
     {
         return $this->belongsTo(\App\Domain\Colis\Models\Shipment::class);
     }
 
-    /**
-     * Relation avec la réservation de transport
-     */
     public function transportBooking()
     {
         return $this->belongsTo(\App\Domain\Transport\Models\TransportBooking::class, 'transport_booking_id');
     }
 
-    /**
-     * Vérifier si le paiement est payé
-     */
+    public function allocations()
+    {
+        return $this->hasMany(PaymentAllocation::class);
+    }
+
+    public function canonicalStatus(): PaymentStatus
+    {
+        return PaymentStatus::fromRaw($this->status);
+    }
+
     public function isPaid(): bool
     {
-        return $this->status === 'PAID';
+        return $this->canonicalStatus() === PaymentStatus::PAID;
     }
 
-    /**
-     * Vérifier si le paiement est en attente
-     */
     public function isPending(): bool
     {
-        return $this->status === 'PENDING';
+        return in_array($this->canonicalStatus(), [
+            PaymentStatus::INITIATED,
+            PaymentStatus::PENDING,
+            PaymentStatus::PROCESSING,
+        ], true);
     }
 
-    /**
-     * Vérifier si le paiement a échoué
-     */
     public function isFailed(): bool
     {
-        return $this->status === 'FAILED';
+        return $this->canonicalStatus() === PaymentStatus::FAILED;
+    }
+
+    public function isUnknown(): bool
+    {
+        return $this->canonicalStatus() === PaymentStatus::UNKNOWN;
+    }
+
+    public function isReconcilable(): bool
+    {
+        return $this->canonicalStatus()->isReconcilable();
     }
 }
-
-
