@@ -71,6 +71,13 @@ class Order extends Model
     public function resolveEffectiveBusinessStatus(): string
     {
         if (!$this->isPickup() && $this->relationLoaded('delivery') && $this->delivery) {
+            if (
+                strtoupper((string) $this->delivery->status) === 'ASSIGNED'
+                && ! empty($this->delivery->restaurant_arrived_at)
+            ) {
+                return 'driver_arrived_at_restaurant';
+            }
+
             $mapped = $this->mapDeliveryStatusToBusiness($this->delivery->status);
             if ($mapped !== null && $mapped !== 'dispatching') {
                 return $mapped;

@@ -164,6 +164,10 @@ class DeliveryService
 
     public function updateStatus(Delivery $delivery, string $status, array $context = []): Delivery
     {
+        if ($status === 'ARRIVED_AT_RESTAURANT') {
+            return $this->markArrivedAtRestaurant($delivery, $context);
+        }
+
         $allowedStatuses = ['ASSIGNED', 'PICKED_UP', 'ON_THE_WAY', 'DELIVERED', 'CANCELLED'];
 
         if (!in_array($status, $allowedStatuses)) {
@@ -307,6 +311,113 @@ class DeliveryService
 
             return $delivery->fresh();
         });
+    }
+
+    public function markArrivedAtRestaurant(Delivery $delivery, array $context = []): Delivery
+    {
+        if ($delivery->status !== 'ASSIGNED') {
+            throw new \Exception('Transition de statut invalide: ' . $delivery->status . ' → ARRIVED_AT_RESTAURANT');
+        }
+
+        $delivery->loadMissing(['order', 'restaurant']);
+
+        if (! $delivery->order) {
+            throw new \RuntimeException('Commande introuvable pour cette livraison.');
+        }
+
+        return DB::transaction(function () use ($delivery, $context) {
+            $fresh = Delivery::with(['order', 'restaurant'])
+                ->whereKey($delivery->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            if ($fresh->status !== 'ASSIGNED') {
+                throw new \Exception('Transition de statut invalide: ' . $fresh->status . ' → ARRIVED_AT_RESTAURANT');
+            }
+
+            if (! empty($fresh->restaurant_arrived_at)) {
+                return $fresh;
+            }
+
+            $latitude = $context['restaurant_arrival_latitude'] ?? null;
+            $longitude = $context['restaurant_arrival_longitude'] ?? null;
+            $this->assertArrivalNearRestaurant($fresh, $latitude, $longitude);
+
+            $now = now();
+            $payload = [
+                'restaurant_arrived_at' => $now,
+            ];
+
+            if (Schema::hasColumn('deliveries', 'restaurant_arrival_latitude')) {
+                $payload['restaurant_arrival_latitude'] = $latitude;
+            }
+
+            if (Schema::hasColumn('deliveries', 'restaurant_arrival_longitude')) {
+                $payload['restaurant_arrival_longitude'] = $longitude;
+            }
+
+            $fresh->update($payload);
+
+            $this->stateMachine()->transitionOrderGroup($fresh->order->order_no, 'driver_arrived_at_restaurant', [
+                'actor_type' => $context['actor_type'] ?? 'driver',
+                'actor_id' => $context['actor_id'] ?? $fresh->driver_id,
+                'reason_code' => 'driver_arrived_at_restaurant',
+            ]);
+
+            app(CommerceSignalService::class)->emitDelivery($fresh, 'delivery.driver_arrived_at_restaurant', [
+                'module' => 'food',
+                'severity' => 'info',
+                'status' => 'ARRIVED_AT_RESTAURANT',
+                'actor_type' => $context['actor_type'] ?? 'driver',
+                'actor_id' => $context['actor_id'] ?? $fresh->driver_id,
+            ]);
+
+            app(RiskService::class)->assessOrder($fresh->order, [
+                'module' => 'food',
+                'delivery_status' => 'ARRIVED_AT_RESTAURANT',
+                'incident' => false,
+            ], 'delivery_arrived_at_restaurant');
+
+            return $fresh->fresh();
+        });
+    }
+
+    protected function assertArrivalNearRestaurant(Delivery $delivery, $latitude, $longitude): void
+    {
+        $restaurant = $delivery->restaurant;
+        $restaurantLat = $restaurant?->latitude;
+        $restaurantLng = $restaurant?->longitude;
+
+        if ($restaurantLat === null || $restaurantLng === null) {
+            return;
+        }
+
+        if ($latitude === null || $longitude === null) {
+            throw new \RuntimeException('Position GPS requise pour confirmer l’arrivée au restaurant.');
+        }
+
+        $distanceMeters = $this->distanceMeters(
+            (float) $latitude,
+            (float) $longitude,
+            (float) $restaurantLat,
+            (float) $restaurantLng
+        );
+        $radiusMeters = max(25, (int) config('food.delivery.restaurant_arrival_radius_meters', 500));
+
+        if ($distanceMeters > $radiusMeters) {
+            throw new \RuntimeException('Arrivée restaurant refusée: position trop éloignée du restaurant.');
+        }
+    }
+
+    protected function distanceMeters(float $lat1, float $lng1, float $lat2, float $lng2): float
+    {
+        $earthRadiusMeters = 6371000;
+        $dLat = deg2rad($lat2 - $lat1);
+        $dLng = deg2rad($lng2 - $lng1);
+        $a = sin($dLat / 2) ** 2
+            + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($dLng / 2) ** 2;
+
+        return 2 * $earthRadiusMeters * atan2(sqrt($a), sqrt(1 - $a));
     }
 
     // ── Incidents ────────────────────────────────────────────────────────────

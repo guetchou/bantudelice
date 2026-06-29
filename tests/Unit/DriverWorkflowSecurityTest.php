@@ -23,8 +23,8 @@ class DriverWorkflowSecurityTest extends TestCase
         $apiController = $this->source('app/Http/Controllers/Api/DriverDeliveriesController.php');
         $webController = $this->source('app/Http/Controllers/DriverDeliveriesController.php');
 
-        $this->assertStringContainsString('required|in:PICKED_UP,ON_THE_WAY,DELIVERED', $apiController);
-        $this->assertStringContainsString('required|in:PICKED_UP,ON_THE_WAY,DELIVERED', $webController);
+        $this->assertStringContainsString('required|in:ARRIVED_AT_RESTAURANT,PICKED_UP,ON_THE_WAY,DELIVERED', $apiController);
+        $this->assertStringContainsString('required|in:ARRIVED_AT_RESTAURANT,PICKED_UP,ON_THE_WAY,DELIVERED', $webController);
         $this->assertStringNotContainsString("'customer_confirmed' => \$request", $apiController);
         $this->assertStringNotContainsString("'customer_confirmed' => \$request", $webController);
     }

@@ -60,6 +60,7 @@ class DriverDeliveriesController extends Controller
                 'delivery_fee' => $delivery->delivery_fee,
                 'total' => $order->total ?? null,
                 'assigned_at' => $delivery->assigned_at?->toIso8601String(),
+                'restaurant_arrived_at' => $delivery->restaurant_arrived_at?->toIso8601String(),
                 'picked_up_at' => $delivery->picked_up_at?->toIso8601String(),
                 'delivered_at' => $delivery->delivered_at?->toIso8601String(),
                 'customer_confirmed_at' => $delivery->customer_confirmed_at?->toIso8601String(),
@@ -84,12 +85,14 @@ class DriverDeliveriesController extends Controller
     public function updateStatus(Request $request, $delivery)
     {
         $request->validate([
-            'status' => 'required|in:PICKED_UP,ON_THE_WAY,DELIVERED',
+            'status' => 'required|in:ARRIVED_AT_RESTAURANT,PICKED_UP,ON_THE_WAY,DELIVERED',
             'pickup_notes' => 'nullable|string|max:1000',
             'delivery_notes' => 'nullable|string|max:1000',
             'delivery_otp' => 'nullable|string|max:12',
             'pickup_proof' => 'nullable|file|image|max:4096',
             'delivery_proof' => 'nullable|file|image|max:4096',
+            'restaurant_arrival_latitude' => 'nullable|numeric|between:-90,90',
+            'restaurant_arrival_longitude' => 'nullable|numeric|between:-180,180',
             'pickup_latitude' => 'nullable|numeric|between:-90,90',
             'pickup_longitude' => 'nullable|numeric|between:-180,180',
             'delivery_latitude' => 'nullable|numeric|between:-90,90',
@@ -131,6 +134,8 @@ class DriverDeliveriesController extends Controller
                 'delivery_otp' => $request->input('delivery_otp'),
                 'pickup_proof_path' => $pickupProofPath,
                 'delivery_proof_path' => $deliveryProofPath,
+                'restaurant_arrival_latitude' => $request->input('restaurant_arrival_latitude'),
+                'restaurant_arrival_longitude' => $request->input('restaurant_arrival_longitude'),
                 'pickup_latitude' => $request->input('pickup_latitude'),
                 'pickup_longitude' => $request->input('pickup_longitude'),
                 'delivery_latitude' => $request->input('delivery_latitude'),
@@ -146,6 +151,7 @@ class DriverDeliveriesController extends Controller
                 'data' => [
                     'id' => $updatedDelivery->id,
                     'status' => $updatedDelivery->status,
+                    'restaurant_arrived_at' => $updatedDelivery->restaurant_arrived_at?->toIso8601String(),
                     'picked_up_at' => $updatedDelivery->picked_up_at?->toIso8601String(),
                     'delivered_at' => $updatedDelivery->delivered_at?->toIso8601String(),
                     'customer_confirmed_at' => $updatedDelivery->customer_confirmed_at?->toIso8601String(),

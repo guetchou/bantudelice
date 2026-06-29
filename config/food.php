@@ -15,4 +15,8 @@ return [
         'offer_window_seconds' => (int) env('FOOD_DISPATCH_OFFER_WINDOW_SECONDS', 45),
         'no_candidate_delay_seconds' => (int) env('FOOD_DISPATCH_NO_CANDIDATE_DELAY_SECONDS', 60),
     ],
+
+    'delivery' => [
+        'restaurant_arrival_radius_meters' => (int) env('FOOD_DRIVER_RESTAURANT_ARRIVAL_RADIUS_METERS', 750),
+    ],
 ];

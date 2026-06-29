@@ -13,6 +13,9 @@ class Delivery extends Model
         'status',
         'delivery_fee',
         'assigned_at',
+        'restaurant_arrived_at',
+        'restaurant_arrival_latitude',
+        'restaurant_arrival_longitude',
         'picked_up_at',
         'delivered_at',
         'pickup_notes',
@@ -49,6 +52,7 @@ class Delivery extends Model
 
     protected $casts = [
         'assigned_at' => 'datetime',
+        'restaurant_arrived_at' => 'datetime',
         'picked_up_at' => 'datetime',
         'delivered_at' => 'datetime',
         'delivery_otp_expires_at' => 'datetime',

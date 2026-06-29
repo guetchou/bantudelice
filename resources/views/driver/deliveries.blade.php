@@ -990,9 +990,15 @@
 
     <div class="drv-actions">
         @if($delivery->status === 'ASSIGNED')
-        <button type="button" class="drv-btn green" onclick="drvOpenPanel('pickup-{{ $delivery->id }}')">
-            <i class="fas fa-check"></i> Récupérer
-        </button>
+            @if(empty($delivery->restaurant_arrived_at))
+            <button type="button" class="drv-btn blue" onclick="drvOpenPanel('restaurant-arrival-{{ $delivery->id }}')">
+                <i class="fas fa-store"></i> Je suis arrivé au restaurant
+            </button>
+            @else
+            <button type="button" class="drv-btn green" onclick="drvOpenPanel('pickup-{{ $delivery->id }}')">
+                <i class="fas fa-check"></i> Récupérer
+            </button>
+            @endif
         @elseif($delivery->status === 'PICKED_UP')
         <button type="button" class="drv-btn blue" onclick="drvOpenPanel('onway-{{ $delivery->id }}')">
             <i class="fas fa-motorcycle"></i> Démarrer livraison
@@ -1010,6 +1016,28 @@
 
     {{-- Forms --}}
     @if($delivery->status === 'ASSIGNED')
+    @if(empty($delivery->restaurant_arrived_at))
+    <div class="drv-form-panel" id="restaurant-arrival-{{ $delivery->id }}">
+        <form method="POST" action="{{ route('driver.deliveries.update', $delivery->id) }}"
+              class="delivery-action-form" data-lat-prefix="restaurant_arrival">
+            @csrf
+            <input type="hidden" name="status" value="ARRIVED_AT_RESTAURANT">
+            <input type="hidden" name="restaurant_arrival_latitude">
+            <input type="hidden" name="restaurant_arrival_longitude">
+            <div class="drv-field">
+                <label>Confirmation arrivée</label>
+                <p style="margin:0;font-size:12px;color:var(--bd-muted);line-height:1.4;">
+                    Votre position GPS sera comparée à l’adresse du restaurant avant d’autoriser le retrait.
+                </p>
+            </div>
+            <div class="drv-form-hint"><i class="fas fa-location-dot"></i> Géolocalisation haute précision requise</div>
+            <div class="drv-form-actions">
+                <button type="submit" class="drv-form-submit"><i class="fas fa-store"></i> Confirmer arrivée</button>
+                <button type="button" class="drv-form-cancel" onclick="drvClosePanel('restaurant-arrival-{{ $delivery->id }}')">Annuler</button>
+            </div>
+        </form>
+    </div>
+    @else
     <div class="drv-form-panel" id="pickup-{{ $delivery->id }}">
         <form method="POST" action="{{ route('driver.deliveries.update', $delivery->id) }}"
               enctype="multipart/form-data" class="delivery-action-form" data-lat-prefix="pickup">
@@ -1032,6 +1060,7 @@
             </div>
         </form>
     </div>
+    @endif
     @elseif($delivery->status === 'PICKED_UP')
     <div class="drv-form-panel" id="onway-{{ $delivery->id }}">
         <form method="POST" action="{{ route('driver.deliveries.update', $delivery->id) }}"

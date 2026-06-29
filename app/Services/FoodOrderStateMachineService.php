@@ -243,6 +243,13 @@ class FoodOrderStateMachineService
     public function resolveCurrentBusinessStatus(Order $order): string
     {
         if (!$order->isPickup() && !empty($order->delivery) && strtoupper((string) $order->delivery->status) !== 'PENDING') {
+            if (
+                strtoupper((string) $order->delivery->status) === 'ASSIGNED'
+                && ! empty($order->delivery->restaurant_arrived_at)
+            ) {
+                return 'driver_arrived_at_restaurant';
+            }
+
             $deliveryBusinessStatus = $this->mapDeliveryStatusToBusiness($order->delivery->status);
             if ($deliveryBusinessStatus !== null) {
                 return $deliveryBusinessStatus;
