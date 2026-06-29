@@ -8,6 +8,19 @@ return new class extends Migration
 {
     public function up(): void
     {
+        Schema::table('payments', function (Blueprint $table) {
+            $table->string('canonical_status', 40)
+                ->nullable()
+                ->after('status')
+                ->index();
+            $table->unsignedInteger('status_version')
+                ->default(0)
+                ->after('canonical_status');
+            $table->timestamp('status_updated_at')
+                ->nullable()
+                ->after('status_version');
+        });
+
         Schema::create('financial_accounts', function (Blueprint $table) {
             $table->id();
             $table->uuid('uuid')->unique();
@@ -153,5 +166,13 @@ return new class extends Migration
         Schema::dropIfExists('financial_journal_lines');
         Schema::dropIfExists('financial_journal_entries');
         Schema::dropIfExists('financial_accounts');
+
+        Schema::table('payments', function (Blueprint $table) {
+            $table->dropColumn([
+                'canonical_status',
+                'status_version',
+                'status_updated_at',
+            ]);
+        });
     }
 };
