@@ -48,6 +48,8 @@ jobs:
         run: |
           mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/framework/testing storage/logs bootstrap/cache
           cp .env.example .env
+          sed -i 's/^APP_ENV=.*/APP_ENV=testing/' .env
+          sed -i 's/^GEPAY_REQUIRE_NONCE=.*/GEPAY_REQUIRE_NONCE=false/' .env
           chmod -R 775 storage bootstrap/cache
 
       - name: Install dependencies
