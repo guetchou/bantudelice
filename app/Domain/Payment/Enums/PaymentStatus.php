@@ -2,8 +2,6 @@
 
 namespace App\Domain\Payment\Enums;
 
-use InvalidArgumentException;
-
 enum PaymentStatus: string
 {
     case CREATED = 'created';
@@ -30,11 +28,10 @@ enum PaymentStatus: string
             'FAILED', 'REJECTED', 'DECLINED' => self::FAILED,
             'CANCELLED', 'CANCELED' => self::CANCELLED,
             'EXPIRED', 'TIMEOUT' => self::EXPIRED,
-            'UNKNOWN', '' => self::UNKNOWN,
             'REVERSED', 'REVERSAL', 'ROLLED_BACK' => self::REVERSED,
             'REFUNDED', 'PARTIALLY_REFUNDED' => self::REFUNDED,
             'DISPUTED', 'CHARGEBACK' => self::DISPUTED,
-            default => throw new InvalidArgumentException('Statut de paiement non reconnu : ' . $status),
+            default => self::UNKNOWN,
         };
     }
 
