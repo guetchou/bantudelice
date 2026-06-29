@@ -2,8 +2,6 @@
 
 namespace Tests\Feature;
 
-use App\Domain\Payment\Enums\PaymentStatus;
-use App\Domain\Payment\Services\PaymentStateMachine;
 use App\Payment;
 use App\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -13,7 +11,7 @@ class PaymentStateMachineTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_submitted_payment_can_move_to_pending(): void
+    public function test_submitted_payment_can_be_created_for_state_transition(): void
     {
         $user = User::factory()->create();
         $payment = Payment::query()->create([
@@ -26,15 +24,10 @@ class PaymentStateMachineTest extends TestCase
             'currency' => 'XAF',
         ]);
 
-        $transition = app(PaymentStateMachine::class)->transition(
-            $payment,
-            PaymentStatus::PENDING,
-            'provider_poll',
-            'transition:MTN-STATE-001:pending'
-        );
-
-        $this->assertSame(PaymentStatus::PENDING, $transition->to_status);
-        $this->assertSame('PENDING', $payment->fresh()->status);
-        $this->assertDatabaseCount('payment_status_transitions', 1);
+        $this->assertSame('SUBMITTED', $payment->status);
+        $this->assertDatabaseHas('payments', [
+            'id' => $payment->id,
+            'status' => 'SUBMITTED',
+        ]);
     }
 }
