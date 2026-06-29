@@ -20,8 +20,13 @@ class FoodOrderPaymentConfirmed
         protected DeliveryService $deliveryService,
         protected FoodOrderConfirmationNotifier $confirmationNotifier,
         protected FinancialEventService $financialEvents,
-        protected PaymentAllocationService $paymentAllocations,
+        protected ?PaymentAllocationService $paymentAllocations = null,
     ) {
+    }
+
+    private function allocations(): PaymentAllocationService
+    {
+        return $this->paymentAllocations ?? app(PaymentAllocationService::class);
     }
 
     public function handle(PaymentConfirmed $event): void
@@ -74,7 +79,7 @@ class FoodOrderPaymentConfirmed
             return;
         }
 
-        $funding = $this->paymentAllocations
+        $funding = $this->allocations()
             ->fundingStatusForFoodOrderGroup((string) $order->order_no);
 
         if (! $funding['fully_funded']) {
