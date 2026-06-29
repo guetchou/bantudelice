@@ -25,6 +25,41 @@ class AdminNavigationConfigTest extends TestCase
         }
     }
 
+    public function test_workspace_menu_routes_use_the_matching_workspace_middleware(): void
+    {
+        foreach (config('admin_navigation.workspaces', []) as $workspaceKey => $workspace) {
+            $items = collect($workspace['sections'] ?? [])
+                ->flatMap(fn (array $section) => $section['items'] ?? []);
+
+            foreach ($items as $item) {
+                $route = Route::getRoutes()->getByName($item['route']);
+
+                $this->assertNotNull($route, "Route [{$item['route']}] absente pour {$workspaceKey}.");
+                $this->assertContains(
+                    "admin.workspace:{$workspaceKey}",
+                    $route->gatherMiddleware(),
+                    "La route [{$item['route']}] n'est pas protégée par le workspace {$workspaceKey}."
+                );
+            }
+        }
+    }
+
+    public function test_platform_menu_routes_remain_workspace_neutral(): void
+    {
+        foreach (config('admin_navigation.platform.items', []) as $item) {
+            $route = Route::getRoutes()->getByName($item['route']);
+
+            $this->assertNotNull($route, "Route plateforme [{$item['route']}] absente.");
+            $workspaceMiddleware = collect($route->gatherMiddleware())
+                ->filter(fn (string $middleware) => str_starts_with($middleware, 'admin.workspace:'));
+
+            $this->assertTrue(
+                $workspaceMiddleware->isEmpty(),
+                "La route plateforme [{$item['route']}] ne doit pas dépendre d'un workspace métier."
+            );
+        }
+    }
+
     public function test_food_only_entries_do_not_leak_into_kende_or_mema(): void
     {
         $foodOnlyRoutes = [
