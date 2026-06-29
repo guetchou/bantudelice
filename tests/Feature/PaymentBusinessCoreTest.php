@@ -49,6 +49,7 @@ class PaymentBusinessCoreTest extends TestCase
             'account_code' => 'customer_funds',
             'direction' => 'credit',
         ]);
+        $this->assertSame('confirmed', $payment->fresh()->financialState());
     }
 
     public function test_confirmed_payment_without_target_is_held_and_creates_case(): void
@@ -82,7 +83,8 @@ class PaymentBusinessCoreTest extends TestCase
             'provider_status' => 'REVERSED',
         ]);
 
-        $this->assertSame('REVERSED', $result['payment']->status);
+        $this->assertSame('PAID', $result['payment']->status);
+        $this->assertSame('reversed', $result['payment']->financialState());
         $this->assertDatabaseHas('payment_allocations', [
             'payment_id' => $payment->id,
             'status' => 'released',
