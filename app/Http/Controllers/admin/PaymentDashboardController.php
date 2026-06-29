@@ -17,9 +17,10 @@ class PaymentDashboardController extends Controller
             ? (int) $request->query('hours', 12)
             : 12;
 
-        $filters = $request->only(['provider', 'status']);
-
-        return view('admin.payments.dashboard', $dashboard->build($hours, $filters));
+        return view('admin.payments.dashboard', $dashboard->build(
+            $hours,
+            $request->only(['provider', 'status'])
+        ));
     }
 
     public function data(Request $request, PaymentDashboardService $dashboard)
@@ -35,27 +36,39 @@ class PaymentDashboardController extends Controller
     }
 
     /**
-     * S4.5 — Export CSV des paiements MoMo pour réconciliation comptable.
-     * Filtres: provider, status, date_from, date_to.
+     * Export CSV des paiements pour la réconciliation comptable.
+     * Les filtres utilisent les mêmes valeurs normalisées que le cockpit.
      */
     public function exportCsv(Request $request): StreamedResponse
     {
         $request->validate([
-            'provider'  => 'nullable|string|max:50',
-            'status'    => 'nullable|string|max:50',
+            'provider' => 'nullable|string|max:50',
+            'status' => 'nullable|string|max:50',
             'date_from' => 'nullable|date',
-            'date_to'   => 'nullable|date|after_or_equal:date_from',
+            'date_to' => 'nullable|date|after_or_equal:date_from',
         ]);
 
         $query = Payment::with(['order', 'user'])
-            ->orderBy('created_at', 'desc');
+            ->orderByDesc('created_at');
 
-        if ($request->filled('provider')) {
-            $query->where('provider', $request->provider);
+        $provider = strtolower(trim((string) $request->query('provider', 'all')));
+        if ($provider !== '' && $provider !== 'all') {
+            $query->whereIn('provider', $this->rawProvidersForFilter($provider));
         }
-        if ($request->filled('status')) {
-            $query->where('status', $request->status);
+
+        $status = strtolower(trim((string) $request->query('status', 'all')));
+        if ($status !== '' && $status !== 'all') {
+            $rawStatuses = $this->rawStatusesForFilter($status);
+
+            $query->where(function ($statusQuery) use ($status, $rawStatuses) {
+                $statusQuery->whereIn('status', $rawStatuses);
+
+                if ($status === 'unknown') {
+                    $statusQuery->orWhereNull('status');
+                }
+            });
         }
+
         if ($request->filled('date_from')) {
             $query->whereDate('created_at', '>=', $request->date_from);
         }
@@ -67,7 +80,7 @@ class PaymentDashboardController extends Controller
 
         return response()->streamDownload(function () use ($query) {
             $handle = fopen('php://output', 'w');
-            fprintf($handle, chr(0xEF) . chr(0xBB) . chr(0xBF)); // UTF-8 BOM pour Excel
+            fprintf($handle, chr(0xEF) . chr(0xBB) . chr(0xBF));
 
             fputcsv($handle, [
                 'ID', 'Commande', 'Utilisateur', 'Email', 'Téléphone',
@@ -76,33 +89,36 @@ class PaymentDashboardController extends Controller
             ], ';');
 
             $query->chunk(500, function ($payments) use ($handle) {
-                foreach ($payments as $p) {
+                foreach ($payments as $payment) {
                     fputcsv($handle, [
-                        $p->id,
-                        optional($p->order)->order_no ?? $p->order_id,
-                        optional($p->user)->name ?? '',
-                        optional($p->user)->email ?? '',
-                        optional($p->user)->phone ?? data_get($p->meta, 'phone', ''),
-                        $p->provider,
-                        $p->provider_reference ?? '',
-                        $p->status,
-                        number_format((float) $p->amount, 0, ',', ' '),
-                        $p->currency ?? 'FCFA',
-                        $p->created_at?->format('d/m/Y H:i'),
-                        $p->updated_at?->format('d/m/Y H:i'),
+                        $payment->id,
+                        optional($payment->order)->order_no ?? $payment->order_id,
+                        optional($payment->user)->name ?? '',
+                        optional($payment->user)->email ?? '',
+                        optional($payment->user)->phone ?? data_get($payment->meta, 'phone', ''),
+                        $payment->provider,
+                        $payment->provider_reference ?? '',
+                        $payment->status,
+                        number_format((float) $payment->amount, 0, ',', ' '),
+                        $payment->currency ?? 'FCFA',
+                        $payment->created_at?->format('d/m/Y H:i'),
+                        $payment->updated_at?->format('d/m/Y H:i'),
                     ], ';');
                 }
             });
 
             fclose($handle);
         }, $filename, [
-            'Content-Type'        => 'text/csv; charset=UTF-8',
+            'Content-Type' => 'text/csv; charset=UTF-8',
             'Content-Disposition' => 'attachment; filename="' . $filename . '"',
         ]);
     }
 
-    public function reconcile(Request $request, Payment $payment, PaymentReconciliationService $reconciliationService)
-    {
+    public function reconcile(
+        Request $request,
+        Payment $payment,
+        PaymentReconciliationService $reconciliationService
+    ) {
         $result = $reconciliationService->reconcile($payment);
         $payment->refresh();
 
@@ -118,5 +134,34 @@ class PaymentDashboardController extends Controller
                 'updated_at' => $payment->updated_at?->toIso8601String(),
             ],
         ]);
+    }
+
+    private function rawProvidersForFilter(string $provider): array
+    {
+        return match ($provider) {
+            'mtn' => ['momo', 'mtn_momo', 'mtn'],
+            'airtel' => ['airtel', 'airtel_money'],
+            'card' => ['card', 'stripe'],
+            default => [$provider],
+        };
+    }
+
+    private function rawStatusesForFilter(string $status): array
+    {
+        return match ($status) {
+            'initiated' => ['INITIATED'],
+            'pending' => ['PENDING'],
+            'processing' => ['AUTHORIZED', 'PROCESSING'],
+            'success' => ['SUCCESS', 'SUCCESSFUL'],
+            'paid' => ['PAID'],
+            'failed' => ['FAILED', 'REJECTED', 'DECLINED'],
+            'cancelled' => ['CANCELLED', 'CANCELED'],
+            'expired' => ['EXPIRED', 'TIMEOUT'],
+            'refunded' => ['REFUNDED', 'PARTIALLY_REFUNDED'],
+            'reversed' => ['REVERSED', 'REVERSAL', 'ROLLED_BACK'],
+            'disputed' => ['DISPUTED', 'CHARGEBACK'],
+            'unknown' => ['UNKNOWN', ''],
+            default => [strtoupper($status)],
+        };
     }
 }
