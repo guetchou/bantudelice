@@ -12,6 +12,7 @@ class PaymentAllocation extends Model
         'target_id',
         'target_reference',
         'amount',
+        'unallocated_amount',
         'currency',
         'status',
         'idempotency_key',
@@ -33,6 +34,6 @@ class PaymentAllocation extends Model
 
     public function isActive(): bool
     {
-        return $this->status === 'allocated';
+        return in_array($this->status, ['allocated', 'unallocated'], true);
     }
 }
