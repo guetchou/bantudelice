@@ -49,7 +49,10 @@ class PaymentStateMachine
                 ->first();
 
             if ($existing) {
-                if ((int) $existing->payment_id !== (int) $payment->id || $existing->to_status !== $target) {
+                if (
+                    (int) $existing->payment_id !== (int) $payment->id
+                    || $existing->to_status !== $target
+                ) {
                     throw new LogicException('La clé d’idempotence correspond à une autre transition.');
                 }
 
@@ -59,7 +62,10 @@ class PaymentStateMachine
             $locked = Payment::query()
                 ->lockForUpdate()
                 ->findOrFail($payment->getKey());
-            $current = PaymentStatus::fromStorage($locked->status);
+            $current = PaymentStatus::fromCanonicalOrStorage(
+                $locked->canonical_status,
+                $locked->status
+            );
 
             if (!$current->canTransitionTo($target)) {
                 throw new LogicException(
@@ -72,6 +78,7 @@ class PaymentStateMachine
                 throw new InvalidArgumentException('Un motif est obligatoire pour cette transition.');
             }
 
+            $occurredAt = now();
             $transition = PaymentStatusTransition::query()->create([
                 'payment_id' => $locked->id,
                 'from_status' => $current->value,
@@ -81,19 +88,22 @@ class PaymentStateMachine
                 'actor_id' => $actor?->getKey(),
                 'reason' => $reason,
                 'evidence' => $evidence,
-                'occurred_at' => now(),
+                'occurred_at' => $occurredAt,
                 'idempotency_key' => $idempotencyKey,
             ]);
 
             $locked->forceFill([
-                'status' => $target->storageValue(),
+                'status' => $target->legacyStorageValue(),
+                'canonical_status' => $target->value,
+                'status_version' => ((int) $locked->status_version) + 1,
+                'status_updated_at' => $occurredAt,
                 'meta' => array_merge($locked->meta ?? [], [
                     'last_status_transition' => [
                         'uuid' => $transition->uuid,
                         'from' => $current->value,
                         'to' => $target->value,
                         'source' => $source,
-                        'occurred_at' => $transition->occurred_at->toIso8601String(),
+                        'occurred_at' => $occurredAt->toIso8601String(),
                     ],
                 ]),
             ])->save();
