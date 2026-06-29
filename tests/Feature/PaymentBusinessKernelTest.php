@@ -153,7 +153,8 @@ class PaymentBusinessKernelTest extends TestCase
     private function createOrder(User $user, string $orderNo, int $total): Order
     {
         $suffix = Str::lower(Str::random(8));
-        $restaurant = Restaurant::create([
+        $restaurant = new Restaurant();
+        $restaurant->forceFill([
             'user_id' => $user->id,
             'name' => 'Restaurant test ' . $suffix,
             'email' => 'restaurant-' . $suffix . '@example.test',
@@ -174,6 +175,8 @@ class PaymentBusinessKernelTest extends TestCase
             'account_name' => 'Compte test',
             'account_number' => '0000000000',
         ]);
+        $restaurant->save();
+
         $category = Category::create([
             'restaurant_id' => $restaurant->id,
             'name' => 'Catégorie test',
