@@ -9,7 +9,6 @@ use Illuminate\Support\Facades\Schema;
 
 class PaymentDashboardService
 {
-    private const RESOLVED_STATUSES = ['success', 'paid', 'cancelled', 'expired', 'refunded'];
     private const UNRESOLVED_STATUSES = ['initiated', 'pending', 'processing', 'unknown'];
 
     public function build(int $hours = 12, array $filters = []): array
@@ -156,7 +155,9 @@ class PaymentDashboardService
         $items = $payments
             ->groupBy(fn ($payment) => $this->providerLabel($payment->provider))
             ->map(function (Collection $group, string $provider) {
-                $successCount = $group->filter(fn ($payment) => in_array($this->canonicalStatus($payment->status), ['success', 'paid'], true))->count();
+                $successCount = $group
+                    ->filter(fn ($payment) => in_array($this->canonicalStatus($payment->status), ['success', 'paid'], true))
+                    ->count();
 
                 return [
                     'provider' => $provider,
@@ -457,8 +458,8 @@ class PaymentDashboardService
 
     protected function normalizeFilters(array $filters): array
     {
-        $provider = strtolower(trim((string) ($filters['provider'] ?? 'all'));
-        $status = strtolower(trim((string) ($filters['status'] ?? 'all'));
+        $provider = strtolower(trim((string) ($filters['provider'] ?? 'all')));
+        $status = strtolower(trim((string) ($filters['status'] ?? 'all')));
 
         $allowedProviders = collect($this->filterOptions()['providers'])->pluck('value')->all();
         $allowedStatuses = collect($this->filterOptions()['statuses'])->pluck('value')->all();
@@ -505,7 +506,16 @@ class PaymentDashboardService
         }
 
         if (($filters['status'] ?? 'all') !== 'all') {
-            $query->whereIn('status', $this->rawStatusesForCanonical($filters['status']));
+            $status = $filters['status'];
+            $rawStatuses = $this->rawStatusesForCanonical($status);
+
+            $query->where(function ($statusQuery) use ($status, $rawStatuses) {
+                $statusQuery->whereIn('status', $rawStatuses);
+
+                if ($status === 'unknown') {
+                    $statusQuery->orWhereNull('status');
+                }
+            });
         }
 
         return $query;
