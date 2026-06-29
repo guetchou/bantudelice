@@ -181,10 +181,10 @@ class FinancialJournalService
     private function assertBalanced(array $lines): void
     {
         $debits = collect($lines)
-            ->where('direction', LedgerDirection::DEBIT)
+            ->filter(fn (array $line) => $line['direction'] === LedgerDirection::DEBIT)
             ->sum('amount');
         $credits = collect($lines)
-            ->where('direction', LedgerDirection::CREDIT)
+            ->filter(fn (array $line) => $line['direction'] === LedgerDirection::CREDIT)
             ->sum('amount');
 
         if ((int) $debits !== (int) $credits) {
