@@ -10,6 +10,8 @@ class AdminNavigationConfigTest extends TestCase
 {
     public function test_every_configured_admin_route_exists(): void
     {
+        $this->assertFileExists(config_path('admin_navigation.php'));
+
         $navigation = config('admin_navigation');
         $routes = collect($navigation['workspaces'] ?? [])
             ->flatMap(fn (array $workspace) => collect($workspace['sections'] ?? [])->flatMap(fn (array $section) => $section['items'] ?? []))
