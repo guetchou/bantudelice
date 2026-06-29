@@ -67,7 +67,7 @@ final class PaymentAllocationService
                     $dueAmount,
                     $allocatedBefore,
                     (int) $existing->amount,
-                    max(0, (int) round($lockedPayment->amount) - (int) $existing->amount),
+                    (int) $existing->unallocated_amount,
                     true
                 );
             }
@@ -76,25 +76,25 @@ final class PaymentAllocationService
             $remainingBefore = max(0, $dueAmount - $allocatedBefore);
             $allocatedNow = min($paymentAmount, $remainingBefore);
             $unallocatedAmount = max(0, $paymentAmount - $allocatedNow);
+            $allocationStatus = $allocatedNow > 0 ? 'allocated' : 'unallocated';
 
-            if ($allocatedNow > 0) {
-                PaymentAllocation::create([
-                    'payment_id' => $lockedPayment->id,
-                    'target_type' => self::TARGET_FOOD_ORDER_GROUP,
-                    'target_id' => $order->id,
-                    'target_reference' => $orderNo,
-                    'amount' => $allocatedNow,
-                    'currency' => $lockedPayment->currency ?: 'XAF',
-                    'status' => 'allocated',
-                    'idempotency_key' => $idempotencyKey,
-                    'metadata' => [
-                        'order_no' => $orderNo,
-                        'due_amount' => $dueAmount,
-                        'payment_amount' => $paymentAmount,
-                    ],
-                    'allocated_at' => now(),
-                ]);
-            }
+            PaymentAllocation::create([
+                'payment_id' => $lockedPayment->id,
+                'target_type' => self::TARGET_FOOD_ORDER_GROUP,
+                'target_id' => $order->id,
+                'target_reference' => $orderNo,
+                'amount' => $allocatedNow,
+                'unallocated_amount' => $unallocatedAmount,
+                'currency' => $lockedPayment->currency ?: 'XAF',
+                'status' => $allocationStatus,
+                'idempotency_key' => $idempotencyKey,
+                'metadata' => [
+                    'order_no' => $orderNo,
+                    'due_amount' => $dueAmount,
+                    'payment_amount' => $paymentAmount,
+                ],
+                'allocated_at' => now(),
+            ]);
 
             $allocatedTotal = $allocatedBefore + $allocatedNow;
             $result = $this->foodResult(
@@ -120,9 +120,12 @@ final class PaymentAllocationService
                 ]),
             ]);
 
+            $eventName = $allocatedNow > 0
+                ? 'payment_allocated'
+                : 'payment_unallocated';
             $this->financialEvents->recordForPayment(
                 $lockedPayment->fresh(),
-                'payment_allocated',
+                $eventName,
                 $result
             );
 
@@ -140,6 +143,7 @@ final class PaymentAllocationService
                 'target_reference' => $orderNo,
                 'due_amount' => 0,
                 'allocated_amount' => 0,
+                'unallocated_amount' => 0,
                 'remaining_amount' => 0,
                 'fully_funded' => false,
             ];
@@ -151,12 +155,18 @@ final class PaymentAllocationService
             ->where('target_reference', $orderNo)
             ->where('status', 'allocated')
             ->sum('amount');
+        $unallocatedAmount = (int) PaymentAllocation::query()
+            ->where('target_type', self::TARGET_FOOD_ORDER_GROUP)
+            ->where('target_reference', $orderNo)
+            ->whereIn('status', ['allocated', 'unallocated'])
+            ->sum('unallocated_amount');
 
         return [
             'target_type' => self::TARGET_FOOD_ORDER_GROUP,
             'target_reference' => $orderNo,
             'due_amount' => $dueAmount,
             'allocated_amount' => $allocatedAmount,
+            'unallocated_amount' => $unallocatedAmount,
             'remaining_amount' => max(0, $dueAmount - $allocatedAmount),
             'fully_funded' => $dueAmount > 0 && $allocatedAmount >= $dueAmount,
         ];
@@ -167,7 +177,7 @@ final class PaymentAllocationService
         return DB::transaction(function () use ($payment, $reason) {
             $allocations = PaymentAllocation::query()
                 ->where('payment_id', $payment->id)
-                ->where('status', 'allocated')
+                ->whereIn('status', ['allocated', 'unallocated'])
                 ->lockForUpdate()
                 ->get();
 
@@ -191,7 +201,10 @@ final class PaymentAllocationService
                     [
                         'reason' => $reason,
                         'allocation_ids' => $allocations->pluck('id')->all(),
-                        'amount' => (int) $allocations->sum('amount'),
+                        'amount' => (int) $allocations->sum(function ($allocation) {
+                            return (int) $allocation->amount
+                                + (int) $allocation->unallocated_amount;
+                        }),
                     ]
                 );
             }
@@ -202,7 +215,11 @@ final class PaymentAllocationService
 
     private function foodOrderGroupDueAmount(Order $order): int
     {
-        $snapshotTotal = (float) data_get($order->checkout_snapshot, 'totals.total', 0);
+        $snapshotTotal = (float) data_get(
+            $order->checkout_snapshot,
+            'totals.total',
+            0
+        );
 
         if ($snapshotTotal > 0) {
             return (int) round($snapshotTotal);
