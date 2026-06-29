@@ -6,6 +6,8 @@ use App\Delivery;
 use App\Domain\Food\Enums\OrderPaymentStatus;
 use App\Domain\Food\Services\FoodOrderConfirmationNotifier;
 use App\Domain\Payment\Events\PaymentConfirmed;
+use App\Domain\Payment\Services\PaymentAllocationService;
+use App\Order;
 use App\Services\DeliveryService;
 use App\Services\FinancialEventService;
 use App\Services\FoodOrderStateMachineService;
@@ -17,8 +19,10 @@ class FoodOrderPaymentConfirmed
         protected FoodOrderStateMachineService $stateMachine,
         protected DeliveryService $deliveryService,
         protected FoodOrderConfirmationNotifier $confirmationNotifier,
-        protected FinancialEventService $financialEvents
-    ) {}
+        protected FinancialEventService $financialEvents,
+        protected PaymentAllocationService $paymentAllocations,
+    ) {
+    }
 
     public function handle(PaymentConfirmed $event): void
     {
@@ -29,10 +33,11 @@ class FoodOrderPaymentConfirmed
         }
 
         if (! $payment->order_id) {
-            Log::warning('FoodOrderPaymentConfirmed: paiement sans order_id reçu — chemin legacy ignoré', [
+            Log::warning('FoodOrderPaymentConfirmed: paiement sans order_id reçu', [
                 'payment_id' => $payment->id,
                 'provider' => $payment->provider,
             ]);
+
             return;
         }
 
@@ -43,33 +48,94 @@ class FoodOrderPaymentConfirmed
     {
         $order = $payment->order;
         if (! $order) {
-            Log::warning('FoodOrderPaymentConfirmed: order introuvable pour payment', [
+            Log::warning('FoodOrderPaymentConfirmed: commande introuvable', [
                 'payment_id' => $payment->id,
             ]);
+
             return;
         }
 
-        \App\Order::where('order_no', $order->order_no)->update([
+        $paymentAllocated = (int) $payment->allocations()
+            ->where('status', 'allocated')
+            ->sum('amount');
+
+        if ($paymentAllocated <= 0) {
+            $this->financialEvents->recordForOrder($order, 'order_payment_unallocated', [
+                'payment_id' => $payment->id,
+                'payment_amount' => (int) round((float) $payment->amount),
+                'reason' => 'order_already_funded_or_no_remaining_due',
+            ]);
+
+            Log::warning('Paiement confirmé mais non affecté à la commande', [
+                'payment_id' => $payment->id,
+                'order_no' => $order->order_no,
+            ]);
+
+            return;
+        }
+
+        $funding = $this->paymentAllocations
+            ->fundingStatusForFoodOrderGroup((string) $order->order_no);
+
+        if (! $funding['fully_funded']) {
+            Order::where('order_no', $order->order_no)->update([
+                'payment_status' => OrderPaymentStatus::PENDING->value,
+            ]);
+
+            $this->financialEvents->recordForOrder(
+                $order->fresh(),
+                'order_payment_partially_funded',
+                [
+                    'payment_id' => $payment->id,
+                    'payment_allocated_amount' => $paymentAllocated,
+                    'due_amount' => $funding['due_amount'],
+                    'allocated_amount' => $funding['allocated_amount'],
+                    'remaining_amount' => $funding['remaining_amount'],
+                ]
+            );
+
+            return;
+        }
+
+        Order::where('order_no', $order->order_no)->update([
             'payment_status' => OrderPaymentStatus::PAID->value,
         ]);
         $freshOrder = $order->fresh();
 
-        $this->financialEvents->recordForOrder($freshOrder, 'order_payment_marked_paid', [
-            'payment_id' => $payment->id,
-        ]);
+        $this->financialEvents->recordForOrder(
+            $freshOrder,
+            'order_payment_marked_paid',
+            [
+                'payment_id' => $payment->id,
+                'payment_allocated_amount' => $paymentAllocated,
+                'due_amount' => $funding['due_amount'],
+                'allocated_amount' => $funding['allocated_amount'],
+            ]
+        );
 
         $currentStatus = $freshOrder->business_status ?? 'pending_restaurant_acceptance';
         $transitionContext = [
             'actor_type' => 'system',
             'actor_id' => null,
-            'reason_code' => 'payment_confirmed',
+            'reason_code' => 'payment_confirmed_and_fully_allocated',
         ];
 
-        if (in_array($currentStatus, ['accepted_awaiting_payment', 'pending_restaurant_acceptance'], true)) {
-            $this->stateMachine->transitionOrderGroup($freshOrder->order_no, 'confirmed', $transitionContext);
+        if (in_array($currentStatus, [
+            'accepted_awaiting_payment',
+            'pending_restaurant_acceptance',
+        ], true)) {
+            $this->stateMachine->transitionOrderGroup(
+                $freshOrder->order_no,
+                'confirmed',
+                $transitionContext
+            );
         }
 
-        $this->stateMachine->transitionOrderGroup($freshOrder->order_no, 'in_kitchen', $transitionContext);
+        $this->stateMachine->transitionOrderGroup(
+            $freshOrder->order_no,
+            'in_kitchen',
+            $transitionContext
+        );
 
         $fulfillmentMode = $this->resolveFulfillmentMode(
             (array) ($freshOrder->checkout_snapshot['checkout_data'] ?? []),
@@ -81,8 +147,17 @@ class FoodOrderPaymentConfirmed
         }
 
         $checkoutSnapshot = (array) ($freshOrder->checkout_snapshot ?? []);
-        $checkoutData = (array) ($checkoutSnapshot['checkout_data'] ?? $payment->meta['checkout_data'] ?? []);
-        $totals = (array) ($checkoutSnapshot['totals'] ?? $payment->meta['totals'] ?? []);
+        $checkoutData = (array) (
+            $checkoutSnapshot['checkout_data']
+            ?? $payment->meta['checkout_data']
+            ?? []
+        );
+        $totals = (array) (
+            $checkoutSnapshot['totals']
+            ?? $payment->meta['totals']
+            ?? []
+        );
+
         if (empty($totals)) {
             $totals = [
                 'sub_total' => (float) ($freshOrder->sub_total ?? 0),
@@ -94,7 +169,7 @@ class FoodOrderPaymentConfirmed
             ];
         }
 
-        $orders = \App\Order::where('order_no', $freshOrder->order_no)->get();
+        $orders = Order::where('order_no', $freshOrder->order_no)->get();
         $this->confirmationNotifier->confirmOrder(
             $payment->fresh(),
             $orders,
@@ -105,10 +180,7 @@ class FoodOrderPaymentConfirmed
         );
     }
 
-    /**
-     * La livraison est préparée ici, mais les offres ne démarrent qu'au passage ready_for_pickup.
-     */
-    private function createDelivery(\App\Order $order): void
+    private function createDelivery(Order $order): void
     {
         if (Delivery::where('order_id', $order->id)->exists()) {
             return;
