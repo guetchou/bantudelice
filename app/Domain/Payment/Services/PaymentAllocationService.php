@@ -12,14 +12,6 @@ use LogicException;
 
 class PaymentAllocationService
 {
-    private const CONFIRMED_STATUSES = [
-        'PAID',
-        'SUCCESS',
-        'SUCCESSFUL',
-        'COMPLETED',
-        'APPROVED',
-    ];
-
     public function allocate(
         Payment $payment,
         Model $allocatable,
@@ -42,7 +34,7 @@ class PaymentAllocationService
                 ->lockForUpdate()
                 ->findOrFail($payment->getKey());
 
-            if (!in_array(strtoupper((string) $lockedPayment->status), self::CONFIRMED_STATUSES, true)) {
+            if (!$lockedPayment->canonicalStatus()->isFinanciallyConfirmed()) {
                 throw new LogicException('Seul un paiement confirmé peut être affecté.');
             }
 
