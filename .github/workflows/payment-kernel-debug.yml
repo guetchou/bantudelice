@@ -8,9 +8,9 @@ permissions:
   contents: read
 
 jobs:
-  payment-kernel:
+  full-suite-diagnostic:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
       - uses: shivammathur/setup-php@v2
@@ -42,18 +42,21 @@ jobs:
           php artisan key:generate --quiet
           php artisan passport:keys --force >/dev/null
           php artisan migrate:fresh --force --quiet
-      - name: Run payment kernel tests
+      - name: Run full test suite
         shell: bash
-        continue-on-error: true
         run: |
-          php -r '$db=new PDO("sqlite:database/testing.sqlite"); foreach (["restaurants","categories","products","orders","payments"] as $table) { echo "=== $table ===\n"; foreach ($db->query("PRAGMA table_info(".$table.")") as $row) { echo $row[1]."|notnull=".$row[3]."|default=".($row[4] ?? "NULL")."\n"; } }' > payment-kernel-output.log
-          php artisan test --filter=PaymentBusinessKernelTest >> payment-kernel-output.log 2>&1
+          set +e
+          php artisan test > payment-suite-output.log 2>&1
+          echo $? > payment-suite-exit-code.txt
+          exit 0
       - name: Upload output
         uses: actions/upload-artifact@v4
         with:
-          name: payment-kernel-output
-          path: payment-kernel-output.log
+          name: payment-suite-output
+          path: |
+            payment-suite-output.log
+            payment-suite-exit-code.txt
           if-no-files-found: error
           retention-days: 1
       - name: Enforce test result
-        run: grep -q 'FAILURES!' payment-kernel-output.log && exit 1 || true
+        run: test "$(cat payment-suite-exit-code.txt)" -eq 0
