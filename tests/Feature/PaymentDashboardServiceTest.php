@@ -13,11 +13,8 @@ class PaymentDashboardServiceTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_payment_dashboard_keeps_success_turnover_pending_and_provider_breakdown_strict(): void
+    public function test_payment_dashboard_separates_confirmed_amounts_from_attempts_and_exceptions(): void
     {
-        // Horloge figée à midi pour éviter que les now()->subMinutes() ci-dessous
-        // ne retombent la veille si le test s'exécute dans les minutes suivant minuit
-        // (le dashboard filtre "aujourd'hui" sur created_at >= startOfDay).
         Carbon::setTestNow(Carbon::create(2026, 1, 1, 12, 0, 0));
 
         $user = User::factory()->create([
@@ -38,19 +35,28 @@ class PaymentDashboardServiceTest extends TestCase
         $this->assertSame(5000, $dashboard['kpis']['turnover']);
         $this->assertSame(5, $dashboard['kpis']['transactions']);
         $this->assertSame(2, $dashboard['kpis']['pending']);
+        $this->assertSame(3, $dashboard['kpis']['exceptions']);
         $this->assertSame(20.0, $dashboard['kpis']['success_rate']);
+
         $this->assertSame(1, $dashboard['statusBreakdown']['paid']);
         $this->assertSame(1, $dashboard['statusBreakdown']['processing']);
         $this->assertSame(1, $dashboard['statusBreakdown']['pending']);
         $this->assertSame(1, $dashboard['statusBreakdown']['failed']);
         $this->assertSame(1, $dashboard['statusBreakdown']['cancelled']);
+
         $this->assertSame('MTN MoMo', $dashboard['providerBreakdown'][0]['provider']);
-        $this->assertSame(9000, $dashboard['providerBreakdown'][0]['amount']);
+        $this->assertSame(5000, $dashboard['providerBreakdown'][0]['amount']);
+        $this->assertSame(50.0, $dashboard['providerBreakdown'][0]['success_rate']);
+        $this->assertSame(100.0, $dashboard['providerBreakdown'][0]['share_percent']);
+
         $this->assertSame('En attente', $dashboard['filterOptions']['statuses'][2]['label']);
         $this->assertSame('Traitement', $dashboard['filterOptions']['statuses'][3]['label']);
         $this->assertSame('Payé', $dashboard['filterOptions']['statuses'][4]['label']);
-        $this->assertContains('Réussi', $dashboard['tablePayments']->pluck('status_label')->all());
+        $this->assertContains('Confirmé', $dashboard['tablePayments']->pluck('status_label')->all());
         $this->assertContains('Échoué', $dashboard['tablePayments']->pluck('status_label')->all());
+        $this->assertCount(3, $dashboard['workQueue']);
+        $this->assertCount(5, $dashboard['livePayments']);
+        $this->assertSame('warning', $dashboard['health']['tone']);
     }
 
     protected function tearDown(): void
