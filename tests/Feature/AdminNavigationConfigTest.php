@@ -114,8 +114,8 @@ class AdminNavigationConfigTest extends TestCase
 
         $this->assertIsString($source);
         $this->assertStringNotContainsString("route('charge.index')", $source);
-        $this->assertStringContainsString("route('admin.profile', ['workspace' => $activeWorkspace])", $source);
-        $this->assertStringContainsString("route('admin.portal', ['workspace' => $activeWorkspace])", $source);
-        $this->assertStringContainsString("route('admin.audit_trail', ['workspace' => $activeWorkspace])", $source);
+        $this->assertStringContainsString("route('admin.profile', ['workspace' => \$activeWorkspace])", $source);
+        $this->assertStringContainsString("route('admin.portal', ['workspace' => \$activeWorkspace])", $source);
+        $this->assertStringContainsString("route('admin.audit_trail', ['workspace' => \$activeWorkspace])", $source);
     }
 }
