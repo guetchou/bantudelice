@@ -26,6 +26,7 @@ class GePayAdapterTest extends TestCase
     {
         parent::setUp();
         Cache::flush();
+        Http::preventStrayRequests();
 
         $this->client = GePayClient::create([
             'uuid'         => (string) Str::uuid(),
@@ -148,6 +149,26 @@ class GePayAdapterTest extends TestCase
 
     public function test_check_status_returns_unknown_for_missing_gepay_transaction(): void
     {
+        // Sans cette config, MtnMomoAdapter retourne GatewayStatus::paid('DEMO')
+        // inconditionnellement (mode démo quand le provider est désactivé).
+        config([
+            'external-services.payments.mtn_momo.enabled'            => true,
+            'external-services.payments.mtn_momo.environment'         => 'production',
+            'external-services.payments.mtn_momo.target_environment'  => 'mtncongo',
+            'external-services.payments.mtn_momo.base_url.production' => 'https://mtn.test',
+            'external-services.payments.mtn_momo.collections'         => [
+                'subscription_key' => 'col-sub',
+                'api_user'         => 'col-user',
+                'api_key'          => 'col-key',
+            ],
+        ]);
+
+        // Échec volontaire du token (401) : MtnMomoAdapter retourne UNKNOWN
+        // sans atteindre la requête requesttopay.
+        Http::fake([
+            'https://mtn.test/collection/token/' => Http::response([], 401),
+        ]);
+
         $status = $this->adapter->checkStatus('00000000-0000-0000-0000-000000000000');
 
         $this->assertSame(GatewayStatus::UNKNOWN, $status->status);

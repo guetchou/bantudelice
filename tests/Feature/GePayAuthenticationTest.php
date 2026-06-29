@@ -26,11 +26,13 @@ class GePayAuthenticationTest extends TestCase
 
         $timestamp = (string) now()->timestamp;
         $uri = '/api/gepay/v1/client';
-        $signature = GePaySigner::sign($secret, $timestamp, 'GET', $uri, '');
+        $nonce = Str::uuid()->toString();
+        $signature = GePaySigner::sign($secret, $timestamp, 'GET', $uri, '', $nonce);
 
         $this->withHeaders([
             'X-GePay-Key' => $client->api_key,
             'X-GePay-Timestamp' => $timestamp,
+            'X-GePay-Nonce' => $nonce,
             'X-GePay-Signature' => $signature,
         ])->get($uri)
             ->assertOk()
@@ -51,6 +53,7 @@ class GePayAuthenticationTest extends TestCase
         $this->withHeaders([
             'X-GePay-Key' => 'gpk_test',
             'X-GePay-Timestamp' => (string) now()->timestamp,
+            'X-GePay-Nonce' => Str::uuid()->toString(),
             'X-GePay-Signature' => str_repeat('0', 64),
         ])->getJson('/api/gepay/v1/client')->assertUnauthorized();
     }

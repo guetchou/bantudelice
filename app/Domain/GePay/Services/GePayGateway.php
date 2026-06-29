@@ -6,6 +6,7 @@ use App\Domain\GePay\Contracts\PaymentProviderInterface;
 use App\Domain\GePay\Data\ProviderResult;
 use App\Domain\GePay\Enums\TransactionStatus;
 use App\Domain\GePay\Enums\TransactionType;
+use App\Domain\GePay\Exceptions\PreSubmissionException;
 use App\Domain\GePay\Models\GePayClient;
 use App\Domain\GePay\Models\GePayTransaction;
 use Illuminate\Support\Facades\DB;
@@ -47,6 +48,7 @@ class GePayGateway
                 if (! hash_equals((string) $existing->request_hash, $requestHash)) {
                     throw new RuntimeException("Cette clé d'idempotence a déjà été utilisée avec une requête différente.");
                 }
+
                 return $existing;
             }
 
@@ -79,30 +81,50 @@ class GePayGateway
             ]);
         });
 
-        if ($transaction->status !== TransactionStatus::CREATED) {
-            return $transaction;
-        }
-
-        $transaction->forceFill(['status' => TransactionStatus::SUBMITTED, 'submitted_at' => now()])->save();
-
-        try {
-            return $this->applyProviderResult($transaction, $provider->initiate($transaction));
-        } catch (\Throwable $exception) {
-            $transaction->forceFill([
-                'status' => TransactionStatus::UNKNOWN,
-                'failure_code' => 'GATEWAY_EXCEPTION',
-                'failure_message' => $exception->getMessage(),
-                'last_checked_at' => now(),
-            ])->save();
-
-            return $transaction->fresh();
-        }
+        return $this->claimAndInitiate($transaction, $provider);
     }
 
     public function refresh(GePayTransaction $transaction): GePayTransaction
     {
+        $transaction = $transaction->fresh();
+
         if ($transaction->status->isTerminal()) {
             return $transaction;
+        }
+
+        if ($transaction->status === TransactionStatus::CREATED) {
+            return $this->claimAndInitiate($transaction, $this->provider($transaction->provider));
+        }
+
+        if ($transaction->status === TransactionStatus::SUBMITTED && ! $transaction->provider_reference) {
+            $claimTimeout = max(30, (int) config('gepay.submission_claim_timeout_seconds', 120));
+            $staleBefore = now()->subSeconds($claimTimeout);
+
+            $isStale = ! $transaction->submitted_at || $transaction->submitted_at->lte($staleBefore);
+            if (! $isStale) {
+                return $transaction;
+            }
+
+            $reset = GePayTransaction::query()
+                ->whereKey($transaction->id)
+                ->where('status', TransactionStatus::SUBMITTED->value)
+                ->whereNull('provider_reference')
+                ->where(function ($query) use ($staleBefore) {
+                    $query->whereNull('submitted_at')
+                        ->orWhere('submitted_at', '<=', $staleBefore);
+                })
+                ->update([
+                    'status' => TransactionStatus::CREATED->value,
+                    'failure_code' => 'STALE_SUBMISSION_CLAIM',
+                    'failure_message' => 'Le processus de soumission a expiré avant l’enregistrement de la référence fournisseur.',
+                    'updated_at' => now(),
+                ]);
+
+            if ($reset === 1) {
+                return $this->claimAndInitiate($transaction->fresh(), $this->provider($transaction->provider));
+            }
+
+            return $transaction->fresh();
         }
 
         try {
@@ -117,6 +139,50 @@ class GePayGateway
         }
 
         return $this->applyProviderResult($transaction, $result);
+    }
+
+    private function claimAndInitiate(
+        GePayTransaction $transaction,
+        PaymentProviderInterface $provider
+    ): GePayTransaction {
+        $claimed = GePayTransaction::query()
+            ->whereKey($transaction->id)
+            ->where('status', TransactionStatus::CREATED->value)
+            ->update([
+                'status' => TransactionStatus::SUBMITTED->value,
+                'submitted_at' => now(),
+                'failure_code' => null,
+                'failure_message' => null,
+                'updated_at' => now(),
+            ]);
+
+        if ($claimed !== 1) {
+            return $transaction->fresh();
+        }
+
+        $transaction = $transaction->fresh();
+
+        try {
+            return $this->applyProviderResult($transaction, $provider->initiate($transaction));
+        } catch (PreSubmissionException $exception) {
+            $transaction->forceFill([
+                'status' => TransactionStatus::CREATED,
+                'failure_code' => 'PRE_SUBMISSION_ERROR',
+                'failure_message' => $exception->getMessage(),
+                'last_checked_at' => now(),
+            ])->save();
+
+            return $transaction->fresh();
+        } catch (\Throwable $exception) {
+            $transaction->forceFill([
+                'status' => TransactionStatus::UNKNOWN,
+                'failure_code' => 'GATEWAY_EXCEPTION',
+                'failure_message' => $exception->getMessage(),
+                'last_checked_at' => now(),
+            ])->save();
+
+            return $transaction->fresh();
+        }
     }
 
     private function applyProviderResult(GePayTransaction $transaction, ProviderResult $result): GePayTransaction
@@ -141,6 +207,7 @@ class GePayGateway
         }
 
         $transaction->forceFill($payload)->save();
+
         return $transaction->fresh();
     }
 
@@ -149,6 +216,7 @@ class GePayGateway
         if (! isset($this->providers[$code])) {
             throw new RuntimeException('Fournisseur GePay inconnu: '.$code);
         }
+
         return $this->providers[$code];
     }
 
@@ -174,6 +242,7 @@ class GePayGateway
         if (strlen($digits) <= 4) {
             return str_repeat('•', strlen($digits));
         }
+
         return substr($digits, 0, 2).str_repeat('•', max(3, strlen($digits) - 4)).substr($digits, -2);
     }
 }

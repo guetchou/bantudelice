@@ -32,14 +32,37 @@ class GePayAuthorizationTest extends TestCase
         ]);
     }
 
-    private function signedHeaders(string $method, string $uri, string $body, ?string $secret = null): array
-    {
+    private function signedHeaders(
+        string $method,
+        string $uri,
+        string $body,
+        ?string $secret = null,
+        string $idempotencyKey = '',
+        ?string $nonce = null,
+    ): array {
         $ts = (string) now()->timestamp;
-        return [
+        $nonce ??= Str::uuid()->toString();
+
+        $headers = [
             'X-GePay-Key' => $this->client->api_key,
             'X-GePay-Timestamp' => $ts,
-            'X-GePay-Signature' => GePaySigner::sign($secret ?? $this->secret, $ts, $method, $uri, $body),
+            'X-GePay-Nonce' => $nonce,
+            'X-GePay-Signature' => GePaySigner::sign(
+                $secret ?? $this->secret,
+                $ts,
+                $method,
+                $uri,
+                $body,
+                $nonce,
+                $idempotencyKey
+            ),
         ];
+
+        if ($idempotencyKey !== '') {
+            $headers['Idempotency-Key'] = $idempotencyKey;
+        }
+
+        return $headers;
     }
 
     public function test_missing_headers_returns_401(): void
@@ -47,24 +70,44 @@ class GePayAuthorizationTest extends TestCase
         $this->getJson('/api/gepay/v1/client')->assertUnauthorized();
     }
 
-    public function test_expired_timestamp_is_rejected(): void
+    public function test_missing_nonce_is_rejected(): void
     {
-        $ts = (string) (now()->timestamp - 600);
+        $ts = (string) now()->timestamp;
+        $uri = '/api/gepay/v1/client';
+
         $this->withHeaders([
             'X-GePay-Key' => $this->client->api_key,
             'X-GePay-Timestamp' => $ts,
-            'X-GePay-Signature' => GePaySigner::sign($this->secret, $ts, 'GET', '/api/gepay/v1/client', ''),
-        ])->getJson('/api/gepay/v1/client')->assertUnauthorized();
+            'X-GePay-Signature' => GePaySigner::sign($this->secret, $ts, 'GET', $uri, ''),
+        ])->get($uri)->assertUnauthorized();
+    }
+
+    public function test_expired_timestamp_is_rejected(): void
+    {
+        $ts = (string) (now()->timestamp - 600);
+        $uri = '/api/gepay/v1/client';
+        $nonce = Str::uuid()->toString();
+
+        $this->withHeaders([
+            'X-GePay-Key' => $this->client->api_key,
+            'X-GePay-Timestamp' => $ts,
+            'X-GePay-Nonce' => $nonce,
+            'X-GePay-Signature' => GePaySigner::sign($this->secret, $ts, 'GET', $uri, '', $nonce),
+        ])->getJson($uri)->assertUnauthorized();
     }
 
     public function test_future_timestamp_beyond_tolerance_is_rejected(): void
     {
         $ts = (string) (now()->timestamp + 600);
+        $uri = '/api/gepay/v1/client';
+        $nonce = Str::uuid()->toString();
+
         $this->withHeaders([
             'X-GePay-Key' => $this->client->api_key,
             'X-GePay-Timestamp' => $ts,
-            'X-GePay-Signature' => GePaySigner::sign($this->secret, $ts, 'GET', '/api/gepay/v1/client', ''),
-        ])->getJson('/api/gepay/v1/client')->assertUnauthorized();
+            'X-GePay-Nonce' => $nonce,
+            'X-GePay-Signature' => GePaySigner::sign($this->secret, $ts, 'GET', $uri, '', $nonce),
+        ])->getJson($uri)->assertUnauthorized();
     }
 
     public function test_wrong_signature_returns_401(): void
@@ -95,33 +138,74 @@ class GePayAuthorizationTest extends TestCase
     {
         $uri = '/api/gepay/v1/client';
         $ts = (string) now()->timestamp;
-        $sig = GePaySigner::sign($this->secret, $ts, 'GET', $uri, '');
+        $nonce = Str::uuid()->toString();
+        $sig = GePaySigner::sign($this->secret, $ts, 'GET', $uri, '', $nonce);
+
+        $headers = [
+            'X-GePay-Key' => $this->client->api_key,
+            'X-GePay-Timestamp' => $ts,
+            'X-GePay-Signature' => $sig,
+            'X-GePay-Nonce' => $nonce,
+        ];
+
+        $this->withHeaders($headers)->get($uri)->assertOk();
+        $this->withHeaders($headers)->get($uri)->assertUnauthorized();
+    }
+
+    public function test_nonce_cannot_be_changed_without_resigning(): void
+    {
+        $uri = '/api/gepay/v1/client';
+        $ts = (string) now()->timestamp;
+        $signedNonce = Str::uuid()->toString();
+        $sentNonce = Str::uuid()->toString();
+
+        $this->withHeaders([
+            'X-GePay-Key' => $this->client->api_key,
+            'X-GePay-Timestamp' => $ts,
+            'X-GePay-Nonce' => $sentNonce,
+            'X-GePay-Signature' => GePaySigner::sign(
+                $this->secret,
+                $ts,
+                'GET',
+                $uri,
+                '',
+                $signedNonce
+            ),
+        ])->get($uri)->assertUnauthorized();
+    }
+
+    public function test_invalid_signature_does_not_consume_nonce(): void
+    {
+        $uri = '/api/gepay/v1/client';
+        $ts = (string) now()->timestamp;
         $nonce = Str::uuid()->toString();
 
         $this->withHeaders([
             'X-GePay-Key' => $this->client->api_key,
             'X-GePay-Timestamp' => $ts,
-            'X-GePay-Signature' => $sig,
             'X-GePay-Nonce' => $nonce,
-        ])->get($uri)->assertOk();
+            'X-GePay-Signature' => str_repeat('0', 64),
+        ])->get($uri)->assertUnauthorized();
 
         $this->withHeaders([
             'X-GePay-Key' => $this->client->api_key,
             'X-GePay-Timestamp' => $ts,
-            'X-GePay-Signature' => $sig,
             'X-GePay-Nonce' => $nonce,
-        ])->get($uri)->assertUnauthorized();
+            'X-GePay-Signature' => GePaySigner::sign($this->secret, $ts, 'GET', $uri, '', $nonce),
+        ])->get($uri)->assertOk();
     }
 
     public function test_body_modification_invalidates_signature(): void
     {
         $uri = '/api/gepay/v1/client';
         $ts = (string) now()->timestamp;
-        $sig = GePaySigner::sign($this->secret, $ts, 'GET', $uri, '{"original":true}');
+        $nonce = Str::uuid()->toString();
+        $sig = GePaySigner::sign($this->secret, $ts, 'GET', $uri, '{"original":true}', $nonce);
 
         $this->withHeaders([
             'X-GePay-Key' => $this->client->api_key,
             'X-GePay-Timestamp' => $ts,
+            'X-GePay-Nonce' => $nonce,
             'X-GePay-Signature' => $sig,
         ])->getJson($uri)->assertUnauthorized();
     }
@@ -140,11 +224,13 @@ class GePayAuthorizationTest extends TestCase
 
         $uri = '/api/gepay/v1/client';
         $ts = (string) now()->timestamp;
+        $nonce = Str::uuid()->toString();
 
         $resp = $this->withHeaders([
             'X-GePay-Key' => $client2->api_key,
             'X-GePay-Timestamp' => $ts,
-            'X-GePay-Signature' => GePaySigner::sign($secret2, $ts, 'GET', $uri, ''),
+            'X-GePay-Nonce' => $nonce,
+            'X-GePay-Signature' => GePaySigner::sign($secret2, $ts, 'GET', $uri, '', $nonce),
         ])->get($uri)->assertOk();
 
         $this->assertSame($client2->uuid, $resp->json('client.uuid'));
