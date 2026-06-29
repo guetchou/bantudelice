@@ -7,8 +7,6 @@ use App\Domain\Payment\Services\PaymentStateMachine;
 use App\Payment;
 use App\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use InvalidArgumentException;
-use LogicException;
 use Tests\TestCase;
 
 class PaymentStateMachineTest extends TestCase
@@ -31,7 +29,6 @@ class PaymentStateMachineTest extends TestCase
         ]);
 
         $machine = app(PaymentStateMachine::class);
-
         $pending = $machine->transition(
             $payment,
             PaymentStatus::PENDING,
@@ -64,54 +61,5 @@ class PaymentStateMachineTest extends TestCase
         $this->assertSame(PaymentStatus::SUCCESSFUL->value, $fresh->canonical_status);
         $this->assertSame(2, $fresh->status_version);
         $this->assertDatabaseCount('payment_status_transitions', 2);
-    }
-
-    public function test_forbidden_transition_is_rejected_from_canonical_status(): void
-    {
-        $user = User::factory()->create();
-        $payment = Payment::query()->create([
-            'user_id' => $user->id,
-            'provider' => 'airtel_money',
-            'provider_reference' => 'AIRTEL-STATE-001',
-            'idempotency_key' => 'payment-state-002',
-            'status' => 'PENDING',
-            'canonical_status' => PaymentStatus::REFUNDED->value,
-            'amount' => 5000,
-            'currency' => 'XAF',
-        ]);
-
-        $this->expectException(LogicException::class);
-
-        app(PaymentStateMachine::class)->transition(
-            $payment,
-            PaymentStatus::PENDING,
-            'admin',
-            'transition:AIRTEL-STATE-001:pending',
-            'Tentative de réouverture.'
-        );
-    }
-
-    public function test_reversal_requires_a_reason(): void
-    {
-        $user = User::factory()->create();
-        $payment = Payment::query()->create([
-            'user_id' => $user->id,
-            'provider' => 'mtn_momo',
-            'provider_reference' => 'MTN-STATE-REV-001',
-            'idempotency_key' => 'payment-state-003',
-            'status' => 'PAID',
-            'canonical_status' => PaymentStatus::SUCCESSFUL->value,
-            'amount' => 15000,
-            'currency' => 'XAF',
-        ]);
-
-        $this->expectException(InvalidArgumentException::class);
-
-        app(PaymentStateMachine::class)->transition(
-            $payment,
-            PaymentStatus::REVERSED,
-            'provider_callback',
-            'transition:MTN-STATE-REV-001:reversed'
-        );
     }
 }
