@@ -5,7 +5,7 @@ namespace App\Http\Controllers\admin;
 use App\Http\Controllers\Controller;
 use App\Payment;
 use App\Services\PaymentDashboardService;
-use App\Services\PaymentReconciliationService;
+use App\Services\PaymentOperationsReconciliationService;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
@@ -35,10 +35,6 @@ class PaymentDashboardController extends Controller
         ]);
     }
 
-    /**
-     * Export CSV des paiements pour la réconciliation comptable.
-     * Les filtres utilisent les mêmes valeurs normalisées que le cockpit.
-     */
     public function exportCsv(Request $request): StreamedResponse
     {
         $request->validate([
@@ -100,7 +96,7 @@ class PaymentDashboardController extends Controller
                         $payment->provider_reference ?? '',
                         $payment->status,
                         number_format((float) $payment->amount, 0, ',', ' '),
-                        $payment->currency ?? 'FCFA',
+                        $payment->currency ?? 'XAF',
                         $payment->created_at?->format('d/m/Y H:i'),
                         $payment->updated_at?->format('d/m/Y H:i'),
                     ], ';');
@@ -117,13 +113,13 @@ class PaymentDashboardController extends Controller
     public function reconcile(
         Request $request,
         Payment $payment,
-        PaymentReconciliationService $reconciliationService
+        PaymentOperationsReconciliationService $reconciliationService
     ) {
         $result = $reconciliationService->reconcile($payment);
         $payment->refresh();
 
         return response()->json([
-            'status' => true,
+            'status' => (bool) ($result['reconciled'] ?? false),
             'message' => $result['message'] ?? 'Réconciliation terminée',
             'result' => $result,
             'payment' => [
