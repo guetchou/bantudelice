@@ -38,9 +38,9 @@ jobs:
           BROADCAST_DRIVER=log
           GEPAY_REQUIRE_NONCE=false
           ENVEOF
-          composer install --no-interaction --prefer-dist --optimize-autoloader
-          php artisan key:generate
-          php artisan passport:keys --force
-          php artisan migrate:fresh --force
-      - name: First failing test
-        run: php artisan test --stop-on-failure
+          composer install --no-interaction --prefer-dist --optimize-autoloader >/dev/null
+          php artisan key:generate --quiet
+          php artisan passport:keys --force >/dev/null
+          php artisan migrate:fresh --force --quiet
+      - name: Payment business kernel test
+        run: php artisan test --filter=PaymentBusinessKernelTest
