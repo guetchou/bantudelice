@@ -89,6 +89,28 @@ return new class extends Migration
             );
         });
 
+        Schema::create('payment_status_transitions', function (Blueprint $table) {
+            $table->id();
+            $table->uuid('uuid')->unique();
+            $table->foreignId('payment_id')
+                ->constrained('payments')
+                ->restrictOnDelete();
+            $table->string('from_status', 40);
+            $table->string('to_status', 40);
+            $table->string('source', 40)->index();
+            $table->nullableMorphs('actor', 'payment_status_transitions_actor_index');
+            $table->string('reason', 500)->nullable();
+            $table->json('evidence')->nullable();
+            $table->timestamp('occurred_at');
+            $table->string('idempotency_key', 160)->unique();
+            $table->timestamps();
+
+            $table->index(
+                ['payment_id', 'occurred_at'],
+                'payment_status_transitions_payment_time_index'
+            );
+        });
+
         Schema::create('payment_reconciliation_cases', function (Blueprint $table) {
             $table->id();
             $table->uuid('uuid')->unique();
@@ -126,6 +148,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::dropIfExists('payment_reconciliation_cases');
+        Schema::dropIfExists('payment_status_transitions');
         Schema::dropIfExists('payment_allocations');
         Schema::dropIfExists('financial_journal_lines');
         Schema::dropIfExists('financial_journal_entries');
