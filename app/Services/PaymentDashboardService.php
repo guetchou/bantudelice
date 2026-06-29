@@ -9,6 +9,9 @@ use Illuminate\Support\Facades\Schema;
 
 class PaymentDashboardService
 {
+    private const RESOLVED_STATUSES = ['success', 'paid', 'cancelled', 'expired', 'refunded'];
+    private const UNRESOLVED_STATUSES = ['initiated', 'pending', 'processing', 'unknown'];
+
     public function build(int $hours = 12, array $filters = []): array
     {
         $hours = in_array($hours, [6, 12, 24], true) ? $hours : 12;
@@ -25,93 +28,72 @@ class PaymentDashboardService
 
         $todayPayments = $this->applyFilters(
             DB::table('payments')
-            ->where('created_at', '>=', $todayStart)
-            ->orderByDesc('updated_at'),
+                ->whereNull('deleted_at')
+                ->where('created_at', '>=', $todayStart)
+                ->orderByDesc('updated_at'),
             $filters
-        )
-            ->get();
+        )->get();
 
         $windowPayments = $this->applyFilters(
             DB::table('payments')
-            ->where('created_at', '>=', $windowStart)
-            ->orderBy('created_at'),
+                ->whereNull('deleted_at')
+                ->where('created_at', '>=', $windowStart)
+                ->orderBy('created_at'),
             $filters
-        )
-            ->get();
+        )->get();
 
         $recentPayments = $this->applyFilters(
             DB::table('payments')
-            ->orderByDesc('updated_at')
-            ->limit(14),
+                ->whereNull('deleted_at')
+                ->orderByDesc('updated_at')
+                ->limit(40),
             $filters
-        )
-            ->get();
+        )->get();
 
         $statusBreakdown = $this->statusBreakdown($todayPayments);
-        $providerBreakdown = $this->providerBreakdown($todayPayments);
         $successCount = $statusBreakdown['success'] + $statusBreakdown['paid'];
-        $totalCount = max(1, $todayPayments->count());
-        $pendingCount = $statusBreakdown['pending'] + $statusBreakdown['initiated'] + $statusBreakdown['processing'];
-        $stalePending = $todayPayments->filter(function ($payment) use ($now) {
-            return in_array($this->canonicalStatus($payment->status), ['pending', 'initiated', 'processing'], true)
-                && Carbon::parse($payment->updated_at ?? $payment->created_at)->lte($now->copy()->subMinutes(2));
-        })->count();
+        $transactionCount = $todayPayments->count();
+        $successfulAmount = (int) $todayPayments
+            ->filter(fn ($payment) => in_array($this->canonicalStatus($payment->status), ['success', 'paid'], true))
+            ->sum('amount');
 
+        $stalePayments = $todayPayments->filter(fn ($payment) => $this->isStaleUnresolved($payment, $now));
         $failedLastHour = $todayPayments->filter(function ($payment) use ($now) {
             return $this->canonicalStatus($payment->status) === 'failed'
                 && Carbon::parse($payment->updated_at ?? $payment->created_at)->gte($now->copy()->subHour());
-        })->count();
+        });
+        $unknownToday = $todayPayments->filter(fn ($payment) => $this->canonicalStatus($payment->status) === 'unknown');
+        $reversedToday = $todayPayments->filter(fn ($payment) => $this->canonicalStatus($payment->status) === 'reversed');
 
-        $cancelledToday = $todayPayments->filter(function ($payment) {
-            return $this->canonicalStatus($payment->status) === 'cancelled';
-        })->count();
-
-        $successfulAmount = $todayPayments->filter(function ($payment) {
-            return in_array($this->canonicalStatus($payment->status), ['success', 'paid'], true);
-        })->sum('amount');
+        $exceptions = $todayPayments
+            ->filter(fn ($payment) => $this->needsAttention($payment, $now))
+            ->unique('id')
+            ->values();
 
         return [
             'generatedAt' => $now,
             'hours' => $hours,
             'filters' => $filters,
             'filterOptions' => $this->filterOptions(),
+            'health' => $this->healthSummary($exceptions->count(), $unknownToday->count(), $reversedToday->count()),
             'kpis' => [
-                'turnover' => (int) $successfulAmount,
-                'transactions' => (int) $todayPayments->count(),
-                'success_rate' => round(($successCount / $totalCount) * 100, 1),
-                'pending' => (int) $pendingCount,
+                'turnover' => $successfulAmount,
+                'transactions' => (int) $transactionCount,
+                'success_rate' => $transactionCount > 0 ? round(($successCount / $transactionCount) * 100, 1) : 0.0,
+                'pending' => (int) collect(self::UNRESOLVED_STATUSES)->sum(fn ($status) => $statusBreakdown[$status] ?? 0),
+                'exceptions' => (int) $exceptions->count(),
             ],
             'statusBreakdown' => $statusBreakdown,
-            'providerBreakdown' => $providerBreakdown,
+            'providerBreakdown' => $this->providerBreakdown($todayPayments),
             'hourlySeries' => $this->hourlySeries($windowPayments, $windowStart, $hours, $bucketSize),
-            'livePayments' => $this->transformPayments($recentPayments->take(6)),
-            'tablePayments' => $this->transformPayments($recentPayments),
-            'alerts' => [
-                [
-                    'tone' => $stalePending > 0 ? 'warning' : 'success',
-                    'label' => 'En attente prolongée',
-                    'value' => $stalePending,
-                    'message' => $stalePending > 0
-                        ? $stalePending . ' paiement(s) en attente depuis plus de 2 minutes.'
-                        : 'Aucun paiement bloqué au-delà de 2 minutes.',
-                ],
-                [
-                    'tone' => $failedLastHour > 0 ? 'danger' : 'success',
-                    'label' => 'Échecs sur 60 min',
-                    'value' => $failedLastHour,
-                    'message' => $failedLastHour > 0
-                        ? $failedLastHour . ' échec(s) détecté(s) durant la dernière heure.'
-                        : 'Aucun échec récent côté paiement.',
-                ],
-                [
-                    'tone' => $cancelledToday > 0 ? 'info' : 'success',
-                    'label' => 'Annulations du jour',
-                    'value' => $cancelledToday,
-                    'message' => $cancelledToday > 0
-                        ? $cancelledToday . ' paiement(s) annulé(s) aujourd\'hui.'
-                        : 'Aucune annulation signalée aujourd\'hui.',
-                ],
-            ],
+            'workQueue' => $this->workQueue($recentPayments, $now),
+            'tablePayments' => $this->transformPayments($recentPayments->take(30), $now),
+            'alerts' => $this->alerts(
+                $stalePayments->count(),
+                $failedLastHour->count(),
+                $unknownToday->count(),
+                $reversedToday->count()
+            ),
         ];
     }
 
@@ -122,34 +104,26 @@ class PaymentDashboardService
             'hours' => $hours,
             'filters' => $filters,
             'filterOptions' => $this->filterOptions(),
+            'health' => ['tone' => 'neutral', 'label' => 'Aucune donnée', 'message' => 'Aucun paiement disponible.'],
             'kpis' => [
                 'turnover' => 0,
                 'transactions' => 0,
-                'success_rate' => 0,
+                'success_rate' => 0.0,
                 'pending' => 0,
+                'exceptions' => 0,
             ],
-            'statusBreakdown' => [
-                'initiated' => 0,
-                'pending' => 0,
-                'processing' => 0,
-                'success' => 0,
-                'paid' => 0,
-                'failed' => 0,
-                'cancelled' => 0,
-                'expired' => 0,
-                'refunded' => 0,
-            ],
+            'statusBreakdown' => $this->statusSeed(),
             'providerBreakdown' => collect(),
             'hourlySeries' => ['labels' => [], 'amounts' => [], 'counts' => []],
-            'livePayments' => collect(),
+            'workQueue' => collect(),
             'tablePayments' => collect(),
             'alerts' => [],
         ];
     }
 
-    protected function statusBreakdown(Collection $payments): array
+    protected function statusSeed(): array
     {
-        $seed = [
+        return [
             'initiated' => 0,
             'pending' => 0,
             'processing' => 0,
@@ -159,14 +133,19 @@ class PaymentDashboardService
             'cancelled' => 0,
             'expired' => 0,
             'refunded' => 0,
+            'unknown' => 0,
+            'reversed' => 0,
+            'disputed' => 0,
         ];
+    }
+
+    protected function statusBreakdown(Collection $payments): array
+    {
+        $seed = $this->statusSeed();
 
         foreach ($payments as $payment) {
             $status = $this->canonicalStatus($payment->status);
-            if (!array_key_exists($status, $seed)) {
-                $seed[$status] = 0;
-            }
-            $seed[$status]++;
+            $seed[$status] = ($seed[$status] ?? 0) + 1;
         }
 
         return $seed;
@@ -175,29 +154,27 @@ class PaymentDashboardService
     protected function providerBreakdown(Collection $payments): Collection
     {
         $items = $payments
-            ->groupBy(function ($payment) {
-                return $this->providerLabel($payment->provider);
-            })
+            ->groupBy(fn ($payment) => $this->providerLabel($payment->provider))
             ->map(function (Collection $group, string $provider) {
+                $successCount = $group->filter(fn ($payment) => in_array($this->canonicalStatus($payment->status), ['success', 'paid'], true))->count();
+
                 return [
                     'provider' => $provider,
                     'count' => $group->count(),
-                    'amount' => (int) $group->sum('amount'),
-                    'success_rate' => round(
-                        ($group->filter(function ($payment) {
-                            return in_array($this->canonicalStatus($payment->status), ['success', 'paid'], true);
-                        })->count() / max(1, $group->count())) * 100,
-                        1
-                    ),
+                    'amount' => (int) $group
+                        ->filter(fn ($payment) => in_array($this->canonicalStatus($payment->status), ['success', 'paid'], true))
+                        ->sum('amount'),
+                    'success_rate' => round(($successCount / max(1, $group->count())) * 100, 1),
+                    'exceptions' => $group->filter(fn ($payment) => $this->needsAttention($payment, now()))->count(),
                 ];
             })
             ->sortByDesc('amount')
             ->values();
 
-        $maxAmount = max(1, (int) $items->max('amount'));
+        $totalAmount = max(1, (int) $items->sum('amount'));
 
-        return $items->map(function (array $item) use ($maxAmount) {
-            $item['share_percent'] = round(($item['amount'] / $maxAmount) * 100, 1);
+        return $items->map(function (array $item) use ($totalAmount) {
+            $item['share_percent'] = round(($item['amount'] / $totalAmount) * 100, 1);
 
             return $item;
         });
@@ -225,8 +202,11 @@ class PaymentDashboardService
                 continue;
             }
 
-            $buckets[$bucketKey]['amount'] += (int) $payment->amount;
             $buckets[$bucketKey]['count']++;
+
+            if (in_array($this->canonicalStatus($payment->status), ['success', 'paid'], true)) {
+                $buckets[$bucketKey]['amount'] += (int) $payment->amount;
+            }
         }
 
         foreach ($buckets as $bucket) {
@@ -237,26 +217,136 @@ class PaymentDashboardService
         return compact('labels', 'amounts', 'counts');
     }
 
-    protected function transformPayments(Collection $payments): Collection
+    protected function workQueue(Collection $payments, Carbon $now): Collection
     {
-        return $payments->map(function ($payment) {
-            $meta = $this->decodeMeta($payment->meta ?? null);
-            $canonicalStatus = $this->canonicalStatus($payment->status);
-            $activityAt = Carbon::parse($payment->updated_at ?? $payment->created_at);
+        return $payments
+            ->filter(fn ($payment) => $this->needsAttention($payment, $now))
+            ->map(function ($payment) use ($now) {
+                $item = $this->transformPayment($payment, $now);
+                $item['priority_score'] = match ($item['status']) {
+                    'unknown', 'reversed', 'disputed' => 300,
+                    'failed' => 200,
+                    default => 100,
+                } + min($item['age_minutes'], 99);
 
-            return [
-                'id' => 'TX' . str_pad((string) $payment->id, 5, '0', STR_PAD_LEFT),
-                'phone' => $this->extractPhone($meta),
-                'amount' => (int) $payment->amount,
-                'status' => $canonicalStatus,
-                'status_label' => $this->statusLabel($canonicalStatus),
-                'provider' => $this->providerLabel($payment->provider),
-                'reference' => $payment->provider_reference ?: 'n/a',
-                'updated_at_human' => $activityAt->diffForHumans(),
-                'updated_at_iso' => $activityAt->toIso8601String(),
-                'reason' => $this->extractReason($meta),
-            ];
-        });
+                return $item;
+            })
+            ->sortByDesc('priority_score')
+            ->take(8)
+            ->values();
+    }
+
+    protected function transformPayments(Collection $payments, ?Carbon $now = null): Collection
+    {
+        $now ??= now();
+
+        return $payments->map(fn ($payment) => $this->transformPayment($payment, $now));
+    }
+
+    protected function transformPayment($payment, Carbon $now): array
+    {
+        $meta = $this->decodeMeta($payment->meta ?? null);
+        $status = $this->canonicalStatus($payment->status);
+        $activityAt = Carbon::parse($payment->updated_at ?? $payment->created_at);
+        $ageMinutes = max(0, $activityAt->diffInMinutes($now));
+
+        return [
+            'id' => 'TX' . str_pad((string) $payment->id, 5, '0', STR_PAD_LEFT),
+            'raw_id' => (int) $payment->id,
+            'order_reference' => $payment->order_id ? '#' . $payment->order_id : 'Sans commande',
+            'phone' => $this->extractPhone($meta),
+            'amount' => (int) $payment->amount,
+            'status' => $status,
+            'status_label' => $this->statusLabel($status),
+            'provider' => $this->providerLabel($payment->provider),
+            'reference' => $payment->provider_reference ?: 'Non attribuée',
+            'updated_at_human' => $activityAt->diffForHumans(),
+            'updated_at_iso' => $activityAt->toIso8601String(),
+            'age_minutes' => $ageMinutes,
+            'age_label' => $this->ageLabel($ageMinutes),
+            'reason' => $this->extractReason($meta),
+            'severity' => $this->severity($status, $ageMinutes),
+            'can_reconcile' => in_array($status, ['initiated', 'pending', 'processing', 'failed', 'unknown', 'reversed'], true),
+        ];
+    }
+
+    protected function alerts(int $stale, int $failedLastHour, int $unknown, int $reversed): array
+    {
+        $alerts = [];
+
+        if ($unknown > 0) {
+            $alerts[] = ['tone' => 'danger', 'label' => 'Statuts inconnus', 'value' => $unknown, 'message' => 'Confirmation opérateur manquante : revue manuelle prioritaire.'];
+        }
+        if ($reversed > 0) {
+            $alerts[] = ['tone' => 'danger', 'label' => 'Inversions financières', 'value' => $reversed, 'message' => 'Des paiements ont été inversés et doivent être rapprochés.'];
+        }
+        if ($stale > 0) {
+            $alerts[] = ['tone' => 'warning', 'label' => 'Attentes prolongées', 'value' => $stale, 'message' => 'Paiements non résolus depuis plus de deux minutes.'];
+        }
+        if ($failedLastHour > 0) {
+            $alerts[] = ['tone' => 'warning', 'label' => 'Échecs récents', 'value' => $failedLastHour, 'message' => 'Échecs détectés durant les soixante dernières minutes.'];
+        }
+
+        if ($alerts === []) {
+            $alerts[] = ['tone' => 'success', 'label' => 'Flux stable', 'value' => 0, 'message' => 'Aucune exception prioritaire sur le périmètre affiché.'];
+        }
+
+        return $alerts;
+    }
+
+    protected function healthSummary(int $exceptions, int $unknown, int $reversed): array
+    {
+        if ($unknown > 0 || $reversed > 0) {
+            return ['tone' => 'danger', 'label' => 'Intervention requise', 'message' => 'Des opérations financières non résolues exigent une décision.'];
+        }
+
+        if ($exceptions > 0) {
+            return ['tone' => 'warning', 'label' => 'Sous surveillance', 'message' => 'Des paiements doivent être rapprochés.'];
+        }
+
+        return ['tone' => 'success', 'label' => 'Flux stable', 'message' => 'Aucune exception financière prioritaire.'];
+    }
+
+    protected function needsAttention($payment, Carbon $now): bool
+    {
+        $status = $this->canonicalStatus($payment->status);
+
+        return in_array($status, ['failed', 'unknown', 'reversed', 'disputed'], true)
+            || $this->isStaleUnresolved($payment, $now);
+    }
+
+    protected function isStaleUnresolved($payment, Carbon $now): bool
+    {
+        $status = $this->canonicalStatus($payment->status);
+
+        return in_array($status, self::UNRESOLVED_STATUSES, true)
+            && Carbon::parse($payment->updated_at ?? $payment->created_at)->lte($now->copy()->subMinutes(2));
+    }
+
+    protected function severity(string $status, int $ageMinutes): string
+    {
+        if (in_array($status, ['unknown', 'reversed', 'disputed'], true)) {
+            return 'critical';
+        }
+        if ($status === 'failed' || ($ageMinutes >= 2 && in_array($status, self::UNRESOLVED_STATUSES, true))) {
+            return 'warning';
+        }
+
+        return 'normal';
+    }
+
+    protected function ageLabel(int $minutes): string
+    {
+        if ($minutes < 1) {
+            return 'À l’instant';
+        }
+        if ($minutes < 60) {
+            return $minutes . ' min';
+        }
+
+        $hours = intdiv($minutes, 60);
+
+        return $hours < 24 ? $hours . ' h' : intdiv($hours, 24) . ' j';
     }
 
     protected function decodeMeta($meta): array
@@ -328,8 +418,11 @@ class PaymentDashboardService
             'FAILED', 'REJECTED', 'DECLINED' => 'failed',
             'CANCELLED', 'CANCELED' => 'cancelled',
             'EXPIRED', 'TIMEOUT' => 'expired',
-            'REFUNDED' => 'refunded',
-            default => 'pending',
+            'REFUNDED', 'PARTIALLY_REFUNDED' => 'refunded',
+            'REVERSED', 'REVERSAL', 'ROLLED_BACK' => 'reversed',
+            'DISPUTED', 'CHARGEBACK' => 'disputed',
+            'UNKNOWN', '' => 'unknown',
+            default => 'unknown',
         };
     }
 
@@ -339,19 +432,21 @@ class PaymentDashboardService
             'initiated' => 'Initialisation',
             'pending' => 'En attente',
             'processing' => 'Traitement',
-            'success', 'paid' => 'Réussi',
+            'success', 'paid' => 'Confirmé',
             'failed' => 'Échoué',
             'cancelled' => 'Annulé',
             'expired' => 'Expiré',
             'refunded' => 'Remboursé',
-            default => 'En attente',
+            'reversed' => 'Inversé',
+            'disputed' => 'Contesté',
+            default => 'Inconnu',
         };
     }
 
     protected function providerLabel(?string $provider): string
     {
         return match (strtolower(trim((string) $provider))) {
-            'mtn_momo', 'momo' => 'MTN MoMo',
+            'mtn_momo', 'momo', 'mtn' => 'MTN MoMo',
             'airtel_money', 'airtel' => 'Airtel Money',
             'cash' => 'Espèces',
             'paypal' => 'PayPal',
@@ -362,8 +457,8 @@ class PaymentDashboardService
 
     protected function normalizeFilters(array $filters): array
     {
-        $provider = strtolower(trim((string) ($filters['provider'] ?? 'all')));
-        $status = strtolower(trim((string) ($filters['status'] ?? 'all')));
+        $provider = strtolower(trim((string) ($filters['provider'] ?? 'all'));
+        $status = strtolower(trim((string) ($filters['status'] ?? 'all'));
 
         $allowedProviders = collect($this->filterOptions()['providers'])->pluck('value')->all();
         $allowedStatuses = collect($this->filterOptions()['statuses'])->pluck('value')->all();
@@ -378,7 +473,7 @@ class PaymentDashboardService
     {
         return [
             'providers' => [
-                ['value' => 'all', 'label' => 'Tous'],
+                ['value' => 'all', 'label' => 'Tous les canaux'],
                 ['value' => 'mtn', 'label' => 'MTN MoMo'],
                 ['value' => 'airtel', 'label' => 'Airtel Money'],
                 ['value' => 'cash', 'label' => 'Espèces'],
@@ -386,13 +481,16 @@ class PaymentDashboardService
                 ['value' => 'card', 'label' => 'Carte'],
             ],
             'statuses' => [
-                ['value' => 'all', 'label' => 'Tous'],
+                ['value' => 'all', 'label' => 'Tous les statuts'],
                 ['value' => 'initiated', 'label' => 'Initialisation'],
                 ['value' => 'pending', 'label' => 'En attente'],
                 ['value' => 'processing', 'label' => 'Traitement'],
                 ['value' => 'paid', 'label' => 'Payé'],
                 ['value' => 'success', 'label' => 'Réussi'],
                 ['value' => 'failed', 'label' => 'Échoué'],
+                ['value' => 'unknown', 'label' => 'Inconnu'],
+                ['value' => 'reversed', 'label' => 'Inversé'],
+                ['value' => 'disputed', 'label' => 'Contesté'],
                 ['value' => 'cancelled', 'label' => 'Annulé'],
                 ['value' => 'expired', 'label' => 'Expiré'],
                 ['value' => 'refunded', 'label' => 'Remboursé'],
@@ -407,13 +505,7 @@ class PaymentDashboardService
         }
 
         if (($filters['status'] ?? 'all') !== 'all') {
-            $statusFilter = $filters['status'];
-
-            if (in_array($statusFilter, ['success', 'processing', 'initiated', 'expired'], true)) {
-                $query->whereIn('status', $this->rawStatusesForCanonical($statusFilter));
-            } else {
-                $query->where('status', strtoupper($statusFilter));
-            }
+            $query->whereIn('status', $this->rawStatusesForCanonical($filters['status']));
         }
 
         return $query;
@@ -423,9 +515,17 @@ class PaymentDashboardService
     {
         return match ($status) {
             'initiated' => ['INITIATED'],
+            'pending' => ['PENDING'],
             'processing' => ['AUTHORIZED', 'PROCESSING'],
             'success' => ['SUCCESS', 'SUCCESSFUL'],
+            'paid' => ['PAID'],
+            'failed' => ['FAILED', 'REJECTED', 'DECLINED'],
+            'cancelled' => ['CANCELLED', 'CANCELED'],
             'expired' => ['EXPIRED', 'TIMEOUT'],
+            'refunded' => ['REFUNDED', 'PARTIALLY_REFUNDED'],
+            'reversed' => ['REVERSED', 'REVERSAL', 'ROLLED_BACK'],
+            'disputed' => ['DISPUTED', 'CHARGEBACK'],
+            'unknown' => ['UNKNOWN', ''],
             default => [strtoupper($status)],
         };
     }
@@ -433,7 +533,7 @@ class PaymentDashboardService
     protected function rawProvidersForFilter(string $provider): array
     {
         return match ($provider) {
-            'mtn' => ['momo', 'mtn_momo'],
+            'mtn' => ['momo', 'mtn_momo', 'mtn'],
             'airtel' => ['airtel', 'airtel_money'],
             'card' => ['card', 'stripe'],
             default => [$provider],
