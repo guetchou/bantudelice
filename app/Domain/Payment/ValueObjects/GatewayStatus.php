@@ -23,6 +23,19 @@ final class GatewayStatus
 
     public static function paid(array $meta = [], ?string $providerStatus = null): self
     {
+        // Les adapters historiques retournent PAID/DEMO lorsqu'ils ne sont pas
+        // configurés. Hors local/testing, ce statut doit rester non terminal afin
+        // qu'aucune commande ne soit libérée sans preuve du PSP.
+        if (
+            strtoupper((string) $providerStatus) === 'DEMO'
+            && ! app()->environment(['local', 'testing'])
+        ) {
+            return self::unknown('DEMO_BLOCKED', array_merge($meta, [
+                'error' => 'Statut de démonstration refusé hors environnement local ou testing.',
+                'demo_blocked' => true,
+            ]));
+        }
+
         return new self(self::PAID, $providerStatus, null, null, $meta);
     }
 

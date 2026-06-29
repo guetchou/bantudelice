@@ -16,13 +16,7 @@ class PaymentController extends Controller
     ) {}
 
     /**
-     * Récupérer le statut d'un paiement
-     * 
-     * GET /api/payments/{payment}
-     * 
-     * @param Request $request
-     * @param int|Payment $payment
-     * @return \Illuminate\Http\JsonResponse
+     * Récupérer le statut d'un paiement.
      */
     public function show(Request $request, $payment)
     {
@@ -31,17 +25,16 @@ class PaymentController extends Controller
         if (!$user) {
             return response()->json([
                 'status' => false,
-                'message' => 'Non authentifié'
+                'message' => 'Non authentifié',
             ], 401);
         }
 
-        // Si $payment est un ID, récupérer le modèle
         $payment = $this->resolveOwnedPayment($payment, $user->id);
 
         if (!$payment) {
             return response()->json([
                 'status' => false,
-                'message' => 'Paiement introuvable'
+                'message' => 'Paiement introuvable',
             ], 404);
         }
 
@@ -81,13 +74,9 @@ class PaymentController extends Controller
     }
 
     /**
-     * Confirmer manuellement un paiement (pour modes manuels)
-     * 
-     * POST /api/payments/{payment}/confirm
-     * 
-     * @param Request $request
-     * @param int|Payment $payment
-     * @return \Illuminate\Http\JsonResponse
+     * Cette route est conservée pour compatibilité, mais aucune confirmation
+     * financière ne peut venir du client. Les PSP sont vérifiés auprès du
+     * fournisseur ; le cash est confirmé par le livreur ou le back-office.
      */
     public function confirm(Request $request, $payment)
     {
@@ -96,46 +85,30 @@ class PaymentController extends Controller
         if (!$user) {
             return response()->json([
                 'status' => false,
-                'message' => 'Non authentifié'
+                'message' => 'Non authentifié',
             ], 401);
         }
 
-        // Si $payment est un ID, récupérer le modèle
         $payment = $this->resolveOwnedPayment($payment, $user->id);
 
         if (!$payment) {
             return response()->json([
                 'status' => false,
-                'message' => 'Paiement introuvable'
+                'message' => 'Paiement introuvable',
             ], 404);
         }
 
-        // Seuls les paiements PENDING peuvent être confirmés manuellement
-        if ($payment->status !== 'PENDING') {
-            return response()->json([
-                'status' => false,
-                'message' => 'Ce paiement ne peut pas être confirmé (statut: ' . $payment->status . ')'
-            ], 422);
-        }
+        Log::warning('Tentative de confirmation manuelle client bloquée', [
+            'payment_id' => $payment->id,
+            'provider' => $payment->provider,
+            'user_id' => $user->id,
+            'ip' => $request->ip(),
+        ]);
 
-        try {
-            $paymentService = new \App\Services\PaymentService();
-            $paymentService->markPaymentAsPaid($payment, ['manual_confirmation' => true]);
-
-            return response()->json([
-                'status' => true,
-                'message' => 'Paiement confirmé avec succès',
-                'payment' => [
-                    'id' => $payment->id,
-                    'status' => $payment->fresh()->status,
-                ]
-            ]);
-        } catch (\Exception $e) {
-            return response()->json([
-                'status' => false,
-                'message' => 'Erreur lors de la confirmation: ' . $e->getMessage()
-            ], 500);
-        }
+        return response()->json([
+            'status' => false,
+            'message' => 'La confirmation d’un paiement est réservée au fournisseur de paiement, au livreur ou au back-office.',
+        ], 403);
     }
 
     private function resolveOwnedPayment($payment, int $userId): ?Payment
