@@ -55,6 +55,7 @@ final class PaymentClearingAccountService
     {
         return match ($provider) {
             'momo', 'mtn', 'mtn_momo' => 'mtn_momo',
+            'gepay_mtn' => 'gepay_mtn',
             'airtel', 'airtel_money' => 'airtel_money',
             'paypal' => 'paypal',
             'cash', 'cod', 'demo' => 'cash',
