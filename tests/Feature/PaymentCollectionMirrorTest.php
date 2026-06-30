@@ -113,6 +113,24 @@ final class PaymentCollectionMirrorTest extends TestCase
         $this->assertDatabaseCount('financial_posting_batches', 0);
     }
 
+    public function test_unknown_provider_fails_without_creating_a_treasury_account(): void
+    {
+        config()->set('financial-mirror.collections_enabled', true);
+        $payment = $this->payment([
+            'provider' => 'unknown_psp',
+            'provider_reference' => 'MIRROR-UNKNOWN-1',
+        ]);
+
+        event(new PaymentConfirmed($payment));
+
+        $this->assertSame('PAID', $payment->fresh()->status);
+        $this->assertSame('failed', FinancialMirrorEvent::query()->firstOrFail()->status);
+        $this->assertDatabaseMissing('financial_accounts', [
+            'code' => 'ASSET:PAYMENT_PROVIDER:UNKNOWN_PSP:COLLECTIONS',
+        ]);
+        $this->assertDatabaseCount('financial_posting_batches', 0);
+    }
+
     public function test_cash_payment_is_skipped_until_cash_collection_workflow_exists(): void
     {
         config()->set('financial-mirror.collections_enabled', true);
