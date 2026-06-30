@@ -41,12 +41,30 @@ L’audit restitue :
 - paiements espèces exclus ;
 - paiements non classifiables ;
 - paiements éligibles au miroir ;
-- paiements déjà inscrits dans le registre ;
+- paiements déjà inscrits et vérifiés dans le registre ;
 - paiements éligibles mais non encore miroités ;
 - paiements bloqués ;
 - groupes de références fournisseur dupliquées ;
 - répartition par route de rapprochement ;
 - statuts des événements miroir.
+
+## Vérification d’un événement `posted`
+
+Un événement miroir marqué `posted` n’est considéré comme valide que si :
+
+- son UUID de lot est renseigné ;
+- le lot existe dans `financial_posting_batches` ;
+- le type d’événement est `payment_collection_received` ;
+- la source est le paiement concerné ;
+- la clé d’idempotence correspond au paiement ;
+- le lot est au statut `posted` ;
+- il contient exactement une ligne de débit et une ligne de crédit ;
+- les deux lignes portent le montant exact du paiement ;
+- les deux lignes sont en XAF ;
+- le débit vise un compte `ASSET:PAYMENT_PROVIDER:*:COLLECTIONS` ;
+- le crédit vise `LIABILITY:PAYMENT:CLEARING`.
+
+Le statut du journal miroir ne peut donc pas masquer un lot absent, un mauvais montant ou une mauvaise affectation comptable.
 
 ## Anomalies bloquantes
 
@@ -56,6 +74,8 @@ L’audit restitue :
 - devise différente de XAF ;
 - montant nul, négatif ou non entier ;
 - événement miroir en échec ;
+- événement `posted` sans lot financier ;
+- événement `posted` associé à un lot incohérent ;
 - même référence fournisseur portée par plusieurs paiements du même canal canonique.
 
 Les alias `momo`, `mtn` et `mtn_momo` sont comparés comme un même canal. Un doublon réparti entre ces alias reste donc détecté.
