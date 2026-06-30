@@ -14,6 +14,7 @@ final class FinancialPostingBatch extends Model
         'source_type',
         'source_id',
         'idempotency_key',
+        'payload_hash',
         'status',
         'reversal_of_batch_id',
         'effective_at',
