@@ -1,0 +1,61 @@
+name: Financial Core Conflict Guard
+
+on:
+  pull_request:
+    paths:
+      - 'database/migrations/**'
+      - 'app/Domain/Finance/**'
+      - 'app/Domain/Payment/**'
+      - 'app/Services/*Financial*.php'
+      - 'app/Services/*Payment*.php'
+      - 'app/Console/Commands/AuditFinancialCoreArchitecture.php'
+      - 'config/financial-core.php'
+      - 'tests/Feature/FinancialCoreArchitectureGuardTest.php'
+      - '.github/workflows/financial-core-conflict-guard.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  architecture-guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, intl, bcmath, sqlite3, pdo_sqlite
+          coverage: none
+          tools: composer:v2
+
+      - name: Prepare directories
+        run: |
+          mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/framework/testing storage/logs bootstrap/cache
+          cp .env.example .env
+          chmod -R 775 storage bootstrap/cache
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Prepare application
+        run: |
+          php artisan key:generate
+          php artisan optimize:clear
+
+      - name: Validate guard syntax
+        run: |
+          php -l app/Console/Commands/AuditFinancialCoreArchitecture.php
+          php -l config/financial-core.php
+          php -l tests/Feature/FinancialCoreArchitectureGuardTest.php
+
+      - name: Detect competing financial migrations
+        run: php artisan finance:audit-core-architecture
+
+      - name: Run guard tests
+        run: php artisan test --filter=FinancialCoreArchitectureGuardTest
