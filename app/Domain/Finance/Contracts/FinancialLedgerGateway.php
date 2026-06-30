@@ -2,6 +2,7 @@
 
 namespace App\Domain\Finance\Contracts;
 
+use App\Domain\Finance\Data\CollectedPayment;
 use App\Domain\Finance\Data\CollectionDistribution;
 use App\Domain\Finance\Data\PartnerPosition;
 use App\Domain\Finance\Data\PostingReceipt;
@@ -9,6 +10,8 @@ use App\Domain\Finance\Data\WithdrawalInstruction;
 
 interface FinancialLedgerGateway
 {
+    public function recordCollectedPayment(CollectedPayment $payment): PostingReceipt;
+
     public function recordCollection(CollectionDistribution $distribution): PostingReceipt;
 
     public function releasePartnerEarning(
