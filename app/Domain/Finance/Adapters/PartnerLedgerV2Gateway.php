@@ -3,6 +3,7 @@
 namespace App\Domain\Finance\Adapters;
 
 use App\Domain\Finance\Contracts\FinancialLedgerGateway;
+use App\Domain\Finance\Data\CollectedPayment;
 use App\Domain\Finance\Data\CollectionDistribution;
 use App\Domain\Finance\Data\PartnerPosition;
 use App\Domain\Finance\Data\PostingReceipt;
@@ -14,6 +15,11 @@ final class PartnerLedgerV2Gateway implements FinancialLedgerGateway
     public function __construct(
         private readonly FinancialLedgerService $ledger,
     ) {
+    }
+
+    public function recordCollectedPayment(CollectedPayment $payment): PostingReceipt
+    {
+        return $this->receipt($this->ledger->recordCollectedPayment($payment));
     }
 
     public function recordCollection(CollectionDistribution $distribution): PostingReceipt

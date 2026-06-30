@@ -18,6 +18,7 @@ final class AuditFinancialCoreArchitecture extends Command
         'financial_journal_lines',
         'financial_posting_batches',
         'financial_postings',
+        'financial_mirror_events',
         'financial_ledger_entries',
         'payment_allocations',
         'payment_reconciliation_cases',
