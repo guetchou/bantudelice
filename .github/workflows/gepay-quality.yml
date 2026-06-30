@@ -70,16 +70,4 @@ jobs:
           php -l app/Services/ResilientPartnerWithdrawalService.php
 
       - name: Run GePay tests
-        shell: bash
-        run: |
-          set -o pipefail
-          php artisan test --filter=GePay 2>&1 | tee gepay-test-output.log
-
-      - name: Upload failed GePay output
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: gepay-test-output
-          path: gepay-test-output.log
-          if-no-files-found: error
-          retention-days: 1
+        run: php artisan test --filter=GePay
