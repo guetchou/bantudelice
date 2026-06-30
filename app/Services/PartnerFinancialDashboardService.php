@@ -22,30 +22,27 @@ class PartnerFinancialDashboardService
             ->where('status', 'paid')
             ->sum('payout_amount');
         $alreadyPaid += (float) DB::table('partner_withdrawals')
-            ->where('partner_type', 'restaurant')->where('partner_id', $restaurant->id)
-            ->where('status', 'paid')->sum('net_amount');
+            ->where('partner_type', 'restaurant')
+            ->where('partner_id', $restaurant->id)
+            ->where('status', 'paid')
+            ->sum('net_amount');
 
-        $pendingPayouts = (float) DB::table('restaurant_payments')
+        $reserved = (float) DB::table('restaurant_payments')
             ->where('restaurant_id', $restaurant->id)
             ->where('status', 'pending')
             ->sum('payout_amount');
-        $pendingPayouts += (float) DB::table('partner_withdrawals')
-            ->where('partner_type', 'restaurant')->where('partner_id', $restaurant->id)
+        $reserved += (float) DB::table('partner_withdrawals')
+            ->where('partner_type', 'restaurant')
+            ->where('partner_id', $restaurant->id)
             ->whereIn('status', ['created', 'reserved', 'submitted', 'pending', 'unknown'])
             ->sum('net_amount');
 
-        return $this->buildDashboard(
-            $gross,
-            $commission,
-            $alreadyPaid,
-            $pendingPayouts,
-            [
-                'commission' => $commissionRate > 0
-                    ? 'Somme des commissions plateforme calculees au taux contractuel de ' . $this->formatRate($commissionRate) . '.'
-                    : 'Aucune commission plateforme activee sur ce profil restaurant.',
-                'pending' => 'Montant temporairement non libere: validation, securite, litige, cloture ou rapprochement des reversements restaurant.',
-            ]
-        );
+        return $this->buildDashboard($gross, $commission, $alreadyPaid, $reserved, [
+            'commission' => $commissionRate > 0
+                ? 'Somme des commissions plateforme calculees au taux contractuel de ' . $this->formatRate($commissionRate) . '.'
+                : 'Aucune commission plateforme activee sur ce profil restaurant.',
+            'pending' => 'Montant temporairement non libere par un retrait ou un reversement en cours.',
+        ]);
     }
 
     public function forDeliveryDriver(Driver $driver): array
@@ -71,28 +68,25 @@ class PartnerFinancialDashboardService
             ->where('status', 'paid')
             ->sum('payout_amount');
         $alreadyPaid += (float) DB::table('partner_withdrawals')
-            ->where('partner_type', 'driver')->where('partner_id', $driver->id)
-            ->where('status', 'paid')->sum('net_amount');
+            ->where('partner_type', 'driver')
+            ->where('partner_id', $driver->id)
+            ->where('status', 'paid')
+            ->sum('net_amount');
 
-        $pendingPayouts = (float) DB::table('driver_payments')
+        $reserved = (float) DB::table('driver_payments')
             ->where('driver_id', $driver->id)
             ->where('status', 'pending')
             ->sum('payout_amount');
-        $pendingPayouts += (float) DB::table('partner_withdrawals')
-            ->where('partner_type', 'driver')->where('partner_id', $driver->id)
+        $reserved += (float) DB::table('partner_withdrawals')
+            ->where('partner_type', 'driver')
+            ->where('partner_id', $driver->id)
             ->whereIn('status', ['created', 'reserved', 'submitted', 'pending', 'unknown'])
             ->sum('net_amount');
 
-        return $this->buildDashboard(
-            $gross,
-            0,
-            $alreadyPaid,
-            $pendingPayouts,
-            [
-                'commission' => 'Aucune commission plateforme distincte n est configuree sur les frais de livraison.',
-                'pending' => 'Montant temporairement non libere: validation de livraison, securite, litige, cloture ou rapprochement des reversements livreur.',
-            ]
-        );
+        return $this->buildDashboard($gross, 0, $alreadyPaid, $reserved, [
+            'commission' => 'Aucune commission plateforme distincte n est configuree sur les frais de livraison.',
+            'pending' => 'Montant temporairement non libere par un retrait ou un reversement en cours.',
+        ]);
     }
 
     public function forTransportDriver(Driver $driver): array
@@ -106,75 +100,45 @@ class PartnerFinancialDashboardService
             })
             ->sum(DB::raw('COALESCE(total_price, actual_price, estimated_price, 0)'));
 
-        return $this->buildDashboard(
-            $gross,
-            0,
-            0,
-            0,
-            [
-                'commission' => 'Aucune commission plateforme distincte n est configuree sur les courses transport.',
-                'paid' => 'Aucun reversement transport distinct n est enregistre dans un ledger separe a ce jour.',
-                'pending' => 'Aucun reversement transport distinct n est en attente dans un ledger separe a ce jour.',
-            ]
-        );
+        return $this->buildDashboard($gross, 0, 0, 0, [
+            'commission' => 'Aucune commission plateforme distincte n est configuree sur les courses transport.',
+            'paid' => 'Aucun reversement transport distinct n est enregistre.',
+            'pending' => 'Aucun reversement transport distinct n est en attente.',
+        ]);
     }
 
     private function buildDashboard(
         float $gross,
         float $commission,
         float $alreadyPaid,
-        float $pendingPayouts,
+        float $reserved,
         array $overrides = []
     ): array {
         $net = (float) max($gross - $commission, 0);
-        $available = (float) max($net - $alreadyPaid - $pendingPayouts, 0);
+        $available = (float) max($net - $alreadyPaid - $reserved, 0);
+
+        $position = [
+            'gross' => $gross,
+            'commission' => $commission,
+            'net_earned' => $net,
+            'paid' => $alreadyPaid,
+            'reserved' => $reserved,
+            'available' => $available,
+            'currency' => 'XAF',
+            'source' => 'legacy_projection',
+        ];
 
         $cards = [
-            [
-                'label' => 'Chiffre d’affaires brut',
-                'amount' => $gross,
-                'description' => $overrides['gross'] ?? 'Total brut des transactions validees avant commission.',
-                'formula' => 'Total brut des transactions validees avant commission.',
-                'tone' => 'neutral',
-            ],
-            [
-                'label' => 'Commission plateforme',
-                'amount' => $commission,
-                'description' => $overrides['commission'] ?? 'Somme des commissions plateforme.',
-                'formula' => 'Somme des commissions plateforme.',
-                'tone' => 'warning',
-            ],
-            [
-                'label' => 'Net partenaire',
-                'amount' => $net,
-                'description' => $overrides['net'] ?? 'Montant net du partenaire apres deduction de la commission plateforme.',
-                'formula' => 'Chiffre d’affaires brut - commission plateforme.',
-                'tone' => 'primary',
-            ],
-            [
-                'label' => 'Déjà payé',
-                'amount' => $alreadyPaid,
-                'description' => $overrides['paid'] ?? 'Somme des reversements deja executes et confirmes.',
-                'formula' => 'Somme des reversements deja executes.',
-                'tone' => 'neutral',
-            ],
-            [
-                'label' => 'Disponible au retrait',
-                'amount' => $available,
-                'description' => $overrides['available'] ?? 'Montant net immediatement retirable selon le ledger partenaire.',
-                'formula' => 'Net partenaire - deja paye - en attente de reversement.',
-                'tone' => 'success',
-            ],
-            [
-                'label' => 'En attente de reversement',
-                'amount' => $pendingPayouts,
-                'description' => $overrides['pending'] ?? 'Montant non encore libere a cause de validation, securite, litige, cloture ou rapprochement.',
-                'formula' => 'Montant non encore libere a cause de validation, securite, litige, cloture ou rapprochement.',
-                'tone' => 'orange',
-            ],
+            ['label' => 'Chiffre d’affaires brut', 'amount' => $gross, 'description' => $overrides['gross'] ?? 'Total brut des transactions validees avant commission.', 'formula' => 'Total brut valide.', 'tone' => 'neutral'],
+            ['label' => 'Commission plateforme', 'amount' => $commission, 'description' => $overrides['commission'] ?? 'Somme des commissions plateforme.', 'formula' => 'Somme des commissions.', 'tone' => 'warning'],
+            ['label' => 'Net partenaire', 'amount' => $net, 'description' => $overrides['net'] ?? 'Montant net du partenaire.', 'formula' => 'Brut - commission.', 'tone' => 'primary'],
+            ['label' => 'Déjà payé', 'amount' => $alreadyPaid, 'description' => $overrides['paid'] ?? 'Reversements confirmes.', 'formula' => 'Somme des reversements confirmes.', 'tone' => 'neutral'],
+            ['label' => 'Disponible au retrait', 'amount' => $available, 'description' => $overrides['available'] ?? 'Montant immediatement retirable.', 'formula' => 'Net - paye - reserve.', 'tone' => 'success'],
+            ['label' => 'Montant réservé', 'amount' => $reserved, 'description' => $overrides['pending'] ?? 'Montant non encore libere.', 'formula' => 'Retraits et reversements en cours.', 'tone' => 'orange'],
         ];
 
         return [
+            'position' => $position,
             'cards' => $cards,
             'rows' => array_chunk($cards, 3),
         ];
@@ -183,8 +147,6 @@ class PartnerFinancialDashboardService
     private function formatRate(float $rate): string
     {
         $formatted = number_format($rate, 2, '.', '');
-        $formatted = rtrim(rtrim($formatted, '0'), '.');
-
-        return $formatted . ' %';
+        return rtrim(rtrim($formatted, '0'), '.') . ' %';
     }
 }
