@@ -9,6 +9,7 @@ use App\PartnerWithdrawal;
 use App\Services\PartnerWithdrawalService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Tests\TestCase;
@@ -65,18 +66,14 @@ class GePayPartnerWithdrawalIntegrationTest extends TestCase
 
         $withdrawal->refresh();
 
-        // provider_reference doit être un UUID GePay (pas une référence MTN)
         $gePayUuid = $withdrawal->provider_reference;
         $this->assertMatchesRegularExpression(
             '/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/',
             (string) $gePayUuid
         );
 
-        // La transaction GePay existe
         $transaction = GePayTransaction::where('uuid', $gePayUuid)->first();
         $this->assertNotNull($transaction);
-
-        // provider = gepay sur le retrait
         $this->assertSame('gepay', $withdrawal->provider);
     }
 
@@ -88,7 +85,7 @@ class GePayPartnerWithdrawalIntegrationTest extends TestCase
         ]);
 
         $withdrawal = $this->createReservedWithdrawal(5000);
-        $uuid       = $withdrawal->uuid;
+        $uuid = $withdrawal->uuid;
 
         $this->service->initiateForWithdrawal($withdrawal, '068006730', 5000, 'restaurant');
         $withdrawal->refresh();
@@ -111,13 +108,11 @@ class GePayPartnerWithdrawalIntegrationTest extends TestCase
         $withdrawal->refresh();
         $firstRef = $withdrawal->provider_reference;
 
-        // Retry — même UUID GePay attendu
-        $withdrawal->update(['status' => 'submitted']);
         $this->service->initiateForWithdrawal($withdrawal, '068006730', 5000, 'restaurant');
         $withdrawal->refresh();
 
         $this->assertSame($firstRef, $withdrawal->provider_reference);
-        Http::assertSentCount(2); // 1 token + 1 transfer, pas de second appel MTN
+        Http::assertSentCount(2);
     }
 
     public function test_unknown_status_does_not_release_balance(): void
@@ -133,7 +128,6 @@ class GePayPartnerWithdrawalIntegrationTest extends TestCase
         $this->service->initiateForWithdrawal($withdrawal, '068006730', 5000, 'restaurant');
         $withdrawal->refresh();
 
-        // unknown ne libère pas → statut doit rester non-terminal
         $this->assertNotSame('paid', $withdrawal->status);
         $this->assertFalse($withdrawal->isPaid());
     }
@@ -164,15 +158,19 @@ class GePayPartnerWithdrawalIntegrationTest extends TestCase
         $this->service->initiateForWithdrawal($withdrawal, '068006730', 5000, 'restaurant');
         $withdrawal->refresh();
 
-        // Forcer le statut pending pour tester la réconciliation
         $gePayTx = GePayTransaction::where('uuid', $withdrawal->provider_reference)->first();
         $gePayTx->forceFill(['status' => TransactionStatus::PENDING])->save();
-        $withdrawal->update(['status' => 'pending']);
+
+        // Préparation technique du scénario : on ne transforme pas paid → pending
+        // par le modèle métier, car cette transition est volontairement interdite.
+        DB::table('partner_withdrawals')
+            ->where('id', $withdrawal->id)
+            ->update(['status' => 'pending', 'paid_at' => null]);
+        $withdrawal->refresh();
 
         $this->service->reconcile($withdrawal->id);
         $withdrawal->refresh();
 
-        // Après réconciliation SUCCESSFUL, le retrait doit être paid
         $this->assertTrue($withdrawal->isPaid());
     }
 
@@ -182,11 +180,8 @@ class GePayPartnerWithdrawalIntegrationTest extends TestCase
 
         $withdrawal = $this->createReservedWithdrawal(5000, 'mtn_momo');
 
-        // Avec le flag désactivé, le retrait créé utilise mtn_momo
         $this->assertSame('mtn_momo', $withdrawal->provider);
     }
-
-    // ─── Helpers ────────────────────────────────────────────────────────────
 
     private function createReservedWithdrawal(int $amount, string $provider = 'gepay'): PartnerWithdrawal
     {
