@@ -13,9 +13,22 @@ Lorsqu’un paiement en ligne est confirmé :
 | Encaissements du fournisseur concerné | Montant encaissé | 0 |
 | Fonds clients à affecter | 0 | Montant encaissé |
 
-Le premier compte représente l’actif détenu auprès du fournisseur de paiement.
+Le premier compte représente l’actif à rapprocher avec le sous-système qui a réellement traité l’encaissement.
 
 Le second représente une obligation temporaire : l’argent a été encaissé, mais sa ventilation métier n’est pas encore validée.
+
+## Comptes fournisseurs
+
+Les alias d’un même opérateur sont normalisés :
+
+- `momo`, `mtn` et `mtn_momo` utilisent `ASSET:PAYMENT_PROVIDER:MTN_MOMO:COLLECTIONS` ;
+- `airtel` et `airtel_money` utilisent `ASSET:PAYMENT_PROVIDER:AIRTEL_MONEY:COLLECTIONS` ;
+- `paypal` utilise son propre compte ;
+- un paiement MTN portant une référence GePay utilise `ASSET:PAYMENT_PROVIDER:GEPAY_MTN:COLLECTIONS`.
+
+Cette séparation permet de rapprocher les transactions directes MTN des transactions passées par le sous-système GePay.
+
+Un fournisseur inconnu provoque un événement miroir en échec. Aucun compte de trésorerie n’est créé automatiquement à partir d’une valeur non reconnue.
 
 ## Pourquoi aucun partenaire n’est encore crédité
 
@@ -37,9 +50,10 @@ Un provider financier isolé enregistre un listener supplémentaire. Le listener
 
 1. attend la validation de la transaction principale ;
 2. recharge le paiement ;
-3. exécute le miroir ;
-4. capture toute erreur ;
-5. ne modifie jamais le statut du paiement.
+3. identifie le véritable canal de rapprochement ;
+4. exécute le miroir ;
+5. capture toute erreur ;
+6. ne modifie jamais le statut du paiement.
 
 Une panne du miroir ne doit pas annuler un paiement fournisseur déjà confirmé.
 
@@ -55,7 +69,7 @@ L’activation ne doit intervenir qu’après :
 
 - exécution des migrations ;
 - vérification des soldes d’ouverture ;
-- validation du compte fournisseur utilisé ;
+- validation des comptes MTN direct et GePay–MTN ;
 - contrôle d’un environnement de préproduction ;
 - définition du processus de rapprochement quotidien.
 
@@ -94,7 +108,7 @@ Le snapshot exclut les données brutes de callback et les informations sensibles
 
 ## Espèces
 
-Les paiements `cash` sont ignorés par ce miroir.
+Les paiements `cash`, `cod` et `demo` sont ignorés par ce miroir.
 
 Ils nécessitent un workflow distinct :
 
