@@ -29,8 +29,8 @@ class PartnerWithdrawal extends Model
     public const TERMINAL_FAILURE = ['FAILED', 'REJECTED', 'DECLINED', 'CANCELLED', 'EXPIRED'];
 
     private const TRANSITIONS = [
-        'created' => ['reserved', 'cancelled', 'failed'],
-        'reserved' => ['submitted', 'pending', 'paid', 'failed', 'unknown', 'cancelled'],
+        'created' => ['reserved', 'submitted', 'pending', 'paid', 'failed', 'unknown', 'reversed', 'cancelled'],
+        'reserved' => ['submitted', 'pending', 'paid', 'failed', 'unknown', 'reversed', 'cancelled'],
         'submitted' => ['pending', 'paid', 'failed', 'unknown', 'reversed', 'cancelled'],
         'pending' => ['paid', 'failed', 'unknown', 'reversed', 'cancelled'],
         'unknown' => ['pending', 'paid', 'failed', 'reversed', 'cancelled'],
