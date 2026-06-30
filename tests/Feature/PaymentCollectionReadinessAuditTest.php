@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Domain\Finance\Models\FinancialMirrorEvent;
+use App\Domain\Finance\Services\PaymentCollectionMirrorService;
 use App\Domain\Finance\Services\PaymentCollectionReadinessAuditService;
 use App\Payment;
 use App\User;
@@ -37,7 +38,7 @@ final class PaymentCollectionReadinessAuditTest extends TestCase
             'provider_reference' => null,
             'amount' => 500,
         ]);
-        $this->mirrorEvent($direct, 'posted');
+        app(PaymentCollectionMirrorService::class)->mirror($direct, true);
 
         $result = app(PaymentCollectionReadinessAuditService::class)->audit();
 
@@ -50,6 +51,22 @@ final class PaymentCollectionReadinessAuditTest extends TestCase
         $this->assertSame(1, $result['routes']['mtn_momo']['count']);
         $this->assertSame(1, $result['routes']['gepay_mtn']['count']);
         $this->assertSame(1, $result['routes']['cash']['count']);
+    }
+
+    public function test_posted_event_without_financial_batch_is_blocked(): void
+    {
+        $payment = $this->payment([
+            'provider' => 'paypal',
+            'provider_reference' => 'PAYPAL-MISSING-BATCH-1',
+        ]);
+        $this->mirrorEvent($payment, 'posted');
+
+        $result = app(PaymentCollectionReadinessAuditService::class)->audit();
+
+        $this->assertSame(1, $result['blockers']['posted_mirror_missing_batch']);
+        $this->assertSame(1, $result['summary']['blocked_payment_count']);
+        $this->assertSame(0, $result['summary']['already_posted_count']);
+        $this->assertFalse($result['summary']['ready_for_activation']);
     }
 
     public function test_duplicate_mtn_reference_is_not_eligible(): void
