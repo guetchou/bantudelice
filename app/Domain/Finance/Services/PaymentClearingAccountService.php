@@ -7,10 +7,15 @@ use Illuminate\Support\Str;
 
 final class PaymentClearingAccountService
 {
+    public function __construct(
+        private readonly PaymentCollectionRouteResolver $routes,
+    ) {
+    }
+
     public function providerCollections(string $provider): FinancialAccount
     {
         $originalProvider = strtolower(trim($provider));
-        $canonicalProvider = $this->canonicalProvider($originalProvider);
+        $canonicalProvider = $this->routes->canonicalProvider($originalProvider);
         $normalized = strtoupper(substr(Str::slug($canonicalProvider, '_'), 0, 32));
 
         return FinancialAccount::firstOrCreate(
@@ -49,19 +54,5 @@ final class PaymentClearingAccountService
                 'metadata' => ['provisioned_by' => self::class],
             ]
         );
-    }
-
-    private function canonicalProvider(string $provider): string
-    {
-        return match ($provider) {
-            'momo', 'mtn', 'mtn_momo' => 'mtn_momo',
-            'gepay_mtn' => 'gepay_mtn',
-            'airtel', 'airtel_money' => 'airtel_money',
-            'paypal' => 'paypal',
-            'cash', 'cod', 'demo' => 'cash',
-            default => throw new \InvalidArgumentException(
-                'Unknown payment provider for financial mirror: ' . $provider
-            ),
-        };
     }
 }
