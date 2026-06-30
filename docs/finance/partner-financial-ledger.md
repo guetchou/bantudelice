@@ -2,63 +2,93 @@
 
 ## Décision
 
-BantuDelice utilise une trésorerie physique mutualisée auprès des opérateurs de paiement, mais chaque restaurant et chaque livreur possède des sous-comptes financiers distincts dans le registre interne.
+BantuDelice utilise une trésorerie physique mutualisée auprès des opérateurs de paiement. Chaque restaurant et chaque livreur possède néanmoins ses propres sous-comptes dans le registre interne.
 
-Un dashboard partenaire ne doit jamais recalculer un « solde disponible » depuis des commandes, livraisons et tables de reversement. Il doit lire la position produite par les écritures du registre.
+Le dashboard partenaire ne doit pas recalculer un solde depuis les commandes et les tables de reversement. Il doit lire les écritures du registre.
 
-## Comptes minimaux
+## Vérités métier
 
-### Trésorerie BantuDelice
+- paiement initié ≠ argent encaissé ;
+- argent encaissé ≠ argent disponible pour le partenaire ;
+- commission calculée ≠ revenu BantuDelice déjà acquis ;
+- retrait demandé ≠ argent payé ;
+- statut inconnu ≠ échec ;
+- correction ≠ suppression.
 
-- `ASSET:MTN:COLLECTIONS` : argent encaissé auprès des clients ;
-- `ASSET:MTN:DISBURSEMENT` : argent disponible pour les reversements ;
-- `ASSET:CASH:IN_TRANSIT` : espèces détenues temporairement par les livreurs ;
-- `ASSET:LEGACY:CONTROL` : compte de contrôle temporaire pour les reprises historiques validées.
+## Comptes de trésorerie
 
-### Revenus et obligations BantuDelice
+- `ASSET:MTN:COLLECTIONS` : argent confirmé sur le canal d’encaissement ;
+- `ASSET:MTN:DISBURSEMENT` : argent effectivement disponible pour les reversements ;
+- `ASSET:CASH:IN_TRANSIT` : espèces temporairement détenues par des livreurs ;
+- `ASSET:LEGACY:CONTROL` : compte de contrôle réservé aux reprises historiques approuvées.
 
-- `REVENUE:BANTUDELICE:COMMISSION` : commissions acquises ;
-- `REVENUE:BANTUDELICE:SERVICE_FEE` : frais de service acquis ;
-- `EXPENSE:PAYMENT:OPERATOR_FEE` : frais MTN, Airtel, carte ou autre opérateur ;
-- `LIABILITY:TAX:PAYABLE` : taxes collectées mais non acquises.
+## Comptes BantuDelice
 
-### Sous-comptes de chaque partenaire
+- `LIABILITY:BANTUDELICE:COMMISSION:DEFERRED` : commission calculée mais non encore acquise ;
+- `LIABILITY:BANTUDELICE:SERVICE_FEE:DEFERRED` : frais de service non encore acquis ;
+- `REVENUE:BANTUDELICE:COMMISSION` : commission devenue acquise ;
+- `REVENUE:BANTUDELICE:SERVICE_FEE` : frais de service devenus acquis ;
+- `EXPENSE:PAYMENT:OPERATOR_FEE` : frais des opérateurs ;
+- `LIABILITY:TAX:PAYABLE` : taxes collectées à reverser.
+
+## Trois sous-comptes par partenaire
 
 Pour chaque restaurant et chaque livreur :
 
-- `...:AVAILABLE` : dette BantuDelice actuellement retirable par le partenaire ;
-- `...:RESERVED` : dette déjà réservée par une demande de retrait en cours.
+- `...:PENDING` : montant encaissé mais non encore libéré ;
+- `...:AVAILABLE` : montant réellement retirable ;
+- `...:RESERVED` : montant bloqué par un retrait en cours.
 
-Ces comptes sont individualisés par `owner_type`, `owner_id`, `purpose` et `currency`.
+Un paiement confirmé crédite d’abord `PENDING`. Le passage à `AVAILABLE` nécessite un événement métier explicite, par exemple livraison terminée, délai de contestation expiré ou clôture validée.
 
-## Exemple : encaissement de 10 000 FCFA
+## Exemple d’encaissement : 10 000 FCFA
 
-Ventilation contractuelle :
+Ventilation :
 
 - restaurant : 7 000 ;
 - livreur : 1 000 ;
-- commission BantuDelice : 1 500 ;
-- frais de service BantuDelice : 300 ;
+- commission BantuDelice différée : 1 500 ;
+- frais de service différés : 300 ;
 - taxe à reverser : 200.
-
-Écriture :
 
 | Compte | Débit | Crédit |
 |---|---:|---:|
 | MTN Collections | 10 000 | 0 |
-| Dette disponible Restaurant | 0 | 7 000 |
-| Dette disponible Livreur | 0 | 1 000 |
-| Revenu commission BantuDelice | 0 | 1 500 |
-| Revenu frais de service BantuDelice | 0 | 300 |
+| Restaurant en attente | 0 | 7 000 |
+| Livreur en attente | 0 | 1 000 |
+| Commission BantuDelice différée | 0 | 1 500 |
+| Frais de service différés | 0 | 300 |
 | Taxe à reverser | 0 | 200 |
 
-Le total des crédits doit être strictement égal au montant encaissé. Sinon l’opération est rejetée.
+Le total des crédits doit être exactement égal au montant encaissé.
+
+## Libération du partenaire
+
+Après exécution du service :
+
+| Compte | Débit | Crédit |
+|---|---:|---:|
+| Dette partenaire en attente | 7 000 | 0 |
+| Dette partenaire disponible | 0 | 7 000 |
+
+Le partenaire peut ensuite demander un retrait dans la limite de `AVAILABLE`.
+
+## Reconnaissance du revenu BantuDelice
+
+Lorsque les conditions contractuelles sont remplies :
+
+| Compte | Débit | Crédit |
+|---|---:|---:|
+| Commission différée | 1 500 | 0 |
+| Revenu de commission | 0 | 1 500 |
+| Frais de service différés | 300 | 0 |
+| Revenu de frais de service | 0 | 300 |
+
+Le déclencheur exact doit être défini par contrat : livraison confirmée, commande clôturée ou autre événement approuvé.
 
 ## Retrait partenaire
 
 ### Réservation
-
-Lorsqu’un partenaire demande 2 000 FCFA :
 
 | Compte | Débit | Crédit |
 |---|---:|---:|
@@ -74,8 +104,6 @@ Aucun argent ne quitte encore BantuDelice.
 | Dette réservée partenaire | 2 000 | 0 |
 | MTN Disbursements | 0 | 2 000 |
 
-La dette envers le partenaire et la trésorerie diminuent simultanément.
-
 ### Échec explicite
 
 | Compte | Débit | Crédit |
@@ -83,32 +111,30 @@ La dette envers le partenaire et la trésorerie diminuent simultanément.
 | Dette réservée partenaire | 2 000 | 0 |
 | Dette disponible partenaire | 0 | 2 000 |
 
-Le partenaire retrouve son disponible. Un statut inconnu ne déclenche pas cette libération.
+Un timeout ou un statut inconnu ne libère pas la réservation.
 
 ### Inversion après paiement
-
-Si l’opérateur retourne les fonds après avoir annoncé le paiement :
 
 | Compte | Débit | Crédit |
 |---|---:|---:|
 | MTN Disbursements | 2 000 | 0 |
 | Dette disponible partenaire | 0 | 2 000 |
 
-BantuDelice récupère la trésorerie et redevient débiteur du partenaire.
+## Garanties
 
-## Garanties introduites
-
-- écriture équilibrée par devise ;
+- équilibre obligatoire par devise ;
 - montants en entiers FCFA ;
-- comptes et lots identifiés de façon unique ;
 - clé d’idempotence obligatoire ;
-- aucune mise à jour ni suppression d’une écriture validée par les modèles applicatifs ;
-- correction par nouvelle écriture, jamais par altération de l’historique ;
-- séparation entre argent encaissé, dette partenaire, argent réservé et revenu BantuDelice.
+- empreinte du contenu financier associé à chaque clé ;
+- refus d’une même clé avec un montant ou une ventilation différente ;
+- écritures et lots non modifiables par les modèles applicatifs ;
+- clés étrangères restrictives, sans suppression en cascade ;
+- correction par contre-mouvement ;
+- séparation entre trésorerie, dette partenaire et revenu BantuDelice.
 
 ## Déploiement
 
-1. Exécuter les migrations.
+1. Exécuter la migration.
 2. Simuler le provisionnement :
 
    ```bash
@@ -121,17 +147,18 @@ BantuDelice récupère la trésorerie et redevient débiteur du partenaire.
    php artisan finance:provision-accounts --commit
    ```
 
-4. Produire un état de reprise des positions historiques.
-5. Comparer cet état aux soldes MTN Collections, MTN Disbursements, aux reversements et aux espèces en transit.
-6. Faire approuver les soldes d’ouverture.
-7. Activer `FINANCIAL_LEDGER_WRITE_ENABLED=true` pour les nouveaux mouvements.
-8. Contrôler une période parallèle sans utiliser le registre pour les dashboards.
-9. Activer `FINANCIAL_LEDGER_READ_PARTNER_BALANCES=true` seulement après rapprochement signé.
+4. Auditer les positions historiques.
+5. Rapprocher MTN Collections, MTN Disbursements, espèces et anciens reversements.
+6. Faire approuver les écritures d’ouverture.
+7. Activer la double écriture avec `FINANCIAL_LEDGER_WRITE_ENABLED=true`.
+8. Comparer le registre et les calculs historiques pendant une période contrôlée.
+9. Activer `FINANCIAL_LEDGER_READ_PARTNER_BALANCES=true` après rapprochement signé.
 
 ## Interdictions
 
-- ne pas créer automatiquement un solde d’ouverture à partir du dashboard historique ;
-- ne pas libérer une réservation sur timeout ou statut inconnu ;
-- ne pas comptabiliser deux fois les anciens `restaurant_payments`, `driver_payments` et les nouveaux `partner_withdrawals` ;
-- ne pas afficher la trésorerie MTN comme un revenu BantuDelice ;
-- ne pas confondre la commission calculée avec une commission effectivement acquise et rapprochée.
+- ne pas créer automatiquement un solde d’ouverture depuis les cartes actuelles ;
+- ne pas rendre un encaissement immédiatement retirable ;
+- ne pas reconnaître automatiquement une commission comme acquise sans événement métier ;
+- ne pas libérer une réservation sur un statut inconnu ;
+- ne pas comptabiliser deux fois les anciens et nouveaux circuits de reversement ;
+- ne pas présenter le solde MTN comme un revenu BantuDelice.
