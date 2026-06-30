@@ -41,6 +41,31 @@ return new class extends Migration
             $table->index(['payment_id', 'status']);
         });
 
+        Schema::create('payment_refunds', function (Blueprint $table) {
+            $table->id();
+            $table->uuid('uuid')->unique();
+            $table->unsignedBigInteger('payment_id');
+            $table->unsignedBigInteger('amount');
+            $table->char('currency', 3)->default('XAF');
+            $table->string('status', 30)->default('requested');
+            $table->text('reason');
+            $table->string('provider_reference', 150)->nullable()->unique();
+            $table->string('idempotency_key', 150)->unique();
+            $table->unsignedBigInteger('requested_by')->nullable();
+            $table->unsignedBigInteger('approved_by')->nullable();
+            $table->timestamp('requested_at');
+            $table->timestamp('approved_at')->nullable();
+            $table->timestamp('submitted_at')->nullable();
+            $table->timestamp('refunded_at')->nullable();
+            $table->timestamp('failed_at')->nullable();
+            $table->json('metadata')->nullable();
+            $table->timestamps();
+
+            $table->foreign('payment_id')->references('id')->on('payments')->onDelete('restrict');
+            $table->index(['payment_id', 'status']);
+            $table->index('requested_at');
+        });
+
         Schema::table('financial_ledger_entries', function (Blueprint $table) {
             $table->uuid('uuid')->nullable()->unique()->after('id');
             $table->string('account_type', 40)->nullable()->after('module');
@@ -110,6 +135,7 @@ return new class extends Migration
             ]);
         });
 
+        Schema::dropIfExists('payment_refunds');
         Schema::dropIfExists('payment_allocations');
 
         Schema::table('payments', function (Blueprint $table) {
