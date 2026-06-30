@@ -9,8 +9,9 @@ final class PaymentClearingAccountService
 {
     public function providerCollections(string $provider): FinancialAccount
     {
-        $provider = strtolower(trim($provider));
-        $normalized = strtoupper(substr(Str::slug($provider, '_'), 0, 32));
+        $originalProvider = strtolower(trim($provider));
+        $canonicalProvider = $this->canonicalProvider($originalProvider);
+        $normalized = strtoupper(substr(Str::slug($canonicalProvider, '_'), 0, 32));
 
         if ($normalized === '') {
             throw new \InvalidArgumentException('Le fournisseur de paiement est obligatoire.');
@@ -28,7 +29,8 @@ final class PaymentClearingAccountService
                 'currency' => 'XAF',
                 'status' => 'active',
                 'metadata' => [
-                    'provider' => $provider,
+                    'provider' => $canonicalProvider,
+                    'first_seen_alias' => $originalProvider,
                     'provisioned_by' => self::class,
                 ],
             ]
@@ -51,5 +53,15 @@ final class PaymentClearingAccountService
                 'metadata' => ['provisioned_by' => self::class],
             ]
         );
+    }
+
+    private function canonicalProvider(string $provider): string
+    {
+        return match ($provider) {
+            'momo', 'mtn', 'mtn_momo' => 'mtn_momo',
+            'airtel', 'airtel_money' => 'airtel_money',
+            'cash', 'cod', 'demo' => 'cash',
+            default => $provider,
+        };
     }
 }
