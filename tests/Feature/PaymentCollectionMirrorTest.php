@@ -45,13 +45,43 @@ final class PaymentCollectionMirrorTest extends TestCase
         $this->assertDatabaseCount('financial_postings', 2);
 
         $postings = app(LedgerPostingService::class);
-        $provider = FinancialAccount::where('code', 'ASSET:PAYMENT_PROVIDER:MOMO:COLLECTIONS')->firstOrFail();
+        $provider = FinancialAccount::where('code', 'ASSET:PAYMENT_PROVIDER:MTN_MOMO:COLLECTIONS')->firstOrFail();
         $clearing = FinancialAccount::where('code', 'LIABILITY:PAYMENT:CLEARING')->firstOrFail();
 
         $this->assertSame(4700, $postings->balance($provider));
         $this->assertSame(4700, $postings->balance($clearing));
         $this->assertDatabaseMissing('financial_accounts', ['owner_type' => 'restaurant']);
         $this->assertDatabaseMissing('financial_accounts', ['owner_type' => 'driver']);
+    }
+
+    public function test_mtn_provider_aliases_share_one_collection_account(): void
+    {
+        config()->set('financial-mirror.collections_enabled', true);
+
+        event(new PaymentConfirmed($this->payment([
+            'provider' => 'momo',
+            'provider_reference' => 'MIRROR-ALIAS-1',
+            'amount' => 1000,
+        ])));
+        event(new PaymentConfirmed($this->payment([
+            'provider' => 'mtn_momo',
+            'provider_reference' => 'MIRROR-ALIAS-2',
+            'amount' => 1500,
+        ])));
+        event(new PaymentConfirmed($this->payment([
+            'provider' => 'mtn',
+            'provider_reference' => 'MIRROR-ALIAS-3',
+            'amount' => 2000,
+        ])));
+
+        $this->assertSame(
+            1,
+            FinancialAccount::where('code', 'ASSET:PAYMENT_PROVIDER:MTN_MOMO:COLLECTIONS')->count()
+        );
+        $this->assertDatabaseCount('financial_posting_batches', 3);
+
+        $account = FinancialAccount::where('code', 'ASSET:PAYMENT_PROVIDER:MTN_MOMO:COLLECTIONS')->firstOrFail();
+        $this->assertSame(4500, app(LedgerPostingService::class)->balance($account));
     }
 
     public function test_duplicate_payment_event_reuses_the_same_financial_batch(): void
