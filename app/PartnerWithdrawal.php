@@ -33,7 +33,7 @@ class PartnerWithdrawal extends Model
         'reserved' => ['submitted', 'pending', 'paid', 'failed', 'unknown', 'reversed', 'cancelled'],
         'submitted' => ['pending', 'paid', 'failed', 'unknown', 'reversed', 'cancelled'],
         'pending' => ['paid', 'failed', 'unknown', 'reversed', 'cancelled'],
-        'unknown' => ['pending', 'paid', 'failed', 'reversed', 'cancelled'],
+        'unknown' => ['submitted', 'pending', 'paid', 'failed', 'reversed', 'cancelled'],
         'paid' => ['reversed'],
         'failed' => [],
         'reversed' => [],
