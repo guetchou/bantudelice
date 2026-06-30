@@ -45,7 +45,7 @@ return new class extends Migration
             $table->foreign('reversal_of_batch_id')
                 ->references('id')
                 ->on('financial_posting_batches')
-                ->nullOnDelete();
+                ->restrictOnDelete();
         });
 
         Schema::create('financial_postings', function (Blueprint $table) {
@@ -67,7 +67,7 @@ return new class extends Migration
             $table->foreign('batch_id')
                 ->references('id')
                 ->on('financial_posting_batches')
-                ->cascadeOnDelete();
+                ->restrictOnDelete();
             $table->foreign('account_id')
                 ->references('id')
                 ->on('financial_accounts')
