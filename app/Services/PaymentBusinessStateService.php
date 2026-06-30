@@ -22,6 +22,10 @@ class PaymentBusinessStateService
         'reversed' => [],
     ];
 
+    public function __construct(
+        private readonly FinancialStateTransitionService $transitionJournal,
+    ) {}
+
     public function transition(Payment $payment, string $targetStatus, array $context = []): Payment
     {
         $targetStatus = strtolower(trim($targetStatus));
@@ -42,11 +46,12 @@ class PaymentBusinessStateService
                 throw new \DomainException('Un paiement sans montant positif ne peut pas être confirmé.');
             }
 
+            $occurredAt = now();
             $meta = array_merge($locked->meta ?? [], [
                 'business_transition' => [
                     'from' => $current,
                     'to' => $targetStatus,
-                    'at' => now()->toIso8601String(),
+                    'at' => $occurredAt->toIso8601String(),
                     'reason' => $context['reason'] ?? null,
                     'actor_id' => $context['actor_id'] ?? null,
                 ],
@@ -67,10 +72,25 @@ class PaymentBusinessStateService
             };
 
             if ($timestampColumn) {
-                $updates[$timestampColumn] = now();
+                $updates[$timestampColumn] = $occurredAt;
             }
 
             $locked->update($updates);
+
+            $this->transitionJournal->record(
+                'payment',
+                $locked->id,
+                $current,
+                $targetStatus,
+                [
+                    'source' => $context['source'] ?? 'payment_service',
+                    'reason' => $context['reason'] ?? null,
+                    'actor_id' => $context['actor_id'] ?? null,
+                    'idempotency_key' => $context['idempotency_key'] ?? null,
+                    'occurred_at' => $occurredAt,
+                    'context' => $context['context'] ?? [],
+                ],
+            );
 
             return $locked->fresh();
         });
