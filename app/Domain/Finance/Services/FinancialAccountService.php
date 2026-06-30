@@ -7,6 +7,7 @@ use Illuminate\Support\Str;
 
 final class FinancialAccountService
 {
+    public const PARTNER_PENDING = 'partner_payable_pending';
     public const PARTNER_AVAILABLE = 'partner_payable_available';
     public const PARTNER_RESERVED = 'partner_withdrawal_reserved';
 
@@ -18,12 +19,14 @@ final class FinancialAccountService
             throw new \InvalidArgumentException('Type de partenaire financier invalide.');
         }
 
-        if (! in_array($purpose, [self::PARTNER_AVAILABLE, self::PARTNER_RESERVED], true)) {
-            throw new \InvalidArgumentException('Objet de compte partenaire invalide.');
-        }
+        $definition = match ($purpose) {
+            self::PARTNER_PENDING => ['PENDING', 'en attente de libération'],
+            self::PARTNER_AVAILABLE => ['AVAILABLE', 'disponible'],
+            self::PARTNER_RESERVED => ['RESERVED', 'réservé aux retraits'],
+            default => throw new \InvalidArgumentException('Objet de compte partenaire invalide.'),
+        };
 
-        $suffix = $purpose === self::PARTNER_AVAILABLE ? 'AVAILABLE' : 'RESERVED';
-        $label = $purpose === self::PARTNER_AVAILABLE ? 'disponible' : 'réservé aux retraits';
+        [$suffix, $label] = $definition;
         $code = sprintf('LIABILITY:%s:%d:%s', strtoupper($partnerType), $partnerId, $suffix);
 
         return FinancialAccount::firstOrCreate(
@@ -48,6 +51,8 @@ final class FinancialAccountService
             'mtn_collections_cash' => ['ASSET:MTN:COLLECTIONS', 'Trésorerie MTN Collections', 'asset'],
             'mtn_disbursement_cash' => ['ASSET:MTN:DISBURSEMENT', 'Trésorerie MTN Disbursements', 'asset'],
             'cash_in_transit' => ['ASSET:CASH:IN_TRANSIT', 'Espèces en transit', 'asset'],
+            'platform_commission_deferred' => ['LIABILITY:BANTUDELICE:COMMISSION:DEFERRED', 'Commissions BantuDelice non encore acquises', 'liability'],
+            'platform_service_fee_deferred' => ['LIABILITY:BANTUDELICE:SERVICE_FEE:DEFERRED', 'Frais de service BantuDelice non encore acquis', 'liability'],
             'platform_commission_revenue' => ['REVENUE:BANTUDELICE:COMMISSION', 'Revenus de commissions BantuDelice', 'revenue'],
             'platform_service_fee_revenue' => ['REVENUE:BANTUDELICE:SERVICE_FEE', 'Revenus de frais de service BantuDelice', 'revenue'],
             'operator_fee_expense' => ['EXPENSE:PAYMENT:OPERATOR_FEE', 'Frais opérateurs de paiement', 'expense'],
@@ -77,6 +82,7 @@ final class FinancialAccountService
     public function provisionPartner(string $partnerType, int $partnerId): array
     {
         return [
+            'pending' => $this->partner($partnerType, $partnerId, self::PARTNER_PENDING),
             'available' => $this->partner($partnerType, $partnerId, self::PARTNER_AVAILABLE),
             'reserved' => $this->partner($partnerType, $partnerId, self::PARTNER_RESERVED),
         ];
@@ -88,6 +94,8 @@ final class FinancialAccountService
             'mtn_collections_cash',
             'mtn_disbursement_cash',
             'cash_in_transit',
+            'platform_commission_deferred',
+            'platform_service_fee_deferred',
             'platform_commission_revenue',
             'platform_service_fee_revenue',
             'operator_fee_expense',
