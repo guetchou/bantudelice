@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\FinancialLedgerEntry;
 use App\Payment;
 use App\PaymentRefund;
 use Illuminate\Support\Facades\DB;
@@ -11,6 +12,7 @@ class PaymentRefundService
     public function __construct(
         private readonly PaymentBusinessStateService $paymentStates,
         private readonly FinancialLedgerService $ledger,
+        private readonly FinancialStateTransitionService $transitionJournal,
     ) {}
 
     public function request(
@@ -68,7 +70,7 @@ class PaymentRefundService
                 throw new \DomainException('Le total des remboursements dépasse le montant confirmé du paiement.');
             }
 
-            return PaymentRefund::create([
+            $refund = PaymentRefund::create([
                 'payment_id' => $lockedPayment->id,
                 'amount' => $amount,
                 'currency' => $lockedPayment->currency ?: 'XAF',
@@ -79,6 +81,16 @@ class PaymentRefundService
                 'requested_at' => now(),
                 'metadata' => $metadata,
             ]);
+
+            $this->recordRefundTransition($refund, null, 'requested', [
+                'source' => 'refund_request',
+                'reason' => $reason,
+                'actor_id' => $requestedBy,
+                'idempotency_key' => $idempotencyKey . ':transition:requested',
+                'context' => ['amount' => $amount, 'payment_id' => $lockedPayment->id],
+            ]);
+
+            return $refund;
         });
     }
 
@@ -91,10 +103,17 @@ class PaymentRefundService
                 return $locked;
             }
 
+            $from = $locked->status;
             $locked->update([
                 'status' => 'approved',
                 'approved_by' => $approvedBy,
                 'approved_at' => now(),
+            ]);
+
+            $this->recordRefundTransition($locked, $from, 'approved', [
+                'source' => 'refund_approval',
+                'actor_id' => $approvedBy,
+                'idempotency_key' => 'refund:' . $locked->uuid . ':transition:approved',
             ]);
 
             return $locked->fresh();
@@ -112,14 +131,25 @@ class PaymentRefundService
         return DB::transaction(function () use ($refund, $providerReference) {
             $locked = PaymentRefund::whereKey($refund->getKey())->lockForUpdate()->firstOrFail();
 
-            if ($locked->status === 'submitted' && $locked->provider_reference === $providerReference) {
+            if ($locked->status === 'submitted') {
+                if ($locked->provider_reference !== $providerReference) {
+                    throw new \DomainException('La référence fournisseur d’un remboursement soumis est immuable.');
+                }
+
                 return $locked;
             }
 
+            $from = $locked->status;
             $locked->update([
                 'status' => 'submitted',
                 'provider_reference' => $providerReference,
                 'submitted_at' => now(),
+            ]);
+
+            $this->recordRefundTransition($locked, $from, 'submitted', [
+                'source' => 'refund_provider_submission',
+                'idempotency_key' => 'refund:' . $locked->uuid . ':transition:submitted',
+                'context' => ['provider_reference' => $providerReference],
             ]);
 
             return $locked->fresh();
@@ -128,12 +158,17 @@ class PaymentRefundService
 
     public function markPending(PaymentRefund $refund, array $metadata = []): PaymentRefund
     {
-        return $this->transition($refund, 'pending', ['metadata' => $metadata]);
+        return $this->transition($refund, 'pending', [
+            'source' => 'provider_status',
+            'metadata' => $metadata,
+        ]);
     }
 
     public function markUnknown(PaymentRefund $refund, string $reason, array $metadata = []): PaymentRefund
     {
         return $this->transition($refund, 'unknown', [
+            'source' => 'provider_status',
+            'reason' => $reason,
             'metadata' => array_merge($metadata, ['uncertainty_reason' => $reason]),
         ]);
     }
@@ -141,6 +176,8 @@ class PaymentRefundService
     public function markFailed(PaymentRefund $refund, string $reason, array $metadata = []): PaymentRefund
     {
         return $this->transition($refund, 'failed', [
+            'source' => 'provider_status',
+            'reason' => $reason,
             'failed_at' => now(),
             'metadata' => array_merge($metadata, ['failure_reason' => $reason]),
         ]);
@@ -152,10 +189,17 @@ class PaymentRefundService
             $lockedRefund = PaymentRefund::whereKey($refund->getKey())->lockForUpdate()->firstOrFail();
 
             if ($lockedRefund->status !== 'refunded') {
+                $from = $lockedRefund->status;
                 $lockedRefund->update([
                     'status' => 'refunded',
                     'refunded_at' => now(),
                     'metadata' => array_merge($lockedRefund->metadata ?? [], $metadata),
+                ]);
+
+                $this->recordRefundTransition($lockedRefund, $from, 'refunded', [
+                    'source' => 'provider_status',
+                    'idempotency_key' => 'refund:' . $lockedRefund->uuid . ':transition:refunded',
+                    'context' => $metadata,
                 ]);
             }
 
@@ -172,7 +216,13 @@ class PaymentRefundService
 
             if ($payment->canonicalBusinessStatus() !== $targetStatus) {
                 $payment = $this->paymentStates->transition($payment, $targetStatus, [
+                    'source' => 'refund_service',
                     'reason' => 'refund_confirmed',
+                    'idempotency_key' => 'payment:' . $payment->id . ':refund:' . $lockedRefund->uuid . ':confirmed',
+                    'context' => [
+                        'refund_id' => $lockedRefund->id,
+                        'refunded_total' => $refundedAmount,
+                    ],
                 ]);
             }
 
@@ -212,6 +262,7 @@ class PaymentRefundService
                 return $lockedRefund;
             }
 
+            $from = $lockedRefund->status;
             $lockedRefund->update([
                 'status' => 'reversed',
                 'metadata' => array_merge($lockedRefund->metadata ?? [], [
@@ -219,6 +270,13 @@ class PaymentRefundService
                     'reversed_by' => $actorId,
                     'reversed_at' => now()->toIso8601String(),
                 ]),
+            ]);
+
+            $this->recordRefundTransition($lockedRefund, $from, 'reversed', [
+                'source' => 'refund_reversal',
+                'reason' => $reason,
+                'actor_id' => $actorId,
+                'idempotency_key' => 'refund:' . $lockedRefund->uuid . ':transition:reversed',
             ]);
 
             $payment = Payment::whereKey($lockedRefund->payment_id)->lockForUpdate()->firstOrFail();
@@ -234,12 +292,19 @@ class PaymentRefundService
 
             if ($payment->canonicalBusinessStatus() !== $targetStatus) {
                 $this->paymentStates->transition($payment, $targetStatus, [
+                    'source' => 'refund_service',
                     'reason' => 'refund_reversed',
                     'actor_id' => $actorId,
+                    'idempotency_key' => 'payment:' . $payment->id . ':refund:' . $lockedRefund->uuid . ':reversed',
+                    'context' => ['refund_id' => $lockedRefund->id],
                 ]);
             }
 
-            $ledgerEntry = \App\FinancialLedgerEntry::where('idempotency_key', 'refund:' . $lockedRefund->uuid . ':ledger')->first();
+            $ledgerEntry = FinancialLedgerEntry::where(
+                'idempotency_key',
+                'refund:' . $lockedRefund->uuid . ':ledger'
+            )->first();
+
             if ($ledgerEntry) {
                 $this->ledger->reverse(
                     $ledgerEntry,
@@ -262,15 +327,40 @@ class PaymentRefundService
                 return $locked;
             }
 
+            $from = $locked->status;
             $metadata = array_merge($locked->metadata ?? [], $attributes['metadata'] ?? []);
-            unset($attributes['metadata']);
+            $source = $attributes['source'] ?? 'refund_service';
+            $reason = $attributes['reason'] ?? null;
+            unset($attributes['metadata'], $attributes['source'], $attributes['reason']);
 
             $locked->update(array_merge($attributes, [
                 'status' => $status,
                 'metadata' => $metadata,
             ]));
 
+            $this->recordRefundTransition($locked, $from, $status, [
+                'source' => $source,
+                'reason' => $reason,
+                'idempotency_key' => 'refund:' . $locked->uuid . ':transition:' . $status,
+                'context' => $metadata,
+            ]);
+
             return $locked->fresh();
         });
+    }
+
+    private function recordRefundTransition(
+        PaymentRefund $refund,
+        ?string $fromStatus,
+        string $toStatus,
+        array $context,
+    ): void {
+        $this->transitionJournal->record(
+            'payment_refund',
+            $refund->id,
+            $fromStatus,
+            $toStatus,
+            $context,
+        );
     }
 }
