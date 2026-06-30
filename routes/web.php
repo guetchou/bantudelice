@@ -354,6 +354,9 @@ Route::group(['prefix' => 'admin', 'namespace' => 'admin', 'middleware' => ['aut
         Route::get('payments/dashboard/data', 'PaymentDashboardController@data')->name('admin.payments.dashboard.data');
         Route::post('payments/{payment}/reconcile', 'PaymentDashboardController@reconcile')->name('admin.payments.reconcile');
         Route::get('payments/export-csv', 'PaymentDashboardController@exportCsv')->name('admin.payments.export-csv');
+        Route::get('gepay', [\App\Http\Controllers\admin\GePayDisbursementController::class, 'index'])->name('admin.gepay.index');
+        Route::post('gepay/disburse', [\App\Http\Controllers\admin\GePayDisbursementController::class, 'disburse'])->name('admin.gepay.disburse');
+        Route::get('gepay/transactions', [\App\Http\Controllers\admin\GePayDisbursementController::class, 'transactions'])->name('admin.gepay.transactions');
         Route::post('news-notification/{news}', 'NewsController@sentNotification')->name('send.notification');
         Route::resource('driver', 'DriverController');
         Route::post('change_driver_active_status/{driver}', 'DriverController@change_driver_active_status')->name('admin.change_driver_active_status');
