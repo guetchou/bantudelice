@@ -29,6 +29,17 @@ final class FinancialPostingBatch extends Model
         'metadata' => 'array',
     ];
 
+    protected static function booted(): void
+    {
+        static::updating(static function (): never {
+            throw new \LogicException('Un lot financier validé ne peut pas être modifié. Utilisez une contre-écriture.');
+        });
+
+        static::deleting(static function (): never {
+            throw new \LogicException('Un lot financier validé ne peut pas être supprimé.');
+        });
+    }
+
     public function postings(): HasMany
     {
         return $this->hasMany(FinancialPosting::class, 'batch_id')->orderBy('line_no');
