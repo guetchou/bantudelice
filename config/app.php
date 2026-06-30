@@ -34,7 +34,7 @@ return [
     |--------------------------------------------------------------------------
     |
     | When your application is in debug mode, detailed error messages with
-    | stack traces will be shown on every error that occurs within your
+    | stack traces will be shown on every error that occurs within the
     | application. If disabled, a simple generic error page is shown.
     |
     */
@@ -89,7 +89,7 @@ return [
     |
     | The fallback locale determines the locale to use when the current one
     | is not available. You may change the value to correspond to any of
-    | the language folders that are provided through your application.
+    | the language folders that are provided through the application.
     |
     */
 
@@ -173,6 +173,7 @@ return [
         App\Providers\AuthServiceProvider::class,
         App\Providers\BroadcastServiceProvider::class,
         App\Providers\EventServiceProvider::class,
+        App\Providers\FinanceMirrorServiceProvider::class,
         App\Providers\RouteServiceProvider::class,
 
     ],
@@ -182,9 +183,9 @@ return [
     | Class Aliases
     |--------------------------------------------------------------------------
     |
-    | This array of class aliases will be registered when this application
-    | is started. However, feel free to register as many as you wish as
-    | the aliases are "lazy" loaded so they don't hinder performance.
+    | This array of class aliases will be registered when this application is
+    | started. However, feel free to register as many as you wish as the
+    | aliases are "lazy" loaded so they don't hinder performance.
     |
     */
 
