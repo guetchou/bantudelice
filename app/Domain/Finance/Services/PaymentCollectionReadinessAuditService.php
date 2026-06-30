@@ -9,6 +9,7 @@ final class PaymentCollectionReadinessAuditService
 {
     public function __construct(
         private readonly PaymentCollectionRouteResolver $routes,
+        private readonly PaymentCollectionPostingVerifier $postingVerifier,
     ) {
     }
 
@@ -40,6 +41,8 @@ final class PaymentCollectionReadinessAuditService
             'non_xaf_currency' => 0,
             'invalid_amount' => 0,
             'failed_mirror' => 0,
+            'posted_mirror_missing_batch' => 0,
+            'posted_mirror_invalid_batch' => 0,
             'duplicate_provider_reference' => 0,
         ];
         $routes = [];
@@ -146,6 +149,13 @@ final class PaymentCollectionReadinessAuditService
                 if ($mirrorStatus === 'failed') {
                     $blockers['failed_mirror']++;
                     $paymentBlockers[] = 'failed_mirror';
+                }
+
+                if ($event && $mirrorStatus === 'posted') {
+                    foreach ($this->postingVerifier->verify($payment, $event) as $postingBlocker) {
+                        $blockers[$postingBlocker]++;
+                        $paymentBlockers[] = $postingBlocker;
+                    }
                 }
 
                 if ($route !== null && $route !== 'cash'
