@@ -7,472 +7,353 @@
 @section('style')
 <style>
 :root {
-    --gp-green:  #009543;
-    --gp-teal:   #0284c7;
-    --gp-amber:  #d97706;
-    --gp-red:    #dc2626;
-    --gp-dark:   #0a1710;
-    --gp-card:   #ffffff;
-    --gp-border: #e5e7eb;
-    --gp-muted:  #6b7280;
-    --gp-bg:     #f3f6f9;
+    --gp-green:      #009543;
+    --gp-green-bg:   #f0fdf4;
+    --gp-green-bd:   #bbf7d0;
+    --gp-teal:       #0284c7;
+    --gp-teal-bg:    #f0f9ff;
+    --gp-teal-bd:    #bae6fd;
+    --gp-amber:      #d97706;
+    --gp-amber-bg:   #fffbeb;
+    --gp-amber-bd:   #fde68a;
+    --gp-red:        #dc2626;
+    --gp-red-bg:     #fef2f2;
+    --gp-red-bd:     #fecaca;
+    --gp-dark:       #0a1710;
+    --gp-border:     #e5e7eb;
+    --gp-muted:      #6b7280;
+    --gp-text:       #111827;
+    --gp-card:       #ffffff;
+    --gp-bg2:        #f8fafc;
 }
 
-/* ── Layout ── */
+/* ── Wrap ── */
 .gp-wrap { display: grid; gap: 1.25rem; }
 
-/* ── KPI Strip ── */
+/* ── KPI Strip — light ── */
 .gp-kpi-strip {
     display: grid;
     grid-template-columns: repeat(4, minmax(0, 1fr));
     gap: .75rem;
 }
 .gp-kpi {
-    background: var(--gp-dark);
+    background: var(--gp-card);
+    border: 1px solid var(--gp-border);
     border-radius: 14px;
     padding: 1rem 1.1rem;
-    position: relative;
-    overflow: hidden;
+    border-left-width: 4px;
 }
-.gp-kpi::after {
-    content: '';
-    position: absolute;
-    inset: auto -28px -28px auto;
-    width: 90px; height: 90px;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(255,255,255,.08), transparent 68%);
-}
+.gp-kpi--green { border-left-color: var(--gp-green); background: var(--gp-green-bg); border-color: var(--gp-green-bd); border-left-color: var(--gp-green); }
+.gp-kpi--teal  { border-left-color: var(--gp-teal);  background: var(--gp-teal-bg);  border-color: var(--gp-teal-bd);  border-left-color: var(--gp-teal); }
+.gp-kpi--amber { border-left-color: var(--gp-amber); background: var(--gp-amber-bg); border-color: var(--gp-amber-bd); border-left-color: var(--gp-amber); }
+.gp-kpi--red   { border-left-color: var(--gp-red);   background: var(--gp-red-bg);   border-color: var(--gp-red-bd);   border-left-color: var(--gp-red); }
 .gp-kpi-label {
-    font-size: .62rem;
-    font-weight: 800;
-    letter-spacing: .12em;
-    text-transform: uppercase;
-    color: rgba(255,255,255,.45);
-    display: flex;
-    align-items: center;
-    gap: .4rem;
+    font-size: .62rem; font-weight: 800; letter-spacing: .12em;
+    text-transform: uppercase; display: flex; align-items: center; gap: .4rem;
 }
-.gp-kpi-label i { font-size: .7rem; }
+.gp-kpi--green .gp-kpi-label { color: #15803d; }
+.gp-kpi--teal  .gp-kpi-label { color: #0369a1; }
+.gp-kpi--amber .gp-kpi-label { color: #92400e; }
+.gp-kpi--red   .gp-kpi-label { color: #991b1b; }
 .gp-kpi-value {
-    margin-top: .5rem;
-    font-size: 1.55rem;
-    font-weight: 800;
-    line-height: 1;
-    color: #fff;
-    letter-spacing: -.02em;
+    margin-top: .45rem; font-size: 1.55rem; font-weight: 800;
+    line-height: 1; letter-spacing: -.02em; color: var(--gp-text);
 }
-.gp-kpi-sub {
-    margin-top: .3rem;
-    font-size: .65rem;
-    color: rgba(255,255,255,.35);
-    font-weight: 600;
-}
-.gp-kpi--green .gp-kpi-label { color: rgba(0,200,100,.7); }
-.gp-kpi--teal  .gp-kpi-label { color: rgba(56,189,248,.7); }
-.gp-kpi--amber .gp-kpi-label { color: rgba(251,191,36,.7); }
-.gp-kpi--red   .gp-kpi-label { color: rgba(248,113,113,.7); }
-
-/* ── Body grid ── */
-.gp-body {
-    display: grid;
-    grid-template-columns: 1fr 320px;
-    gap: 1.25rem;
-    align-items: start;
-}
+.gp-kpi-sub { margin-top: .25rem; font-size: .63rem; color: var(--gp-muted); font-weight: 600; }
 
 /* ── Tabs ── */
 .gp-tabs {
-    display: flex;
-    gap: .25rem;
-    background: var(--gp-dark);
-    border-radius: 10px;
-    padding: .3rem;
-    margin-bottom: 1rem;
-    width: fit-content;
+    display: flex; gap: .25rem;
+    background: #f1f5f9; border: 1px solid var(--gp-border);
+    border-radius: 10px; padding: .3rem; width: fit-content;
 }
 .gp-tab {
-    padding: .45rem 1rem;
-    border-radius: 7px;
-    font-size: .73rem;
-    font-weight: 700;
-    color: rgba(255,255,255,.45);
-    cursor: pointer;
-    border: none;
-    background: transparent;
-    transition: .15s;
-    display: flex;
-    align-items: center;
-    gap: .4rem;
+    padding: .45rem 1rem; border-radius: 7px;
+    font-size: .73rem; font-weight: 700;
+    color: var(--gp-muted); cursor: pointer;
+    border: none; background: transparent; transition: .15s;
+    display: flex; align-items: center; gap: .4rem;
 }
-.gp-tab:hover { color: #fff; }
-.gp-tab.is-active {
-    background: #fff;
-    color: var(--gp-dark);
-}
-.gp-tab.is-active .gp-tab-dot--green { background: var(--gp-green); }
-.gp-tab.is-active .gp-tab-dot--teal  { background: var(--gp-teal); }
-.gp-tab-dot {
-    width: 7px; height: 7px;
-    border-radius: 50%;
-    background: currentColor;
-    opacity: .6;
-}
+.gp-tab:hover { color: var(--gp-text); }
+.gp-tab.is-active { background: var(--gp-card); color: var(--gp-text); box-shadow: 0 1px 3px rgba(0,0,0,.1); }
+.gp-tab-dot { width: 7px; height: 7px; border-radius: 50%; }
+.gp-tab-dot--green { background: var(--gp-green); }
+.gp-tab-dot--teal  { background: var(--gp-teal); }
 
 /* ── Panels ── */
 .gp-panel { display: none; }
 .gp-panel.is-active { display: block; }
 
-/* ── Card ── */
+/* ── Body grid ── */
+.gp-body { display: grid; grid-template-columns: 1fr 300px; gap: 1.25rem; align-items: start; }
+
+/* ── Cards ── */
 .gp-card {
-    background: var(--gp-card);
-    border: 1px solid var(--gp-border);
-    border-radius: 14px;
-    padding: 1.25rem;
+    background: var(--gp-card); border: 1px solid var(--gp-border);
+    border-radius: 14px; padding: 1.25rem;
 }
 .gp-card-title {
-    font-size: .8rem;
-    font-weight: 800;
-    color: #111827;
-    display: flex;
-    align-items: center;
-    gap: .5rem;
-    margin-bottom: 1rem;
+    font-size: .82rem; font-weight: 800; color: var(--gp-text);
+    display: flex; align-items: center; gap: .5rem; margin-bottom: 1.1rem;
 }
-.gp-card-title i { color: var(--gp-teal); }
+
+/* ── Flag banner ── */
+.gp-flag {
+    display: flex; align-items: flex-start; gap: .6rem;
+    padding: .65rem .85rem; border-radius: 10px;
+    font-size: .72rem; font-weight: 600; margin-bottom: 1rem;
+    line-height: 1.5;
+}
+.gp-flag--warn { background: var(--gp-amber-bg); border: 1px solid var(--gp-amber-bd); color: #92400e; }
+.gp-flag--ok   { background: var(--gp-green-bg); border: 1px solid var(--gp-green-bd); color: #15803d; }
+.gp-flag i { margin-top: .1rem; flex-shrink: 0; }
 
 /* ── Recipient cards ── */
 .gp-recipients { display: flex; flex-direction: column; gap: 0; }
 
-/* Batch connector between cards */
-.gp-connector {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 24px;
-    position: relative;
-}
+.gp-connector { display: flex; justify-content: center; align-items: center; height: 28px; position: relative; }
 .gp-connector-line {
-    width: 2px;
-    height: 100%;
-    background: repeating-linear-gradient(
-        to bottom,
-        var(--gp-teal) 0px, var(--gp-teal) 4px,
-        transparent 4px, transparent 8px
-    );
-    opacity: 0.5;
-    animation: gp-pulse-line 1.8s ease-in-out infinite;
+    width: 2px; height: 100%;
+    background: repeating-linear-gradient(to bottom, var(--gp-teal) 0 4px, transparent 4px 8px);
+    opacity: .4; animation: gp-pulse-line 1.8s ease-in-out infinite;
 }
-@keyframes gp-pulse-line {
-    0%, 100% { opacity: .3; }
-    50% { opacity: .8; }
-}
+@keyframes gp-pulse-line { 0%,100%{opacity:.25}50%{opacity:.7} }
 .gp-connector-badge {
     position: absolute;
-    background: var(--gp-teal);
-    color: #fff;
-    font-size: .5rem;
-    font-weight: 900;
-    letter-spacing: .06em;
-    padding: .15rem .35rem;
-    border-radius: 999px;
-    text-transform: uppercase;
-    white-space: nowrap;
+    background: var(--gp-teal); color: #fff;
+    font-size: .5rem; font-weight: 900; letter-spacing: .06em;
+    padding: .15rem .4rem; border-radius: 999px; text-transform: uppercase;
 }
 
 .gp-recipient-card {
-    background: #f8fafc;
-    border: 1px solid var(--gp-border);
-    border-radius: 12px;
-    padding: .9rem;
-    position: relative;
+    background: var(--gp-bg2); border: 1.5px solid var(--gp-border);
+    border-radius: 12px; padding: .9rem; transition: border-color .15s;
 }
-.gp-recipient-card.is-first { border-color: var(--gp-teal); box-shadow: 0 0 0 3px rgba(2,132,199,.07); }
+.gp-recipient-card.is-primary { border-color: var(--gp-teal); }
+.gp-recipient-card.state-loading { opacity: .7; }
+.gp-recipient-card.state-success { border-color: var(--gp-green); background: var(--gp-green-bg); }
+.gp-recipient-card.state-error   { border-color: var(--gp-red);   background: var(--gp-red-bg); animation: gp-shake .45s ease-in-out; }
 
-.gp-recipient-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    margin-bottom: .75rem;
-}
-.gp-recipient-num {
-    display: flex;
-    align-items: center;
-    gap: .5rem;
-    font-size: .68rem;
-    font-weight: 800;
-    color: var(--gp-teal);
-    text-transform: uppercase;
-    letter-spacing: .08em;
-}
+.gp-recipient-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: .75rem; }
+.gp-recipient-num { display: flex; align-items: center; gap: .5rem; font-size: .68rem; font-weight: 800; color: var(--gp-teal); text-transform: uppercase; letter-spacing: .08em; }
 .gp-recipient-num-dot {
-    width: 22px; height: 22px;
-    border-radius: 50%;
-    background: rgba(2,132,199,.12);
+    width: 22px; height: 22px; border-radius: 50%;
+    background: rgba(2,132,199,.12); color: var(--gp-teal);
     display: flex; align-items: center; justify-content: center;
     font-size: .6rem; font-weight: 900;
-    color: var(--gp-teal);
+    transition: .2s;
 }
+.state-loading .gp-recipient-num-dot { background: #dbeafe; color: var(--gp-teal); animation: gp-spin .8s linear infinite; }
+.state-success .gp-recipient-num-dot { background: var(--gp-green); color: #fff; }
+.state-error   .gp-recipient-num-dot { background: var(--gp-red);   color: #fff; }
 .gp-recipient-remove {
-    width: 24px; height: 24px;
-    border-radius: 6px;
-    border: none;
-    background: rgba(220,38,38,.08);
-    color: var(--gp-red);
-    cursor: pointer;
-    font-size: .65rem;
-    display: flex; align-items: center; justify-content: center;
+    width: 26px; height: 26px; border-radius: 7px;
+    border: 1px solid var(--gp-red-bd); background: var(--gp-red-bg);
+    color: var(--gp-red); cursor: pointer; font-size: .7rem;
+    display: flex; align-items: center; justify-content: center; transition: .12s;
 }
-.gp-recipient-remove:hover { background: rgba(220,38,38,.15); }
+.gp-recipient-remove:hover { background: var(--gp-red); color: #fff; }
 
-.gp-recipient-fields {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: .6rem;
-}
-.gp-recipient-fields .gp-field--full { grid-column: 1 / -1; }
-
+.gp-recipient-fields { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; }
+.gp-field--full { grid-column: 1 / -1; }
 .gp-field { display: flex; flex-direction: column; gap: .25rem; }
-.gp-field label {
-    font-size: .6rem;
-    font-weight: 800;
-    letter-spacing: .1em;
-    text-transform: uppercase;
-    color: var(--gp-muted);
-}
+.gp-field label { font-size: .6rem; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; color: var(--gp-muted); }
 .gp-field input {
-    border: 1px solid var(--gp-border);
-    border-radius: 8px;
-    padding: .5rem .65rem;
-    font-size: .78rem;
-    font-family: inherit;
-    color: #111827;
-    background: #fff;
-    transition: border-color .15s, box-shadow .15s;
+    border: 1.5px solid var(--gp-border); border-radius: 8px;
+    padding: .5rem .7rem; font-size: .78rem; font-family: inherit;
+    color: var(--gp-text); background: var(--gp-card); transition: .15s;
 }
-.gp-field input:focus {
-    outline: none;
-    border-color: var(--gp-teal);
-    box-shadow: 0 0 0 3px rgba(2,132,199,.1);
-}
+.gp-field input:focus { outline: none; border-color: var(--gp-teal); box-shadow: 0 0 0 3px rgba(2,132,199,.1); }
 .gp-field input::placeholder { color: #d1d5db; }
+.gp-field input:disabled { opacity: .5; cursor: not-allowed; }
 
-/* ── Add recipient button ── */
+/* ── Add button ── */
 .gp-add-btn {
-    margin-top: .75rem;
-    width: 100%;
-    border: 1.5px dashed var(--gp-border);
-    border-radius: 10px;
-    padding: .65rem;
-    background: transparent;
-    color: var(--gp-teal);
-    font-size: .72rem;
-    font-weight: 700;
-    font-family: inherit;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: .4rem;
-    transition: .15s;
+    margin-top: .85rem; width: 100%;
+    border: 1.5px dashed var(--gp-border); border-radius: 10px;
+    padding: .7rem; background: transparent; color: var(--gp-teal);
+    font-size: .72rem; font-weight: 700; font-family: inherit; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: .4rem; transition: .15s;
 }
-.gp-add-btn:hover {
-    border-color: var(--gp-teal);
-    background: rgba(2,132,199,.04);
-}
+.gp-add-btn:hover { border-color: var(--gp-teal); background: var(--gp-teal-bg); }
 .gp-add-btn:disabled { opacity: .3; cursor: not-allowed; }
 
-/* ── Right panel ── */
-.gp-summary {
-    position: sticky;
-    top: 80px;
-    display: flex;
-    flex-direction: column;
-    gap: .75rem;
-}
+/* ── Summary panel (light) ── */
+.gp-summary { position: sticky; top: 80px; display: flex; flex-direction: column; gap: .85rem; }
+.gp-summary-card { background: var(--gp-card); border: 1px solid var(--gp-border); border-radius: 14px; padding: 1.1rem; }
+.gp-summary-title { font-size: .62rem; font-weight: 800; letter-spacing: .12em; text-transform: uppercase; color: var(--gp-muted); margin-bottom: .85rem; }
+.gp-summary-rows { display: flex; flex-direction: column; gap: .35rem; }
+.gp-summary-row { display: flex; justify-content: space-between; align-items: center; padding: .4rem .5rem; border-radius: 7px; font-size: .72rem; background: var(--gp-bg2); }
+.gp-summary-row-name { color: var(--gp-muted); font-weight: 600; }
+.gp-summary-row-amount { font-weight: 800; color: var(--gp-text); }
+.gp-summary-divider { border: none; border-top: 1px solid var(--gp-border); margin: .6rem 0; }
+.gp-summary-total { display: flex; justify-content: space-between; align-items: baseline; padding: .3rem .5rem; }
+.gp-summary-total-label { font-size: .65rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--gp-muted); }
+.gp-summary-total-value { font-size: 1.35rem; font-weight: 800; color: var(--gp-teal); letter-spacing: -.02em; }
 
-.gp-summary-card {
-    background: var(--gp-dark);
-    border-radius: 14px;
-    padding: 1.1rem;
-    color: #fff;
-}
-.gp-summary-title {
-    font-size: .62rem;
-    font-weight: 800;
-    letter-spacing: .12em;
-    text-transform: uppercase;
-    color: rgba(255,255,255,.4);
-    margin-bottom: .85rem;
-}
-.gp-summary-rows { display: flex; flex-direction: column; gap: .4rem; }
-.gp-summary-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: .4rem .5rem;
-    border-radius: 7px;
-    font-size: .72rem;
-}
-.gp-summary-row-name { color: rgba(255,255,255,.6); font-weight: 600; }
-.gp-summary-row-amount { font-weight: 800; color: #fff; }
-.gp-summary-divider { border: none; border-top: 1px solid rgba(255,255,255,.08); margin: .5rem 0; }
-.gp-summary-total {
-    display: flex;
-    justify-content: space-between;
-    align-items: baseline;
-    padding: .3rem .5rem;
-}
-.gp-summary-total-label {
-    font-size: .65rem;
-    font-weight: 800;
-    letter-spacing: .08em;
-    text-transform: uppercase;
-    color: rgba(255,255,255,.45);
-}
-.gp-summary-total-value {
-    font-size: 1.3rem;
-    font-weight: 800;
-    color: #fff;
-    letter-spacing: -.02em;
-}
-
+/* ── Submit button — state machine ── */
 .gp-submit-btn {
-    width: 100%;
-    padding: .8rem;
-    border-radius: 10px;
-    border: none;
-    background: var(--gp-teal);
-    color: #fff;
-    font-family: inherit;
-    font-size: .78rem;
-    font-weight: 800;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: .5rem;
-    transition: .15s;
-    letter-spacing: .02em;
+    width: 100%; padding: .85rem;
+    border-radius: 10px; border: none;
+    background: var(--gp-teal); color: #fff;
+    font-family: inherit; font-size: .8rem; font-weight: 800; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: .55rem;
+    transition: background .2s, transform .1s; letter-spacing: .02em;
 }
-.gp-submit-btn:hover:not(:disabled) { background: #0369a1; }
-.gp-submit-btn:disabled { opacity: .4; cursor: not-allowed; }
-.gp-submit-btn.is-loading i { animation: gp-spin .7s linear infinite; }
+.gp-submit-btn:hover:not(:disabled) { background: #0369a1; transform: translateY(-1px); }
+.gp-submit-btn:active:not(:disabled) { transform: translateY(0); }
+.gp-submit-btn:disabled { opacity: .45; cursor: not-allowed; transform: none; }
+.gp-submit-btn.is-loading { background: #075985; cursor: not-allowed; }
+.gp-submit-btn.is-success { background: var(--gp-green); }
+.gp-submit-btn.is-error   { background: var(--gp-red); }
+
+/* Spinner */
 @keyframes gp-spin { to { transform: rotate(360deg); } }
+.gp-spin { animation: gp-spin .75s linear infinite; }
 
-.gp-flag {
-    display: flex;
-    align-items: center;
-    gap: .5rem;
-    padding: .55rem .75rem;
-    border-radius: 8px;
-    font-size: .68rem;
-    font-weight: 700;
+/* Shake error */
+@keyframes gp-shake {
+    0%,100% { transform: translateX(0); }
+    15%,55%  { transform: translateX(-7px); }
+    35%,75%  { transform: translateX( 7px); }
 }
-.gp-flag--warn {
-    background: rgba(217,119,6,.1);
-    border: 1px solid rgba(217,119,6,.25);
-    color: #92400e;
+.gp-shake { animation: gp-shake .45s ease-in-out; }
+
+/* ── Success overlay ── */
+.gp-success-overlay {
+    display: none; position: fixed; inset: 0; z-index: 200;
+    background: rgba(10,23,16,.65); backdrop-filter: blur(4px);
+    align-items: center; justify-content: center;
 }
-.gp-flag--ok {
-    background: rgba(0,149,67,.1);
-    border: 1px solid rgba(0,149,67,.25);
-    color: #14532d;
+.gp-success-overlay.is-visible { display: flex; }
+.gp-success-modal {
+    background: var(--gp-card); border-radius: 20px;
+    padding: 2.5rem 2rem; max-width: 440px; width: 90%;
+    text-align: center; box-shadow: 0 24px 64px rgba(0,0,0,.2);
+    animation: gp-modal-in .35s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes gp-modal-in {
+    from { transform: scale(.75); opacity: 0; }
+    to   { transform: scale(1);   opacity: 1; }
 }
 
-/* ── Result toast ── */
-.gp-result {
-    display: none;
-    border-radius: 10px;
-    padding: .8rem 1rem;
-    font-size: .75rem;
-    font-weight: 700;
+/* SVG Checkmark animation */
+.gp-check-wrap { width: 80px; height: 80px; margin: 0 auto 1.25rem; }
+.gp-check-svg { width: 80px; height: 80px; }
+.gp-check-circle {
+    stroke: var(--gp-green); stroke-width: 3; fill: none;
+    stroke-dasharray: 166; stroke-dashoffset: 166;
+    stroke-linecap: round;
+    animation: gp-circle-draw .6s cubic-bezier(.65,0,.45,1) forwards;
 }
-.gp-result.is-ok { background: rgba(0,149,67,.1); border: 1px solid rgba(0,149,67,.3); color: #14532d; }
-.gp-result.is-err { background: rgba(220,38,38,.1); border: 1px solid rgba(220,38,38,.3); color: #7f1d1d; }
-.gp-result.is-partial { background: rgba(217,119,6,.1); border: 1px solid rgba(217,119,6,.3); color: #78350f; }
-.gp-result ul { margin-top: .4rem; padding-left: 1.1rem; }
-.gp-result li { margin-top: .2rem; font-weight: 600; }
+.gp-check-path {
+    stroke: var(--gp-green); stroke-width: 3; fill: none;
+    stroke-dasharray: 48; stroke-dashoffset: 48;
+    stroke-linecap: round; stroke-linejoin: round;
+    animation: gp-check-draw .4s .5s cubic-bezier(.65,0,.45,1) forwards;
+}
+@keyframes gp-circle-draw { to { stroke-dashoffset: 0; } }
+@keyframes gp-check-draw  { to { stroke-dashoffset: 0; } }
+
+/* SVG Error (X) */
+.gp-error-svg { width: 80px; height: 80px; }
+.gp-error-circle {
+    stroke: var(--gp-red); stroke-width: 3; fill: none;
+    stroke-dasharray: 166; stroke-dashoffset: 166;
+    animation: gp-circle-draw .6s cubic-bezier(.65,0,.45,1) forwards;
+}
+.gp-error-line1, .gp-error-line2 {
+    stroke: var(--gp-red); stroke-width: 3; stroke-linecap: round;
+    stroke-dasharray: 30; stroke-dashoffset: 30;
+}
+.gp-error-line1 { animation: gp-check-draw .3s .5s ease forwards; }
+.gp-error-line2 { animation: gp-check-draw .3s .7s ease forwards; }
+
+.gp-success-title  { font-size: 1.2rem; font-weight: 800; color: var(--gp-text); margin-bottom: .35rem; }
+.gp-success-sub    { font-size: .78rem; color: var(--gp-muted); margin-bottom: 1.25rem; }
+.gp-success-lines  { text-align: left; background: var(--gp-bg2); border-radius: 10px; padding: .75rem; display: flex; flex-direction: column; gap: .4rem; margin-bottom: 1.25rem; }
+.gp-success-line   { display: flex; align-items: center; gap: .5rem; font-size: .73rem; }
+.gp-success-line i { width: 16px; text-align: center; }
+.gp-success-line--ok  i { color: var(--gp-green); }
+.gp-success-line--err i { color: var(--gp-red); }
+.gp-success-line--ok .gp-sl-name { font-weight: 700; color: var(--gp-text); }
+.gp-success-line--err .gp-sl-name { font-weight: 700; color: var(--gp-red); }
+.gp-sl-amount { margin-left: auto; font-weight: 800; color: var(--gp-muted); font-size: .68rem; }
+
+.gp-modal-close {
+    width: 100%; padding: .75rem;
+    border-radius: 9px; border: 1.5px solid var(--gp-border);
+    background: transparent; color: var(--gp-text);
+    font-family: inherit; font-size: .78rem; font-weight: 700;
+    cursor: pointer; transition: .15s;
+}
+.gp-modal-close:hover { background: var(--gp-bg2); }
+
+/* ── Error banner ── */
+.gp-error-banner {
+    display: none; border-radius: 10px; padding: .8rem 1rem;
+    background: var(--gp-red-bg); border: 1px solid var(--gp-red-bd);
+    color: #7f1d1d; font-size: .73rem; font-weight: 600; margin-top: .85rem;
+}
+.gp-error-banner.is-visible { display: flex; gap: .6rem; align-items: flex-start; }
+.gp-error-banner ul { margin-top: .3rem; padding-left: 1rem; }
+.gp-error-banner li { margin-top: .2rem; }
 
 /* ── Transaction table ── */
-.gp-table-wrap {
-    overflow-x: auto;
-    border-radius: 10px;
-    border: 1px solid var(--gp-border);
-}
-.gp-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: .72rem;
-}
+.gp-table-wrap { overflow-x: auto; border-radius: 10px; border: 1px solid var(--gp-border); }
+.gp-table { width: 100%; border-collapse: collapse; font-size: .72rem; }
 .gp-table thead th {
-    background: #f9fafb;
-    padding: .55rem .75rem;
-    text-align: left;
-    font-size: .6rem;
-    font-weight: 800;
-    letter-spacing: .1em;
-    text-transform: uppercase;
-    color: var(--gp-muted);
-    border-bottom: 1px solid var(--gp-border);
-    white-space: nowrap;
+    background: var(--gp-bg2); padding: .55rem .75rem; text-align: left;
+    font-size: .6rem; font-weight: 800; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--gp-muted);
+    border-bottom: 1px solid var(--gp-border); white-space: nowrap;
 }
-.gp-table tbody tr { border-bottom: 1px solid #f3f4f6; }
+.gp-table tbody tr { border-bottom: 1px solid #f3f4f6; transition: background .1s; }
 .gp-table tbody tr:last-child { border-bottom: none; }
-.gp-table tbody td {
-    padding: .6rem .75rem;
-    color: #374151;
-    vertical-align: middle;
-    white-space: nowrap;
-}
+.gp-table tbody tr:hover { background: var(--gp-bg2); }
+.gp-table tbody td { padding: .6rem .75rem; color: #374151; vertical-align: middle; white-space: nowrap; }
 .gp-type-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: .3rem;
-    padding: .2rem .5rem;
-    border-radius: 999px;
-    font-size: .58rem;
-    font-weight: 800;
-    letter-spacing: .06em;
-    text-transform: uppercase;
+    display: inline-flex; align-items: center; gap: .3rem;
+    padding: .22rem .5rem; border-radius: 999px;
+    font-size: .58rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase;
 }
-.gp-type-badge--collection { background: rgba(0,149,67,.1); color: #065f46; }
-.gp-type-badge--disbursement { background: rgba(2,132,199,.1); color: #075985; }
+.gp-type-badge--collection  { background: var(--gp-green-bg); color: #065f46; border: 1px solid var(--gp-green-bd); }
+.gp-type-badge--disbursement{ background: var(--gp-teal-bg);  color: #075985; border: 1px solid var(--gp-teal-bd); }
+.gp-status-pill {
+    display: inline-flex; align-items: center; gap: .3rem;
+    padding: .2rem .55rem; border-radius: 999px;
+    font-size: .63rem; font-weight: 700;
+}
+.gp-status-pill--successful { background: var(--gp-green-bg); color: #15803d; }
+.gp-status-pill--pending,
+.gp-status-pill--submitted,
+.gp-status-pill--created  { background: var(--gp-amber-bg); color: #92400e; }
+.gp-status-pill--failed,
+.gp-status-pill--cancelled,
+.gp-status-pill--expired  { background: var(--gp-red-bg); color: #991b1b; }
+.gp-status-pill--unknown  { background: #f3f4f6; color: #374151; }
 .gp-status-dot {
-    display: inline-flex;
-    align-items: center;
-    gap: .3rem;
-    font-size: .65rem;
-    font-weight: 700;
+    width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex-shrink: 0;
 }
-.gp-status-dot::before {
-    content: '';
-    width: 7px; height: 7px;
-    border-radius: 50%;
-    display: inline-block;
-    flex-shrink: 0;
-}
-.gp-status-dot--successful::before  { background: var(--gp-green); }
-.gp-status-dot--pending::before,
-.gp-status-dot--submitted::before,
-.gp-status-dot--created::before   { background: var(--gp-amber); animation: gp-blink 1.4s ease-in-out infinite; }
-.gp-status-dot--failed::before,
-.gp-status-dot--cancelled::before,
-.gp-status-dot--expired::before    { background: var(--gp-red); }
-.gp-status-dot--unknown::before    { background: #9ca3af; }
-@keyframes gp-blink { 0%,100%{opacity:1}50%{opacity:.3} }
+.gp-status-pill--pending .gp-status-dot,
+.gp-status-pill--submitted .gp-status-dot,
+.gp-status-pill--created .gp-status-dot { animation: gp-spin 1.8s linear infinite; }
 
 .gp-mono { font-family: ui-monospace, monospace; font-size: .65rem; color: var(--gp-muted); }
-.gp-amount-col { font-weight: 800; letter-spacing: -.01em; }
-.gp-amount-col--in  { color: var(--gp-green); }
-.gp-amount-col--out { color: var(--gp-teal); }
-
-.gp-empty {
-    text-align: center;
-    padding: 2.5rem;
-    color: var(--gp-muted);
-    font-size: .75rem;
-}
+.gp-amount-in  { font-weight: 800; color: var(--gp-green); }
+.gp-amount-out { font-weight: 800; color: var(--gp-teal); }
+.gp-empty { text-align: center; padding: 2.5rem; color: var(--gp-muted); font-size: .75rem; }
 .gp-empty i { font-size: 1.5rem; opacity: .3; display: block; margin-bottom: .5rem; }
+
+/* ── Filter tabs (table) ── */
+.gp-filter-bar { display: flex; gap: .4rem; flex-wrap: wrap; margin-bottom: 1rem; }
+.gp-filter-btn {
+    padding: .35rem .75rem; border-radius: 999px; border: 1.5px solid var(--gp-border);
+    background: transparent; color: var(--gp-muted);
+    font-size: .68rem; font-weight: 700; cursor: pointer; transition: .15s; font-family: inherit;
+}
+.gp-filter-btn:hover { border-color: var(--gp-teal); color: var(--gp-teal); }
+.gp-filter-btn.is-active { background: var(--gp-teal); border-color: var(--gp-teal); color: #fff; }
 
 /* ── Responsive ── */
 @media (max-width: 1024px) {
@@ -483,24 +364,40 @@
 @media (max-width: 640px) {
     .gp-kpi-strip { grid-template-columns: 1fr 1fr; }
     .gp-recipient-fields { grid-template-columns: 1fr; }
-    .gp-recipient-fields .gp-field--full { grid-column: 1; }
+    .gp-field--full { grid-column: 1; }
 }
 </style>
 @endsection
 
 @section('content')
+
+{{-- Success / partial overlay --}}
+<div class="gp-success-overlay" id="gpOverlay" role="dialog" aria-modal="true">
+    <div class="gp-success-modal" id="gpModal">
+        <div class="gp-check-wrap" id="gpModalIcon">
+            {{-- Injecté par JS --}}
+        </div>
+        <div class="gp-success-title" id="gpModalTitle"></div>
+        <div class="gp-success-sub"   id="gpModalSub"></div>
+        <div class="gp-success-lines" id="gpModalLines"></div>
+        <button class="gp-modal-close" id="gpModalClose">
+            <i class="fa fa-rotate-left" style="margin-right:.4rem"></i> Nouveau décaissement
+        </button>
+    </div>
+</div>
+
 <div class="gp-wrap">
 
     {{-- KPI Strip --}}
     <div class="gp-kpi-strip">
         <div class="gp-kpi gp-kpi--green">
             <div class="gp-kpi-label"><i class="fa fa-arrow-down-left"></i> Encaissé</div>
-            <div class="gp-kpi-value">{{ number_format($kpis['collected'] / 100, 0, ',', ' ') }}</div>
+            <div class="gp-kpi-value">{{ number_format($kpis['collected'] / 100, 0, ',', "\u{202F}") }}</div>
             <div class="gp-kpi-sub">FCFA — collections réussies</div>
         </div>
         <div class="gp-kpi gp-kpi--teal">
             <div class="gp-kpi-label"><i class="fa fa-arrow-up-right"></i> Décaissé</div>
-            <div class="gp-kpi-value">{{ number_format($kpis['disbursed'] / 100, 0, ',', ' ') }}</div>
+            <div class="gp-kpi-value">{{ number_format($kpis['disbursed'] / 100, 0, ',', "\u{202F}") }}</div>
             <div class="gp-kpi-sub">FCFA — décaissements réussis</div>
         </div>
         <div class="gp-kpi gp-kpi--amber">
@@ -533,82 +430,83 @@
 
             {{-- Left: form --}}
             <div>
-                <div class="gp-card">
+                <div class="gp-card" id="gpFormCard">
                     <div class="gp-card-title">
-                        <i class="fa fa-paper-plane"></i>
+                        <i class="fa fa-paper-plane" style="color:var(--gp-teal)"></i>
                         Nouveau lot de décaissement
                     </div>
 
                     @php $disbEnabled = config('gepay.bantudelice.withdrawals_enabled', false) @endphp
                     @if(! $disbEnabled)
-                    <div class="gp-flag gp-flag--warn" style="margin-bottom:.85rem">
+                    <div class="gp-flag gp-flag--warn">
                         <i class="fa fa-triangle-exclamation"></i>
-                        Le décaissement GePay est désactivé (<code>GEPAY_BANTUDELICE_WITHDRAWALS_ENABLED=false</code>). Les appels passeront en mode démo.
+                        <div>Le décaissement GePay est désactivé (<code>GEPAY_BANTUDELICE_WITHDRAWALS_ENABLED=false</code>). Les appels passeront en mode démo.</div>
                     </div>
                     @else
-                    <div class="gp-flag gp-flag--ok" style="margin-bottom:.85rem">
+                    <div class="gp-flag gp-flag--ok">
                         <i class="fa fa-circle-check"></i>
-                        Décaissement GePay actif — les transferts sont réels.
+                        <div>Décaissement GePay <strong>actif</strong> — les transferts sont <strong>réels</strong>.</div>
                     </div>
                     @endif
 
-                    <form id="gpDisbForm" onsubmit="return false">
-                        <div class="gp-recipients" id="gpRecipients">
-                            {{-- Recipient 1 (always present) --}}
-                            <div class="gp-recipient-card is-first" data-idx="0">
-                                <div class="gp-recipient-header">
-                                    <div class="gp-recipient-num">
-                                        <span class="gp-recipient-num-dot">1</span>
-                                        Bénéficiaire 1
-                                    </div>
+                    <div class="gp-recipients" id="gpRecipients">
+                        {{-- Bénéficiaire 1 --}}
+                        <div class="gp-recipient-card is-primary" data-idx="0">
+                            <div class="gp-recipient-header">
+                                <div class="gp-recipient-num">
+                                    <span class="gp-recipient-num-dot" id="gpDot0">1</span>
+                                    Bénéficiaire 1
                                 </div>
-                                <div class="gp-recipient-fields">
-                                    <div class="gp-field gp-field--full">
-                                        <label>Nom complet</label>
-                                        <input type="text" name="recipients[0][name]" placeholder="Jean-Baptiste Moussoki" required>
-                                    </div>
-                                    <div class="gp-field">
-                                        <label>Téléphone MTN</label>
-                                        <input type="tel" name="recipients[0][phone]" placeholder="068 000 000" required>
-                                    </div>
-                                    <div class="gp-field">
-                                        <label>Montant (FCFA)</label>
-                                        <input type="number" name="recipients[0][amount]" placeholder="5000" min="100" required data-amount>
-                                    </div>
+                            </div>
+                            <div class="gp-recipient-fields">
+                                <div class="gp-field gp-field--full">
+                                    <label>Nom complet</label>
+                                    <input type="text" name="recipients[0][name]" placeholder="Jean-Baptiste Moussoki" required>
+                                </div>
+                                <div class="gp-field">
+                                    <label>Téléphone MTN</label>
+                                    <input type="tel" name="recipients[0][phone]" placeholder="068 000 000" required>
+                                </div>
+                                <div class="gp-field">
+                                    <label>Montant (FCFA)</label>
+                                    <input type="number" name="recipients[0][amount]" placeholder="5 000" min="100" required data-amount>
                                 </div>
                             </div>
                         </div>
+                    </div>
 
-                        <button type="button" class="gp-add-btn" id="gpAddRecipient">
-                            <i class="fa fa-plus"></i>
-                            Ajouter un bénéficiaire <span style="opacity:.5;font-weight:600">(max 3)</span>
-                        </button>
+                    <button type="button" class="gp-add-btn" id="gpAddBtn">
+                        <i class="fa fa-plus"></i>
+                        Ajouter un bénéficiaire <span style="opacity:.5;margin-left:.2rem">(max 3)</span>
+                    </button>
 
-                        <div class="gp-result" id="gpResult"></div>
-                    </form>
+                    <div class="gp-error-banner" id="gpErrorBanner">
+                        <i class="fa fa-circle-xmark" style="flex-shrink:0;margin-top:.1rem"></i>
+                        <div id="gpErrorText"></div>
+                    </div>
                 </div>
             </div>
 
             {{-- Right: summary --}}
             <div class="gp-summary">
                 <div class="gp-summary-card">
-                    <div class="gp-summary-title">Récapitulatif du lot</div>
+                    <div class="gp-summary-title">Récapitulatif lot</div>
                     <div class="gp-summary-rows" id="gpSummaryRows">
-                        <div class="gp-summary-row">
+                        <div class="gp-summary-row" id="gpSRow0">
                             <span class="gp-summary-row-name">Bénéficiaire 1</span>
-                            <span class="gp-summary-row-amount" id="gpAmt0">— FCFA</span>
+                            <span class="gp-summary-row-amount" id="gpAmt0">—</span>
                         </div>
                     </div>
                     <hr class="gp-summary-divider">
                     <div class="gp-summary-total">
-                        <span class="gp-summary-total-label">Total lot</span>
+                        <span class="gp-summary-total-label">Total</span>
                         <span class="gp-summary-total-value" id="gpTotal">0 FCFA</span>
                     </div>
                 </div>
 
                 <button class="gp-submit-btn" id="gpSubmitBtn" disabled>
-                    <i class="fa fa-paper-plane"></i>
-                    Exécuter le décaissement
+                    <i class="fa fa-paper-plane" id="gpBtnIcon"></i>
+                    <span id="gpBtnLabel">Exécuter le décaissement</span>
                 </button>
             </div>
         </div>
@@ -618,18 +516,18 @@
     <div class="gp-panel" id="panel-inbound">
         <div class="gp-card">
             <div class="gp-card-title">
-                <i class="fa fa-arrow-down-left" style="color:var(--gp-green)"></i>
+                <i class="fa fa-list-ul" style="color:var(--gp-green)"></i>
                 Journal des transactions
             </div>
 
-            <div style="display:flex;gap:.5rem;margin-bottom:1rem;flex-wrap:wrap">
-                <button class="gp-tab" style="background:#f3f4f6;color:#374151;font-size:.67rem" data-filter="all">Tous</button>
-                <button class="gp-tab" style="background:#f3f4f6;color:#374151;font-size:.67rem" data-filter="collection">Encaissements</button>
-                <button class="gp-tab" style="background:#f3f4f6;color:#374151;font-size:.67rem" data-filter="disbursement">Décaissements</button>
+            <div class="gp-filter-bar">
+                <button class="gp-filter-btn is-active" data-filter="all">Tous</button>
+                <button class="gp-filter-btn" data-filter="collection">Encaissements</button>
+                <button class="gp-filter-btn" data-filter="disbursement">Décaissements</button>
             </div>
 
             <div class="gp-table-wrap">
-                <table class="gp-table" id="gpTxTable">
+                <table class="gp-table">
                     <thead>
                         <tr>
                             <th>Type</th>
@@ -641,32 +539,30 @@
                         </tr>
                     </thead>
                     <tbody id="gpTxBody">
-                        @forelse($recent as $tx)
-                        <tr>
+                    @forelse($recent as $tx)
+                        <tr data-type="{{ $tx->type->value }}">
                             <td>
                                 <span class="gp-type-badge gp-type-badge--{{ $tx->type->value }}">
-                                    @if($tx->type->value === 'collection')
-                                        <i class="fa fa-arrow-down-left" style="font-size:.55rem"></i> Encaissement
-                                    @else
-                                        <i class="fa fa-arrow-up-right" style="font-size:.55rem"></i> Décaissement
-                                    @endif
+                                    <i class="fa fa-{{ $tx->type->value === 'collection' ? 'arrow-down-left' : 'arrow-up-right' }}" style="font-size:.55rem"></i>
+                                    {{ $tx->type->value === 'collection' ? 'Encaissement' : 'Décaissement' }}
                                 </span>
                             </td>
-                            <td><span class="gp-mono">{{ Str::limit($tx->external_reference, 20) }}</span></td>
+                            <td><span class="gp-mono">{{ Str::limit($tx->external_reference ?? '—', 22) }}</span></td>
                             <td><span class="gp-mono">{{ $tx->phone_masked ?? '—' }}</span></td>
-                            <td class="gp-amount-col gp-amount-col--{{ $tx->type->value === 'collection' ? 'in' : 'out' }}">
-                                {{ number_format($tx->amount / 100, 0, ',', ' ') }} FCFA
+                            <td class="{{ $tx->type->value === 'collection' ? 'gp-amount-in' : 'gp-amount-out' }}">
+                                {{ number_format($tx->amount / 100, 0, ',', "\u{202F}") }} FCFA
                             </td>
                             <td>
-                                <span class="gp-status-dot gp-status-dot--{{ $tx->status->value }}">
+                                <span class="gp-status-pill gp-status-pill--{{ $tx->status->value }}">
+                                    <span class="gp-status-dot"></span>
                                     {{ ucfirst($tx->status->value) }}
                                 </span>
                             </td>
                             <td class="gp-mono">{{ $tx->created_at?->format('d/m H:i') }}</td>
                         </tr>
-                        @empty
-                        <tr><td colspan="6" class="gp-empty"><i class="fa fa-inbox"></i> Aucune transaction</td></tr>
-                        @endforelse
+                    @empty
+                        <tr><td colspan="6" class="gp-empty"><i class="fa fa-inbox"></i>Aucune transaction</td></tr>
+                    @endforelse
                     </tbody>
                 </table>
             </div>
@@ -681,147 +577,263 @@
 (function () {
 'use strict';
 
-/* ── Tabs ── */
-document.querySelectorAll('.gp-tab[data-tab]').forEach(function(btn) {
-    btn.addEventListener('click', function() {
-        document.querySelectorAll('.gp-tab[data-tab]').forEach(function(b) { b.classList.remove('is-active'); });
-        document.querySelectorAll('.gp-panel').forEach(function(p) { p.classList.remove('is-active'); });
+/* ─────────────────────────────────────────
+   TABS
+───────────────────────────────────────── */
+document.querySelectorAll('.gp-tab[data-tab]').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+        document.querySelectorAll('.gp-tab[data-tab]').forEach(function (b) { b.classList.remove('is-active'); });
+        document.querySelectorAll('.gp-panel').forEach(function (p) { p.classList.remove('is-active'); });
         btn.classList.add('is-active');
         document.getElementById('panel-' + btn.dataset.tab).classList.add('is-active');
     });
 });
 
-/* ── Recipient management ── */
-var maxRecipients = 3;
-var recipientCount = 1;
-var container = document.getElementById('gpRecipients');
-var addBtn     = document.getElementById('gpAddRecipient');
-var submitBtn  = document.getElementById('gpSubmitBtn');
-var totalEl    = document.getElementById('gpTotal');
-var summaryRows = document.getElementById('gpSummaryRows');
-var resultEl   = document.getElementById('gpResult');
-
+/* ─────────────────────────────────────────
+   FORMAT
+───────────────────────────────────────── */
 function fmt(n) {
     return Number(n || 0).toLocaleString('fr-FR') + ' FCFA';
 }
 
+/* ─────────────────────────────────────────
+   RECIPIENT MANAGEMENT
+───────────────────────────────────────── */
+var MAX = 3;
+var count = 1;
+var container  = document.getElementById('gpRecipients');
+var addBtn     = document.getElementById('gpAddBtn');
+var submitBtn  = document.getElementById('gpSubmitBtn');
+var totalEl    = document.getElementById('gpTotal');
+var summaryEl  = document.getElementById('gpSummaryRows');
+var errorBanner = document.getElementById('gpErrorBanner');
+var errorText   = document.getElementById('gpErrorText');
+
 function updateSummary() {
-    var inputs = document.querySelectorAll('[data-amount]');
     var total = 0;
-    inputs.forEach(function(inp, i) {
+    document.querySelectorAll('[data-amount]').forEach(function (inp, i) {
         var v = parseInt(inp.value, 10) || 0;
         total += v;
         var el = document.getElementById('gpAmt' + i);
-        if (el) el.textContent = v ? fmt(v) : '— FCFA';
+        if (el) el.textContent = v ? fmt(v) : '—';
     });
     totalEl.textContent = fmt(total);
     submitBtn.disabled = (total === 0);
 }
 
-function buildConnector(batchSize) {
-    return '<div class="gp-connector">' +
-        '<div class="gp-connector-line"></div>' +
-        (batchSize > 1 ? '<span class="gp-connector-badge">LOT · ' + batchSize + ' DEST.</span>' : '') +
-        '</div>';
-}
-
 function rebuildConnectors() {
-    document.querySelectorAll('.gp-connector').forEach(function(c) { c.remove(); });
-    var cards = container.querySelectorAll('.gp-recipient-card');
+    document.querySelectorAll('.gp-connector').forEach(function (c) { c.remove(); });
+    var cards = Array.from(container.querySelectorAll('.gp-recipient-card'));
     if (cards.length < 2) return;
-    cards.forEach(function(card, i) {
+    cards.forEach(function (card, i) {
         if (i < cards.length - 1) {
-            var conn = document.createElement('div');
-            conn.innerHTML = buildConnector(cards.length);
-            card.after(conn.firstChild);
+            var wrap = document.createElement('div');
+            wrap.innerHTML = '<div class="gp-connector"><div class="gp-connector-line"></div>'
+                + '<span class="gp-connector-badge">LOT · ' + cards.length + ' DEST.</span></div>';
+            card.after(wrap.firstChild);
         }
     });
 }
 
-function addRecipientCard() {
-    if (recipientCount >= maxRecipients) return;
-    var idx = recipientCount;
+function addCard() {
+    if (count >= MAX) return;
+    var idx = count;
     var card = document.createElement('div');
     card.className = 'gp-recipient-card';
     card.dataset.idx = idx;
     card.innerHTML =
-        '<div class="gp-recipient-header">' +
-            '<div class="gp-recipient-num">' +
-                '<span class="gp-recipient-num-dot">' + (idx + 1) + '</span>' +
-                'Bénéficiaire ' + (idx + 1) +
-            '</div>' +
-            '<button type="button" class="gp-recipient-remove" onclick="gpRemove(this)"><i class="fa fa-xmark"></i></button>' +
-        '</div>' +
-        '<div class="gp-recipient-fields">' +
-            '<div class="gp-field gp-field--full">' +
-                '<label>Nom complet</label>' +
-                '<input type="text" name="recipients[' + idx + '][name]" placeholder="Nom du bénéficiaire" required>' +
-            '</div>' +
-            '<div class="gp-field">' +
-                '<label>Téléphone MTN</label>' +
-                '<input type="tel" name="recipients[' + idx + '][phone]" placeholder="068 000 000" required>' +
-            '</div>' +
-            '<div class="gp-field">' +
-                '<label>Montant (FCFA)</label>' +
-                '<input type="number" name="recipients[' + idx + '][amount]" placeholder="5000" min="100" required data-amount>' +
-            '</div>' +
-        '</div>';
+        '<div class="gp-recipient-header">'
+        + '<div class="gp-recipient-num">'
+        + '<span class="gp-recipient-num-dot" id="gpDot' + idx + '">' + (idx + 1) + '</span>'
+        + 'Bénéficiaire ' + (idx + 1)
+        + '</div>'
+        + '<button type="button" class="gp-recipient-remove" onclick="gpRemove(this)" aria-label="Supprimer">'
+        + '<i class="fa fa-xmark"></i></button>'
+        + '</div>'
+        + '<div class="gp-recipient-fields">'
+        + '<div class="gp-field gp-field--full"><label>Nom complet</label>'
+        + '<input type="text" name="recipients[' + idx + '][name]" placeholder="Nom du bénéficiaire" required></div>'
+        + '<div class="gp-field"><label>Téléphone MTN</label>'
+        + '<input type="tel" name="recipients[' + idx + '][phone]" placeholder="068 000 000" required></div>'
+        + '<div class="gp-field"><label>Montant (FCFA)</label>'
+        + '<input type="number" name="recipients[' + idx + '][amount]" placeholder="5 000" min="100" required data-amount></div>'
+        + '</div>';
 
     /* summary row */
     var srow = document.createElement('div');
     srow.className = 'gp-summary-row';
-    srow.id = 'gpSummaryRow' + idx;
-    srow.innerHTML = '<span class="gp-summary-row-name">Bénéficiaire ' + (idx + 1) + '</span><span class="gp-summary-row-amount" id="gpAmt' + idx + '">— FCFA</span>';
-    summaryRows.appendChild(srow);
+    srow.id = 'gpSRow' + idx;
+    srow.innerHTML = '<span class="gp-summary-row-name">Bénéficiaire ' + (idx + 1) + '</span>'
+        + '<span class="gp-summary-row-amount" id="gpAmt' + idx + '">—</span>';
+    summaryEl.appendChild(srow);
 
     container.appendChild(card);
-    recipientCount++;
-
-    card.querySelectorAll('[data-amount]').forEach(function(inp) {
-        inp.addEventListener('input', updateSummary);
-    });
-
+    count++;
+    card.querySelector('[data-amount]').addEventListener('input', updateSummary);
     rebuildConnectors();
-    addBtn.disabled = (recipientCount >= maxRecipients);
+    addBtn.disabled = (count >= MAX);
     updateSummary();
 }
 
-window.gpRemove = function(btn) {
+window.gpRemove = function (btn) {
     var card = btn.closest('.gp-recipient-card');
     var idx  = parseInt(card.dataset.idx, 10);
-    var srow = document.getElementById('gpSummaryRow' + idx);
+    var srow = document.getElementById('gpSRow' + idx);
     if (srow) srow.remove();
     card.remove();
-    recipientCount--;
+    count--;
     addBtn.disabled = false;
     rebuildConnectors();
     updateSummary();
 };
 
-addBtn.addEventListener('click', addRecipientCard);
+addBtn.addEventListener('click', addCard);
+document.querySelector('[data-amount]').addEventListener('input', updateSummary);
 
-document.querySelectorAll('[data-amount]').forEach(function(inp) {
-    inp.addEventListener('input', updateSummary);
+/* ─────────────────────────────────────────
+   BUTTON STATE MACHINE
+───────────────────────────────────────── */
+var BTN_ICON  = document.getElementById('gpBtnIcon');
+var BTN_LABEL = document.getElementById('gpBtnLabel');
+
+function btnIdle() {
+    submitBtn.disabled = false;
+    submitBtn.className = 'gp-submit-btn';
+    BTN_ICON.className  = 'fa fa-paper-plane';
+    BTN_LABEL.textContent = 'Exécuter le décaissement';
+    updateSummary();
+}
+function btnLoading() {
+    submitBtn.disabled = true;
+    submitBtn.className = 'gp-submit-btn is-loading';
+    BTN_ICON.className  = 'fa fa-rotate gp-spin';
+    BTN_LABEL.textContent = 'Traitement en cours…';
+}
+function btnSuccess() {
+    submitBtn.className = 'gp-submit-btn is-success';
+    BTN_ICON.className  = 'fa fa-check';
+    BTN_LABEL.textContent = 'Décaissement envoyé';
+}
+function btnError() {
+    submitBtn.className = 'gp-submit-btn is-error';
+    BTN_ICON.className  = 'fa fa-xmark';
+    BTN_LABEL.textContent = 'Réessayer';
+    setTimeout(btnIdle, 2200);
+}
+
+/* ─────────────────────────────────────────
+   PER-CARD STATES
+───────────────────────────────────────── */
+function setCardState(idx, state) {
+    var card = container.querySelector('[data-idx="' + idx + '"]');
+    if (!card) return;
+    card.classList.remove('state-loading', 'state-success', 'state-error');
+    if (state) card.classList.add('state-' + state);
+    var dot = document.getElementById('gpDot' + idx);
+    if (!dot) return;
+    if (state === 'loading')  dot.innerHTML = '<i class="fa fa-rotate gp-spin" style="font-size:.55rem"></i>';
+    if (state === 'success')  dot.innerHTML = '<i class="fa fa-check" style="font-size:.55rem"></i>';
+    if (state === 'error')    dot.innerHTML = '<i class="fa fa-xmark" style="font-size:.55rem"></i>';
+    if (!state)               dot.textContent = (idx + 1);
+}
+
+function setInputsDisabled(disabled) {
+    container.querySelectorAll('input').forEach(function (inp) { inp.disabled = disabled; });
+    addBtn.disabled = disabled;
+}
+
+/* ─────────────────────────────────────────
+   SUCCESS OVERLAY
+───────────────────────────────────────── */
+var overlay = document.getElementById('gpOverlay');
+
+function showSuccess(batchId, results) {
+    var allOk = results.every(function (r) { return r.success; });
+    var someOk = results.some(function (r) { return r.success; });
+
+    document.getElementById('gpModalIcon').innerHTML = allOk || someOk
+        ? '<svg class="gp-check-svg" viewBox="0 0 52 52"><circle class="gp-check-circle" cx="26" cy="26" r="23"/><path class="gp-check-path" fill="none" d="M14 27l7.5 7.5L38 18"/></svg>'
+        : '<svg class="gp-error-svg" viewBox="0 0 52 52"><circle class="gp-error-circle" cx="26" cy="26" r="23"/><line class="gp-error-line1" x1="17" y1="17" x2="35" y2="35"/><line class="gp-error-line2" x1="35" y1="17" x2="17" y2="35"/></svg>';
+
+    document.getElementById('gpModalTitle').textContent = allOk
+        ? 'Décaissement réussi' : (someOk ? 'Lot partiellement envoyé' : 'Échec du décaissement');
+    document.getElementById('gpModalSub').textContent = 'Lot #' + batchId
+        + ' · ' + results.length + ' bénéficiaire' + (results.length > 1 ? 's' : '');
+
+    var lines = '';
+    results.forEach(function (r) {
+        var cls = r.success ? 'ok' : 'err';
+        var ico = r.success ? 'circle-check' : 'circle-xmark';
+        lines += '<div class="gp-success-line gp-success-line--' + cls + '">'
+            + '<i class="fa fa-' + ico + '"></i>'
+            + '<span class="gp-sl-name">' + r.name + '</span>'
+            + '<span class="gp-sl-amount">' + (r.amount ? fmt(r.amount / 100) : '') + '</span>'
+            + '</div>';
+        if (!r.success && r.message) {
+            lines += '<div style="font-size:.63rem;color:var(--gp-red);margin:-.2rem 0 .25rem 1.4rem">'
+                + r.message + '</div>';
+        }
+    });
+    document.getElementById('gpModalLines').innerHTML = lines;
+    overlay.classList.add('is-visible');
+}
+
+function showError(msg, results) {
+    var html = msg || 'Erreur de traitement.';
+    if (results && results.length) {
+        html += '<ul>';
+        results.forEach(function (r) {
+            if (!r.success) html += '<li><strong>' + r.name + '</strong> — ' + (r.message || 'Échec') + '</li>';
+        });
+        html += '</ul>';
+    }
+    errorText.innerHTML = html;
+    errorBanner.classList.add('is-visible');
+    /* shake the form card */
+    var card = document.getElementById('gpFormCard');
+    card.classList.remove('gp-shake');
+    void card.offsetWidth; /* reflow */
+    card.classList.add('gp-shake');
+    setTimeout(function () { card.classList.remove('gp-shake'); }, 600);
+}
+
+document.getElementById('gpModalClose').addEventListener('click', function () {
+    overlay.classList.remove('is-visible');
+    btnIdle();
+    setInputsDisabled(false);
+    /* reset cards */
+    container.querySelectorAll('.gp-recipient-card').forEach(function (c, i) {
+        c.classList.remove('state-loading', 'state-success', 'state-error');
+        var dot = document.getElementById('gpDot' + c.dataset.idx);
+        if (dot) dot.textContent = parseInt(c.dataset.idx, 10) + 1;
+        c.querySelectorAll('input').forEach(function (inp) { inp.value = ''; });
+    });
+    updateSummary();
+    errorBanner.classList.remove('is-visible');
 });
 
-/* ── Submit disbursement ── */
-submitBtn.addEventListener('click', function() {
-    var form    = document.getElementById('gpDisbForm');
-    var inputs  = form.querySelectorAll('input[required]');
-    var ok = true;
-    inputs.forEach(function(inp) { if (!inp.value.trim()) { inp.focus(); ok = false; } });
-    if (!ok) return;
+/* ─────────────────────────────────────────
+   SUBMIT
+───────────────────────────────────────── */
+submitBtn.addEventListener('click', function () {
+    var inputs = container.querySelectorAll('input[required]');
+    var valid = true;
+    inputs.forEach(function (inp) { if (!inp.value.trim()) { inp.focus(); valid = false; } });
+    if (!valid) return;
 
-    submitBtn.classList.add('is-loading');
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = '<i class="fa fa-rotate"></i> Envoi en cours…';
-    resultEl.style.display = 'none';
+    errorBanner.classList.remove('is-visible');
+    btnLoading();
+    setInputsDisabled(true);
 
-    var data = { recipients: [] };
-    var cards = container.querySelectorAll('.gp-recipient-card');
-    cards.forEach(function(card) {
+    /* mark all cards loading */
+    container.querySelectorAll('.gp-recipient-card').forEach(function (c) {
+        setCardState(parseInt(c.dataset.idx, 10), 'loading');
+    });
+
+    var payload = { recipients: [] };
+    container.querySelectorAll('.gp-recipient-card').forEach(function (card) {
         var idx = card.dataset.idx;
-        data.recipients.push({
+        payload.recipients.push({
             name:   card.querySelector('[name="recipients[' + idx + '][name]"]').value.trim(),
             phone:  card.querySelector('[name="recipients[' + idx + '][phone]"]').value.trim(),
             amount: parseInt(card.querySelector('[name="recipients[' + idx + '][amount]"]').value, 10),
@@ -832,58 +844,55 @@ submitBtn.addEventListener('click', function() {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
-            'X-CSRF-TOKEN':  document.querySelector('meta[name="csrf-token"]').content,
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
             'Accept': 'application/json',
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify(payload),
     })
-    .then(function(r) { return r.json(); })
-    .then(function(res) {
-        var cls = res.success ? 'is-ok' : (res.results ? 'is-partial' : 'is-err');
-        var icon = res.success ? '<i class="fa fa-circle-check"></i>' : '<i class="fa fa-triangle-exclamation"></i>';
-        var html = icon + ' <strong>Lot ' + (res.batch_id || '') + '</strong><ul>';
-        (res.results || []).forEach(function(r) {
-            html += '<li>' + r.name + ' — ' +
-                (r.success
-                    ? '<span style="color:var(--gp-green)">' + (r.status || 'soumis') + ' ✓</span>'
-                    : '<span style="color:var(--gp-red)">' + (r.message || 'Erreur') + '</span>')
-                + '</li>';
+    .then(function (res) { return res.json(); })
+    .then(function (data) {
+        var results = data.results || [];
+
+        /* per-card state */
+        results.forEach(function (r, i) {
+            var cards = container.querySelectorAll('.gp-recipient-card');
+            if (cards[i]) setCardState(parseInt(cards[i].dataset.idx, 10), r.success ? 'success' : 'error');
         });
-        if (res.message) html += '<li>' + res.message + '</li>';
-        html += '</ul>';
-        resultEl.className = 'gp-result ' + cls;
-        resultEl.innerHTML = html;
-        resultEl.style.display = 'block';
+
+        var allOk = results.length > 0 && results.every(function (r) { return r.success; });
+        var anyOk = results.some(function (r) { return r.success; });
+
+        if (allOk || anyOk) {
+            btnSuccess();
+            showSuccess(data.batch_id || '???', results);
+        } else {
+            btnError();
+            setInputsDisabled(false);
+            showError(data.message || 'Aucun décaissement réussi.', results);
+        }
     })
-    .catch(function(e) {
-        resultEl.className = 'gp-result is-err';
-        resultEl.innerHTML = '<i class="fa fa-xmark"></i> Erreur réseau : ' + e.message;
-        resultEl.style.display = 'block';
-    })
-    .finally(function() {
-        submitBtn.classList.remove('is-loading');
-        submitBtn.innerHTML = '<i class="fa fa-paper-plane"></i> Exécuter le décaissement';
-        submitBtn.disabled = false;
+    .catch(function (err) {
+        container.querySelectorAll('.gp-recipient-card').forEach(function (c) {
+            c.classList.remove('state-loading');
+        });
+        btnError();
+        setInputsDisabled(false);
+        showError('Erreur réseau : ' + err.message, null);
     });
 });
 
-/* ── Table filter ── */
-document.querySelectorAll('[data-filter]').forEach(function(btn) {
-    btn.addEventListener('click', function() {
-        var rows = document.querySelectorAll('#gpTxBody tr[data-type]');
+/* ─────────────────────────────────────────
+   TABLE FILTER
+───────────────────────────────────────── */
+document.querySelectorAll('.gp-filter-btn').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+        document.querySelectorAll('.gp-filter-btn').forEach(function (b) { b.classList.remove('is-active'); });
+        btn.classList.add('is-active');
         var f = btn.dataset.filter;
-        rows.forEach(function(row) {
+        document.querySelectorAll('#gpTxBody tr[data-type]').forEach(function (row) {
             row.style.display = (f === 'all' || row.dataset.type === f) ? '' : 'none';
         });
     });
-});
-
-/* tag rows with type for JS filter */
-document.querySelectorAll('#gpTxBody tr').forEach(function(row) {
-    var badge = row.querySelector('.gp-type-badge');
-    if (badge) {
-        row.dataset.type = badge.classList.contains('gp-type-badge--collection') ? 'collection' : 'disbursement';
-    }
 });
 
 })();
