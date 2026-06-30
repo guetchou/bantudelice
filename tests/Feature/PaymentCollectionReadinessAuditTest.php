@@ -52,6 +52,21 @@ final class PaymentCollectionReadinessAuditTest extends TestCase
         $this->assertSame(1, $result['routes']['cash']['count']);
     }
 
+    public function test_duplicate_mtn_reference_is_not_eligible(): void
+    {
+        $this->payment(['provider' => 'momo', 'provider_reference' => 'DUP-1']);
+        $this->payment(['provider' => 'mtn', 'provider_reference' => 'DUP-1']);
+
+        $result = app(PaymentCollectionReadinessAuditService::class)->audit();
+
+        $this->assertSame(1, $result['summary']['duplicate_reference_groups']);
+        $this->assertSame(2, $result['blockers']['duplicate_provider_reference']);
+        $this->assertSame(2, $result['summary']['blocked_payment_count']);
+        $this->assertSame(0, $result['summary']['eligible_online_count']);
+        $this->assertSame(0, $result['summary']['eligible_online_amount']);
+        $this->assertFalse($result['summary']['ready_for_activation']);
+    }
+
     private function payment(array $overrides = []): Payment
     {
         $user = User::factory()->create(['type' => 'user']);
