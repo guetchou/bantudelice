@@ -84,6 +84,34 @@ final class PaymentCollectionMirrorTest extends TestCase
         $this->assertSame(4500, app(LedgerPostingService::class)->balance($account));
     }
 
+    public function test_gepay_mtn_collection_uses_a_distinct_reconciliation_account(): void
+    {
+        config()->set('financial-mirror.collections_enabled', true);
+        $payment = $this->payment([
+            'provider' => 'momo',
+            'provider_reference' => 'GEPAY-PROVIDER-1',
+            'amount' => 3200,
+            'meta' => [
+                'gepay' => [
+                    'reference' => 'GEPAY-INTERNAL-1',
+                    'provider' => 'mtn',
+                ],
+            ],
+        ]);
+
+        event(new PaymentConfirmed($payment));
+
+        $account = FinancialAccount::where(
+            'code',
+            'ASSET:PAYMENT_PROVIDER:GEPAY_MTN:COLLECTIONS'
+        )->firstOrFail();
+
+        $this->assertSame(3200, app(LedgerPostingService::class)->balance($account));
+        $this->assertDatabaseMissing('financial_accounts', [
+            'code' => 'ASSET:PAYMENT_PROVIDER:MTN_MOMO:COLLECTIONS',
+        ]);
+    }
+
     public function test_duplicate_payment_event_reuses_the_same_financial_batch(): void
     {
         config()->set('financial-mirror.collections_enabled', true);
