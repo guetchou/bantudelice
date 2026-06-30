@@ -1,0 +1,66 @@
+name: Financial Ledger Quality
+
+on:
+  pull_request:
+    paths:
+      - 'app/Domain/Finance/**'
+      - 'app/Console/Commands/ProvisionFinancialAccounts.php'
+      - 'config/financial-ledger.php'
+      - 'database/migrations/*financial_ledger_v2*'
+      - 'tests/Feature/FinancialLedgerServiceTest.php'
+      - 'docs/finance/**'
+      - '.github/workflows/financial-ledger-quality.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  financial-ledger-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, intl, bcmath, sqlite3, pdo_sqlite
+          coverage: none
+          tools: composer:v2
+
+      - name: Cache Composer packages
+        uses: actions/cache@v4
+        with:
+          path: vendor
+          key: ${{ runner.os }}-php83-${{ hashFiles('composer.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-php83-
+
+      - name: Prepare test environment
+        run: |
+          mkdir -p storage/framework/cache/data storage/framework/sessions storage/framework/views storage/framework/testing storage/logs bootstrap/cache
+          cp .env.example .env
+          sed -i 's/^APP_ENV=.*/APP_ENV=testing/' .env
+          chmod -R 775 storage bootstrap/cache
+
+      - name: Install dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Prepare application
+        run: |
+          php artisan key:generate
+          php artisan optimize:clear
+
+      - name: Validate PHP syntax
+        run: |
+          find app/Domain/Finance -name '*.php' -print0 | xargs -0 -n1 php -l
+          php -l app/Console/Commands/ProvisionFinancialAccounts.php
+          php -l database/migrations/2026_06_30_210000_create_financial_ledger_v2_tables.php
+          php -l tests/Feature/FinancialLedgerServiceTest.php
+
+      - name: Run financial ledger tests
+        run: php artisan test --filter=FinancialLedgerServiceTest
