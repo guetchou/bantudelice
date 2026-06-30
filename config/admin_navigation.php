@@ -23,6 +23,7 @@ return [
                     'collapsible' => true,
                     'items' => [
                         ['label' => 'Paiements', 'route' => 'admin.payments.dashboard', 'icon' => 'fas fa-wallet', 'nav' => 'payments'],
+                        ['label' => 'GePay — Décaissements', 'route' => 'admin.gepay.index', 'icon' => 'fas fa-paper-plane', 'nav' => 'gepay'],
                         ['label' => 'Reversements restaurants', 'route' => 'restaurant_payout', 'icon' => 'fas fa-store', 'nav' => 'payouts-restaurants'],
                         ['label' => 'Reversements livreurs', 'route' => 'driver_payout', 'icon' => 'fas fa-money-bill-transfer', 'nav' => 'payouts-drivers'],
                         ['label' => 'Analytique commerciale', 'route' => 'admin.commerce-analytics.index', 'icon' => 'fas fa-chart-line', 'nav' => 'commerce-analytics'],
