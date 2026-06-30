@@ -9,15 +9,14 @@ use Illuminate\Support\Facades\Schema;
 
 final class ProvisionFinancialAccounts extends Command
 {
-    protected $signature = 'finance:provision-accounts
-        {--commit : Créer réellement les comptes. Sans cette option, la commande reste en simulation.}';
+    protected $signature = 'finance:provision-accounts {--commit : Create accounts instead of running a dry-run.}';
 
-    protected $description = 'Provisionne les comptes BantuDelice, restaurants et livreurs sans créer de solde historique.';
+    protected $description = 'Provision BantuDelice, restaurant and driver financial accounts without opening balances.';
 
     public function handle(FinancialAccountService $accounts): int
     {
         if (! Schema::hasTable('financial_accounts')) {
-            $this->error('La migration du registre financier n’a pas encore été exécutée.');
+            $this->error('Financial ledger migration is not installed.');
             return self::FAILURE;
         }
 
@@ -26,47 +25,39 @@ final class ProvisionFinancialAccounts extends Command
         $driverCount = Schema::hasTable('drivers') ? DB::table('drivers')->count() : 0;
 
         $this->table(
-            ['Périmètre', 'Comptes attendus'],
+            ['Scope', 'Expected accounts'],
             [
-                ['Plateforme BantuDelice', 8],
-                ['Restaurants', $restaurantCount * 2],
-                ['Livreurs', $driverCount * 2],
+                ['BantuDelice platform', 10],
+                ['Restaurants', $restaurantCount * 3],
+                ['Drivers', $driverCount * 3],
             ]
         );
 
         if (! $commit) {
-            $this->warn('Simulation uniquement. Relancez avec --commit pour créer les comptes.');
-            $this->warn('Aucun solde d’ouverture n’est créé automatiquement : il doit être rapproché et approuvé.');
+            $this->warn('Dry-run only. Use --commit to create accounts.');
+            $this->warn('No opening balance is created automatically.');
             return self::SUCCESS;
         }
 
         $accounts->provisionPlatform();
 
         if (Schema::hasTable('restaurants')) {
-            DB::table('restaurants')
-                ->select('id')
-                ->orderBy('id')
-                ->chunkById(200, function ($restaurants) use ($accounts): void {
-                    foreach ($restaurants as $restaurant) {
-                        $accounts->provisionPartner('restaurant', (int) $restaurant->id);
-                    }
-                });
+            DB::table('restaurants')->select('id')->orderBy('id')->chunkById(200, function ($rows) use ($accounts): void {
+                foreach ($rows as $row) {
+                    $accounts->provisionPartner('restaurant', (int) $row->id);
+                }
+            });
         }
 
         if (Schema::hasTable('drivers')) {
-            DB::table('drivers')
-                ->select('id')
-                ->orderBy('id')
-                ->chunkById(200, function ($drivers) use ($accounts): void {
-                    foreach ($drivers as $driver) {
-                        $accounts->provisionPartner('driver', (int) $driver->id);
-                    }
-                });
+            DB::table('drivers')->select('id')->orderBy('id')->chunkById(200, function ($rows) use ($accounts): void {
+                foreach ($rows as $row) {
+                    $accounts->provisionPartner('driver', (int) $row->id);
+                }
+            });
         }
 
-        $this->info('Comptes financiers provisionnés. Aucun solde historique n’a été inventé.');
-        $this->line('Étape suivante : rapprocher les obligations historiques avant toute bascule des dashboards.');
-
+        $this->info('Financial accounts provisioned without opening balances.');
         return self::SUCCESS;
     }
 }
