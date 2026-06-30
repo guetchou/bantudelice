@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - 'app/Domain/Finance/Services/PaymentCollectionRouteResolver.php'
+      - 'app/Domain/Finance/Services/PaymentCollectionPostingVerifier.php'
       - 'app/Domain/Finance/Services/PaymentCollectionReadinessAuditService.php'
       - 'app/Domain/Finance/Services/PaymentCollectionMirrorService.php'
       - 'app/Domain/Finance/Services/PaymentClearingAccountService.php'
@@ -51,6 +52,7 @@ jobs:
       - name: Validate PHP syntax
         run: |
           php -l app/Domain/Finance/Services/PaymentCollectionRouteResolver.php
+          php -l app/Domain/Finance/Services/PaymentCollectionPostingVerifier.php
           php -l app/Domain/Finance/Services/PaymentCollectionReadinessAuditService.php
           php -l app/Domain/Finance/Services/PaymentCollectionMirrorService.php
           php -l app/Domain/Finance/Services/PaymentClearingAccountService.php
