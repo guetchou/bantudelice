@@ -43,6 +43,7 @@ final class PaymentCollectionMirrorService
             'status' => 'processing',
             'payload' => $this->snapshot($payment),
             'last_error' => null,
+            'processed_at' => null,
             'failed_at' => null,
         ]);
 
@@ -54,6 +55,7 @@ final class PaymentCollectionMirrorService
                     'status' => 'skipped',
                     'last_error' => 'Cash collections require the dedicated cash collection workflow.',
                     'processed_at' => now(),
+                    'failed_at' => null,
                 ]);
 
                 return $event->fresh();
@@ -86,6 +88,7 @@ final class PaymentCollectionMirrorService
             $event->update([
                 'status' => 'failed',
                 'last_error' => mb_substr($exception->getMessage(), 0, $maxLength),
+                'processed_at' => null,
                 'failed_at' => now(),
             ]);
 
