@@ -12,6 +12,7 @@ final class PaymentCollectionMirrorService
 {
     public function __construct(
         private readonly FinancialLedgerGateway $ledger,
+        private readonly PaymentCollectionRouteResolver $routes,
     ) {
     }
 
@@ -49,8 +50,9 @@ final class PaymentCollectionMirrorService
 
         try {
             $this->assertPaid($payment);
+            $route = $this->routes->resolve($payment);
 
-            if ($this->isCashProvider((string) $payment->provider)) {
+            if ($route === 'cash') {
                 $event->update([
                     'status' => 'skipped',
                     'last_error' => 'Cash collections require the dedicated cash collection workflow.',
@@ -61,15 +63,14 @@ final class PaymentCollectionMirrorService
                 return $event->fresh();
             }
 
-            $accountProvider = $this->accountProvider($payment);
             $receipt = $this->ledger->recordCollectedPayment(new CollectedPayment(
                 paymentId: (int) $payment->id,
                 amount: $this->integerAmount($payment->amount),
                 currency: (string) $payment->currency,
-                provider: $accountProvider,
+                provider: $route,
                 providerReference: $payment->provider_reference,
                 metadata: array_replace($this->snapshot($payment), [
-                    'collection_route' => $accountProvider,
+                    'collection_route' => $route,
                 ]),
             ));
 
@@ -109,24 +110,6 @@ final class PaymentCollectionMirrorService
         if (trim((string) $payment->provider) === '') {
             throw new \DomainException('The payment provider is missing.');
         }
-    }
-
-    private function accountProvider(Payment $payment): string
-    {
-        $provider = strtolower(trim((string) $payment->provider));
-        $hasGePayReference = trim((string) data_get($payment->meta, 'gepay.reference', '')) !== ''
-            || trim((string) data_get($payment->meta, 'gepay_reference', '')) !== '';
-
-        if ($hasGePayReference && in_array($provider, ['momo', 'mtn', 'mtn_momo'], true)) {
-            return 'gepay_mtn';
-        }
-
-        return $provider;
-    }
-
-    private function isCashProvider(string $provider): bool
-    {
-        return in_array(strtolower(trim($provider)), ['cash', 'cod', 'demo'], true);
     }
 
     private function integerAmount(mixed $amount): int
