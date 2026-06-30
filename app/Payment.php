@@ -68,6 +68,11 @@ class Payment extends Model
         return $this->allocations()->where('status', 'active');
     }
 
+    public function refunds()
+    {
+        return $this->hasMany(PaymentRefund::class);
+    }
+
     public function canonicalBusinessStatus(): string
     {
         if ($this->business_status) {
@@ -80,6 +85,7 @@ class Payment extends Model
             'FAILED', 'REJECTED', 'DECLINED' => 'failed',
             'CANCELLED', 'CANCELED' => 'cancelled',
             'EXPIRED' => 'expired',
+            'PARTIALLY_REFUNDED' => 'partially_refunded',
             'REFUNDED' => 'refunded',
             'REVERSED' => 'reversed',
             'DISPUTED', 'CHARGEBACK' => 'disputed',
@@ -93,9 +99,14 @@ class Payment extends Model
         return $this->canonicalBusinessStatus() === 'confirmed';
     }
 
+    public function isFinanciallyConfirmed(): bool
+    {
+        return in_array($this->canonicalBusinessStatus(), ['confirmed', 'partially_refunded', 'disputed'], true);
+    }
+
     public function isPaid(): bool
     {
-        return $this->isConfirmed();
+        return $this->isFinanciallyConfirmed();
     }
 
     public function isPending(): bool
@@ -113,8 +124,27 @@ class Payment extends Model
         return (int) $this->activeAllocations()->sum('amount');
     }
 
+    public function refundedAmount(): int
+    {
+        return (int) $this->refunds()->where('status', 'refunded')->sum('amount');
+    }
+
+    public function committedRefundAmount(): int
+    {
+        return (int) $this->refunds()
+            ->whereIn('status', ['requested', 'approved', 'submitted', 'pending', 'unknown', 'refunded'])
+            ->sum('amount');
+    }
+
+    public function refundableAmount(): int
+    {
+        return max(0, (int) $this->amount - $this->committedRefundAmount());
+    }
+
     public function unallocatedAmount(): int
     {
-        return max(0, (int) $this->amount - $this->allocatedAmount());
+        $confirmedNet = max(0, (int) $this->amount - $this->refundedAmount());
+
+        return max(0, $confirmedNet - $this->allocatedAmount());
     }
 }
