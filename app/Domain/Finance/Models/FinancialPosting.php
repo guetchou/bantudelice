@@ -30,6 +30,17 @@ final class FinancialPosting extends Model
         'created_at' => 'datetime',
     ];
 
+    protected static function booted(): void
+    {
+        static::updating(static function (): never {
+            throw new \LogicException('Une écriture financière validée ne peut pas être modifiée.');
+        });
+
+        static::deleting(static function (): never {
+            throw new \LogicException('Une écriture financière validée ne peut pas être supprimée.');
+        });
+    }
+
     public function batch(): BelongsTo
     {
         return $this->belongsTo(FinancialPostingBatch::class, 'batch_id');
