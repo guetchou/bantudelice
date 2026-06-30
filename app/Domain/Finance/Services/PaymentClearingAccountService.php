@@ -13,10 +13,6 @@ final class PaymentClearingAccountService
         $canonicalProvider = $this->canonicalProvider($originalProvider);
         $normalized = strtoupper(substr(Str::slug($canonicalProvider, '_'), 0, 32));
 
-        if ($normalized === '') {
-            throw new \InvalidArgumentException('Le fournisseur de paiement est obligatoire.');
-        }
-
         return FinancialAccount::firstOrCreate(
             ['code' => 'ASSET:PAYMENT_PROVIDER:' . $normalized . ':COLLECTIONS'],
             [
@@ -60,8 +56,11 @@ final class PaymentClearingAccountService
         return match ($provider) {
             'momo', 'mtn', 'mtn_momo' => 'mtn_momo',
             'airtel', 'airtel_money' => 'airtel_money',
+            'paypal' => 'paypal',
             'cash', 'cod', 'demo' => 'cash',
-            default => $provider,
+            default => throw new \InvalidArgumentException(
+                'Unknown payment provider for financial mirror: ' . $provider
+            ),
         };
     }
 }
