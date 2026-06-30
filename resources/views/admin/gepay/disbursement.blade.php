@@ -36,10 +36,11 @@
 .v-prov:hover:not(.v-prov--off) { border-color:#9ca3af; }
 .v-prov.is-on  { border-color:var(--c-teal); box-shadow:0 0 0 3px rgba(2,132,199,.12); }
 .v-prov--off   { opacity:.4; cursor:not-allowed; }
-.v-picon { width:38px; height:38px; border-radius:10px; flex-shrink:0; display:flex; align-items:center; justify-content:center; font-size:.85rem; font-weight:900; }
-.v-picon--mtn  { background:var(--mtn); color:#0a1710; }
-.v-picon--air  { background:var(--air); color:#fff; }
-.v-picon--card { background:#1a1a2e; color:#fff; }
+.v-picon { width:44px; height:44px; border-radius:10px; flex-shrink:0; overflow:hidden; display:flex; align-items:center; justify-content:center; }
+.v-picon img  { width:100%; height:100%; object-fit:cover; display:block; }
+.v-picon--mtn  { background:var(--mtn); }
+.v-picon--air  { background:var(--air); }
+.v-picon--card { background:#f8fafc; border:1px solid var(--c-bd); }
 .v-pname { font-size:.78rem; font-weight:800; color:var(--c-txt); }
 .v-psub  { font-size:.62rem; color:var(--c-mt); }
 .v-pbadge { position:absolute; top:.55rem; right:.65rem; font-size:.5rem; font-weight:800; letter-spacing:.06em; text-transform:uppercase; padding:.15rem .4rem; border-radius:999px; }
@@ -197,19 +198,25 @@ tr.re .v-rn{background:var(--c-red);color:#fff;}
 
 <div class="v-provs">
     <div class="v-prov is-on" data-prov="mtn_momo" onclick="selP(this)">
-        <div class="v-picon v-picon--mtn">M</div>
+        <div class="v-picon v-picon--mtn">
+            <img src="{{ asset('img/logos/mtn.png') }}" alt="MTN MoMo">
+        </div>
         <div><div class="v-pname">MTN MoMo</div><div class="v-psub">Mobile money Congo</div></div>
         <span class="v-pbadge v-badge--live">Actif</span>
         <span class="v-pchk"><i class="fa fa-check"></i></span>
     </div>
     <div class="v-prov v-prov--off" data-prov="airtel">
-        <div class="v-picon v-picon--air">A</div>
+        <div class="v-picon v-picon--air">
+            <img src="{{ asset('img/logos/airtel.jpg') }}" alt="Airtel Money">
+        </div>
         <div><div class="v-pname">Airtel Money</div><div class="v-psub">Mobile money Congo</div></div>
         <span class="v-pbadge v-badge--soon">Bientôt</span>
         <span class="v-pchk"><i class="fa fa-check"></i></span>
     </div>
     <div class="v-prov v-prov--off" data-prov="card">
-        <div class="v-picon v-picon--card"><i class="fa fa-credit-card" style="font-size:.75rem"></i></div>
+        <div class="v-picon v-picon--card">
+            <img src="{{ asset('img/logos/cards.avif') }}" alt="Visa / Mastercard" style="object-fit:contain;padding:4px">
+        </div>
         <div><div class="v-pname">Carte bancaire</div><div class="v-psub">Visa · Mastercard</div></div>
         <span class="v-pbadge v-badge--soon">Bientôt</span>
         <span class="v-pchk"><i class="fa fa-check"></i></span>
