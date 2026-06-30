@@ -49,7 +49,7 @@ final class PaymentCollectionMirrorService
         try {
             $this->assertPaid($payment);
 
-            if (strtolower(trim((string) $payment->provider)) === 'cash') {
+            if ($this->isCashProvider((string) $payment->provider)) {
                 $event->update([
                     'status' => 'skipped',
                     'last_error' => 'Cash collections require the dedicated cash collection workflow.',
@@ -59,13 +59,16 @@ final class PaymentCollectionMirrorService
                 return $event->fresh();
             }
 
+            $accountProvider = $this->accountProvider($payment);
             $receipt = $this->ledger->recordCollectedPayment(new CollectedPayment(
                 paymentId: (int) $payment->id,
                 amount: $this->integerAmount($payment->amount),
                 currency: (string) $payment->currency,
-                provider: (string) $payment->provider,
+                provider: $accountProvider,
                 providerReference: $payment->provider_reference,
-                metadata: $this->snapshot($payment),
+                metadata: array_replace($this->snapshot($payment), [
+                    'collection_route' => $accountProvider,
+                ]),
             ));
 
             $event->update([
@@ -103,6 +106,24 @@ final class PaymentCollectionMirrorService
         if (trim((string) $payment->provider) === '') {
             throw new \DomainException('The payment provider is missing.');
         }
+    }
+
+    private function accountProvider(Payment $payment): string
+    {
+        $provider = strtolower(trim((string) $payment->provider));
+        $hasGePayReference = trim((string) data_get($payment->meta, 'gepay.reference', '')) !== ''
+            || trim((string) data_get($payment->meta, 'gepay_reference', '')) !== '';
+
+        if ($hasGePayReference && in_array($provider, ['momo', 'mtn', 'mtn_momo'], true)) {
+            return 'gepay_mtn';
+        }
+
+        return $provider;
+    }
+
+    private function isCashProvider(string $provider): bool
+    {
+        return in_array(strtolower(trim($provider)), ['cash', 'cod', 'demo'], true);
     }
 
     private function integerAmount(mixed $amount): int
