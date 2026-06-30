@@ -22,6 +22,8 @@ final class PaymentCollectionReadinessAuditService
             'online_amount' => 0,
             'cash_count' => 0,
             'cash_amount' => 0,
+            'unclassified_count' => 0,
+            'unclassified_amount' => 0,
             'eligible_online_count' => 0,
             'eligible_online_amount' => 0,
             'already_posted_count' => 0,
@@ -53,6 +55,7 @@ final class PaymentCollectionReadinessAuditService
         $samples = [];
         $blockedPaymentIds = [];
         $references = [];
+        $eligiblePayments = [];
 
         $query = Payment::query()
             ->where('status', 'PAID')
@@ -70,6 +73,7 @@ final class PaymentCollectionReadinessAuditService
             &$samples,
             &$blockedPaymentIds,
             &$references,
+            &$eligiblePayments,
             $sampleLimit
         ): void {
             $mirrorEvents = FinancialMirrorEvent::query()
@@ -119,9 +123,12 @@ final class PaymentCollectionReadinessAuditService
                 if ($route === 'cash') {
                     $summary['cash_count']++;
                     $summary['cash_amount'] += $amount ?? 0;
-                } else {
+                } elseif ($route !== null) {
                     $summary['online_count']++;
                     $summary['online_amount'] += $amount ?? 0;
+                } else {
+                    $summary['unclassified_count']++;
+                    $summary['unclassified_amount'] += $amount ?? 0;
                 }
 
                 if ($route !== null) {
@@ -153,6 +160,10 @@ final class PaymentCollectionReadinessAuditService
                     && $paymentBlockers === [];
 
                 if ($eligible) {
+                    $eligiblePayments[$paymentId] = [
+                        'amount' => $amount ?? 0,
+                        'mirror_status' => $mirrorStatus,
+                    ];
                     $summary['eligible_online_count']++;
                     $summary['eligible_online_amount'] += $amount ?? 0;
                     if ($mirrorStatus === 'posted') {
@@ -178,6 +189,8 @@ final class PaymentCollectionReadinessAuditService
         });
 
         $duplicateReferences = [];
+        $duplicatePaymentIds = [];
+
         foreach ($references as $referenceKey => $paymentIds) {
             $paymentIds = array_values(array_unique($paymentIds));
             if (count($paymentIds) < 2) {
@@ -191,10 +204,28 @@ final class PaymentCollectionReadinessAuditService
                 'payment_ids' => $paymentIds,
             ];
             $summary['duplicate_reference_groups']++;
-            $blockers['duplicate_provider_reference'] += count($paymentIds);
 
             foreach ($paymentIds as $paymentId) {
+                $duplicatePaymentIds[$paymentId] = true;
                 $blockedPaymentIds[$paymentId] = true;
+            }
+        }
+
+        $blockers['duplicate_provider_reference'] = count($duplicatePaymentIds);
+
+        foreach (array_keys($duplicatePaymentIds) as $paymentId) {
+            if (! isset($eligiblePayments[$paymentId])) {
+                continue;
+            }
+
+            $eligible = $eligiblePayments[$paymentId];
+            $summary['eligible_online_count']--;
+            $summary['eligible_online_amount'] -= $eligible['amount'];
+
+            if ($eligible['mirror_status'] === 'posted') {
+                $summary['already_posted_count']--;
+            } else {
+                $summary['unmirrored_eligible_count']--;
             }
         }
 
