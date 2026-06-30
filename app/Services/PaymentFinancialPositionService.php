@@ -13,27 +13,51 @@ class PaymentFinancialPositionService
             return $this->emptySummary();
         }
 
-        $confirmedPayments = DB::table('payments')
+        $capturedPayments = DB::table('payments')
             ->whereNull('deleted_at')
             ->where(function ($query) {
-                $query->where('business_status', 'confirmed')
-                    ->orWhere(function ($legacy) {
-                        $legacy->whereNull('business_status')->where('status', 'PAID');
-                    });
+                $query->whereIn('business_status', [
+                    'confirmed',
+                    'partially_refunded',
+                    'refunded',
+                    'disputed',
+                ])->orWhere(function ($legacy) {
+                    $legacy->whereNull('business_status')->where('status', 'PAID');
+                });
             });
 
-        $confirmedAmount = (int) (clone $confirmedPayments)->sum('amount');
-        $confirmedCount = (int) (clone $confirmedPayments)->count();
+        $capturedGross = (int) (clone $capturedPayments)->sum('amount');
+        $capturedCount = (int) (clone $capturedPayments)->count();
+
+        $refundedAmount = Schema::hasTable('payment_refunds')
+            ? (int) DB::table('payment_refunds')->where('status', 'refunded')->sum('amount')
+            : (int) DB::table('payments')
+                ->whereNull('deleted_at')
+                ->where('business_status', 'refunded')
+                ->sum('amount');
+
+        $committedRefunds = Schema::hasTable('payment_refunds')
+            ? (int) DB::table('payment_refunds')
+                ->whereIn('status', ['requested', 'approved', 'submitted', 'pending', 'unknown'])
+                ->sum('amount')
+            : 0;
+
+        $netCaptured = max(0, $capturedGross - $refundedAmount);
 
         $allocatedAmount = Schema::hasTable('payment_allocations')
             ? (int) DB::table('payment_allocations')
                 ->join('payments', 'payments.id', '=', 'payment_allocations.payment_id')
                 ->where('payment_allocations.status', 'active')
+                ->whereNull('payments.deleted_at')
                 ->where(function ($query) {
-                    $query->where('payments.business_status', 'confirmed')
-                        ->orWhere(function ($legacy) {
-                            $legacy->whereNull('payments.business_status')->where('payments.status', 'PAID');
-                        });
+                    $query->whereIn('payments.business_status', [
+                        'confirmed',
+                        'partially_refunded',
+                        'refunded',
+                        'disputed',
+                    ])->orWhere(function ($legacy) {
+                        $legacy->whereNull('payments.business_status')->where('payments.status', 'PAID');
+                    });
                 })
                 ->sum('payment_allocations.amount')
             : 0;
@@ -53,9 +77,9 @@ class PaymentFinancialPositionService
             ->where('business_status', 'reversed')
             ->sum('amount');
 
-        $refundedAmount = (int) DB::table('payments')
+        $disputedAmount = (int) DB::table('payments')
             ->whereNull('deleted_at')
-            ->where('business_status', 'refunded')
+            ->where('business_status', 'disputed')
             ->sum('amount');
 
         $reservedWithdrawals = Schema::hasTable('partner_withdrawals')
@@ -81,22 +105,37 @@ class PaymentFinancialPositionService
                 ->sum(fn ($case) => abs((int) $case->expected_amount - (int) $case->observed_amount))
             : 0;
 
+        $unallocated = max(0, $netCaptured - $allocatedAmount);
+        $overallocated = max(0, $allocatedAmount - $netCaptured);
+
         return [
+            'captured' => [
+                'count' => $capturedCount,
+                'gross' => $capturedGross,
+                'refunded' => $refundedAmount,
+                'net' => $netCaptured,
+            ],
             'confirmed' => [
-                'count' => $confirmedCount,
-                'amount' => $confirmedAmount,
+                'count' => $capturedCount,
+                'amount' => $netCaptured,
             ],
             'allocation' => [
                 'allocated' => $allocatedAmount,
-                'unallocated' => max(0, $confirmedAmount - $allocatedAmount),
-                'coverage_rate' => $confirmedAmount > 0
-                    ? round(($allocatedAmount / $confirmedAmount) * 100, 2)
+                'unallocated' => $unallocated,
+                'overallocated' => $overallocated,
+                'coverage_rate' => $netCaptured > 0
+                    ? round(($allocatedAmount / $netCaptured) * 100, 2)
                     : 0.0,
+            ],
+            'refunds' => [
+                'committed' => $committedRefunds,
+                'refunded' => $refundedAmount,
             ],
             'exceptions' => [
                 'unknown_amount' => $unknownAmount,
                 'reversed_amount' => $reversedAmount,
-                'refunded_amount' => $refundedAmount,
+                'disputed_amount' => $disputedAmount,
+                'overallocated_amount' => $overallocated,
                 'open_cases' => $openCases,
                 'amount_mismatch' => $amountMismatch,
             ],
@@ -112,12 +151,20 @@ class PaymentFinancialPositionService
     private function emptySummary(): array
     {
         return [
+            'captured' => ['count' => 0, 'gross' => 0, 'refunded' => 0, 'net' => 0],
             'confirmed' => ['count' => 0, 'amount' => 0],
-            'allocation' => ['allocated' => 0, 'unallocated' => 0, 'coverage_rate' => 0.0],
+            'allocation' => [
+                'allocated' => 0,
+                'unallocated' => 0,
+                'overallocated' => 0,
+                'coverage_rate' => 0.0,
+            ],
+            'refunds' => ['committed' => 0, 'refunded' => 0],
             'exceptions' => [
                 'unknown_amount' => 0,
                 'reversed_amount' => 0,
-                'refunded_amount' => 0,
+                'disputed_amount' => 0,
+                'overallocated_amount' => 0,
                 'open_cases' => 0,
                 'amount_mismatch' => 0,
             ],
