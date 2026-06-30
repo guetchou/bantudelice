@@ -2,6 +2,7 @@
 
 namespace App\Domain\Finance\Services;
 
+use App\Domain\Finance\Data\CollectedPayment;
 use App\Domain\Finance\Models\FinancialAccount;
 
 final class FinancialLedgerService
@@ -10,6 +11,7 @@ final class FinancialLedgerService
         private readonly LedgerPostingService $postings,
         private readonly FinancialAccountService $accounts,
         private readonly CollectionLedgerService $collections,
+        private readonly PaymentCollectionLedgerService $paymentCollections,
         private readonly WithdrawalLedgerService $withdrawals,
     ) {
     }
@@ -45,6 +47,11 @@ final class FinancialLedgerService
                 'reserved' => $accounts['reserved']->code,
             ],
         ];
+    }
+
+    public function recordCollectedPayment(CollectedPayment $payment): array
+    {
+        return $this->paymentCollections->record($payment);
     }
 
     public function recordCollectionDistribution(
