@@ -41,33 +41,23 @@ return new class extends Migration
             $table->index(['payment_id', 'status']);
         });
 
-        Schema::create('financial_ledger_entries', function (Blueprint $table) {
-            $table->id();
-            $table->uuid('uuid')->unique();
-            $table->string('account_type', 40);
-            $table->unsignedBigInteger('account_id')->nullable();
-            $table->string('entry_type', 50);
-            $table->string('direction', 10);
-            $table->string('state', 20)->default('posted');
-            $table->unsignedBigInteger('amount');
-            $table->char('currency', 3)->default('XAF');
-            $table->string('source_type', 60);
-            $table->unsignedBigInteger('source_id')->nullable();
-            $table->string('reference', 150)->nullable();
-            $table->string('idempotency_key', 180)->unique();
-            $table->unsignedBigInteger('related_entry_id')->nullable();
-            $table->timestamp('effective_at');
-            $table->unsignedBigInteger('created_by')->nullable();
-            $table->json('metadata')->nullable();
-            $table->timestamps();
+        Schema::table('financial_ledger_entries', function (Blueprint $table) {
+            $table->uuid('uuid')->nullable()->unique()->after('id');
+            $table->string('account_type', 40)->nullable()->after('module');
+            $table->unsignedBigInteger('account_id')->nullable()->after('account_type');
+            $table->string('source_type', 60)->nullable()->after('payment_id');
+            $table->unsignedBigInteger('source_id')->nullable()->after('source_type');
+            $table->string('idempotency_key', 180)->nullable()->unique()->after('reference');
+            $table->unsignedBigInteger('related_entry_id')->nullable()->after('idempotency_key');
+            $table->timestamp('effective_at')->nullable()->after('related_entry_id');
+            $table->unsignedBigInteger('created_by')->nullable()->after('actor_id');
 
             $table->foreign('related_entry_id')
                 ->references('id')
                 ->on('financial_ledger_entries')
                 ->onDelete('restrict');
-            $table->index(['account_type', 'account_id', 'state']);
-            $table->index(['source_type', 'source_id']);
-            $table->index(['entry_type', 'effective_at']);
+            $table->index(['account_type', 'account_id', 'status'], 'ledger_account_status_idx');
+            $table->index(['source_type', 'source_id'], 'ledger_source_idx');
         });
 
         Schema::create('payment_reconciliation_cases', function (Blueprint $table) {
@@ -100,7 +90,26 @@ return new class extends Migration
     public function down(): void
     {
         Schema::dropIfExists('payment_reconciliation_cases');
-        Schema::dropIfExists('financial_ledger_entries');
+
+        Schema::table('financial_ledger_entries', function (Blueprint $table) {
+            $table->dropForeign(['related_entry_id']);
+            $table->dropIndex('ledger_account_status_idx');
+            $table->dropIndex('ledger_source_idx');
+            $table->dropUnique(['uuid']);
+            $table->dropUnique(['idempotency_key']);
+            $table->dropColumn([
+                'uuid',
+                'account_type',
+                'account_id',
+                'source_type',
+                'source_id',
+                'idempotency_key',
+                'related_entry_id',
+                'effective_at',
+                'created_by',
+            ]);
+        });
+
         Schema::dropIfExists('payment_allocations');
 
         Schema::table('payments', function (Blueprint $table) {
