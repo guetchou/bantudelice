@@ -85,6 +85,25 @@ return new class extends Migration
             $table->index(['source_type', 'source_id'], 'ledger_source_idx');
         });
 
+        Schema::create('financial_state_transitions', function (Blueprint $table) {
+            $table->id();
+            $table->uuid('uuid')->unique();
+            $table->string('subject_type', 50);
+            $table->unsignedBigInteger('subject_id');
+            $table->string('from_status', 40)->nullable();
+            $table->string('to_status', 40);
+            $table->string('source', 40)->default('system');
+            $table->text('reason')->nullable();
+            $table->unsignedBigInteger('actor_id')->nullable();
+            $table->string('idempotency_key', 180)->nullable()->unique();
+            $table->timestamp('occurred_at');
+            $table->json('context')->nullable();
+            $table->timestamps();
+
+            $table->index(['subject_type', 'subject_id', 'occurred_at'], 'financial_transition_subject_idx');
+            $table->index(['to_status', 'occurred_at'], 'financial_transition_status_idx');
+        });
+
         Schema::create('payment_reconciliation_cases', function (Blueprint $table) {
             $table->id();
             $table->uuid('uuid')->unique();
@@ -115,6 +134,7 @@ return new class extends Migration
     public function down(): void
     {
         Schema::dropIfExists('payment_reconciliation_cases');
+        Schema::dropIfExists('financial_state_transitions');
 
         Schema::table('financial_ledger_entries', function (Blueprint $table) {
             $table->dropForeign(['related_entry_id']);
