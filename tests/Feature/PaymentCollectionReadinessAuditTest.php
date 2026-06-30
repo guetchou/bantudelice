@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Domain\Finance\Models\FinancialMirrorEvent;
+use App\Domain\Finance\Services\LedgerPostingService;
+use App\Domain\Finance\Services\PaymentClearingAccountService;
 use App\Domain\Finance\Services\PaymentCollectionMirrorService;
 use App\Domain\Finance\Services\PaymentCollectionReadinessAuditService;
 use App\Payment;
@@ -69,6 +71,46 @@ final class PaymentCollectionReadinessAuditTest extends TestCase
         $this->assertFalse($result['summary']['ready_for_activation']);
     }
 
+    public function test_posted_batch_with_wrong_amount_is_blocked(): void
+    {
+        $payment = $this->payment([
+            'provider' => 'paypal',
+            'provider_reference' => 'PAYPAL-WRONG-AMOUNT-1',
+            'amount' => 2500,
+        ]);
+        $accounts = app(PaymentClearingAccountService::class);
+        $posting = app(LedgerPostingService::class)->postBatch(
+            'payment_collection_received',
+            'payment:' . $payment->id . ':collection-received:v1',
+            [
+                [
+                    'account' => $accounts->providerCollections('paypal'),
+                    'direction' => 'debit',
+                    'amount' => 2000,
+                    'currency' => 'XAF',
+                ],
+                [
+                    'account' => $accounts->paymentClearing(),
+                    'direction' => 'credit',
+                    'amount' => 2000,
+                    'currency' => 'XAF',
+                ],
+            ],
+            [
+                'source_type' => 'payment',
+                'source_id' => $payment->id,
+            ]
+        );
+        $this->mirrorEvent($payment, 'posted', (string) $posting['batch']->uuid);
+
+        $result = app(PaymentCollectionReadinessAuditService::class)->audit();
+
+        $this->assertSame(1, $result['blockers']['posted_mirror_invalid_batch']);
+        $this->assertSame(1, $result['summary']['blocked_payment_count']);
+        $this->assertSame(0, $result['summary']['already_posted_count']);
+        $this->assertFalse($result['summary']['ready_for_activation']);
+    }
+
     public function test_duplicate_mtn_reference_is_not_eligible(): void
     {
         $this->payment(['provider' => 'momo', 'provider_reference' => 'DUP-1']);
@@ -99,8 +141,11 @@ final class PaymentCollectionReadinessAuditTest extends TestCase
         ], $overrides));
     }
 
-    private function mirrorEvent(Payment $payment, string $status): FinancialMirrorEvent
-    {
+    private function mirrorEvent(
+        Payment $payment,
+        string $status,
+        ?string $postingBatchUuid = null
+    ): FinancialMirrorEvent {
         return FinancialMirrorEvent::create([
             'uuid' => (string) Str::uuid(),
             'event_key' => 'payment:' . $payment->id . ':collection-received:v1',
@@ -110,7 +155,8 @@ final class PaymentCollectionReadinessAuditTest extends TestCase
             'status' => $status,
             'attempts' => 1,
             'payload' => ['payment_id' => $payment->id],
-            'posting_batch_uuid' => $status === 'posted' ? (string) Str::uuid() : null,
+            'posting_batch_uuid' => $postingBatchUuid
+                ?? ($status === 'posted' ? (string) Str::uuid() : null),
             'processed_at' => $status === 'posted' ? now() : null,
         ]);
     }
