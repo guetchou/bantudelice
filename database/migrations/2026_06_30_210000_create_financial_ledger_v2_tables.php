@@ -35,6 +35,7 @@ return new class extends Migration
             $table->string('source_type', 80)->nullable()->index();
             $table->unsignedBigInteger('source_id')->nullable()->index();
             $table->string('idempotency_key', 190)->unique();
+            $table->char('payload_hash', 64)->index();
             $table->string('status', 20)->default('posted')->index();
             $table->unsignedBigInteger('reversal_of_batch_id')->nullable()->index();
             $table->timestamp('effective_at')->index();
