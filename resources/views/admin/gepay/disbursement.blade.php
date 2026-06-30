@@ -324,6 +324,7 @@ var eb=document.getElementById('vEbar'),et=document.getElementById('vEtxt');
 var ovl=document.getElementById('vOvl');
 
 function fmt(n){return Number(n||0).toLocaleString('fr-FR');}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
 
 function reindex(){
     var n=rows.length,tot=rows.reduce(function(s,r){return s+(parseInt(r.amount)||0);},0);
@@ -344,15 +345,21 @@ window.addRow=function(d){
     var tr=document.createElement('tr');
     tr.dataset.rid=id;
     tr.innerHTML='<td><span class="v-rn">'+(rows.length)+'</span></td>'
-        +'<td><input class="v-inp" placeholder="Nom" data-f="name" value="'+(d&&d.name||'')+'"></td>'
-        +'<td><input class="v-inp" placeholder="06x xxx xxx" data-f="phone" value="'+(d&&d.phone||'')+'"></td>'
-        +'<td><input class="v-inp v-inp--r" placeholder="0" type="number" min="100" data-f="amount" value="'+(d&&d.amount||'')+'"></td>'
+        +'<td><input class="v-inp" placeholder="Nom" data-f="name"></td>'
+        +'<td><input class="v-inp" placeholder="06x xxx xxx" data-f="phone"></td>'
+        +'<td><input class="v-inp v-inp--r" placeholder="0" type="number" min="100" data-f="amount"></td>'
         +'<td><button class="v-rdel" onclick="delRow('+id+')" tabindex="-1"><i class="fa fa-xmark"></i></button></td>';
+    /* assign values via property (never parsed as HTML) */
+    if(d){
+        tr.querySelector('[data-f="name"]').value   = d.name   || '';
+        tr.querySelector('[data-f="phone"]').value  = d.phone  || '';
+        tr.querySelector('[data-f="amount"]').value = d.amount || '';
+        r.name=d.name||''; r.phone=d.phone||''; r.amount=d.amount||'';
+    }
     tr.querySelectorAll('[data-f]').forEach(function(inp){
         inp.addEventListener('input',function(){r[inp.dataset.f]=inp.value;reindex();});
     });
     tb.appendChild(tr);
-    if(d){r.name=d.name||'';r.phone=d.phone||'';r.amount=d.amount||'';}
     reindex();
     setTimeout(function(){tr.querySelector('[data-f="name"]').focus();},0);
 };
@@ -427,8 +434,8 @@ sb.addEventListener('click',function(){
         else{
             bErr();
             tb.querySelectorAll('input').forEach(function(i){i.disabled=false;});
-            var h='';results.filter(function(r){return !r.success;}).forEach(function(r){h+='<div>'+r.name+' — '+(r.message||'Échec')+'</div>';});
-            et.innerHTML=h||(data.message||'Échec');eb.classList.add('on');
+            var h='';results.filter(function(r){return !r.success;}).forEach(function(r){h+='<div>'+esc(r.name)+' — '+esc(r.message||'Échec')+'</div>';});
+            et.innerHTML=h||esc(data.message||'Échec');eb.classList.add('on');
             var p=document.getElementById('vPanel');
             p.classList.remove('v-shake');void p.offsetWidth;p.classList.add('v-shake');
             setTimeout(function(){p.classList.remove('v-shake');},500);
@@ -451,8 +458,8 @@ function showModal(batchId,results,allOk){
     document.getElementById('vMsub').textContent='Lot #'+(batchId||'—')+' · '+results.length+' destinataire'+(results.length>1?'s':'');
     var h='';
     results.forEach(function(r){
-        h+='<div class="v-mln v-mln--'+(r.success?'ok':'ko')+'"><i class="fa fa-'+(r.success?'circle-check':'circle-xmark')+'"></i><span>'+r.name+'</span><span class="v-mamt">'+(r.success&&r.amount?fmt(r.amount/100)+' FCFA':'')+'</span></div>';
-        if(!r.success&&r.message)h+='<div style="font-size:.61rem;color:var(--c-red);margin:-.1rem 0 .2rem 1.25rem">'+r.message+'</div>';
+        h+='<div class="v-mln v-mln--'+(r.success?'ok':'ko')+'"><i class="fa fa-'+(r.success?'circle-check':'circle-xmark')+'"></i><span>'+esc(r.name)+'</span><span class="v-mamt">'+(r.success&&r.amount?fmt(r.amount/100)+' FCFA':'')+'</span></div>';
+        if(!r.success&&r.message)h+='<div style="font-size:.61rem;color:var(--c-red);margin:-.1rem 0 .2rem 1.25rem">'+esc(r.message)+'</div>';
     });
     document.getElementById('vMlns').innerHTML=h;
     ovl.classList.add('on');
