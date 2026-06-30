@@ -64,10 +64,11 @@ class PaymentAllocationService
                 throw new \DomainException('Seul un paiement confirmé peut être affecté.');
             }
 
-            $alreadyAllocated = (int) PaymentAllocation::where('payment_id', $lockedPayment->id)
+            $allocations = PaymentAllocation::where('payment_id', $lockedPayment->id)
                 ->where('status', 'active')
                 ->lockForUpdate()
-                ->sum('amount');
+                ->get();
+            $alreadyAllocated = (int) $allocations->sum('amount');
 
             if ($alreadyAllocated + $amount > (int) $lockedPayment->amount) {
                 throw new \DomainException('Le montant affecté dépasse le montant confirmé du paiement.');
