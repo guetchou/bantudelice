@@ -33,7 +33,7 @@ class GePayDisbursementController extends Controller
     public function disburse(Request $request): JsonResponse
     {
         $data = $request->validate([
-            'recipients'                => ['required', 'array', 'min:1', 'max:3'],
+            'recipients'                => ['required', 'array', 'min:1', 'max:500'],
             'recipients.*.name'         => ['required', 'string', 'max:191'],
             'recipients.*.phone'        => ['required', 'string', 'max:30'],
             'recipients.*.amount'       => ['required', 'integer', 'min:100', 'max:2000000000'],
