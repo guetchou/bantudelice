@@ -12,12 +12,13 @@ class PaymentBusinessStateService
         'pending' => ['authorized', 'confirmed', 'failed', 'cancelled', 'expired', 'unknown'],
         'authorized' => ['confirmed', 'failed', 'cancelled', 'expired', 'unknown'],
         'unknown' => ['pending', 'confirmed', 'failed', 'reversed'],
-        'confirmed' => ['refunded', 'reversed', 'disputed'],
-        'disputed' => ['confirmed', 'refunded', 'reversed'],
+        'confirmed' => ['partially_refunded', 'refunded', 'reversed', 'disputed'],
+        'partially_refunded' => ['confirmed', 'refunded', 'reversed', 'disputed'],
+        'disputed' => ['confirmed', 'partially_refunded', 'refunded', 'reversed'],
+        'refunded' => ['confirmed', 'partially_refunded'],
         'failed' => [],
         'cancelled' => [],
         'expired' => [],
-        'refunded' => [],
         'reversed' => [],
     ];
 
@@ -61,7 +62,7 @@ class PaymentBusinessStateService
                 'confirmed' => 'confirmed_at',
                 'failed' => 'failed_at',
                 'reversed' => 'reversed_at',
-                'refunded' => 'refunded_at',
+                'partially_refunded', 'refunded' => 'refunded_at',
                 default => null,
             };
 
@@ -87,7 +88,7 @@ class PaymentBusinessStateService
     {
         return match ($businessStatus) {
             'authorized' => 'AUTHORIZED',
-            'confirmed', 'refunded', 'reversed', 'disputed' => 'PAID',
+            'confirmed', 'partially_refunded', 'refunded', 'reversed', 'disputed' => 'PAID',
             'failed', 'expired' => 'FAILED',
             'cancelled' => 'CANCELLED',
             default => 'PENDING',
