@@ -4,7 +4,8 @@ on:
   pull_request:
     paths:
       - 'app/Domain/Finance/**'
-      - 'app/Console/Commands/ProvisionFinancialAccounts.php'
+      - 'app/Console/Commands/*Financial*.php'
+      - 'app/Console/Commands/*PartnerFinancial*.php'
       - 'config/financial-ledger.php'
       - 'database/migrations/*financial_ledger_v2*'
       - 'tests/Feature/FinancialLedgerServiceTest.php'
@@ -59,6 +60,7 @@ jobs:
         run: |
           find app/Domain/Finance -name '*.php' -print0 | xargs -0 -n1 php -l
           php -l app/Console/Commands/ProvisionFinancialAccounts.php
+          php -l app/Console/Commands/AuditPartnerFinancialPositions.php
           php -l database/migrations/2026_06_30_210000_create_financial_ledger_v2_tables.php
           php -l tests/Feature/FinancialLedgerServiceTest.php
 
