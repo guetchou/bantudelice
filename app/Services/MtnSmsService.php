@@ -135,14 +135,30 @@ class MtnSmsService
     {
         $data = $response->json() ?: [];
         $apiStatus = (string) ($data['status'] ?? $response->status());
-        $success = $response->successful() && in_array($apiStatus, ['200', '201'], true);
+        $result = trim((string) ($data['resultat'] ?? ''));
+        $messageId = isset($data['id']) && $data['id'] !== '' ? (string) $data['id'] : null;
+
+        $businessError = $result !== '' && preg_match(
+            '/credit insuffisant|crédit insuffisant|erreur|echec|échec|refus|rejet|invalide|incorrect/i',
+            $result
+        );
+
+        $success = $response->successful()
+            && in_array($apiStatus, ['200', '201'], true)
+            && $messageId !== null
+            && !$businessError;
 
         if (!$success) {
-            $error = $data['detail'] ?? $data['resultat'] ?? $response->body() ?: 'Erreur MTN Tinda';
+            $error = $data['detail']
+                ?? ($result !== '' ? $result : null)
+                ?? $response->body()
+                ?: 'Réponse MTN Tinda sans identifiant de message';
+
             Log::warning('[MTN Tinda SMS] Envoi refusé', [
                 'http_status' => $response->status(),
                 'api_status' => $apiStatus,
                 'error' => $error,
+                'message_id' => $messageId,
                 'receivers_count' => count($receivers),
             ]);
 
@@ -150,17 +166,17 @@ class MtnSmsService
         }
 
         Log::info('[MTN Tinda SMS] Envoi accepté', [
-            'message_id' => isset($data['id']) ? (string) $data['id'] : null,
+            'message_id' => $messageId,
             'receivers_count' => count($receivers),
             'api_status' => $apiStatus,
         ]);
 
         return [
             'success' => true,
-            'message_id' => isset($data['id']) ? (string) $data['id'] : null,
+            'message_id' => $messageId,
             'provider' => 'mtn_tinda',
             'status' => $apiStatus,
-            'result' => $data['resultat'] ?? null,
+            'result' => $result,
             'error' => null,
         ];
     }
