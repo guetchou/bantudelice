@@ -4,7 +4,7 @@
 **Date :** 2026-07-01  
 **Décideur :** guetchou  
 **Domaine :** GePay — passerelle de paiement multi-tenant  
-**Révision :** 4 (patch bloquants PRD v1.2)
+**Révision :** 4.1 (patch bloquants ADR v4)
 
 ---
 
@@ -35,14 +35,17 @@ Routes : groupe subdomain `gepay.bantudelice.cg`, fichier `routes/gepay-web.php`
 | Table | `gepay_merchant_users` |
 | Cookie nom | distinct du cookie BantuDelice |
 | Cookie flags | `Secure`, `HttpOnly`, `SameSite=Strict` |
-| Cookie domaine | `gepay.bantudelice.cg` (host-only — pas de point préfixe) |
+| Cookie domaine | **aucun attribut `Domain`** (host-only par omission) |
 | Inscription | fermée — comptes créés via `gepay:provision-user` uniquement |
 
 `GePayMerchantUser` est **séparé** de `App\User`. Aucune relation entre les deux.
 
-Cookie host-only : en fixant `Domain=gepay.bantudelice.cg` sans point préfixe, le cookie
-est restreint exactement à ce sous-domaine et n'est pas envoyé à `bantudelice.cg` ni aux
-autres sous-domaines.
+**Cookie host-only :** un cookie est host-only si et seulement si l'attribut `Domain` est
+**totalement absent** de la réponse `Set-Cookie`. Présence de `Domain=gepay.bantudelice.cg`
+(avec ou sans point préfixe) rendrait le cookie partageable avec les sous-domaines selon
+l'implémentation navigateur — ce comportement est indésirable.  
+Sans `Domain`, le cookie est strictement lié à l'hôte `gepay.bantudelice.cg` qui l'a émis.  
+`Secure`, `HttpOnly` et `SameSite=Strict` restent obligatoires indépendamment.
 
 ### D3 — Scope marchand
 
@@ -134,16 +137,40 @@ Aucun contrôleur du portail n'appelle `GePayInternalClientResolver`.
 
 ### D10 — Idempotence des formulaires (`operation_token`)
 
-Pour chaque opération financière (Envoyer, Encaisser, Payout) :
+Pour chaque opération financière (Envoyer, Encaisser, Payout), un `operation_token`
+UUID est généré côté serveur à l'ouverture du formulaire (GET) et **persisté en base**
+dans `gepay_operation_tokens`.
 
-- À l'ouverture du formulaire (GET), le serveur génère un UUID `operation_token` et le stocke
-  en session lié à `(merchant_id, user_id, operation_type)`.
-- Le formulaire soumet ce token avec le payload.
-- **Même token + même payload** → résultat identique retourné, aucune double écriture.
-- **Même token + payload différent** → rejet 409 (conflit détecté).
-- **Token absent ou expiré** → rejet 422.
-- Token consommé après soumission réussie (invalidé en session).
+Table `gepay_operation_tokens` :
+```
+id               BIGINT UNSIGNED PK AUTO_INCREMENT
+token            CHAR(36) UNIQUE NOT NULL   -- UUID v4
+merchant_id      BIGINT UNSIGNED NOT NULL FK→gepay_merchants (RESTRICT)
+user_id          BIGINT UNSIGNED NOT NULL FK→gepay_merchant_users (RESTRICT)
+operation_type   ENUM('disbursement','collection','payout') NOT NULL
+request_hash     CHAR(64) NULL    -- SHA-256 du payload soumis (null avant soumission)
+operation_ref    VARCHAR(191) NULL -- référence de l'opération créée (uuid ou ext_ref)
+expires_at       TIMESTAMP NOT NULL  -- minimum now() + 24h
+created_at       TIMESTAMP NOT NULL
+used_at          TIMESTAMP NULL      -- horodatage de la première soumission aboutie
+
+INDEX (merchant_id, operation_type)
+INDEX (expires_at)
+```
+
+**Règles :**
 - `operation_token` ≠ token CSRF. Les deux sont requis simultanément.
+- **Première soumission** : `request_hash` calculé et stocké + `operation_ref` + `used_at`.
+- **Même token + même payload** (même `request_hash`) → retourne toujours la première
+  opération (`operation_ref`), aucune nouvelle écriture ledger.
+- **Même token + payload différent** (hash différent) → rejet 409.
+- **Token absent ou expiré** (`expires_at < now()`) → rejet 422.
+- **Token non consommé** après succès : il n'est **pas supprimé**. `used_at` est positionné,
+  le token reste lisible pour rejouer la réponse en cas de retry.
+- Le token sert de base à l'`idempotency_key` de l'écriture ledger et de la transaction ou
+  demande payout : `idempotency_key = "{operation_type}:{token}"`.
+- Conservation minimale : 24 h après `expires_at`. Un job de purge supprime les tokens
+  expirés depuis plus de 24 h (jamais de suppression avant expiration).
 
 ### D11 — Compensation technique vs remboursement métier
 
@@ -319,9 +346,12 @@ status                   ENUM('draft','submitted','processing',
                                'successful','failed','cancelled','expired')
                          NOT NULL DEFAULT 'draft'
 idempotency_key          VARCHAR(191) NOT NULL
+-- Lien vers la gepay_transaction d'exécution MTN (créée lors de processing→successful)
+execution_transaction_id BIGINT UNSIGNED NULL FK→gepay_transactions (RESTRICT)
+                         -- non null si et seulement si statut = successful
 -- Champs remplis lors du traitement admin GePay
 processed_by             VARCHAR(191) NULL    -- email admin GePay
-operator_reference       VARCHAR(191) NULL    -- référence opérateur MTN/banque
+operator_reference       VARCHAR(191) NULL    -- référence retournée par MTN après exécution
 rejection_reason         TEXT NULL
 processed_at             TIMESTAMP NULL
 expires_at               TIMESTAMP NULL
@@ -329,7 +359,22 @@ created_at, updated_at
 
 UNIQUE (merchant_id, idempotency_key)
 INDEX (merchant_id, status)
+INDEX (execution_transaction_id)
 ```
+
+**Exécution MTN d'un payout :**  
+La transition `processing → successful` appelle `GePayGateway::initiate()` avec
+`TransactionType::DISBURSEMENT` via `GePayMerchantClientResolver`. La destination complète
+est déchiffrée serveur, transmise au provider, jamais au navigateur. La `gepay_transaction`
+résultante est créée et son `id` stocké dans `execution_transaction_id`.
+
+`successful` est positionné **uniquement** après que la `gepay_transaction` d'exécution
+atteint le statut `successful` (confirmation webhook ou poll).  
+`failed` / `cancelled` / `expired` sont positionnés **uniquement** après résultat confirmé
+(webhook, poll ou SLA).  
+**`unknown`** : la `gepay_transaction` d'exécution est dans un état incertain. Les fonds
+restent dans `reserved`. `payout_release` est **interdit** tant que le résultat n'est pas
+confirmé. Aucune transition de statut payout avant résolution.
 
 ---
 
@@ -511,7 +556,10 @@ gepay_merchants (1)
 
 | Risque | Impact | Mitigation |
 |---|---|---|
-| `gepay_merchants.portal_client_id` nullable | Faible | Peuplé via seeder avant mise en service portail |
+| **FK circulaire** `gepay_merchants.portal_client_id` ↔ `gepay_clients.merchant_id` | Moyen | Créée en deux migrations séparées : (1) `gepay_merchants` sans `portal_client_id`, (2) `gepay_clients` avec `merchant_id NULL`, (3) migration dédiée ajoute `portal_client_id NULL` à `gepay_merchants`. `portal_client_id` reste nullable jusqu'au rattachement validé via seeder ou commande. Ne jamais créer les deux FK dans la même migration. |
+| `gepay_merchants.portal_client_id` nullable | Faible | Peuplé via seeder avant mise en service portail — jamais rendu NOT NULL avant rattachement validé |
+| `gepay_operation_tokens` table nouvelle | Faible — non-destructif | Purge job tokens expirés > 24 h |
+| `gepay_payout_requests.execution_transaction_id` nullable | Faible | NULL jusqu'à exécution MTN aboutie |
 | `gepay_merchant_users.is_active` DEFAULT TRUE | Faible — non-destructif | Migration séparée |
 | `gepay_clients` + `merchant_id` nullable | Faible | Reste nullable jusqu'à backfill validé |
 | `gepay_transactions` + `merchant_id` nullable | Faible | Idem |
@@ -557,7 +605,7 @@ AuthTest
   ✓ marchand status=suspended → 403 générique
   ✓ user is_active=false → 403 générique
   ✓ rate limiting → 6e tentative bloquée
-  ✓ cookie : Secure, HttpOnly, SameSite=Strict, domain=gepay.bantudelice.cg
+  ✓ cookie : Secure, HttpOnly, SameSite=Strict, attribut Domain absent (host-only)
   ✓ POST sans CSRF token → 419
 
 IsolationTest
@@ -574,11 +622,14 @@ ClientResolverTest
   ✓ client merchant_id ≠ authenticated merchant → exception
 
 OperationTokenTest
-  ✓ GET formulaire → operation_token généré en session
-  ✓ même token + même payload → résultat identique, 0 double écriture
-  ✓ même token + payload différent → 409
+  ✓ GET formulaire → operation_token persisté en DB (gepay_operation_tokens)
+  ✓ même token + même payload (même request_hash) → retourne operation_ref existant, 0 écriture ledger
+  ✓ même token + payload différent (hash différent) → 409
   ✓ token absent → 422
-  ✓ token ≠ CSRF token
+  ✓ token expiré (expires_at < now()) → 422
+  ✓ token non supprimé après succès — used_at positionné, relecture possible
+  ✓ idempotency_key ledger = "{type}:{token}"
+  ✓ token ≠ CSRF token (les deux requis simultanément)
 
 WalletTest
   ✓ available / pending / reserved cohérents avec ledger
@@ -653,7 +704,7 @@ LayoutTest
 - Compensation technique ≠ remboursement métier
 - `collection_pending` conditionnel à l'acceptation MTN
 - `unknown` sans compensation automatique
-- Cookie host-only `gepay.bantudelice.cg`
+- Cookie host-only : attribut `Domain` absent, `Secure` + `HttpOnly` + `SameSite=Strict`
 - Provisionnement utilisateurs via Artisan audité
 
 **Différées (Phase 2) :**
