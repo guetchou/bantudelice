@@ -2,118 +2,216 @@
 
 namespace App\Services;
 
-use Illuminate\Support\Facades\Cache;
+use Illuminate\Http\Client\Response;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
 
 class MtnSmsService
 {
-    private const TOKEN_CACHE_KEY = 'mtn_api_oauth_token';
-    // Endpoint officiel selon Swagger MTN MADAPI v1.1
-    private const OAUTH_URL       = 'https://api.mtn.com/v1/oauth/access_token';
-    private const SMS_URL         = 'https://api.mtn.com/v3/sms/messages/sms/outbound';
-
-    private function getToken(): string
-    {
-        return Cache::remember(self::TOKEN_CACHE_KEY, 1_200_000, function () {
-            $key    = config('external-services.notifications.mtn_sms.consumer_key');
-            $secret = config('external-services.notifications.mtn_sms.consumer_secret');
-
-            // Auth via formData (méthode officielle Swagger MTN MADAPI v1.1)
-            $response = Http::asForm()->post(
-                self::OAUTH_URL . '?grant_type=client_credentials',
-                [
-                    'client_id'     => $key,
-                    'client_secret' => $secret,
-                    'grant_type'    => 'client_credentials',
-                ]
-            );
-
-            if (!$response->ok()) {
-                Log::error('[MTN SMS] Auth failed', ['status' => $response->status(), 'body' => $response->body()]);
-                throw new \RuntimeException('MTN OAuth failed: ' . $response->body());
-            }
-
-            return $response->json('access_token');
-        });
-    }
-
     /**
-     * Envoyer un SMS via MTN SMS v3 API.
+     * Envoie un SMS via la plateforme Tinda de MTN Congo.
      *
-     * @param  string|array  $to       Numéro(s) +242...
-     * @param  string        $message
-     * @return array  ['success' => bool, 'transactionId' => string|null, 'error' => string|null]
+     * @param  string|array<int,string>  $to
+     * @return array{success:bool,message_id:?string,provider:string,error?:string,status?:string,result?:mixed}
      */
-    public function sendSms(string|array $to, string $message): array
+    public function sendSms(string|array $to, string $message, array $options = []): array
     {
-        if (!config('external-services.notifications.mtn_sms.enabled', false)) {
-            Log::info('[MTN SMS] Désactivé', compact('to'));
-            return ['success' => false, 'error' => 'MTN SMS désactivé'];
+        $config = config('external-services.notifications.mtn_sms', []);
+
+        if (!($config['enabled'] ?? false)) {
+            return $this->failure('MTN Tinda SMS désactivé');
         }
 
-        $sender  = config('external-services.notifications.mtn_sms.sender_id', 'BantuDelice');
-        $numbers = is_array($to) ? $to : [$to];
+        if (blank($config['token'] ?? null)) {
+            return $this->failure('MTN_TINDA_TOKEN non configuré');
+        }
+
+        $receivers = collect(is_array($to) ? $to : [$to])
+            ->map(fn (string $number) => $this->normalizeReceiver($number))
+            ->filter()
+            ->unique()
+            ->values();
+
+        if ($receivers->isEmpty()) {
+            return $this->failure('Aucun numéro destinataire valide');
+        }
+
+        if ($receivers->count() > 1000) {
+            return $this->failure('La plateforme Tinda accepte au maximum 1000 destinataires par requête');
+        }
+
+        $payload = array_filter([
+            'msg' => $message,
+            'sender' => $options['sender'] ?? $config['sender_id'] ?? 'BantuDelice',
+            'receivers' => $receivers->implode(','),
+            'date_envois' => $options['date_envois'] ?? null,
+            'externalId' => $options['external_id'] ?? $this->makeExternalId(),
+            'callback_url' => $options['callback_url'] ?? $config['callback_url'] ?? null,
+            'email' => $options['email'] ?? null,
+            'msg_mail' => $options['msg_mail'] ?? null,
+            'objet_mail' => $options['objet_mail'] ?? null,
+        ], static fn ($value) => $value !== null && $value !== '');
 
         try {
-            $token = $this->getToken();
+            $response = $this->client($config)->post($config['api_url'], $payload);
 
-            $response = Http::withHeaders([
-                'Authorization' => "Bearer {$token}",
-                'Content-Type'  => 'application/json',
-                'Accept'        => 'application/json',
-            ])->post(self::SMS_URL, [
-                'senderAddress'   => $sender,
-                'receiverAddress' => $numbers,
-                'message'         => $message,
-                'serviceCode'     => '',
+            return $this->parseSendResponse($response, $receivers->all());
+        } catch (\Throwable $e) {
+            Log::error('[MTN Tinda SMS] Exception d’envoi', [
+                'error' => $e->getMessage(),
+                'receivers_count' => $receivers->count(),
             ]);
 
-            $data = $response->json();
+            return $this->failure($e->getMessage());
+        }
+    }
 
-            if (!$response->ok() || ($data['statusCode'] ?? 0) !== 200) {
-                // Token expiré → vider le cache et réessayer une fois
-                if (($data['statusCode'] ?? 0) === 4000) {
-                    Cache::forget(self::TOKEN_CACHE_KEY);
-                }
-                Log::warning('[MTN SMS] Envoi échoué', ['response' => $data]);
-                return ['success' => false, 'error' => $data['statusMessage'] ?? 'Erreur MTN'];
-            }
+    public function getStatus(string|int $serverId): array
+    {
+        $config = config('external-services.notifications.mtn_sms', []);
 
-            Log::info('[MTN SMS] Envoyé', [
-                'to'            => $numbers,
-                'transactionId' => $data['transactionId'] ?? null,
+        if (!($config['enabled'] ?? false) || blank($config['token'] ?? null)) {
+            return $this->failure('MTN Tinda SMS non configuré');
+        }
+
+        try {
+            $response = $this->client($config)->post($config['api_url'], [
+                'op' => 'status',
+                'id' => (string) $serverId,
             ]);
+
+            $data = $response->json() ?: [];
+            $apiStatus = (string) ($data['status'] ?? $response->status());
+            $success = $response->successful() && in_array($apiStatus, ['200', '201'], true);
 
             return [
-                'success'       => true,
-                'transactionId' => $data['transactionId'] ?? null,
+                'success' => $success,
+                'provider' => 'mtn_tinda',
+                'status' => $apiStatus,
+                'external_id' => $data['externalId'] ?? null,
+                'result' => $data['resultat'] ?? null,
+                'error' => $success ? null : ($data['detail'] ?? $data['resultat'] ?? $response->body()),
             ];
-
         } catch (\Throwable $e) {
-            Log::error('[MTN SMS] Exception', ['error' => $e->getMessage()]);
-            return ['success' => false, 'error' => $e->getMessage()];
+            Log::error('[MTN Tinda SMS] Exception de statut', ['error' => $e->getMessage()]);
+
+            return $this->failure($e->getMessage());
         }
     }
 
     public function sendOrderConfirmation(string $phone, string $orderNo, float $total): array
     {
-        return $this->sendSms($phone,
-            "BantuDelice: Commande #{$orderNo} confirmee. Total: " . number_format($total, 0, ',', ' ') . " FCFA. Merci!"
+        return $this->sendSms(
+            $phone,
+            "BantuDelice: Commande #{$orderNo} confirmee. Total: ".number_format($total, 0, ',', ' ').' FCFA. Merci!'
         );
     }
 
     public function sendDeliveryUpdate(string $phone, string $orderNo, string $status): array
     {
-        return $this->sendSms($phone,
-            "BantuDelice: Commande #{$orderNo} - {$status}. Suivez sur bantudelice.cg"
-        );
+        return $this->sendSms($phone, "BantuDelice: Commande #{$orderNo} - {$status}. Suivez sur bantudelice.cg");
     }
 
     public function sendOtp(string $phone, string $code): array
     {
-        return $this->sendSms($phone,
-            "BantuDelice: Code de remise {$code}. Donnez-le au livreur."
+        return $this->sendSms($phone, "BantuDelice: Code de remise {$code}. Donnez-le au livreur.");
+    }
+
+    private function client(array $config): \Illuminate\Http\Client\PendingRequest
+    {
+        $prefix = trim((string) ($config['authorization_prefix'] ?? 'Token'));
+
+        return Http::acceptJson()
+            ->asJson()
+            ->withHeaders([
+                'Authorization' => trim($prefix.' '.trim((string) $config['token'])),
+            ])
+            ->timeout((int) ($config['timeout'] ?? 15))
+            ->retry((int) ($config['retry_times'] ?? 1), (int) ($config['retry_sleep_ms'] ?? 300), throw: false);
+    }
+
+    private function parseSendResponse(Response $response, array $receivers): array
+    {
+        $data = $response->json() ?: [];
+        $apiStatus = (string) ($data['status'] ?? $response->status());
+        $result = trim((string) ($data['resultat'] ?? ''));
+        $messageId = isset($data['id']) && $data['id'] !== '' ? (string) $data['id'] : null;
+
+        $businessError = $result !== '' && preg_match(
+            '/credit insuffisant|crédit insuffisant|erreur|echec|échec|refus|rejet|invalide|incorrect/i',
+            $result
         );
+
+        $success = $response->successful()
+            && in_array($apiStatus, ['200', '201'], true)
+            && $messageId !== null
+            && !$businessError;
+
+        if (!$success) {
+            $error = $data['detail']
+                ?? ($result !== '' ? $result : null)
+                ?? $response->body()
+                ?: 'Réponse MTN Tinda sans identifiant de message';
+
+            Log::warning('[MTN Tinda SMS] Envoi refusé', [
+                'http_status' => $response->status(),
+                'api_status' => $apiStatus,
+                'error' => $error,
+                'message_id' => $messageId,
+                'receivers_count' => count($receivers),
+            ]);
+
+            return $this->failure((string) $error, $apiStatus);
+        }
+
+        Log::info('[MTN Tinda SMS] Envoi accepté', [
+            'message_id' => $messageId,
+            'receivers_count' => count($receivers),
+            'api_status' => $apiStatus,
+        ]);
+
+        return [
+            'success' => true,
+            'message_id' => $messageId,
+            'provider' => 'mtn_tinda',
+            'status' => $apiStatus,
+            'result' => $result,
+            'error' => null,
+        ];
+    }
+
+    private function normalizeReceiver(string $phone): string
+    {
+        $phone = preg_replace('/\D+/', '', $phone) ?: '';
+
+        if (str_starts_with($phone, '00')) {
+            $phone = substr($phone, 2);
+        }
+
+        // Tinda attend le format 2420XXXXXXXX : le zéro national doit être conservé.
+        if (preg_match('/^0[456]\d{7,8}$/', $phone)) {
+            $phone = '242'.$phone;
+        } elseif (!str_starts_with($phone, '242')) {
+            $phone = '242'.$phone;
+        }
+
+        return preg_match('/^242[0456]\d{7,8}$/', $phone) ? $phone : '';
+    }
+
+    private function makeExternalId(): int
+    {
+        return (int) substr((string) now()->format('ymdHis').random_int(10, 99), -9);
+    }
+
+    private function failure(string $error, ?string $status = null): array
+    {
+        return [
+            'success' => false,
+            'message_id' => null,
+            'provider' => 'mtn_tinda',
+            'status' => $status,
+            'error' => Str::limit($error, 1000),
+        ];
     }
 }
