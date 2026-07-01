@@ -18,6 +18,7 @@ class RouteServiceProvider extends ServiceProvider
 
     public function map()
     {
+        $this->mapHealthRoutes();
         $this->mapApiRoutes();
         $this->mapApiV1FoodDriverRoutes();
         $this->mapWebRoutes();
@@ -28,6 +29,13 @@ class RouteServiceProvider extends ServiceProvider
         $this->mapAdminReportRoutes();
         $this->mapRestaurantStaffRoutes();
         $this->mapCatalogSearchRoutes();
+    }
+
+    protected function mapHealthRoutes()
+    {
+        Route::prefix('health')
+            ->middleware('api')
+            ->group(base_path('routes/health.php'));
     }
 
     protected function mapWebRoutes()
