@@ -369,4 +369,133 @@ class RealtimeBroadcastEventsTest extends TestCase
                 && !empty($payload['presence_expires_at']);
         });
     }
+
+    public function test_food_presence_broadcast_survives_deleted_order_model(): void
+    {
+        $customer = User::factory()->create(['type' => 'user']);
+        $restaurantOwner = User::factory()->create(['type' => 'restaurant']);
+        $restaurantId = DB::table('restaurants')->insertGetId([
+            'user_id' => $restaurantOwner->id,
+            'name' => 'Restaurant stale food presence',
+            'user_name' => 'restaurant-stale-food-presence',
+            'email' => 'restaurant-stale-food-presence@example.com',
+            'password' => bcrypt('secret'),
+            'services' => 'food',
+            'delivery_charges' => 1000,
+            'city' => 'Brazzaville',
+            'tax' => 5,
+            'address' => 'Avenue de la Paix',
+            'latitude' => -4.2634,
+            'longitude' => 15.2429,
+            'phone' => '0600099001',
+            'description' => 'Test',
+            'min_order' => 1000,
+            'admin_commission' => 5,
+            'approved' => 1,
+            'featured' => 0,
+            'account_name' => 'Restaurant stale food presence',
+            'account_number' => 'ACC-STALE-FOOD',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $orderId = DB::table('orders')->insertGetId([
+            'order_no' => 'FD-STALE-BCAST-001',
+            'user_id' => $customer->id,
+            'restaurant_id' => $restaurantId,
+            'driver_id' => null,
+            'total_items' => 1,
+            'offer_discount' => 0,
+            'tax' => 0,
+            'delivery_charges' => 1000,
+            'sub_total' => 3000,
+            'total' => 4000,
+            'admin_commission' => 0,
+            'restaurant_commission' => 0,
+            'driver_tip' => 0,
+            'status' => 'pending',
+            'business_status' => 'accepted',
+            'delivery_address' => 'Avenue de la Paix',
+            'd_lat' => '-4.27',
+            'd_lng' => '15.28',
+            'ordered_time' => now(),
+            'delivered_time' => now(),
+            'fulfillment_mode' => 'delivery',
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        $event = new FoodMissionPresenceUpdated(Order::findOrFail($orderId));
+
+        DB::table('orders')->where('id', $orderId)->delete();
+
+        $restored = unserialize(serialize($event));
+        $channel = $restored->broadcastOn();
+        $payload = $restored->broadcastWith();
+
+        $this->assertInstanceOf(PrivateChannel::class, $channel);
+        $this->assertSame('private-food.order.FD-STALE-BCAST-001.presence', $channel->name);
+        $this->assertSame('food.order.presence.updated', $restored->broadcastAs());
+        $this->assertFalse($payload['entity_exists']);
+        $this->assertFalse($payload['is_live']);
+        $this->assertSame('offline', $payload['presence_state']);
+        $this->assertNull($payload['location']['lat']);
+        $this->assertNull($payload['location']['lng']);
+    }
+
+    public function test_shipment_presence_broadcast_survives_deleted_shipment_model(): void
+    {
+        $customer = User::factory()->create(['type' => 'user']);
+        $shipment = Shipment::factory()->create([
+            'customer_id' => $customer->id,
+            'tracking_number' => 'BD-CG-STALE-001',
+            'status' => ShipmentStatus::CREATED,
+        ]);
+
+        $event = new ShipmentMissionPresenceUpdated($shipment);
+
+        $shipment->delete();
+
+        $restored = unserialize(serialize($event));
+        $channel = $restored->broadcastOn();
+        $payload = $restored->broadcastWith();
+
+        $this->assertInstanceOf(PrivateChannel::class, $channel);
+        $this->assertSame('private-colis.shipment.' . $shipment->id . '.presence', $channel->name);
+        $this->assertSame('colis.shipment.presence.updated', $restored->broadcastAs());
+        $this->assertFalse($payload['entity_exists']);
+        $this->assertFalse($payload['is_live']);
+        $this->assertSame('offline', $payload['presence_state']);
+        $this->assertSame('BD-CG-STALE-001', $payload['tracking_number']);
+        $this->assertNull($payload['location']['lat']);
+        $this->assertNull($payload['location']['lng']);
+    }
+
+    public function test_transport_presence_broadcast_survives_deleted_booking_model(): void
+    {
+        $customer = User::factory()->create(['type' => 'user']);
+        $booking = \App\Domain\Transport\Models\TransportBooking::factory()->create([
+            'user_id' => $customer->id,
+            'status' => TransportStatus::ASSIGNED,
+        ]);
+
+        $event = new TransportMissionPresenceUpdated($booking);
+
+        $booking->delete();
+
+        $restored = unserialize(serialize($event));
+        $channel = $restored->broadcastOn();
+        $payload = $restored->broadcastWith();
+
+        $this->assertInstanceOf(PrivateChannel::class, $channel);
+        $this->assertSame('private-transport.booking.' . $booking->uuid . '.presence', $channel->name);
+        $this->assertSame('transport.booking.presence.updated', $restored->broadcastAs());
+        $this->assertFalse($payload['entity_exists']);
+        $this->assertFalse($payload['is_live']);
+        $this->assertSame('offline', $payload['presence_state']);
+        $this->assertSame($booking->uuid, $payload['booking_uuid']);
+        $this->assertNull($payload['location']['lat']);
+        $this->assertNull($payload['location']['lng']);
+    }
+
 }

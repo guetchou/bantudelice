@@ -28,12 +28,14 @@ php artisan config:clear || true
 php artisan route:clear || true
 php artisan view:clear || true
 php artisan cache:clear || true
+php artisan horizon:terminate || true
 
 systemctl reload php8.3-fpm || sudo systemctl reload php8.3-fpm || true
 php artisan queue:restart || true
 supervisorctl restart bantudelice-worker:* \
   || sudo supervisorctl restart bantudelice-worker:* \
   || true
+php artisan horizon:status || true
 sudo /usr/local/bin/bantudelice-fix-permissions.sh \
   || echo "Avertissement : restauration des droits impossible."
 

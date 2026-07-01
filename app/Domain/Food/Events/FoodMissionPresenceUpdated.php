@@ -9,21 +9,35 @@ use Illuminate\Broadcasting\InteractsWithSockets;
 use Illuminate\Broadcasting\PrivateChannel;
 use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Foundation\Events\Dispatchable;
-use Illuminate\Queue\SerializesModels;
 
 class FoodMissionPresenceUpdated implements ShouldBroadcast
 {
-    use Dispatchable, InteractsWithSockets, SerializesModels;
+    use Dispatchable, InteractsWithSockets;
 
     protected const LIVE_WINDOW_SECONDS = 120;
 
-    public function __construct(protected Order $order)
+    protected int $orderId;
+
+    protected string $orderNo;
+
+    protected ?int $driverId;
+
+    protected ?string $businessStatus;
+
+    protected ?string $deliveryStatus;
+
+    public function __construct(Order $order)
     {
+        $this->orderId = (int) $order->id;
+        $this->orderNo = (string) $order->order_no;
+        $this->driverId = $this->resolvedDriverIdFromOrder($order);
+        $this->businessStatus = $order->resolveEffectiveBusinessStatus();
+        $this->deliveryStatus = $order->delivery?->status;
     }
 
     public function broadcastOn(): PrivateChannel
     {
-        return new PrivateChannel('food.order.' . $this->order->order_no . '.presence');
+        return new PrivateChannel('food.order.' . $this->orderNo . '.presence');
     }
 
     public function broadcastAs(): string
@@ -33,11 +47,17 @@ class FoodMissionPresenceUpdated implements ShouldBroadcast
 
     public function broadcastWith(): array
     {
-        $driverId = $this->resolvedDriverId();
+        $order = Order::query()->find($this->orderId);
+
+        if (! $order) {
+            return $this->offlinePayload();
+        }
+
+        $driverId = $this->resolvedDriverIdFromOrder($order);
         $latestLocation = $driverId
             ? DriverLocation::query()->latestForDriver($driverId)->first()
             : null;
-        $driver = $this->order->delivery?->driver ?: $this->order->driver;
+        $driver = $order->delivery?->driver ?: $order->driver;
         $recordedAt = $latestLocation?->timestamp;
         $freshnessSeconds = $recordedAt ? now()->diffInSeconds($recordedAt) : null;
         $presenceState = $freshnessSeconds === null
@@ -46,9 +66,9 @@ class FoodMissionPresenceUpdated implements ShouldBroadcast
         $presenceExpiresAt = $recordedAt?->copy()->addSeconds(self::LIVE_WINDOW_SECONDS);
 
         return [
-            'order_no' => $this->order->order_no,
-            'business_status' => $this->order->resolveEffectiveBusinessStatus(),
-            'delivery_status' => $this->order->delivery?->status,
+            'order_no' => $order->order_no,
+            'business_status' => $order->resolveEffectiveBusinessStatus(),
+            'delivery_status' => $order->delivery?->status,
             'driver_id' => $driverId,
             'driver_status' => $driver?->status,
             'location' => [
@@ -62,15 +82,41 @@ class FoodMissionPresenceUpdated implements ShouldBroadcast
             'presence_expires_at' => optional($presenceExpiresAt)->toIso8601String(),
             'presence_state' => $presenceState,
             'is_live' => $presenceState === 'live',
-            'route_path' => NotificationService::routePath('track.order', ['orderNo' => $this->order->order_no]),
-            'deep_link' => 'bantudelice://food/orders/' . $this->order->order_no,
+            'entity_exists' => true,
+            'route_path' => NotificationService::routePath('track.order', ['orderNo' => $order->order_no]),
+            'deep_link' => 'bantudelice://food/orders/' . $order->order_no,
         ];
     }
 
-    protected function resolvedDriverId(): ?int
+    protected function offlinePayload(): array
     {
-        return $this->order->delivery?->driver_id
-            ? (int) $this->order->delivery->driver_id
-            : ($this->order->driver_id ? (int) $this->order->driver_id : null);
+        return [
+            'order_no' => $this->orderNo,
+            'business_status' => $this->businessStatus,
+            'delivery_status' => $this->deliveryStatus,
+            'driver_id' => $this->driverId,
+            'driver_status' => null,
+            'location' => [
+                'lat' => null,
+                'lng' => null,
+                'speed' => null,
+                'recorded_at' => null,
+            ],
+            'presence_freshness_seconds' => null,
+            'presence_stale_after_seconds' => self::LIVE_WINDOW_SECONDS,
+            'presence_expires_at' => null,
+            'presence_state' => 'offline',
+            'is_live' => false,
+            'entity_exists' => false,
+            'route_path' => NotificationService::routePath('track.order', ['orderNo' => $this->orderNo]),
+            'deep_link' => 'bantudelice://food/orders/' . $this->orderNo,
+        ];
+    }
+
+    protected function resolvedDriverIdFromOrder(Order $order): ?int
+    {
+        return $order->delivery?->driver_id
+            ? (int) $order->delivery->driver_id
+            : ($order->driver_id ? (int) $order->driver_id : null);
     }
 }
