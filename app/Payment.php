@@ -18,6 +18,12 @@ class Payment extends Model
         'provider_reference',
         'idempotency_key',
         'status',
+        'business_status',
+        'confirmed_at',
+        'failed_at',
+        'reversed_at',
+        'refunded_at',
+        'reconciled_at',
         'amount',
         'currency',
         'meta',
@@ -25,6 +31,11 @@ class Payment extends Model
 
     protected $casts = [
         'meta' => 'array',
+        'confirmed_at' => 'datetime',
+        'failed_at' => 'datetime',
+        'reversed_at' => 'datetime',
+        'refunded_at' => 'datetime',
+        'reconciled_at' => 'datetime',
     ];
 
     public function user()
@@ -47,18 +58,93 @@ class Payment extends Model
         return $this->belongsTo(\App\Domain\Transport\Models\TransportBooking::class, 'transport_booking_id');
     }
 
+    public function allocations()
+    {
+        return $this->hasMany(PaymentAllocation::class);
+    }
+
+    public function activeAllocations()
+    {
+        return $this->allocations()->where('status', 'active');
+    }
+
+    public function refunds()
+    {
+        return $this->hasMany(PaymentRefund::class);
+    }
+
+    public function canonicalBusinessStatus(): string
+    {
+        if ($this->business_status) {
+            return strtolower($this->business_status);
+        }
+
+        return match (strtoupper((string) $this->status)) {
+            'AUTHORIZED' => 'authorized',
+            'PAID', 'SUCCESS', 'SUCCESSFUL' => 'confirmed',
+            'FAILED', 'REJECTED', 'DECLINED' => 'failed',
+            'CANCELLED', 'CANCELED' => 'cancelled',
+            'EXPIRED' => 'expired',
+            'PARTIALLY_REFUNDED' => 'partially_refunded',
+            'REFUNDED' => 'refunded',
+            'REVERSED' => 'reversed',
+            'DISPUTED', 'CHARGEBACK' => 'disputed',
+            'UNKNOWN' => 'unknown',
+            default => 'pending',
+        };
+    }
+
+    public function isConfirmed(): bool
+    {
+        return $this->canonicalBusinessStatus() === 'confirmed';
+    }
+
+    public function isFinanciallyConfirmed(): bool
+    {
+        return in_array($this->canonicalBusinessStatus(), ['confirmed', 'partially_refunded', 'disputed'], true);
+    }
+
     public function isPaid(): bool
     {
-        return $this->status === 'PAID';
+        return $this->isFinanciallyConfirmed();
     }
 
     public function isPending(): bool
     {
-        return $this->status === 'PENDING';
+        return in_array($this->canonicalBusinessStatus(), ['initiated', 'pending', 'authorized', 'unknown'], true);
     }
 
     public function isFailed(): bool
     {
-        return $this->status === 'FAILED';
+        return in_array($this->canonicalBusinessStatus(), ['failed', 'cancelled', 'expired'], true);
+    }
+
+    public function allocatedAmount(): int
+    {
+        return (int) $this->activeAllocations()->sum('amount');
+    }
+
+    public function refundedAmount(): int
+    {
+        return (int) $this->refunds()->where('status', 'refunded')->sum('amount');
+    }
+
+    public function committedRefundAmount(): int
+    {
+        return (int) $this->refunds()
+            ->whereIn('status', ['requested', 'approved', 'submitted', 'pending', 'unknown', 'refunded'])
+            ->sum('amount');
+    }
+
+    public function refundableAmount(): int
+    {
+        return max(0, (int) $this->amount - $this->committedRefundAmount());
+    }
+
+    public function unallocatedAmount(): int
+    {
+        $confirmedNet = max(0, (int) $this->amount - $this->refundedAmount());
+
+        return max(0, $confirmedNet - $this->allocatedAmount());
     }
 }

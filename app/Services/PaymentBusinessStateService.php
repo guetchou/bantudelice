@@ -1,0 +1,117 @@
+<?php
+
+namespace App\Services;
+
+use App\Payment;
+use Illuminate\Support\Facades\DB;
+
+class PaymentBusinessStateService
+{
+    private const TRANSITIONS = [
+        'initiated' => ['pending', 'authorized', 'confirmed', 'failed', 'cancelled', 'expired', 'unknown'],
+        'pending' => ['authorized', 'confirmed', 'failed', 'cancelled', 'expired', 'unknown'],
+        'authorized' => ['confirmed', 'failed', 'cancelled', 'expired', 'unknown'],
+        'unknown' => ['pending', 'confirmed', 'failed', 'reversed'],
+        'confirmed' => ['partially_refunded', 'refunded', 'reversed', 'disputed'],
+        'partially_refunded' => ['confirmed', 'refunded', 'reversed', 'disputed'],
+        'disputed' => ['confirmed', 'partially_refunded', 'refunded', 'reversed'],
+        'refunded' => ['confirmed', 'partially_refunded'],
+        'failed' => [],
+        'cancelled' => [],
+        'expired' => [],
+        'reversed' => [],
+    ];
+
+    public function __construct(
+        private readonly FinancialStateTransitionService $transitionJournal,
+    ) {}
+
+    public function transition(Payment $payment, string $targetStatus, array $context = []): Payment
+    {
+        $targetStatus = strtolower(trim($targetStatus));
+
+        return DB::transaction(function () use ($payment, $targetStatus, $context) {
+            $locked = Payment::whereKey($payment->getKey())->lockForUpdate()->firstOrFail();
+            $current = $locked->canonicalBusinessStatus();
+
+            if ($current === $targetStatus) {
+                return $locked;
+            }
+
+            if (!in_array($targetStatus, self::TRANSITIONS[$current] ?? [], true)) {
+                throw new \DomainException("Transition paiement interdite : {$current} → {$targetStatus}.");
+            }
+
+            if ($targetStatus === 'confirmed' && (int) $locked->amount <= 0) {
+                throw new \DomainException('Un paiement sans montant positif ne peut pas être confirmé.');
+            }
+
+            $occurredAt = now();
+            $meta = array_merge($locked->meta ?? [], [
+                'business_transition' => [
+                    'from' => $current,
+                    'to' => $targetStatus,
+                    'at' => $occurredAt->toIso8601String(),
+                    'reason' => $context['reason'] ?? null,
+                    'actor_id' => $context['actor_id'] ?? null,
+                ],
+            ]);
+
+            $updates = [
+                'business_status' => $targetStatus,
+                'status' => $this->legacyStatus($targetStatus),
+                'meta' => $meta,
+            ];
+
+            $timestampColumn = match ($targetStatus) {
+                'confirmed' => 'confirmed_at',
+                'failed' => 'failed_at',
+                'reversed' => 'reversed_at',
+                'partially_refunded', 'refunded' => 'refunded_at',
+                default => null,
+            };
+
+            if ($timestampColumn) {
+                $updates[$timestampColumn] = $occurredAt;
+            }
+
+            $locked->update($updates);
+
+            $this->transitionJournal->record(
+                'payment',
+                $locked->id,
+                $current,
+                $targetStatus,
+                [
+                    'source' => $context['source'] ?? 'payment_service',
+                    'reason' => $context['reason'] ?? null,
+                    'actor_id' => $context['actor_id'] ?? null,
+                    'idempotency_key' => $context['idempotency_key'] ?? null,
+                    'occurred_at' => $occurredAt,
+                    'context' => $context['context'] ?? [],
+                ],
+            );
+
+            return $locked->fresh();
+        });
+    }
+
+    public function canTransition(Payment $payment, string $targetStatus): bool
+    {
+        $current = $payment->canonicalBusinessStatus();
+
+        return $current === strtolower($targetStatus)
+            || in_array(strtolower($targetStatus), self::TRANSITIONS[$current] ?? [], true);
+    }
+
+    private function legacyStatus(string $businessStatus): string
+    {
+        return match ($businessStatus) {
+            'authorized' => 'AUTHORIZED',
+            'confirmed', 'partially_refunded', 'refunded', 'reversed', 'disputed' => 'PAID',
+            'failed', 'expired' => 'FAILED',
+            'cancelled' => 'CANCELLED',
+            default => 'PENDING',
+        };
+    }
+}

@@ -18,22 +18,52 @@ class PartnerWithdrawal extends Model
     ];
 
     protected $casts = [
-        'metadata'      => 'array',
-        'initiated_at'  => 'datetime',
-        'paid_at'       => 'datetime',
-        'failed_at'     => 'datetime',
+        'metadata' => 'array',
+        'initiated_at' => 'datetime',
+        'paid_at' => 'datetime',
+        'failed_at' => 'datetime',
         'reconciled_at' => 'datetime',
     ];
 
-    const TERMINAL_SUCCESS = ['SUCCESSFUL', 'SUCCESS', 'PAID', 'COMPLETED', 'APPROVED'];
-    const TERMINAL_FAILURE = ['FAILED', 'REJECTED', 'DECLINED', 'CANCELLED', 'EXPIRED'];
+    public const TERMINAL_SUCCESS = ['SUCCESSFUL', 'SUCCESS', 'PAID', 'COMPLETED', 'APPROVED'];
+    public const TERMINAL_FAILURE = ['FAILED', 'REJECTED', 'DECLINED', 'CANCELLED', 'EXPIRED'];
+
+    private const TRANSITIONS = [
+        'created' => ['reserved', 'submitted', 'pending', 'paid', 'failed', 'unknown', 'reversed', 'cancelled'],
+        'reserved' => ['submitted', 'pending', 'paid', 'failed', 'unknown', 'reversed', 'cancelled'],
+        'submitted' => ['pending', 'paid', 'failed', 'unknown', 'reversed', 'cancelled'],
+        'pending' => ['paid', 'failed', 'unknown', 'reversed', 'cancelled'],
+        'unknown' => ['submitted', 'pending', 'paid', 'failed', 'reversed', 'cancelled'],
+        'paid' => ['reversed'],
+        'failed' => [],
+        'reversed' => [],
+        'cancelled' => [],
+    ];
 
     protected static function boot(): void
     {
         parent::boot();
+
         static::creating(function (self $model) {
             if (empty($model->uuid)) {
                 $model->uuid = (string) Str::uuid();
+            }
+        });
+
+        static::updating(function (self $model) {
+            if (!$model->isDirty('status')) {
+                return;
+            }
+
+            $from = (string) $model->getOriginal('status');
+            $to = (string) $model->status;
+
+            if ($from === $to) {
+                return;
+            }
+
+            if (!in_array($to, self::TRANSITIONS[$from] ?? [], true)) {
+                throw new \DomainException("Transition retrait interdite : {$from} → {$to}.");
             }
         });
     }
@@ -47,12 +77,37 @@ class PartnerWithdrawal extends Model
     {
         $digits = preg_replace('/\D/', '', $this->phone);
         $len = strlen($digits);
-        if ($len < 4) return str_repeat('•', $len);
+
+        if ($len < 4) {
+            return str_repeat('•', $len);
+        }
+
         return substr($digits, 0, 2) . str_repeat('•', max(0, $len - 4)) . substr($digits, -2);
     }
 
-    public function isPending(): bool  { return in_array($this->status, ['created', 'reserved', 'submitted', 'pending']); }
-    public function isPaid(): bool     { return $this->status === 'paid'; }
-    public function isFailed(): bool   { return in_array($this->status, ['failed', 'reversed', 'cancelled']); }
-    public function isUnknown(): bool  { return $this->status === 'unknown'; }
+    public function canTransitionTo(string $status): bool
+    {
+        return $this->status === $status
+            || in_array($status, self::TRANSITIONS[$this->status] ?? [], true);
+    }
+
+    public function isPending(): bool
+    {
+        return in_array($this->status, ['created', 'reserved', 'submitted', 'pending', 'unknown'], true);
+    }
+
+    public function isPaid(): bool
+    {
+        return $this->status === 'paid';
+    }
+
+    public function isFailed(): bool
+    {
+        return in_array($this->status, ['failed', 'reversed', 'cancelled'], true);
+    }
+
+    public function isUnknown(): bool
+    {
+        return $this->status === 'unknown';
+    }
 }
