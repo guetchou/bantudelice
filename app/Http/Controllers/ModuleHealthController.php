@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Services\OperationalHealthService;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Redis;
 
 class ModuleHealthController extends Controller
 {
@@ -24,9 +26,41 @@ class ModuleHealthController extends Controller
 
     public function ready()
     {
-        $payload = $this->health->readiness();
+        $checks = [
+            'database' => false,
+            'redis' => null,
+        ];
 
-        return response()->json($payload, $payload['ready'] ? 200 : 503);
+        try {
+            DB::select('select 1 as ok');
+            $checks['database'] = true;
+        } catch (\Throwable $e) {
+            report($e);
+        }
+
+        $redisRequired = in_array(config('cache.default'), ['redis'], true)
+            || config('queue.default') === 'redis'
+            || config('session.driver') === 'redis';
+
+        if ($redisRequired) {
+            try {
+                $checks['redis'] = Redis::connection()->ping() === true
+                    || Redis::connection()->ping() === 'PONG';
+            } catch (\Throwable $e) {
+                $checks['redis'] = false;
+                report($e);
+            }
+        }
+
+        $ready = $checks['database'] === true
+            && ($checks['redis'] === null || $checks['redis'] === true);
+
+        return response()->json([
+            'status' => $ready ? 'ok' : 'unavailable',
+            'ready' => $ready,
+            'checks' => $checks,
+            'timestamp' => now()->toIso8601String(),
+        ], $ready ? 200 : 503);
     }
 
     public function index()
