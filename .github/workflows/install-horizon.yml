@@ -26,6 +26,15 @@ jobs:
           extensions: mbstring, intl, pdo_sqlite, redis
           coverage: none
 
+      - name: Prepare Laravel runtime
+        run: |
+          mkdir -p storage/framework/cache/data
+          mkdir -p storage/framework/sessions
+          mkdir -p storage/framework/views
+          mkdir -p storage/logs
+          mkdir -p bootstrap/cache
+          chmod -R u+rwX storage bootstrap/cache
+
       - name: Diagnose and install Horizon
         id: horizon
         shell: bash
@@ -49,6 +58,7 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           if [ "${{ steps.horizon.outputs.status }}" = "0" ]; then
+            git rm --ignore-unmatch horizon-install.log
             git add composer.json composer.lock config/horizon.php app/Providers/HorizonServiceProvider.php config/app.php public/vendor/horizon 2>/dev/null || true
             git diff --cached --quiet || git commit -m 'feat: install Laravel Horizon'
           else
