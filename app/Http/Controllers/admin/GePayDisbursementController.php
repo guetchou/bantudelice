@@ -96,6 +96,62 @@ class GePayDisbursementController extends Controller
         ], $allOk ? 202 : 207);
     }
 
+    public function collect(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'phone'       => ['required', 'string', 'max:30'],
+            'amount'      => ['required', 'integer', 'min:100', 'max:2000000000'],
+            'description' => ['nullable', 'string', 'max:64'],
+        ]);
+
+        if (! config('gepay.bantudelice.collections_enabled', false)) {
+            return response()->json([
+                'success' => false,
+                'message' => "Les encaissements GePay sont désactivés (GEPAY_BANTUDELICE_COLLECTIONS_ENABLED).",
+            ], 503);
+        }
+
+        try {
+            $client = $this->resolver->resolve();
+        } catch (\RuntimeException $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 503);
+        }
+
+        $ref  = 'ADMIN-COLL-' . strtoupper(Str::random(10));
+        $ikey = 'admin:collection:' . $ref;
+        $note = trim($data['description'] ?? '') ?: 'Encaissement admin';
+
+        try {
+            $tx = $this->gateway->initiate(
+                client: $client,
+                type: TransactionType::COLLECTION,
+                payload: [
+                    'amount'             => (int) $data['amount'],
+                    'currency'           => 'XAF',
+                    'phone'              => preg_replace('/\D+/', '', $data['phone']),
+                    'external_reference' => $ref,
+                    'payer_message'      => $note,
+                    'payee_note'         => $note,
+                ],
+                idempotencyKey: $ikey,
+            );
+        } catch (\Throwable $e) {
+            return response()->json(['success' => false, 'message' => $e->getMessage()], 422);
+        }
+
+        $success = ! $tx->status->isTerminal() || $tx->status === TransactionStatus::SUCCESSFUL;
+
+        return response()->json([
+            'success'  => $success,
+            'uuid'     => $tx->uuid,
+            'status'   => $tx->status->value,
+            'ext_ref'  => $ref,
+            'message'  => $success
+                ? 'Demande envoyée — le payeur va recevoir une notification sur son téléphone.'
+                : ($tx->failure_message ?? 'Échec de l\'encaissement.'),
+        ], $success ? 202 : 422);
+    }
+
     public function transactions(Request $request): JsonResponse
     {
         $type = $request->query('type');

@@ -156,8 +156,40 @@ tr.re .v-rn{background:var(--c-red);color:#fff;}
 .v-spin{display:inline-block;animation:v-spin .75s linear infinite;}
 .v-shake{animation:v-shake .42s ease;}
 
+/* Mode tabs (Envoyer / Encaisser) */
+.v-mode-tabs{display:flex;gap:.35rem;background:#f1f5f9;border:1px solid var(--c-bd);border-radius:10px;padding:.28rem;width:fit-content;margin-bottom:1rem;}
+.v-mode-tab{padding:.4rem .9rem;border-radius:7px;font-size:.72rem;font-weight:700;font-family:inherit;cursor:pointer;border:none;background:transparent;color:var(--c-mt);transition:.14s;display:flex;align-items:center;gap:.4rem;}
+.v-mode-tab:hover{color:var(--c-txt);}
+.v-mode-tab.on{background:#fff;color:var(--c-txt);box-shadow:0 1px 3px rgba(0,0,0,.1);}
+
+/* Collection panel */
+.c-panel{background:#fff;border:1px solid var(--c-bd);border-radius:16px;overflow:hidden;display:none;}
+.c-panel.on{display:block;}
+.c-form{padding:1.25rem 1.1rem;}
+.c-fields{display:grid;gap:.85rem;}
+.c-field{display:flex;flex-direction:column;gap:.3rem;}
+.c-field label{font-size:.6rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--c-mt);}
+.c-input{border:1.5px solid var(--c-bd);border-radius:9px;padding:.55rem .75rem;font-size:.78rem;font-family:inherit;color:var(--c-txt);background:#fff;transition:.14s;width:100%;}
+.c-input:focus{outline:none;border-color:var(--c-teal);box-shadow:0 0 0 3px rgba(2,132,199,.1);}
+.c-input::placeholder{color:#d1d5db;}
+.c-input:disabled{opacity:.45;}
+.c-hint{font-size:.62rem;color:var(--c-mt);margin-top:.15rem;}
+.c-foot{padding:.85rem 1.1rem;border-top:1px solid var(--c-bd);display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap;}
+.c-info{font-size:.72rem;color:var(--c-mt);}
+.c-ebar{display:none;align-items:flex-start;gap:.6rem;padding:.7rem 1.1rem;background:var(--c-red-bg);border-top:1px solid var(--c-red-bd);font-size:.72rem;color:#7f1d1d;font-weight:600;}
+.c-ebar.on{display:flex;}
+/* Collection success card */
+.c-ok{display:none;padding:1.5rem 1.1rem;text-align:center;}
+.c-ok.on{display:block;}
+.c-ok-ico{width:64px;height:64px;margin:0 auto .85rem;}
+.c-ok-ttl{font-size:1rem;font-weight:800;color:var(--c-txt);margin-bottom:.3rem;}
+.c-ok-sub{font-size:.73rem;color:var(--c-mt);margin-bottom:1rem;}
+.c-ok-ref{font-family:ui-monospace,monospace;font-size:.65rem;background:var(--c-bg2);border:1px solid var(--c-bd);border-radius:7px;padding:.4rem .65rem;color:var(--c-mt);display:inline-block;}
+.c-ok-btn{margin-top:1rem;padding:.6rem 1.25rem;border-radius:9px;border:1.5px solid var(--c-bd);background:transparent;color:var(--c-txt);font-family:inherit;font-size:.75rem;font-weight:700;cursor:pointer;transition:.12s;}
+.c-ok-btn:hover{background:var(--c-bg2);}
+
 #vCsv{display:none;}
-@media(max-width:768px){.v-provs{flex-direction:column;}.v-phead,.v-foot{flex-direction:column;align-items:flex-start;}.v-kpis{gap:.45rem;}.v-kpi{min-width:120px;}}
+@media(max-width:768px){.v-provs{flex-direction:column;}.v-phead,.v-foot,.c-foot{flex-direction:column;align-items:flex-start;}.v-kpis{gap:.45rem;}.v-kpi{min-width:120px;}}
 </style>
 @endsection
 
@@ -223,6 +255,15 @@ tr.re .v-rn{background:var(--c-red);color:#fff;}
     </div>
 </div>
 
+<div class="v-mode-tabs">
+    <button class="v-mode-tab on" id="mTabSend" onclick="setMode('send')">
+        <i class="fa fa-arrow-up-right"></i> Envoyer
+    </button>
+    <button class="v-mode-tab" id="mTabColl" onclick="setMode('collect')">
+        <i class="fa fa-arrow-down-left"></i> Encaisser
+    </button>
+</div>
+
 <div class="v-panel" id="vPanel">
     <div class="v-phead">
         <div style="display:flex;align-items:center;gap:.55rem">
@@ -268,6 +309,72 @@ tr.re .v-rn{background:var(--c-red);color:#fff;}
             </button>
         </div>
     </div>
+</div>
+
+{{-- ========================================================= --}}
+{{-- Collection panel (Encaisser) --}}
+{{-- ========================================================= --}}
+<div class="c-panel" id="cPanel">
+
+    {{-- Form state --}}
+    <div id="cForm">
+        <div class="c-form">
+            <div class="c-fields">
+                <div class="c-field">
+                    <label for="cPhone"><i class="fa fa-mobile-screen-button"></i> Numéro MTN</label>
+                    <input class="c-input" type="tel" id="cPhone" name="cPhone"
+                           placeholder="06XXXXXXXX" maxlength="20" autocomplete="tel">
+                    <span class="c-hint">Format Congo : 06 ou 05 — ex. 068 234 567</span>
+                </div>
+                <div class="c-field">
+                    <label for="cAmt"><i class="fa fa-coins"></i> Montant (FCFA)</label>
+                    <input class="c-input" type="number" id="cAmt" name="cAmt"
+                           placeholder="5 000" min="100" max="2000000000" step="100" autocomplete="off">
+                </div>
+                <div class="c-field">
+                    <label for="cDesc"><i class="fa fa-pen-line"></i> Note <span style="font-weight:400;text-transform:none;font-size:.68rem">(optionnel)</span></label>
+                    <input class="c-input" type="text" id="cDesc" name="cDesc"
+                           placeholder="Régularisation client, remboursement…" maxlength="64" autocomplete="off">
+                </div>
+            </div>
+        </div>
+
+        <div class="c-ebar" id="cEbar">
+            <i class="fa fa-circle-xmark" style="flex-shrink:0;margin-top:.1rem"></i>
+            <div id="cEtxt"></div>
+        </div>
+
+        <div class="c-foot">
+            <div class="c-info">
+                <i class="fa fa-circle-info"></i>
+                Le payeur reçoit une notification USSD sur son téléphone pour approuver.
+            </div>
+            <button class="v-btn v-btn--s" id="cSend" onclick="sendCollect()">
+                <i class="fa fa-bell" id="cSico"></i>
+                <span id="cStxt">Demander le paiement</span>
+            </button>
+        </div>
+    </div>
+
+    {{-- Success state --}}
+    <div class="c-ok" id="cOk">
+        <div class="c-ok-ico">
+            <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="32" cy="32" r="30" stroke="#009543" stroke-width="3"
+                    stroke-dasharray="188.5" stroke-dashoffset="188.5"
+                    style="animation:dc .5s ease forwards"/>
+                <polyline points="18,33 27,43 46,22" stroke="#009543" stroke-width="3"
+                    stroke-linecap="round" stroke-linejoin="round"
+                    stroke-dasharray="40" stroke-dashoffset="40"
+                    style="animation:dp .35s .4s ease forwards"/>
+            </svg>
+        </div>
+        <div class="c-ok-ttl" id="cOkTtl">Demande envoyée</div>
+        <div class="c-ok-sub" id="cOkSub">Le payeur va recevoir une notification sur son téléphone.</div>
+        <div class="c-ok-ref" id="cOkRef"></div>
+        <button class="c-ok-btn" onclick="cReset()">Nouvel encaissement</button>
+    </div>
+
 </div>
 
 <div class="v-hist">
@@ -487,6 +594,101 @@ document.querySelectorAll('.v-hf').forEach(function(btn){
 });
 
 addRow();
+
+/* ── Mode toggle (Envoyer / Encaisser) ───────────────────── */
+window.setMode=function(mode){
+    var isCollect=(mode==='collect');
+    document.getElementById('mTabSend').classList.toggle('on',!isCollect);
+    document.getElementById('mTabColl').classList.toggle('on', isCollect);
+    document.getElementById('vPanel').style.display=isCollect?'none':'';
+    var cp=document.getElementById('cPanel');
+    cp.classList.toggle('on',isCollect);
+};
+
+/* ── Collection (Encaisser) ──────────────────────────────── */
+var cBusy=false;
+var csnd=document.getElementById('cSend');
+var csic=document.getElementById('cSico');
+var cstx=document.getElementById('cStxt');
+var ceb =document.getElementById('cEbar');
+var cet =document.getElementById('cEtxt');
+
+function cLoad(){
+    cBusy=true;csnd.disabled=true;csnd.className='v-btn v-btn--s ld';
+    csic.className='fa fa-rotate v-spin';cstx.textContent='Envoi…';
+}
+function cOkBtn(){
+    csnd.className='v-btn v-btn--s ok';csic.className='fa fa-check';cstx.textContent='Envoyé';
+}
+function cErrBtn(){
+    csnd.className='v-btn v-btn--s er';csic.className='fa fa-xmark';cstx.textContent='Réessayer';
+    setTimeout(function(){
+        cBusy=false;csnd.disabled=false;csnd.className='v-btn v-btn--s';
+        csic.className='fa fa-bell';cstx.textContent='Demander le paiement';
+    },2200);
+}
+
+window.sendCollect=function(){
+    if(cBusy)return;
+    ceb.classList.remove('on');
+    var phone =document.getElementById('cPhone').value.trim();
+    var amount=parseInt(document.getElementById('cAmt').value||'0',10);
+    var desc  =document.getElementById('cDesc').value.trim();
+
+    if(!phone){cet.textContent='Numéro de téléphone requis.';ceb.classList.add('on');return;}
+    if(amount<100){cet.textContent='Montant minimum : 100 FCFA.';ceb.classList.add('on');return;}
+
+    cLoad();
+    document.querySelectorAll('#cPanel .c-input').forEach(function(i){i.disabled=true;});
+
+    fetch('{{ route("admin.gepay.collect") }}',{
+        method:'POST',
+        headers:{
+            'Content-Type':'application/json',
+            'X-CSRF-TOKEN':document.querySelector('meta[name="csrf-token"]').content,
+            'Accept':'application/json',
+        },
+        body:JSON.stringify({phone:phone,amount:amount,description:desc||undefined}),
+    })
+    .then(function(res){return res.json();})
+    .then(function(data){
+        if(data.success){
+            cOkBtn();
+            document.getElementById('cOkTtl').textContent='Demande envoyée';
+            document.getElementById('cOkSub').textContent=esc(data.message||'Le payeur va recevoir une notification sur son téléphone.');
+            document.getElementById('cOkRef').textContent=esc(data.ext_ref||data.uuid||'');
+            document.getElementById('cForm').style.display='none';
+            document.getElementById('cOk').classList.add('on');
+        } else {
+            cErrBtn();
+            document.querySelectorAll('#cPanel .c-input').forEach(function(i){i.disabled=false;});
+            cet.textContent=esc(data.message||'Échec de l\'encaissement.');
+            ceb.classList.add('on');
+            var p=document.getElementById('cPanel');
+            p.classList.remove('v-shake');void p.offsetWidth;p.classList.add('v-shake');
+            setTimeout(function(){p.classList.remove('v-shake');},500);
+        }
+    })
+    .catch(function(err){
+        cErrBtn();
+        document.querySelectorAll('#cPanel .c-input').forEach(function(i){i.disabled=false;});
+        cet.textContent='Erreur réseau : '+err.message;ceb.classList.add('on');
+    });
+};
+
+window.cReset=function(){
+    cBusy=false;
+    document.getElementById('cPhone').value='';
+    document.getElementById('cAmt').value='';
+    document.getElementById('cDesc').value='';
+    document.querySelectorAll('#cPanel .c-input').forEach(function(i){i.disabled=false;});
+    document.getElementById('cForm').style.display='';
+    document.getElementById('cOk').classList.remove('on');
+    ceb.classList.remove('on');
+    csnd.disabled=false;csnd.className='v-btn v-btn--s';
+    csic.className='fa fa-bell';cstx.textContent='Demander le paiement';
+    document.getElementById('cPhone').focus();
+};
 
 })();
 </script>
