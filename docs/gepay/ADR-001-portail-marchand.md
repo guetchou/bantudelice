@@ -507,19 +507,25 @@ gepay_merchants (1)
 
 ## Navigation layout `gepay.blade.php`
 
+Toutes les routes sont relatives au sous-domaine `gepay.bantudelice.cg` — pas de préfixe `/gepay`.
+
 ```
-Sidebar :
-  ● Tableau de bord    /gepay/
-  ● Transactions       /gepay/transactions
-  ● Envoyer            /gepay/envoyer
-  ● Encaisser          /gepay/encaisser
-  ● Payout             /gepay/payout
+Auth (hors middleware) :
+  GET  /login    → formulaire de connexion
+  POST /logout   → déconnexion (CSRF protégé)
+
+Sidebar (middleware auth:gepay) :
+  ● Tableau de bord    GET /
+  ● Transactions       GET /transactions
+  ● Envoyer            GET /envoyer   POST /envoyer
+  ● Encaisser          GET /encaisser POST /encaisser
+  ● Payout             GET /payout    POST /payout
 
 Header :
-  Nom marchand  |  Solde : {wallet->available / 100} FCFA  |  [Déconnexion POST /gepay/logout]
+  Nom marchand  |  Solde : {wallet->available} XAF  |  [Déconnexion POST /logout]
 ```
 
-Solde affiché = `gepay_wallets.available` pour la devise XAF du marchand authentifié.
+Solde affiché = `gepay_wallets.available` en entiers XAF (pas de division). Aucun `/100`.
 
 ---
 
