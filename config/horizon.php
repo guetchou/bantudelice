@@ -14,8 +14,12 @@ return [
     'middleware' => ['web'],
 
     'waits' => [
-        'redis:default' => 60,
+        'redis:critical' => 10,
+        'redis:payments' => 15,
+        'redis:orders' => 30,
         'redis:food' => 30,
+        'redis:notifications' => 60,
+        'redis:default' => 60,
         'redis:colis' => 60,
         'redis:transport' => 60,
     ],
@@ -43,9 +47,9 @@ return [
     'memory_limit' => 64,
 
     'defaults' => [
-        'supervisor-default' => [
+        'supervisor-critical' => [
             'connection' => 'redis',
-            'queue' => ['default'],
+            'queue' => ['critical'],
             'balance' => 'auto',
             'autoScalingStrategy' => 'time',
             'maxProcesses' => 1,
@@ -54,6 +58,32 @@ return [
             'memory' => 128,
             'tries' => 3,
             'timeout' => 60,
+            'nice' => 0,
+        ],
+        'supervisor-payments' => [
+            'connection' => 'redis',
+            'queue' => ['payments'],
+            'balance' => 'auto',
+            'autoScalingStrategy' => 'time',
+            'maxProcesses' => 1,
+            'maxTime' => 0,
+            'maxJobs' => 0,
+            'memory' => 128,
+            'tries' => 3,
+            'timeout' => 120,
+            'nice' => 0,
+        ],
+        'supervisor-orders' => [
+            'connection' => 'redis',
+            'queue' => ['orders'],
+            'balance' => 'auto',
+            'autoScalingStrategy' => 'time',
+            'maxProcesses' => 1,
+            'maxTime' => 0,
+            'maxJobs' => 0,
+            'memory' => 128,
+            'tries' => 3,
+            'timeout' => 120,
             'nice' => 0,
         ],
         'supervisor-food' => [
@@ -95,13 +125,51 @@ return [
             'timeout' => 120,
             'nice' => 0,
         ],
+        'supervisor-notifications' => [
+            'connection' => 'redis',
+            'queue' => ['notifications'],
+            'balance' => 'auto',
+            'autoScalingStrategy' => 'time',
+            'maxProcesses' => 1,
+            'maxTime' => 0,
+            'maxJobs' => 0,
+            'memory' => 128,
+            'tries' => 3,
+            'timeout' => 60,
+            'nice' => 5,
+        ],
+        'supervisor-default' => [
+            'connection' => 'redis',
+            'queue' => ['default'],
+            'balance' => 'auto',
+            'autoScalingStrategy' => 'time',
+            'maxProcesses' => 1,
+            'maxTime' => 0,
+            'maxJobs' => 0,
+            'memory' => 128,
+            'tries' => 3,
+            'timeout' => 60,
+            'nice' => 10,
+        ],
     ],
 
     'environments' => [
         'production' => [
-            'supervisor-default' => [
+            'supervisor-critical' => [
                 'minProcesses' => 1,
-                'maxProcesses' => 3,
+                'maxProcesses' => 4,
+                'balanceMaxShift' => 1,
+                'balanceCooldown' => 3,
+            ],
+            'supervisor-payments' => [
+                'minProcesses' => 1,
+                'maxProcesses' => 4,
+                'balanceMaxShift' => 1,
+                'balanceCooldown' => 3,
+            ],
+            'supervisor-orders' => [
+                'minProcesses' => 1,
+                'maxProcesses' => 4,
                 'balanceMaxShift' => 1,
                 'balanceCooldown' => 3,
             ],
@@ -123,13 +191,29 @@ return [
                 'balanceMaxShift' => 1,
                 'balanceCooldown' => 3,
             ],
+            'supervisor-notifications' => [
+                'minProcesses' => 1,
+                'maxProcesses' => 2,
+                'balanceMaxShift' => 1,
+                'balanceCooldown' => 5,
+            ],
+            'supervisor-default' => [
+                'minProcesses' => 1,
+                'maxProcesses' => 2,
+                'balanceMaxShift' => 1,
+                'balanceCooldown' => 5,
+            ],
         ],
 
         'local' => [
-            'supervisor-default' => ['maxProcesses' => 1],
+            'supervisor-critical' => ['maxProcesses' => 1],
+            'supervisor-payments' => ['maxProcesses' => 1],
+            'supervisor-orders' => ['maxProcesses' => 1],
             'supervisor-food' => ['maxProcesses' => 1],
             'supervisor-colis' => ['maxProcesses' => 1],
             'supervisor-transport' => ['maxProcesses' => 1],
+            'supervisor-notifications' => ['maxProcesses' => 1],
+            'supervisor-default' => ['maxProcesses' => 1],
         ],
     ],
 
