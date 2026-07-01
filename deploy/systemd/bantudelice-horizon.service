@@ -1,0 +1,20 @@
+[Unit]
+Description=BantuDelice Laravel Horizon
+After=network.target redis-server.service
+Wants=redis-server.service
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/bantudelice
+ExecStart=/usr/bin/php /opt/bantudelice/artisan horizon
+ExecStop=/usr/bin/php /opt/bantudelice/artisan horizon:terminate
+Restart=always
+RestartSec=5
+TimeoutStopSec=60
+KillSignal=SIGTERM
+Environment=APP_ENV=production
+
+[Install]
+WantedBy=multi-user.target
