@@ -79,6 +79,19 @@ php artisan route:clear || true
 php artisan view:clear || true
 php artisan cache:clear || true
 
+echo "Détection du runtime Horizon..."
+if systemctl list-unit-files horizon.service >/dev/null 2>&1; then
+  echo "Horizon systemd détecté : $(systemctl is-active horizon.service 2>/dev/null || true)"
+elif supervisorctl status 2>/dev/null | grep -qi 'horizon'; then
+  echo "Horizon supervisor détecté :"
+  supervisorctl status 2>/dev/null | grep -i 'horizon' || true
+else
+  echo "Aucun runtime Horizon actif détecté; les workers legacy restent en service."
+fi
+
+php artisan horizon:terminate \
+  || echo "Avertissement : horizon:terminate impossible ou Horizon inactif."
+
 systemctl reload php8.3-fpm \
   || sudo systemctl reload php8.3-fpm \
   || echo "Avertissement : rechargement PHP-FPM impossible."
@@ -87,6 +100,9 @@ php artisan queue:restart || true
 supervisorctl restart bantudelice-worker:* \
   || sudo supervisorctl restart bantudelice-worker:* \
   || echo "Avertissement : redémarrage des workers impossible."
+
+php artisan horizon:status \
+  || echo "Avertissement : Horizon inactif après déploiement; vérifier le runtime systemd/supervisor."
 
 # Dernière opération : restaurer les droits après les commandes artisan.
 # Le wrapper sudo est nécessaire quand le déploiement tourne sous un compte non-root.
