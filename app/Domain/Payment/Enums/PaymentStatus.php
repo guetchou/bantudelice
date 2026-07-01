@@ -1,0 +1,144 @@
+<?php
+
+namespace App\Domain\Payment\Enums;
+
+enum PaymentStatus: string
+{
+    case CREATED = 'created';
+    case SUBMITTED = 'submitted';
+    case PENDING = 'pending';
+    case PROCESSING = 'processing';
+    case SUCCESSFUL = 'successful';
+    case FAILED = 'failed';
+    case CANCELLED = 'cancelled';
+    case EXPIRED = 'expired';
+    case UNKNOWN = 'unknown';
+    case REVERSED = 'reversed';
+    case REFUNDED = 'refunded';
+    case DISPUTED = 'disputed';
+
+    public static function fromStorage(?string $status): self
+    {
+        return match (strtoupper(trim((string) $status))) {
+            'CREATED', 'INITIATED' => self::CREATED,
+            'SUBMITTED' => self::SUBMITTED,
+            'PENDING' => self::PENDING,
+            'AUTHORIZED', 'PROCESSING' => self::PROCESSING,
+            'PAID', 'SUCCESS', 'SUCCESSFUL', 'COMPLETED', 'APPROVED' => self::SUCCESSFUL,
+            'FAILED', 'REJECTED', 'DECLINED' => self::FAILED,
+            'CANCELLED', 'CANCELED' => self::CANCELLED,
+            'EXPIRED', 'TIMEOUT' => self::EXPIRED,
+            'REVERSED', 'REVERSAL', 'ROLLED_BACK' => self::REVERSED,
+            'REFUNDED', 'PARTIALLY_REFUNDED' => self::REFUNDED,
+            'DISPUTED', 'CHARGEBACK' => self::DISPUTED,
+            default => self::UNKNOWN,
+        };
+    }
+
+    public static function fromCanonicalOrStorage(?string $canonical, ?string $legacy): self
+    {
+        $canonicalValue = strtolower(trim((string) $canonical));
+        $canonicalStatus = self::tryFrom($canonicalValue);
+
+        return $canonicalStatus ?? self::fromStorage($legacy);
+    }
+
+    /**
+     * Compatibilité avec la colonne historique `payments.status`.
+     * Le détail industriel reste dans `canonical_status` et l’historique des transitions.
+     */
+    public function legacyStorageValue(): string
+    {
+        return match ($this) {
+            self::CREATED => 'INITIATED',
+            self::SUBMITTED,
+            self::PENDING,
+            self::PROCESSING,
+            self::UNKNOWN,
+            self::DISPUTED => 'PENDING',
+            self::SUCCESSFUL => 'PAID',
+            self::FAILED,
+            self::EXPIRED,
+            self::REVERSED => 'FAILED',
+            self::CANCELLED => 'CANCELLED',
+            self::REFUNDED => 'REFUNDED',
+        };
+    }
+
+    public function isFinanciallyConfirmed(): bool
+    {
+        return $this === self::SUCCESSFUL;
+    }
+
+    public function requiresManualReview(): bool
+    {
+        return in_array($this, [
+            self::UNKNOWN,
+            self::REVERSED,
+            self::DISPUTED,
+        ], true);
+    }
+
+    public function canTransitionTo(self $target): bool
+    {
+        if ($target === $this) {
+            return true;
+        }
+
+        return in_array($target, $this->allowedTransitions(), true);
+    }
+
+    public function allowedTransitions(): array
+    {
+        return match ($this) {
+            self::CREATED => [
+                self::SUBMITTED,
+                self::CANCELLED,
+            ],
+            self::SUBMITTED => [
+                self::PENDING,
+                self::PROCESSING,
+                self::SUCCESSFUL,
+                self::FAILED,
+                self::UNKNOWN,
+                self::CANCELLED,
+                self::EXPIRED,
+            ],
+            self::PENDING,
+            self::PROCESSING => [
+                self::SUCCESSFUL,
+                self::FAILED,
+                self::UNKNOWN,
+                self::CANCELLED,
+                self::EXPIRED,
+            ],
+            self::UNKNOWN => [
+                self::PENDING,
+                self::PROCESSING,
+                self::SUCCESSFUL,
+                self::FAILED,
+                self::REVERSED,
+                self::REFUNDED,
+                self::DISPUTED,
+            ],
+            self::SUCCESSFUL => [
+                self::REVERSED,
+                self::REFUNDED,
+                self::DISPUTED,
+            ],
+            self::FAILED,
+            self::CANCELLED,
+            self::EXPIRED => [
+                self::UNKNOWN,
+                self::SUCCESSFUL,
+            ],
+            self::DISPUTED => [
+                self::SUCCESSFUL,
+                self::REVERSED,
+                self::REFUNDED,
+            ],
+            self::REVERSED,
+            self::REFUNDED => [],
+        };
+    }
+}
