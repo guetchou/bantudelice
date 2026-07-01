@@ -52,6 +52,9 @@ jobs:
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
           git rm --ignore-unmatch horizon-install.log
-          git add composer.json composer.lock config/horizon.php app/Providers/HorizonServiceProvider.php config/app.php public/vendor/horizon 2>/dev/null || true
+          git add composer.json composer.lock config/horizon.php
+          test -f app/Providers/HorizonServiceProvider.php && git add app/Providers/HorizonServiceProvider.php || true
+          test -f config/app.php && git add config/app.php || true
+          test -d public/vendor/horizon && git add public/vendor/horizon || true
           git diff --cached --quiet || git commit -m 'feat: install Laravel Horizon'
           git push
