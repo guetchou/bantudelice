@@ -14,6 +14,8 @@ jobs:
   install:
     if: github.actor != 'github-actions[bot]'
     runs-on: ubuntu-latest
+    env:
+      VIEW_COMPILED_PATH: /tmp/bantudelice-views
 
     steps:
       - name: Checkout
@@ -33,40 +35,23 @@ jobs:
           mkdir -p storage/framework/views
           mkdir -p storage/logs
           mkdir -p bootstrap/cache
-          chmod -R u+rwX storage bootstrap/cache
+          mkdir -p "$VIEW_COMPILED_PATH"
+          chmod -R u+rwX storage bootstrap/cache "$VIEW_COMPILED_PATH"
 
-      - name: Diagnose and install Horizon
-        id: horizon
-        shell: bash
-        run: |
-          set +e
-          composer install --no-interaction --prefer-dist --no-progress 2>&1 | tee horizon-install.log
-          install_status=${PIPESTATUS[0]}
-          if [ "$install_status" -eq 0 ]; then
-            composer require laravel/horizon:^5.0 --with-all-dependencies --no-interaction --no-progress 2>&1 | tee -a horizon-install.log
-            install_status=${PIPESTATUS[0]}
-          fi
-          echo "status=$install_status" >> "$GITHUB_OUTPUT"
-          exit 0
+      - name: Install current dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Add Horizon
+        run: composer require laravel/horizon:^5.0 --with-all-dependencies --no-interaction --no-progress
 
       - name: Publish Horizon
-        if: steps.horizon.outputs.status == '0'
         run: php artisan horizon:install
 
-      - name: Commit generated files or diagnostic
+      - name: Commit generated files
         run: |
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          if [ "${{ steps.horizon.outputs.status }}" = "0" ]; then
-            git rm --ignore-unmatch horizon-install.log
-            git add composer.json composer.lock config/horizon.php app/Providers/HorizonServiceProvider.php config/app.php public/vendor/horizon 2>/dev/null || true
-            git diff --cached --quiet || git commit -m 'feat: install Laravel Horizon'
-          else
-            git add horizon-install.log
-            git commit -m 'chore: capture Horizon installation diagnostic'
-          fi
+          git rm --ignore-unmatch horizon-install.log
+          git add composer.json composer.lock config/horizon.php app/Providers/HorizonServiceProvider.php config/app.php public/vendor/horizon 2>/dev/null || true
+          git diff --cached --quiet || git commit -m 'feat: install Laravel Horizon'
           git push
-
-      - name: Fail when installation failed
-        if: steps.horizon.outputs.status != '0'
-        run: exit 1
