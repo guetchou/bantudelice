@@ -13,6 +13,22 @@ class ModuleHealthController extends Controller
         $this->health = $health;
     }
 
+    public function live()
+    {
+        return response()->json([
+            'status' => 'ok',
+            'service' => config('app.name'),
+            'timestamp' => now()->toIso8601String(),
+        ]);
+    }
+
+    public function ready()
+    {
+        $payload = $this->health->readiness();
+
+        return response()->json($payload, $payload['ready'] ? 200 : 503);
+    }
+
     public function index()
     {
         return response()->json([
