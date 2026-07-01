@@ -67,9 +67,6 @@ class MtnSmsService
         }
     }
 
-    /**
-     * Interroge le statut d’une requête Tinda déjà acceptée.
-     */
     public function getStatus(string|int $serverId): array
     {
         $config = config('external-services.notifications.mtn_sms', []);
@@ -176,8 +173,9 @@ class MtnSmsService
             $phone = substr($phone, 2);
         }
 
+        // Tinda attend le format 2420XXXXXXXX : le zéro national doit être conservé.
         if (preg_match('/^0[456]\d{7,8}$/', $phone)) {
-            $phone = '242'.substr($phone, 1);
+            $phone = '242'.$phone;
         } elseif (!str_starts_with($phone, '242')) {
             $phone = '242'.$phone;
         }
