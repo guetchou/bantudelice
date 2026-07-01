@@ -199,7 +199,7 @@ class PaymentReconciliationRegressionTest extends TestCase
             data_get($payment->meta, 'failure_message')
         );
         $this->assertSame(
-            'Relancez une nouvelle requête de paiement MTN si le client souhaite réessayer.',
+            'Relancer uniquement après confirmation de l’absence de débit.',
             data_get($payment->meta, 'failure_action')
         );
     }
@@ -245,7 +245,8 @@ class TestPaymentReconciliationService extends PaymentReconciliationService
     public function __construct(
         private array $providerStatus,
         private ?PaymentService $paymentService = null
-    ) {}
+    ) {
+    }
 
     protected function getProviderStatus(Payment $payment): array
     {

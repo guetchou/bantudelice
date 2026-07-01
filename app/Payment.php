@@ -2,6 +2,7 @@
 
 namespace App;
 
+use App\Domain\Payment\Enums\PaymentStatus;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -47,18 +48,42 @@ class Payment extends Model
         return $this->belongsTo(\App\Domain\Transport\Models\TransportBooking::class, 'transport_booking_id');
     }
 
+    public function allocations()
+    {
+        return $this->hasMany(PaymentAllocation::class);
+    }
+
+    public function canonicalStatus(): PaymentStatus
+    {
+        return PaymentStatus::fromRaw($this->status);
+    }
+
     public function isPaid(): bool
     {
-        return $this->status === 'PAID';
+        return $this->canonicalStatus() === PaymentStatus::PAID;
     }
 
     public function isPending(): bool
     {
-        return $this->status === 'PENDING';
+        return in_array($this->canonicalStatus(), [
+            PaymentStatus::INITIATED,
+            PaymentStatus::PENDING,
+            PaymentStatus::PROCESSING,
+        ], true);
     }
 
     public function isFailed(): bool
     {
-        return $this->status === 'FAILED';
+        return $this->canonicalStatus() === PaymentStatus::FAILED;
+    }
+
+    public function isUnknown(): bool
+    {
+        return $this->canonicalStatus() === PaymentStatus::UNKNOWN;
+    }
+
+    public function isReconcilable(): bool
+    {
+        return $this->canonicalStatus()->isReconcilable();
     }
 }
