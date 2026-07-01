@@ -12,6 +12,8 @@ use App\Domain\Payment\Adapters\MtnMomoAdapter;
 use App\Domain\Payment\Adapters\PayPalAdapter;
 use App\Domain\Payment\PaymentGatewayFactory;
 use App\Http\Middleware\AuthenticateGePayClient;
+use App\Observers\PartnerWithdrawalObserver;
+use App\PartnerWithdrawal;
 use App\Services\CheckoutService;
 use App\Services\DeliveryService;
 use App\Services\DispatchService;
@@ -56,6 +58,8 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot()
     {
+        PartnerWithdrawal::observe(PartnerWithdrawalObserver::class);
+
         $this->app['router']->aliasMiddleware('gepay.client', AuthenticateGePayClient::class);
         $this->loadRoutesFrom(base_path('routes/gepay.php'));
 

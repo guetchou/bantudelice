@@ -10,7 +10,7 @@ class PaymentDashboardPageTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_admin_payment_dashboard_is_a_decision_first_operations_center(): void
+    public function test_admin_payment_dashboard_exposes_business_truth_and_decision_queue(): void
     {
         $admin = User::factory()->create([
             'type' => 'admin',
@@ -21,16 +21,16 @@ class PaymentDashboardPageTest extends TestCase
         $response = $this->actingAs($admin)->get(route('admin.payments.dashboard'));
 
         $response->assertOk();
-        $response->assertSee('Centre d’opérations de paiement');
-        $response->assertSee('Encaissement confirmé');
-        $response->assertSee('File de rapprochement');
-        $response->assertSee('Alertes opérationnelles');
+        $response->assertSee('Centre financier des paiements');
+        $response->assertSee('Encaissements confirmés');
+        $response->assertSee('Affecté aux opérations');
+        $response->assertSee('Non affecté ou bloqué');
+        $response->assertSee('File de décision financière');
+        $response->assertSee('Retraits réservés');
+        $response->assertSee('Règles métier actives');
+        $response->assertSee('Encaissement ≠ affectation');
+        $response->assertSee('Inversion = contre-écriture');
         $response->assertSee('Journal des transactions');
-        $response->assertSee('Initialisation');
-        $response->assertSee('En attente');
-        $response->assertSee('Traitement');
-        $response->assertSee('Payé');
-        $response->assertSee('Échoué');
         $response->assertDontSee('Cockpit Paiements');
         $response->assertDontSee('Anomalies paiement');
     }
