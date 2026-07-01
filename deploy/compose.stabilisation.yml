@@ -1,0 +1,46 @@
+services:
+  redis:
+    image: redis:7.4-alpine
+    container_name: bantudelice-redis
+    restart: unless-stopped
+    command:
+      - redis-server
+      - --appendonly
+      - "yes"
+      - --appendfsync
+      - everysec
+      - --requirepass
+      - ${REDIS_PASSWORD}
+    volumes:
+      - bantudelice_redis_data:/data
+    ports:
+      - "127.0.0.1:${REDIS_PORT:-6379}:6379"
+    networks:
+      - bantudelice_internal
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping | grep PONG"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+
+  uptime-kuma:
+    image: louislam/uptime-kuma:1
+    container_name: bantudelice-uptime-kuma
+    restart: unless-stopped
+    volumes:
+      - bantudelice_uptime_kuma_data:/app/data
+    ports:
+      - "127.0.0.1:${UPTIME_KUMA_PORT:-3001}:3001"
+    networks:
+      - bantudelice_internal
+
+networks:
+  bantudelice_internal:
+    name: bantudelice_internal
+
+volumes:
+  bantudelice_redis_data:
+  bantudelice_uptime_kuma_data:
