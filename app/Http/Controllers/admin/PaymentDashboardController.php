@@ -2,36 +2,37 @@
 
 namespace App\Http\Controllers\admin;
 
+use App\Domain\Payment\PaymentOperatingModel;
 use App\Http\Controllers\Controller;
 use App\Payment;
 use App\Services\PaymentDashboardService;
+use App\Services\PaymentIndustrialControlService;
 use App\Services\PaymentReconciliationService;
 use Illuminate\Http\Request;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class PaymentDashboardController extends Controller
 {
-    public function index(Request $request, PaymentDashboardService $dashboard)
-    {
-        $hours = in_array((int) $request->query('hours', 12), [6, 12, 24], true)
-            ? (int) $request->query('hours', 12)
-            : 12;
-
-        return view('admin.payments.dashboard', $dashboard->build(
-            $hours,
-            $request->only(['provider', 'status'])
+    public function index(
+        Request $request,
+        PaymentDashboardService $dashboard,
+        PaymentIndustrialControlService $industrialControl
+    ) {
+        return view('admin.payments.dashboard', $this->dashboardPayload(
+            $request,
+            $dashboard,
+            $industrialControl
         ));
     }
 
-    public function data(Request $request, PaymentDashboardService $dashboard)
-    {
-        $hours = in_array((int) $request->query('hours', 12), [6, 12, 24], true)
-            ? (int) $request->query('hours', 12)
-            : 12;
-
+    public function data(
+        Request $request,
+        PaymentDashboardService $dashboard,
+        PaymentIndustrialControlService $industrialControl
+    ) {
         return response()->json([
             'status' => true,
-            'data' => $dashboard->build($hours, $request->only(['provider', 'status'])),
+            'data' => $this->dashboardPayload($request, $dashboard, $industrialControl),
         ]);
     }
 
@@ -119,6 +120,13 @@ class PaymentDashboardController extends Controller
         Payment $payment,
         PaymentReconciliationService $reconciliationService
     ) {
+        if (! PaymentOperatingModel::canReconcileCollection($payment->status)) {
+            return response()->json([
+                'status' => false,
+                'message' => 'Ce statut exige une revue manuelle. Le rapprochement automatique n’est pas autorisé.',
+            ], 422);
+        }
+
         $result = $reconciliationService->reconcile($payment);
         $payment->refresh();
 
@@ -136,6 +144,40 @@ class PaymentDashboardController extends Controller
         ]);
     }
 
+    private function dashboardPayload(
+        Request $request,
+        PaymentDashboardService $dashboard,
+        PaymentIndustrialControlService $industrialControl
+    ): array {
+        $hours = $this->resolveHours($request);
+        $requestedFilters = $request->only(['provider', 'status']);
+        $operational = $dashboard->build($hours, $requestedFilters);
+        $normalizedFilters = $operational['filters'] ?? $requestedFilters;
+
+        foreach (['tablePayments', 'livePayments'] as $key) {
+            if (! isset($operational[$key])) {
+                continue;
+            }
+
+            $operational[$key] = collect($operational[$key])->map(function (array $payment) {
+                $payment['can_reconcile'] = PaymentOperatingModel::canReconcileCollection(
+                    $payment['raw_status'] ?? strtoupper((string) ($payment['status'] ?? ''))
+                );
+
+                return $payment;
+            });
+        }
+
+        return array_merge($operational, $industrialControl->build($normalizedFilters));
+    }
+
+    private function resolveHours(Request $request): int
+    {
+        $hours = (int) $request->query('hours', 12);
+
+        return in_array($hours, [6, 12, 24], true) ? $hours : 12;
+    }
+
     private function rawProvidersForFilter(string $provider): array
     {
         return match ($provider) {
@@ -149,10 +191,10 @@ class PaymentDashboardController extends Controller
     private function rawStatusesForFilter(string $status): array
     {
         return match ($status) {
-            'initiated' => ['INITIATED'],
+            'initiated' => ['INITIATED', 'CREATED'],
             'pending' => ['PENDING'],
-            'processing' => ['AUTHORIZED', 'PROCESSING'],
-            'success' => ['SUCCESS', 'SUCCESSFUL'],
+            'processing' => ['AUTHORIZED', 'PROCESSING', 'SUBMITTED'],
+            'success' => ['SUCCESS', 'SUCCESSFUL', 'COMPLETED', 'CAPTURED', 'APPROVED'],
             'paid' => ['PAID'],
             'failed' => ['FAILED', 'REJECTED', 'DECLINED'],
             'cancelled' => ['CANCELLED', 'CANCELED'],
