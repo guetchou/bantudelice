@@ -38,14 +38,14 @@ class ModuleHealthController extends Controller
             report($e);
         }
 
-        $redisRequired = in_array(config('cache.default'), ['redis'], true)
+        $redisRequired = config('cache.default') === 'redis'
             || config('queue.default') === 'redis'
             || config('session.driver') === 'redis';
 
         if ($redisRequired) {
             try {
-                $checks['redis'] = Redis::connection()->ping() === true
-                    || Redis::connection()->ping() === 'PONG';
+                $pong = Redis::connection()->ping();
+                $checks['redis'] = $pong === true || $pong === 'PONG';
             } catch (\Throwable $e) {
                 $checks['redis'] = false;
                 report($e);
