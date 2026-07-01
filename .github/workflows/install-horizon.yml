@@ -1,0 +1,60 @@
+name: Install Horizon
+
+on:
+  push:
+    branches:
+      - feat/laravel-horizon
+    paths:
+      - .github/workflows/install-horizon.yml
+
+permissions:
+  contents: write
+
+jobs:
+  install:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    env:
+      VIEW_COMPILED_PATH: /tmp/bantudelice-views
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: mbstring, intl, pdo_sqlite, redis
+          coverage: none
+
+      - name: Prepare Laravel runtime
+        run: |
+          mkdir -p storage/framework/cache/data
+          mkdir -p storage/framework/sessions
+          mkdir -p storage/framework/views
+          mkdir -p storage/logs
+          mkdir -p bootstrap/cache
+          mkdir -p "$VIEW_COMPILED_PATH"
+          chmod -R u+rwX storage bootstrap/cache "$VIEW_COMPILED_PATH"
+
+      - name: Install current dependencies
+        run: composer install --no-interaction --prefer-dist --no-progress
+
+      - name: Add Horizon
+        run: composer require laravel/horizon:^5.0 --with-all-dependencies --no-interaction --no-progress
+
+      - name: Publish Horizon
+        run: php artisan horizon:install
+
+      - name: Commit generated files
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git rm --ignore-unmatch horizon-install.log
+          git add composer.json composer.lock config/horizon.php
+          test -f app/Providers/HorizonServiceProvider.php && git add app/Providers/HorizonServiceProvider.php || true
+          test -f config/app.php && git add config/app.php || true
+          test -d public/vendor/horizon && git add public/vendor/horizon || true
+          git diff --cached --quiet || git commit -m 'feat: install Laravel Horizon'
+          git push

@@ -15,6 +15,7 @@
         "firebase/php-jwt": "^7.0",
         "guzzlehttp/guzzle": "^7.2",
         "laravel/framework": "^10.10",
+        "laravel/horizon": "^5.0",
         "laravel/passport": "^12",
         "laravel/sanctum": "^3.2",
         "laravel/socialite": "^5.23",
