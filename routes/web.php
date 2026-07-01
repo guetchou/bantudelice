@@ -356,6 +356,7 @@ Route::group(['prefix' => 'admin', 'namespace' => 'admin', 'middleware' => ['aut
         Route::get('payments/export-csv', 'PaymentDashboardController@exportCsv')->name('admin.payments.export-csv');
         Route::get('gepay', [\App\Http\Controllers\admin\GePayDisbursementController::class, 'index'])->name('admin.gepay.index');
         Route::post('gepay/disburse', [\App\Http\Controllers\admin\GePayDisbursementController::class, 'disburse'])->name('admin.gepay.disburse');
+        Route::post('gepay/collect', [\App\Http\Controllers\admin\GePayDisbursementController::class, 'collect'])->name('admin.gepay.collect');
         Route::get('gepay/transactions', [\App\Http\Controllers\admin\GePayDisbursementController::class, 'transactions'])->name('admin.gepay.transactions');
         Route::post('news-notification/{news}', 'NewsController@sentNotification')->name('send.notification');
         Route::resource('driver', 'DriverController');
