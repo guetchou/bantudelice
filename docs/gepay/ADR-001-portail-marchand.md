@@ -4,7 +4,7 @@
 **Date :** 2026-07-01  
 **Décideur :** guetchou  
 **Domaine :** GePay — passerelle de paiement multi-tenant  
-**Révision :** 3 (finale)
+**Révision :** 4 (patch bloquants PRD v1.2)
 
 ---
 
@@ -25,7 +25,7 @@ Le portail marchand GePay est indépendant de `admin-modern`.
 Layout : `resources/views/layouts/gepay.blade.php`  
 Routes : groupe subdomain `gepay.bantudelice.cg`, fichier `routes/gepay-web.php`
 
-### D2 — Authentification
+### D2 — Authentification et session
 
 | Élément | Valeur |
 |---|---|
@@ -33,10 +33,16 @@ Routes : groupe subdomain `gepay.bantudelice.cg`, fichier `routes/gepay-web.php`
 | Provider | `gepay_users` |
 | Modèle | `App\Domain\GePay\Models\GePayMerchantUser` |
 | Table | `gepay_merchant_users` |
-| Session cookie | distinct du cookie BantuDelice |
-| Inscription | fermée — comptes créés manuellement ou via seeder |
+| Cookie nom | distinct du cookie BantuDelice |
+| Cookie flags | `Secure`, `HttpOnly`, `SameSite=Strict` |
+| Cookie domaine | `gepay.bantudelice.cg` (host-only — pas de point préfixe) |
+| Inscription | fermée — comptes créés via `gepay:provision-user` uniquement |
 
 `GePayMerchantUser` est **séparé** de `App\User`. Aucune relation entre les deux.
+
+Cookie host-only : en fixant `Domain=gepay.bantudelice.cg` sans point préfixe, le cookie
+est restreint exactement à ce sous-domaine et n'est pas envoyé à `bantudelice.cg` ni aux
+autres sous-domaines.
 
 ### D3 — Scope marchand
 
@@ -58,7 +64,7 @@ PayoutController
 ```
 
 **Interdit** dans ces contrôleurs : `GePayInternalClientResolver`  
-**Autorisé** : `GePayGateway`, modèles GePay, enums, providers MTN/Airtel
+**Autorisé** : `GePayGateway`, `GePayMerchantClientResolver`, modèles GePay, enums, providers
 
 ### D5 — PR #101 (feat/gepay-collect-panel)
 
@@ -82,26 +88,104 @@ Les entités suivantes ne peuvent jamais être supprimées physiquement (`DELETE
 - `gepay_clients`
 - `gepay_wallets`
 - `gepay_transactions`
-- `gepay_ledger_entries`
+- `gepay_ledger_entries`  ← **aucun soft delete non plus** (immuabilité absolue)
 - `gepay_payout_requests`
 - `gepay_payout_destinations`
 
-Désactivation par champ `status` ou `deleted_at` (soft delete) uniquement.  
+Pour les entités autres que le ledger : désactivation par `status`/`is_active` ou soft delete (`deleted_at`).  
 Toutes les FK sur ces tables utilisent `ON DELETE RESTRICT`.
 
 ### D8 — Chiffrement des données de paiement
 
-Toute donnée de destination de règlement (numéro de téléphone, IBAN) est **chiffrée au repos** via Laravel `encrypted` cast.  
+Toute donnée de destination de règlement (numéro de téléphone, IBAN) est **chiffrée au repos**.  
 Cela inclut :
-- `gepay_payout_destinations.destination`
-- `gepay_payout_requests.destination_snapshot` (colonne JSON entière)
+- `gepay_payout_destinations.destination` (encrypted cast)
+- `gepay_payout_requests.destination_snapshot` — colonne TEXT chiffrée (encrypted cast JSON)
 
-Seules des valeurs **masquées** (ex: `****5678`, `FR76****1234`) peuvent apparaître dans :
-- les vues Blade
-- les logs applicatifs
-- les réponses HTTP (JSON inclus)
+Structure de `destination_snapshot` (chiffrée côté serveur, jamais déchiffrée côté navigateur) :
+```json
+{
+  "destination_type": "mobile_mtn",
+  "destination_full": "<valeur complète chiffrée — serveur uniquement>",
+  "masked": "****5678",
+  "verified": true,
+  "verified_by": "admin@gepay.cg",
+  "verified_at": "2026-07-01T10:00:00Z"
+}
+```
 
-Aucune valeur complète ne transite vers le navigateur, même pour un admin GePay.
+Seul le champ `masked` peut apparaître dans les vues Blade, logs et réponses HTTP.  
+`destination_full` ne transite **jamais** vers le navigateur, même pour un admin GePay.
+
+### D9 — Client technique du portail (`GePayMerchantClientResolver`)
+
+Chaque marchand doit disposer d'un `GePayClient` dédié au portail, référencé par
+`gepay_merchants.portal_client_id`.
+
+`GePayMerchantClientResolver` résout le client actif du marchand authentifié :
+1. Lit `auth('gepay')->user()->merchant->portal_client_id`
+2. Charge le `GePayClient` correspondant
+3. Vérifie : `client.merchant_id == merchant.id` (invariant d'appartenance)
+4. Vérifie : `client.status == active`
+5. Vérifie : `client.capabilities` contient la capacité demandée (`collection`, `disbursement`, etc.)
+6. Échec sur n'importe quelle condition → exception métier, log, réponse générique 503
+
+Aucun contrôleur du portail n'appelle `GePayInternalClientResolver`.
+
+### D10 — Idempotence des formulaires (`operation_token`)
+
+Pour chaque opération financière (Envoyer, Encaisser, Payout) :
+
+- À l'ouverture du formulaire (GET), le serveur génère un UUID `operation_token` et le stocke
+  en session lié à `(merchant_id, user_id, operation_type)`.
+- Le formulaire soumet ce token avec le payload.
+- **Même token + même payload** → résultat identique retourné, aucune double écriture.
+- **Même token + payload différent** → rejet 409 (conflit détecté).
+- **Token absent ou expiré** → rejet 422.
+- Token consommé après soumission réussie (invalidé en session).
+- `operation_token` ≠ token CSRF. Les deux sont requis simultanément.
+
+### D11 — Compensation technique vs remboursement métier
+
+**Compensations techniques automatiques** (idempotentes, déclenchées par le système) :
+- `disbursement_refund` : disbursement échoué / annulé / expiré → crédit `available`
+- `payout_release` : payout non abouti → restitution `reserved` → `available`
+- `collection_fail` : collection échouée / expirée / annulée → débit `pending`
+
+Ces compensations s'exécutent **exactement une fois** via idempotency_key.  
+Elles n'impliquent aucun remboursement vers le payeur.
+
+**Remboursements métier** (`refunded`) : hors MVP. Requièrent une action admin explicite
+et une écriture compensatrice `adjustment_credit` avec note. Non automatisés.
+
+**État `unknown`** : aucune compensation automatique. Le wallet reste figé jusqu'à
+résolution manuelle par réconciliation ou confirmation du provider.
+
+**Règle de pré-soumission** : aucune écriture ledger si l'erreur survient avant
+l'appel au provider (validation payload, résolution client, vérification solde).
+`collection_pending` n'est créé que si et seulement si la soumission MTN a retourné
+un succès HTTP (202 accepté par le provider).
+
+### D12 — Provisionnement des utilisateurs GePay
+
+Aucun compte `gepay_merchant_users` ne doit être créé manuellement via SQL.
+
+Commande dédiée, auditée :
+```
+php artisan gepay:provision-user
+  --merchant=<slug>
+  --name=<nom>
+  --email=<email>
+  --role=<admin|viewer>
+  [--send-invite]
+```
+
+La commande :
+1. Vérifie que le marchand existe et est `active`
+2. Vérifie l'unicité de l'email
+3. Génère un mot de passe temporaire aléatoire (min 16 caractères)
+4. Log l'action avec l'identité de l'opérateur (`whoami` ou env `PROVISIONER`)
+5. N'affiche le mot de passe qu'une seule fois en sortie console
 
 ---
 
@@ -112,14 +196,16 @@ Aucune valeur complète ne transite vers le navigateur, même pour un admin GePa
 #### `gepay_merchants`
 ```
 id               BIGINT UNSIGNED PK AUTO_INCREMENT
-ulid             CHAR(26) UNIQUE NOT NULL       -- identifiant stable et opaque
+ulid             CHAR(26) UNIQUE NOT NULL
 name             VARCHAR(191) NOT NULL
 slug             VARCHAR(191) UNIQUE NOT NULL   -- ex: bantudelice-internal
 country          CHAR(2) DEFAULT 'CG'
 email            VARCHAR(191) UNIQUE NOT NULL
 status           ENUM('active','suspended','closed') DEFAULT 'active'
+portal_client_id BIGINT UNSIGNED NULL FK→gepay_clients (RESTRICT)
+                 -- client GePay dédié au portail marchand, résolu par GePayMerchantClientResolver
 created_at, updated_at
-deleted_at       TIMESTAMP NULL                 -- soft delete uniquement
+deleted_at       TIMESTAMP NULL
 ```
 
 #### `gepay_merchant_users`
@@ -130,52 +216,44 @@ name             VARCHAR(191) NOT NULL
 email            VARCHAR(191) NOT NULL
 password         VARCHAR(255) NOT NULL
 role             ENUM('admin','viewer') DEFAULT 'admin'
+is_active        BOOLEAN NOT NULL DEFAULT TRUE
+                 -- FALSE → login refusé (403), sans détail
 remember_token   VARCHAR(100) NULL
 last_login_at    TIMESTAMP NULL
 created_at, updated_at
 
 UNIQUE (email)
-INDEX (merchant_id)
+INDEX (merchant_id, is_active)
 ```
 
 #### `gepay_payout_destinations`
-
-Destinations de règlement vérifiées. Séparée de `gepay_merchants` pour permettre
-plusieurs destinations par marchand et un audit de vérification indépendant.
-
 ```
 id               BIGINT UNSIGNED PK AUTO_INCREMENT
 merchant_id      BIGINT UNSIGNED NOT NULL FK→gepay_merchants (RESTRICT)
-label            VARCHAR(100) NOT NULL          -- ex: "MTN principal", "Compte BGFI"
+label            VARCHAR(100) NOT NULL
 destination_type ENUM('mobile_mtn','mobile_airtel','bank_iban') NOT NULL
-destination      TEXT NOT NULL                  -- chiffré (encrypted cast) — jamais exposé brut
+destination      TEXT NOT NULL              -- chiffré (encrypted cast)
 verified         BOOLEAN NOT NULL DEFAULT FALSE
-verified_by      VARCHAR(191) NULL              -- email admin GePay ayant vérifié
+verified_by      VARCHAR(191) NULL
 verified_at      TIMESTAMP NULL
 is_default       BOOLEAN NOT NULL DEFAULT FALSE
 created_at, updated_at
-deleted_at       TIMESTAMP NULL                 -- soft delete uniquement
+deleted_at       TIMESTAMP NULL
 
 INDEX (merchant_id, verified)
--- Une seule destination par défaut par marchand (enforced applicativement + index partiel si DB supporte)
 ```
 
-**Règle** : seul un admin GePay peut passer `verified = true`. Le marchand ne peut pas s'auto-vérifier.  
-**Exposition** : seules les valeurs masquées (`****5678`) apparaissent dans les vues et réponses.
+Seule la valeur masquée est exposée. `destination` déchiffrée uniquement côté serveur
+lors de l'exécution d'un payout via `GePayGateway`.
 
 #### `gepay_wallets`
-
-Les colonnes `available`, `pending`, `reserved` sont des **agrégats transactionnels**.
-Elles ne sont jamais modifiées directement. Toute mutation passe par `gepay_ledger_entries`
-avec `lockForUpdate()` dans la même transaction SQL.
-
 ```
 id               BIGINT UNSIGNED PK AUTO_INCREMENT
 merchant_id      BIGINT UNSIGNED NOT NULL FK→gepay_merchants (RESTRICT)
 currency         CHAR(3) NOT NULL DEFAULT 'XAF'
-available        BIGINT NOT NULL DEFAULT 0     -- agrégat, entiers XAF
-pending          BIGINT NOT NULL DEFAULT 0     -- agrégat, entiers XAF
-reserved         BIGINT NOT NULL DEFAULT 0     -- agrégat, entiers XAF
+available        BIGINT NOT NULL DEFAULT 0
+pending          BIGINT NOT NULL DEFAULT 0
+reserved         BIGINT NOT NULL DEFAULT 0
 updated_at       TIMESTAMP NOT NULL
 
 UNIQUE (merchant_id, currency)
@@ -184,67 +262,50 @@ CHECK  (pending   >= 0)
 CHECK  (reserved  >= 0)
 ```
 
-**Règles wallet :**
-- Un seul wallet par `(merchant_id, currency)` — enforced par la contrainte `UNIQUE` et vérification applicative avant création.
-- `available`, `pending`, `reserved` ne peuvent pas être négatifs — enforced par `CHECK` DB et vérification applicative avant toute écriture.
-- `UPDATE gepay_wallets SET available = X` est **interdit** hors de la procédure de ledger verrouillée.
-
-**Invariant** : `available + pending + reserved` = somme nette des `gepay_ledger_entries` agrégées par bucket pour ce wallet. Toute divergence est un incident.
+Colonnes = agrégats transactionnels. `UPDATE … SET available = X` interdit hors ledger.  
+Invariant : `available + pending + reserved` = somme nette du ledger pour ce wallet.
 
 #### `gepay_ledger_entries`
 
-**Source de vérité financière.** En cas de divergence avec `gepay_wallets`, le ledger fait foi.
-Aucun solde wallet n'est fiable s'il diverge du ledger recalculé.
-
-Chaque entrée est définie par les champs suivants — **tous obligatoires sauf `source_bucket` et `destination_bucket`** :
+Source de vérité financière. **Immuable absolument** : aucun `UPDATE`, `DELETE` ni soft delete.
 
 ```
-id               BIGINT UNSIGNED PK AUTO_INCREMENT
-merchant_id      BIGINT UNSIGNED NOT NULL FK→gepay_merchants (RESTRICT)
-wallet_id        BIGINT UNSIGNED NOT NULL FK→gepay_wallets (RESTRICT)
-type             ENUM(
-                   'collection_pending',    -- bucket: NULL → pending
-                   'collection_confirm',    -- bucket: pending → available
-                   'collection_fail',       -- bucket: pending → NULL
-                   'disbursement_debit',    -- bucket: available → NULL
-                   'disbursement_refund',   -- bucket: NULL → available
-                   'payout_reserve',        -- bucket: available → reserved
-                   'payout_release',        -- bucket: reserved → available
-                   'payout_debit',          -- bucket: reserved → NULL
-                   'fee_debit',             -- bucket: available → NULL
-                   'adjustment_credit',     -- bucket: NULL → available  (note obligatoire)
-                   'adjustment_debit'       -- bucket: available → NULL  (note obligatoire)
-                 ) NOT NULL
-amount           BIGINT NOT NULL             -- toujours positif, jamais zéro, entier XAF
-source_bucket    ENUM('available','pending','reserved') NULL   -- bucket débité
-destination_bucket ENUM('available','pending','reserved') NULL -- bucket crédité
-reference_type   VARCHAR(100) NOT NULL       -- ex: GePayTransaction, GePayPayoutRequest
-reference_id     BIGINT UNSIGNED NOT NULL
-idempotency_key  VARCHAR(191) NOT NULL
-metadata         JSON NULL                   -- données contextuelles libres (ex: webhook_id, provider_ref)
-note             TEXT NULL                   -- obligatoire pour adjustment_credit / adjustment_debit
-created_at       TIMESTAMP NOT NULL
+id                 BIGINT UNSIGNED PK AUTO_INCREMENT
+merchant_id        BIGINT UNSIGNED NOT NULL FK→gepay_merchants (RESTRICT)
+wallet_id          BIGINT UNSIGNED NOT NULL FK→gepay_wallets (RESTRICT)
+type               ENUM(
+                     'collection_pending',
+                     'collection_confirm',
+                     'collection_fail',
+                     'disbursement_debit',
+                     'disbursement_refund',
+                     'payout_reserve',
+                     'payout_release',
+                     'payout_debit',
+                     'fee_debit',
+                     'adjustment_credit',
+                     'adjustment_debit'
+                   ) NOT NULL
+amount             BIGINT NOT NULL             -- positif, non nul, entier XAF
+source_bucket      ENUM('available','pending','reserved') NULL
+destination_bucket ENUM('available','pending','reserved') NULL
+reference_type     VARCHAR(100) NOT NULL
+reference_id       BIGINT UNSIGNED NOT NULL
+idempotency_key    VARCHAR(191) NOT NULL
+metadata           JSON NULL
+note               TEXT NULL                   -- obligatoire pour adjustment_*
+created_at         TIMESTAMP NOT NULL
 
--- Idempotence scoped : un merchant partage l'espace d'idempotence par type entre tous ses clients API
--- Règle intentionnelle : empêche deux clients API du même marchand de soumettre la même opération en doublon
 UNIQUE (merchant_id, type, idempotency_key)
 INDEX (merchant_id, created_at)
 INDEX (wallet_id, created_at)
 INDEX (reference_type, reference_id)
 ```
 
-**Immuabilité absolue** :
-- Aucun `UPDATE` ni `DELETE` jamais autorisé sur cette table.
-- Toute correction → **écriture compensatrice** (`adjustment_credit` ou `adjustment_debit`) avec `note` obligatoire.
-- L'entrée erronée reste visible pour audit.
-
-**Idempotence partagée par marchand :** `UNIQUE(merchant_id, type, idempotency_key)` est **intentionnel**.
-Tous les clients API d'un même marchand partagent l'espace d'idempotence par type d'opération.
-Cela empêche deux clients différents du même marchand de soumettre deux fois la même opération.
-Si une séparation par client API est nécessaire, inclure le `client_id` dans `idempotency_key` à la construction.
+Toute correction → écriture compensatrice `adjustment_credit` / `adjustment_debit` avec `note`.  
+Idempotence partagée par `(merchant_id, type)` : intentionnelle (voir D2 ADR v3).
 
 #### `gepay_payout_requests`
-
 ```
 id                       BIGINT UNSIGNED PK AUTO_INCREMENT
 merchant_id              BIGINT UNSIGNED NOT NULL FK→gepay_merchants (RESTRICT)
@@ -252,220 +313,176 @@ wallet_id                BIGINT UNSIGNED NOT NULL FK→gepay_wallets (RESTRICT)
 payout_destination_id    BIGINT UNSIGNED NOT NULL FK→gepay_payout_destinations (RESTRICT)
 amount                   BIGINT UNSIGNED NOT NULL
 currency                 CHAR(3) NOT NULL DEFAULT 'XAF'
--- Snapshot immuable chiffré de la destination au moment de la soumission
--- Contient : {type, masked_destination, verified, verified_by, verified_at}
--- Jamais de valeur complète dans ce JSON
-destination_snapshot     TEXT NOT NULL    -- chiffré (encrypted cast)
-status                   ENUM('draft','submitted','processing','successful','failed','cancelled','expired')
+destination_snapshot     TEXT NOT NULL   -- chiffré (encrypted cast) — voir structure D8
+                                         -- masked uniquement exposé en vue
+status                   ENUM('draft','submitted','processing',
+                               'successful','failed','cancelled','expired')
                          NOT NULL DEFAULT 'draft'
 idempotency_key          VARCHAR(191) NOT NULL
+-- Champs remplis lors du traitement admin GePay
+processed_by             VARCHAR(191) NULL    -- email admin GePay
+operator_reference       VARCHAR(191) NULL    -- référence opérateur MTN/banque
 rejection_reason         TEXT NULL
 processed_at             TIMESTAMP NULL
-expires_at               TIMESTAMP NULL   -- nullable, fixé à la soumission si applicable
+expires_at               TIMESTAMP NULL
 created_at, updated_at
 
 UNIQUE (merchant_id, idempotency_key)
 INDEX (merchant_id, status)
 ```
 
-`destination_snapshot` est écrit à la création et jamais modifié (valeur chiffrée, masquée à l'affichage).
-
 ---
 
 ### Machine d'état `gepay_payout_requests`
 
 ```
-         ┌─────────────────────────────────────────────────────┐
-         │                                                     │
-  [draft] ──submit──→ [submitted] ──processing start──→ [processing]
-                          │                                    │
-                          │ annulation avant traitement        ├──→ [successful]
-                          ↓                                    │
-                      [cancelled]                              ├──→ [failed]
-                                                               │
-                                                               ├──→ [cancelled]  (arrêt admin)
-                                                               │
-                                                               └──→ [expired]    (timeout SLA)
+  [draft] ──atomique──→ [submitted] ──admin start──→ [processing]
+                             │                              │
+                    ─────────┼──────────────────────────────┼─────────
+                    submitted│cancelled   submitted│expired  │
+                             ↓                    ↓         ├──→ [successful]
+                         [cancelled]          [expired]     ├──→ [failed]
+                                                            ├──→ [cancelled]
+                                                            └──→ [expired]
 ```
 
-| Transition | Condition | Effet ledger |
-|---|---|---|
-| `draft → submitted` | destination vérifiée + solde suffisant | `payout_reserve` : available-- / reserved++ |
-| `submitted → processing` | traitement opérateur démarré | aucun effet ledger |
-| `submitted → cancelled` | annulation avant traitement | `payout_release` : reserved-- / available++ |
-| `processing → successful` | webhook / confirmation opérateur | `payout_debit` : reserved-- |
-| `processing → failed` | rejet opérateur | `payout_release` : reserved-- / available++ |
-| `processing → cancelled` | arrêt admin GePay | `payout_release` : reserved-- / available++ |
-| `processing → expired` | timeout SLA dépassé | `payout_release` : reserved-- / available++ |
+| Transition | Acteur | Champs obligatoires | Effet ledger |
+|---|---|---|---|
+| `draft → submitted` | Marchand admin (atomique) | — | `payout_reserve` |
+| `submitted → processing` | Admin GePay | `processed_by`, `processed_at` | aucun |
+| `submitted → cancelled` | Admin GePay | `processed_by`, `processed_at`, `rejection_reason` | `payout_release` |
+| `submitted → expired` | Système (SLA) | `processed_by=system`, `processed_at`, `rejection_reason` | `payout_release` |
+| `processing → successful` | Admin GePay (après exécution MTN via backend) | `processed_by`, `processed_at`, `operator_reference` | `payout_debit` |
+| `processing → failed` | Admin GePay | `processed_by`, `processed_at`, `rejection_reason` | `payout_release` |
+| `processing → cancelled` | Admin GePay | `processed_by`, `processed_at`, `rejection_reason` | `payout_release` |
+| `processing → expired` | Système (SLA) | `processed_by=system`, `processed_at`, `rejection_reason` | `payout_release` |
 
-**États terminaux** : `successful`, `failed`, `cancelled`, `expired` — aucune transition sortante.
+**États terminaux** : `successful`, `failed`, `cancelled`, `expired`.  
 
-**Garantie d'unicité des écritures réservation / libération :**
+**Exécution MTN** : la transition `processing → successful` déclenche un appel à `GePayGateway`
+via `GePayMerchantClientResolver`. Le numéro de destination est déchiffré **uniquement côté serveur**
+et transmis au provider. `operator_reference` reçu en retour est stocké chiffré.
+Aucun numéro complet ne transite vers le navigateur à aucune étape.
 
-La contrainte `UNIQUE(merchant_id, type, idempotency_key)` sur `gepay_ledger_entries`, combinée au `lockForUpdate()` sur le wallet dans une `DB::transaction()`, garantit que `payout_reserve` et `payout_release` ne peuvent être exécutés **qu'une seule fois** par demande, même en cas de :
-- webhook dupliqué
-- retry de job (Queue)
-- concurrence entre réconciliation et webhook simultanés
-
-L'idempotency_key du ledger est construite à partir de `payout_request.id` + type d'écriture.
-Une seconde tentative avec la même clé retourne l'entrée existante sans nouvelle écriture ni modification du wallet.
+**Idempotence** : `payout_reserve` et `payout_release` protégés par
+`UNIQUE(merchant_id, type, idempotency_key)` + `lockForUpdate()`.
+Webhook ou job dupliqué → entrée existante retournée, 0 double écriture.
 
 ---
 
 ### Tables existantes modifiées
 
 #### `gepay_clients` → ajouter `merchant_id` (nullable)
-
 ```sql
 ALTER TABLE gepay_clients
   ADD COLUMN merchant_id BIGINT UNSIGNED NULL
     REFERENCES gepay_merchants(id) ON DELETE RESTRICT;
 ```
-
-- `NULL` = client interne BantuDelice géré par `GePayInternalClientResolver` — **non touché**.
-- Non-null = client rattaché à un marchand GePay.
-
-**Colonne reste nullable** jusqu'à exécution et validation du backfill contrôlé, puis migration séparée pour NOT NULL.
+`NULL` = client interne BantuDelice (`GePayInternalClientResolver`) — non touché.  
+Colonne reste nullable jusqu'à backfill validé, puis migration séparée NOT NULL.
 
 #### `gepay_transactions` → ajouter `merchant_id` + remplacer cascade
 
-**Migration A** — ajout colonne (non-destructive) :
+**Migration A** (non-destructive) :
 ```sql
 ALTER TABLE gepay_transactions
   ADD COLUMN merchant_id BIGINT UNSIGNED NULL
     REFERENCES gepay_merchants(id) ON DELETE RESTRICT;
 ```
+`merchant_id` toujours déduit serveur : `gepay_clients.merchant_id WHERE id = client_id`.  
+Invariant : `tx.merchant_id MUST EQUAL client.merchant_id` (WHERE both NOT NULL).
 
-**Colonne reste nullable** jusqu'à validation du backfill.
+**Migration B** (DDL sensible) : cascade → restrict sur `gepay_transactions.client_id`.
 
-`merchant_id` est toujours **déduit côté serveur** du `GePayClient` associé :
-```
-gepay_transactions.merchant_id = gepay_clients.merchant_id
-  WHERE gepay_clients.id = gepay_transactions.client_id
-```
-
-Aucun code n'accepte `merchant_id` comme paramètre entrant pour cette colonne.
-
-**Invariant d'intégrité** :
-```
-gepay_transactions.merchant_id MUST EQUAL gepay_clients.merchant_id
-  FOR ALL rows WHERE both are NOT NULL
-```
-Divergence = incident de corruption.
-
-**Migration B** — cascade → restrict (DDL sensible) :
-
-> ⚠️ **Warning — Migration B :** Modifie la contrainte FK `gepay_transactions.client_id`.  
-> Ne supprime aucune donnée. Empêche tout `DELETE` sur `gepay_clients` si des transactions existent.  
-> Test rollback staging obligatoire avant production. `down()` : recréer `ON DELETE CASCADE`.
+> ⚠️ **Warning — Migration B :** Empêche tout `DELETE` sur `gepay_clients` si transactions existent.  
+> Rollback staging obligatoire. `down()` : recréer `ON DELETE CASCADE`.
 
 ---
 
-## Backfill contrôlé — Commande `gepay:link-internal-merchant`
-
-Le backfill générique est **interdit**. Commande Artisan dédiée, exécution manuelle avec validation.
+## Backfill contrôlé — `gepay:link-internal-merchant`
 
 ```
 php artisan gepay:link-internal-merchant [--dry-run] [--force]
 ```
 
-Étapes dans l'ordre :
-
-1. Retrouver ou créer le marchand interne via slug stable `bantudelice-internal`.  
-   Ambiguïté (plusieurs résultats) → **échec immédiat**.
-
-2. Retrouver le client interne via `config('gepay.bantudelice.client_uuid')` (`GEPAY_INTERNAL_CLIENT_UUID`).  
-   Absent / null / introuvable / plusieurs résultats → **échec immédiat**.
-
-3. Afficher **volumes avant** : nombre de lignes `gepay_clients` sans `merchant_id`, nombre de `gepay_transactions` sans `merchant_id`, somme `amount` concernée.
-
-4. Rattacher uniquement ce client et ses transactions (`merchant_id` déduit de `client_id`). Aucune autre ligne touchée.
-
-5. Afficher **volumes après**. Confirmation interactive si `--force` absent.
-
-**Conditions d'échec** : UUID absent, correspondance absente ou ambiguë, slug ambigu → stop explicite.
+1. Retrouver ou créer marchand via slug `bantudelice-internal` — ambiguïté → stop.
+2. Retrouver client via `GEPAY_INTERNAL_CLIENT_UUID` — absent / ambigu → stop.
+3. Afficher volumes avant (lignes sans `merchant_id`, somme `amount`).
+4. Rattacher uniquement ce client et ses transactions. Aucune autre ligne touchée.
+5. Afficher volumes après. Confirmation interactive sans `--force`.
 
 ---
 
 ## Flux financiers
 
-### `gepay_ledger_entries` = source de vérité
+### Source de vérité et réconciliation
 
-`available`, `pending`, `reserved` dans `gepay_wallets` sont des **projections**.  
-En cas de divergence, le ledger fait foi. Un job de réconciliation peut recalculer les colonnes wallet.
-
-### Formule de réconciliation
+`available`, `pending`, `reserved` = projections du ledger. Ledger fait foi en cas de divergence.
 
 ```
-wallet.available = SUM(amount WHERE destination_bucket = 'available')
-                 - SUM(amount WHERE source_bucket      = 'available')
+wallet.available = SUM(amount WHERE destination_bucket='available')
+                 - SUM(amount WHERE source_bucket='available')
 
-wallet.pending   = SUM(amount WHERE destination_bucket = 'pending')
-                 - SUM(amount WHERE source_bucket      = 'pending')
+wallet.pending   = SUM(amount WHERE destination_bucket='pending')
+                 - SUM(amount WHERE source_bucket='pending')
 
-wallet.reserved  = SUM(amount WHERE destination_bucket = 'reserved')
-                 - SUM(amount WHERE source_bucket      = 'reserved')
+wallet.reserved  = SUM(amount WHERE destination_bucket='reserved')
+                 - SUM(amount WHERE source_bucket='reserved')
 ```
 
-Calculé sur `gepay_ledger_entries WHERE wallet_id = ?`.
+Divergence → alerte `critical` + monitoring. **Jamais** corrigée silencieusement.
 
-**Contrôle de réconciliation :**
-- Exécuté périodiquement (job planifié) et à la demande.
-- Toute divergence → alerte immédiate (log `critical` + notification monitoring).
-- **Jamais** de correction silencieuse. Toute correction → écriture compensatrice avec `note`.
-- Un rapport de réconciliation est conservé avec horodatage, résultat et identité du déclencheur.
+### Règles d'écriture financière
 
-### Règles d'écriture financière (toutes opérations)
+1. `DB::transaction()`
+2. `lockForUpdate()` sur wallet
+3. Vérifier `available >= montant` avant débit
+4. Calculer `balance_after` après verrouillage
+5. `idempotency_key` obligatoire — double soumission retourne l'existant
+6. Entiers XAF, aucun `float`, aucun `round()`
+7. `UPDATE gepay_wallets SET … = X` direct = interdit
+8. Correction → écriture compensatrice avec `note` — aucun UPDATE/DELETE ledger
 
-Chaque écriture wallet + ledger doit :
-
-1. S'exécuter dans `DB::transaction()`
-2. Verrouiller la ligne wallet avec `->lockForUpdate()`
-3. Vérifier `available >= montant` avant tout débit (solde négatif interdit — enforced DB + code)
-4. Calculer `balance_after` **après** verrouillage, pas avant
-5. Fournir `idempotency_key` — double soumission retourne l'entrée existante, aucune nouvelle écriture
-6. Entiers XAF exclusivement — aucun `float`, aucun `round()`
-7. `UPDATE gepay_wallets SET available = X` direct = **interdit** — toujours via ledger
-8. Correction → écriture compensatrice obligatoire avec `note` — aucun `UPDATE`/`DELETE` sur entrées existantes
-
-### Transitions d'état complètes
+### Transitions complètes
 
 ```
-── Encaisser (Collection) ──────────────────────────────────────────────────
-Collection soumise (USSD envoyé)
-  → type: collection_pending   | src: NULL       | dst: pending
+── Encaisser ───────────────────────────────────────────────────────────────
+Collection soumise ET acceptée par MTN (HTTP 202)
+  → collection_pending  | src: NULL      | dst: pending
+  ⚠ Si MTN retourne erreur avant soumission : AUCUNE écriture ledger
 Collection confirmée (webhook SUCCESSFUL)
-  → type: collection_confirm   | src: pending    | dst: available
-Collection échouée (webhook FAILED)
-  → type: collection_fail      | src: pending    | dst: NULL
-Collection expirée (webhook EXPIRED / timeout)
-  → type: collection_fail      | src: pending    | dst: NULL
-Collection annulée (webhook CANCELLED)
-  → type: collection_fail      | src: pending    | dst: NULL
+  → collection_confirm  | src: pending   | dst: available
+Collection échouée / expirée / annulée (webhook FAILED / EXPIRED / CANCELLED)
+  → collection_fail     | src: pending   | dst: NULL
 
-── Envoyer (Disbursement) ──────────────────────────────────────────────────
-Disbursement soumis
-  → type: disbursement_debit   | src: available  | dst: NULL
-Disbursement échoué / rejeté / expiré
-  → type: disbursement_refund  | src: NULL       | dst: available   ← compensateur
+── Envoyer ─────────────────────────────────────────────────────────────────
+Disbursement soumis (1× exactement)
+  → disbursement_debit  | src: available | dst: NULL
+Disbursement failed / cancelled / expired (1× exactement, compensation technique)
+  → disbursement_refund | src: NULL      | dst: available
+Disbursement successful : AUCUNE écriture compensatrice
 
-── Payout (Reversement) ────────────────────────────────────────────────────
-Payout draft → submitted (destination vérifiée, solde OK)
-  → type: payout_reserve       | src: available  | dst: reserved
-Payout processing → successful
-  → type: payout_debit         | src: reserved   | dst: NULL
-Payout processing/submitted → failed / cancelled / expired
-  → type: payout_release       | src: reserved   | dst: available   ← compensateur
+── Payout ──────────────────────────────────────────────────────────────────
+draft → submitted (atomique, 1× exactement)
+  → payout_reserve      | src: available | dst: reserved
+processing → successful (après exécution MTN backend)
+  → payout_debit        | src: reserved  | dst: NULL
+{submitted|processing} → {failed|cancelled|expired} (compensation technique, 1× exactement)
+  → payout_release      | src: reserved  | dst: available
+
+── États incertains ────────────────────────────────────────────────────────
+unknown : AUCUNE compensation automatique — wallet figé jusqu'à réconciliation
 
 ── Frais ───────────────────────────────────────────────────────────────────
-Frais prélevés
-  → type: fee_debit            | src: available  | dst: NULL
+  → fee_debit           | src: available | dst: NULL    (MVP : 0 XAF, non utilisé)
 
-── Corrections (admin GePay uniquement) ────────────────────────────────────
-Crédit correctif
-  → type: adjustment_credit    | src: NULL       | dst: available   | note obligatoire
-Débit correctif
-  → type: adjustment_debit     | src: available  | dst: NULL        | note obligatoire
+── Corrections admin ───────────────────────────────────────────────────────
+  → adjustment_credit   | src: NULL      | dst: available  | note obligatoire
+  → adjustment_debit    | src: available | dst: NULL        | note obligatoire
+
+── Remboursements métier (hors MVP) ────────────────────────────────────────
+status 'refunded' : action admin explicite → adjustment_credit avec note
+Distinct des compensations techniques automatiques
 ```
 
 ---
@@ -474,19 +491,18 @@ Débit correctif
 
 ```
 gepay_merchants (1)
-  ├── (N) gepay_merchant_users
-  ├── (N) gepay_clients               merchant_id nullable → NOT NULL après backfill validé
-  ├── (N) gepay_transactions          merchant_id nullable → NOT NULL après backfill validé
-  │         invariant: tx.merchant_id = client.merchant_id (WHERE both NOT NULL)
+  ├── portal_client_id → gepay_clients (GePayMerchantClientResolver)
+  ├── (N) gepay_merchant_users     is_active contrôle l'accès
+  ├── (N) gepay_clients            merchant_id nullable → NOT NULL post-backfill
+  ├── (N) gepay_transactions       merchant_id nullable → NOT NULL post-backfill
+  │         invariant: tx.merchant_id = client.merchant_id
   ├── (N) gepay_payout_destinations
-  ├── (1) gepay_wallets [par currency, UNIQUE(merchant_id, currency)]
-  │     ├── CHECK available >= 0
-  │     ├── CHECK pending   >= 0
-  │     ├── CHECK reserved  >= 0
-  │     └── (N) gepay_ledger_entries  ← source de vérité, immuable
+  ├── (1) gepay_wallets            UNIQUE(merchant_id, currency), CHECK >= 0
+  │     └── (N) gepay_ledger_entries  immuable, source de vérité
   └── (N) gepay_payout_requests
-              ├── FK→gepay_payout_destinations (snapshot immuable chiffré)
-              └── machine d'état: draft→submitted→processing→{successful|failed|cancelled|expired}
+              ├── FK→gepay_payout_destinations
+              ├── destination_snapshot chiffré (masked uniquement en vue)
+              └── machine d'état 7 états, champs obligatoires par transition
 ```
 
 ---
@@ -495,24 +511,26 @@ gepay_merchants (1)
 
 | Risque | Impact | Mitigation |
 |---|---|---|
-| `gepay_clients` + col `merchant_id` nullable | Faible — non-destructif | Reste nullable jusqu'à backfill validé |
-| `gepay_transactions` + col `merchant_id` nullable | Faible — non-destructif | Reste nullable jusqu'à backfill validé |
-| FK cascade → restrict sur `gepay_transactions.client_id` | Moyen — DDL lock bref | Fenêtre maintenance, rollback staging obligatoire |
-| Backfill via `gepay:link-internal-merchant` | Moyen — écriture contrôlée | `--dry-run` obligatoire avant `--force` |
-| Passage `merchant_id` nullable → NOT NULL post-backfill | Faible — migration séparée | Après validation backfill uniquement |
-| CHECK constraints `>= 0` sur wallet (si DB ancienne) | Faible | Vérifier version MySQL/MariaDB (8.0.16+ ou MariaDB 10.2+) |
-| Divergence wallet / ledger découverte post-migration | Élevé si présent | Job réconciliation avant mise en service, alerte obligatoire |
+| `gepay_merchants.portal_client_id` nullable | Faible | Peuplé via seeder avant mise en service portail |
+| `gepay_merchant_users.is_active` DEFAULT TRUE | Faible — non-destructif | Migration séparée |
+| `gepay_clients` + `merchant_id` nullable | Faible | Reste nullable jusqu'à backfill validé |
+| `gepay_transactions` + `merchant_id` nullable | Faible | Idem |
+| FK cascade → restrict `gepay_transactions.client_id` | Moyen | Fenêtre maintenance, rollback staging |
+| Backfill `gepay:link-internal-merchant` | Moyen | `--dry-run` avant `--force` |
+| CHECK `>= 0` wallet (MySQL < 8.0.16 / MariaDB < 10.2) | Faible | Vérifier version DB |
+| Divergence wallet / ledger post-migration | Élevé si présent | Réconciliation avant mise en service |
+| `gepay_payout_requests` + `processed_by`, `operator_reference` nullable | Faible | Non-destructif |
 
 ---
 
 ## Navigation layout `gepay.blade.php`
 
-Toutes les routes sont relatives au sous-domaine `gepay.bantudelice.cg` — pas de préfixe `/gepay`.
+Routes relatives à `gepay.bantudelice.cg`, sans préfixe `/gepay` :
 
 ```
 Auth (hors middleware) :
-  GET  /login    → formulaire de connexion
-  POST /logout   → déconnexion (CSRF protégé)
+  GET  /login    → formulaire
+  POST /logout   → déconnexion (CSRF + Secure cookie host-only)
 
 Sidebar (middleware auth:gepay) :
   ● Tableau de bord    GET /
@@ -522,10 +540,10 @@ Sidebar (middleware auth:gepay) :
   ● Payout             GET /payout    POST /payout
 
 Header :
-  Nom marchand  |  Solde : {wallet->available} XAF  |  [Déconnexion POST /logout]
+  Nom marchand  |  {wallet.available} XAF  |  [POST /logout]
 ```
 
-Solde affiché = `gepay_wallets.available` en entiers XAF (pas de division). Aucun `/100`.
+Aucun `/100`. Montants en entiers XAF natifs.
 
 ---
 
@@ -533,61 +551,91 @@ Solde affiché = `gepay_wallets.available` en entiers XAF (pas de division). Auc
 
 ```
 AuthTest
-  ✓ login valide → session gepay créée
+  ✓ login valide → session gepay créée, session régénérée
   ✓ login invalide → 422
-  ✓ logout POST → session détruite, redirect /gepay/login
-  ✓ marchand status=suspended → login refusé
+  ✓ logout POST → session détruite, redirect /login
+  ✓ marchand status=suspended → 403 générique
+  ✓ user is_active=false → 403 générique
+  ✓ rate limiting → 6e tentative bloquée
+  ✓ cookie : Secure, HttpOnly, SameSite=Strict, domain=gepay.bantudelice.cg
+  ✓ POST sans CSRF token → 419
 
 IsolationTest
-  ✓ merchant_A ne voit pas transactions merchant_B
-  ✓ merchant_id URL param ignoré — scope vient du guard uniquement
+  ✓ merchant_A ne voit pas données merchant_B
+  ✓ merchant_id URL param ignoré
+  ✓ viewer POST /envoyer → 403
+  ✓ viewer POST /encaisser → 403
+  ✓ viewer POST /payout → 403
 
-TransactionTest
-  ✓ liste filtrée par merchant authentifié
-  ✓ filtres date / statut / opérateur / type fonctionnels
-  ✓ merchant_id toujours déduit du GePayClient côté serveur
+ClientResolverTest
+  ✓ portal_client_id null → 503 générique
+  ✓ client inactif → 503 générique
+  ✓ client sans capacité → 503 générique
+  ✓ client merchant_id ≠ authenticated merchant → exception
+
+OperationTokenTest
+  ✓ GET formulaire → operation_token généré en session
+  ✓ même token + même payload → résultat identique, 0 double écriture
+  ✓ même token + payload différent → 409
+  ✓ token absent → 422
+  ✓ token ≠ CSRF token
 
 WalletTest
-  ✓ available / pending / reserved cohérents avec ledger (réconciliation)
-  ✓ CHECK available >= 0 enforced — débit sur solde nul refusé
-  ✓ création double wallet (même merchant+currency) → erreur UNIQUE
-  ✓ double soumission idempotente → même résultat, pas de double écriture
+  ✓ available / pending / reserved cohérents avec ledger
+  ✓ CHECK available >= 0 enforced
+  ✓ UNIQUE(merchant_id, currency) enforced
+  ✓ double soumission idempotente → 0 double écriture
   ✓ fonds insuffisants → erreur, wallet + ledger inchangés
-  ✓ réservation payout → available-- / reserved++ / entrée payout_reserve
-  ✓ payout rejeté → reserved-- / available++ / entrée payout_release
-  ✓ webhook dupliqué payout_release → idempotence, pas de double libération
-  ✓ retry job payout_reserve → idempotence, pas de double réservation
-  ✓ collection échouée → pending-- / entrée collection_fail
-  ✓ collection expirée → même comportement que échouée
-  ✓ disbursement échoué → available++ / entrée disbursement_refund
+  ✓ erreur pré-soumission MTN → 0 écriture ledger
+
+CollectionTest
+  ✓ collection_pending créé UNIQUEMENT si MTN retourne 202
+  ✓ MTN erreur pré-soumission → 0 collection_pending
+  ✓ webhook SUCCESSFUL → collection_confirm
+  ✓ webhook FAILED / EXPIRED / CANCELLED → collection_fail
+  ✓ statut expired affiché "Expiré"
+
+DisbursementTest
+  ✓ disbursement_debit créé exactement 1× à la soumission
+  ✓ disbursement_refund créé exactement 1× sur failed/cancelled/expired
+  ✓ 0 disbursement_refund sur successful
+  ✓ fee_debit : 0 entrée en MVP (frais = 0 XAF)
 
 PayoutTest
-  ✓ destination verified=false → refusé avant toute écriture ledger
-  ✓ destination verified=true → statut draft puis submitted / ledger payout_reserve
-  ✓ destination_snapshot immuable après création
-  ✓ destination_snapshot ne contient aucune valeur complète (masquée uniquement)
-  ✓ payout vers destination soft-deleted → refusé
-  ✓ payout successful → ledger payout_debit / reserved--
-  ✓ payout expired → ledger payout_release / reserved-- / available++
+  ✓ destination verified=false → refusé, 0 écriture
+  ✓ destination verified=true → payout_reserve atomique avec draft→submitted
+  ✓ destination_snapshot : masked uniquement en vue, full chiffré serveur
+  ✓ submitted→cancelled → payout_release + champs admin obligatoires
+  ✓ submitted→expired → payout_release + processed_by=system
+  ✓ processing→successful : appel GePayGateway, operator_reference stocké
+  ✓ processing→failed/cancelled/expired → payout_release
+  ✓ payout_reserve idempotent (retry job, webhook dupliqué)
+  ✓ payout_release idempotent (idem)
+  ✓ unknown : 0 compensation automatique
 
 ReconciliationTest
-  ✓ réconciliation OK quand wallet = agrégat ledger
-  ✓ divergence artificielle → alerte levée, pas de correction silencieuse
+  ✓ wallet = agrégat ledger → OK
+  ✓ divergence artificielle → alerte critical, 0 correction silencieuse
 
 BackfillTest
-  ✓ gepay:link-internal-merchant --dry-run → 0 écriture, volumes affichés
-  ✓ GEPAY_INTERNAL_CLIENT_UUID absent → échec explicite
-  ✓ ambiguïté client ou marchand → échec explicite
+  ✓ gepay:link-internal-merchant --dry-run → 0 écriture
+  ✓ GEPAY_INTERNAL_CLIENT_UUID absent → stop explicite
+  ✓ ambiguïté → stop explicite
+
+ProvisioningTest
+  ✓ gepay:provision-user crée utilisateur avec rôle correct
+  ✓ email dupliqué → stop explicite
+  ✓ marchand inexistant ou inactif → stop explicite
 
 InvariantTest
-  ✓ tx.merchant_id == client.merchant_id pour toutes transactions rattachées
+  ✓ tx.merchant_id == client.merchant_id (WHERE both NOT NULL)
 
 MigrationTest
-  ✓ rollback complet de toutes les migrations GePay dans l'ordre inverse
+  ✓ rollback complet dans l'ordre inverse
 
 LayoutTest
-  ✓ layout desktop (1280px) sans overflow
-  ✓ layout mobile (375px) sans overflow
+  ✓ desktop 1280px sans overflow
+  ✓ mobile 375px sans overflow
 ```
 
 ---
@@ -595,23 +643,29 @@ LayoutTest
 ## Conséquences
 
 **Acceptées :**
-- Portail totalement isolé de l'admin BantuDelice
-- Isolation multi-tenant par guard, jamais par paramètre URL
-- Journal financier immuable — audit et réconciliation possibles à tout moment
-- Agrégats wallet = projections du ledger, jamais source primaire
-- Payout vers destination non vérifiée = impossible par design
-- Suppression physique des entités financières = interdite
-- Données de destination chiffrées au repos, jamais exposées en clair
-- Idempotence partagée par `(merchant_id, type)` = intentionnelle
+- Portail isolé de l'admin BantuDelice
+- Isolation multi-tenant par guard + `GePayMerchantClientResolver`
+- Ledger immuable — audit et réconciliation à tout moment
+- Agrégats wallet = projections, jamais source primaire
+- Destinations chiffrées, jamais exposées en clair
+- Idempotence opération_token + ledger UNIQUE
+- Payout : exécution MTN par backend, aucun numéro au navigateur
+- Compensation technique ≠ remboursement métier
+- `collection_pending` conditionnel à l'acceptation MTN
+- `unknown` sans compensation automatique
+- Cookie host-only `gepay.bantudelice.cg`
+- Provisionnement utilisateurs via Artisan audité
 
 **Différées (Phase 2) :**
-- Webhooks marchands avancés
-- Multi-utilisateurs par marchand avec rôles fins
-- Statistiques graphiques temps réel
-- Widget JS intégrable (iframe / SDK)
-- Remboursements et gestion des litiges
-- Séparation idempotence par client API si besoin (inclure `client_id` dans la clé)
+- Airtel Money (provider à créer)
+- Webhooks marchands configurables
+- Multi-utilisateurs rôles fins
+- Graphiques statistiques
+- Payout IBAN automatisé
+- Remboursements métier automatisés
+- Widget JS / SDK
+- Changement mot de passe self-service
 
 ---
 
-**Statut : Accepted — 2026-07-01**
+**Statut : Accepted — révision 4 — 2026-07-01**
