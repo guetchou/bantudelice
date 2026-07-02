@@ -3,6 +3,7 @@
 namespace App\Domain\GePay\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class GePayClient extends Model
@@ -11,6 +12,7 @@ class GePayClient extends Model
 
     protected $fillable = [
         'uuid',
+        'merchant_id',
         'name',
         'api_key',
         'api_secret',
@@ -30,6 +32,11 @@ class GePayClient extends Model
         'allowed_ips' => 'array',
         'is_active' => 'boolean',
     ];
+
+    public function merchant(): BelongsTo
+    {
+        return $this->belongsTo(GePayMerchant::class, 'merchant_id');
+    }
 
     public function transactions(): HasMany
     {

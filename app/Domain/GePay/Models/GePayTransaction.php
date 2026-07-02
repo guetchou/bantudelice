@@ -14,6 +14,7 @@ class GePayTransaction extends Model
     protected $fillable = [
         'uuid',
         'client_id',
+        'merchant_id',
         'type',
         'provider',
         'external_reference',
@@ -50,5 +51,10 @@ class GePayTransaction extends Model
     public function client(): BelongsTo
     {
         return $this->belongsTo(GePayClient::class, 'client_id');
+    }
+
+    public function merchant(): BelongsTo
+    {
+        return $this->belongsTo(GePayMerchant::class, 'merchant_id');
     }
 }
