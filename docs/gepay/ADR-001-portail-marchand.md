@@ -346,9 +346,9 @@ status                   ENUM('draft','submitted','processing',
                                'successful','failed','cancelled','expired')
                          NOT NULL DEFAULT 'draft'
 idempotency_key          VARCHAR(191) NOT NULL
--- Lien vers la gepay_transaction d'exécution MTN (créée lors de processing→successful)
+-- Lien vers la gepay_transaction d'exécution MTN (créée lors de submitted→processing)
 execution_transaction_id BIGINT UNSIGNED NULL FK→gepay_transactions (RESTRICT)
-                         -- non null si et seulement si statut = successful
+                         -- non null dès que l'exécution opérateur a été initiée
 -- Champs remplis lors du traitement admin GePay
 processed_by             VARCHAR(191) NULL    -- email admin GePay
 operator_reference       VARCHAR(191) NULL    -- référence retournée par MTN après exécution
@@ -363,18 +363,26 @@ INDEX (execution_transaction_id)
 ```
 
 **Exécution MTN d'un payout :**  
-La transition `processing → successful` appelle `GePayGateway::initiate()` avec
+La transition `submitted → processing` appelle `GePayGateway::initiate()` avec
 `TransactionType::DISBURSEMENT` via `GePayMerchantClientResolver`. La destination complète
 est déchiffrée serveur, transmise au provider, jamais au navigateur. La `gepay_transaction`
-résultante est créée et son `id` stocké dans `execution_transaction_id`.
+résultante est créée immédiatement et son `id` enregistré dans `execution_transaction_id`
+dans la même transaction SQL. `execution_transaction_id` est donc non null dès l'entrée
+en `processing`, indépendamment du résultat final.
 
-`successful` est positionné **uniquement** après que la `gepay_transaction` d'exécution
-atteint le statut `successful` (confirmation webhook ou poll).  
-`failed` / `cancelled` / `expired` sont positionnés **uniquement** après résultat confirmé
-(webhook, poll ou SLA).  
-**`unknown`** : la `gepay_transaction` d'exécution est dans un état incertain. Les fonds
-restent dans `reserved`. `payout_release` est **interdit** tant que le résultat n'est pas
-confirmé. Aucune transition de statut payout avant résolution.
+Tant que la `gepay_transaction` liée est dans un état non terminal (`created`, `submitted`,
+`pending`, `unknown`), le payout **reste `processing`**. Aucune transition de statut payout
+avant résolution de la transaction.
+
+`processing → successful` : **uniquement** lorsque la `gepay_transaction` atteint `successful`
+(webhook ou poll confirmé). Effet ledger : `payout_debit`.
+
+`processing → failed` / `cancelled` / `expired` : **uniquement** après résultat terminal
+confirmé de la transaction GePay (`failed`, `cancelled`, `expired`). Effet ledger : `payout_release`.
+
+**État `unknown` de la `gepay_transaction`** : le payout reste `processing`, les fonds
+restent dans `reserved`, `payout_release` est **interdit**. Résolution par réconciliation
+manuelle ou confirmation webhook différée uniquement.
 
 ---
 
@@ -394,20 +402,17 @@ confirmé. Aucune transition de statut payout avant résolution.
 | Transition | Acteur | Champs obligatoires | Effet ledger |
 |---|---|---|---|
 | `draft → submitted` | Marchand admin (atomique) | — | `payout_reserve` |
-| `submitted → processing` | Admin GePay | `processed_by`, `processed_at` | aucun |
+| `submitted → processing` | Admin GePay | `processed_by`, `processed_at` | aucun ledger — mais appel `GePayGateway::initiate(DISBURSEMENT)` + enregistrement `execution_transaction_id` |
 | `submitted → cancelled` | Admin GePay | `processed_by`, `processed_at`, `rejection_reason` | `payout_release` |
 | `submitted → expired` | Système (SLA) | `processed_by=system`, `processed_at`, `rejection_reason` | `payout_release` |
-| `processing → successful` | Admin GePay (après exécution MTN via backend) | `processed_by`, `processed_at`, `operator_reference` | `payout_debit` |
-| `processing → failed` | Admin GePay | `processed_by`, `processed_at`, `rejection_reason` | `payout_release` |
-| `processing → cancelled` | Admin GePay | `processed_by`, `processed_at`, `rejection_reason` | `payout_release` |
-| `processing → expired` | Système (SLA) | `processed_by=system`, `processed_at`, `rejection_reason` | `payout_release` |
+| `processing` (en attente) | Système | `gepay_transaction` dans `created/submitted/pending/unknown` | aucun — payout reste `processing` |
+| `processing → successful` | Système (webhook/poll) | `operator_reference` | `payout_debit` — uniquement après `gepay_transaction = successful` |
+| `processing → failed` | Système (webhook/poll) | `rejection_reason` | `payout_release` — après résultat terminal confirmé |
+| `processing → cancelled` | Admin GePay | `processed_by`, `processed_at`, `rejection_reason` | `payout_release` — après résultat terminal confirmé |
+| `processing → expired` | Système (SLA) | `processed_by=system`, `processed_at`, `rejection_reason` | `payout_release` — après résultat terminal confirmé |
 
 **États terminaux** : `successful`, `failed`, `cancelled`, `expired`.  
-
-**Exécution MTN** : la transition `processing → successful` déclenche un appel à `GePayGateway`
-via `GePayMerchantClientResolver`. Le numéro de destination est déchiffré **uniquement côté serveur**
-et transmis au provider. `operator_reference` reçu en retour est stocké chiffré.
-Aucun numéro complet ne transite vers le navigateur à aucune étape.
+**`unknown` sur `gepay_transaction`** : payout reste `processing`, `reserved` inchangé, `payout_release` interdit.
 
 **Idempotence** : `payout_reserve` et `payout_release` protégés par
 `UNIQUE(merchant_id, type, idempotency_key)` + `lockForUpdate()`.
@@ -658,7 +663,8 @@ PayoutTest
   ✓ destination_snapshot : masked uniquement en vue, full chiffré serveur
   ✓ submitted→cancelled → payout_release + champs admin obligatoires
   ✓ submitted→expired → payout_release + processed_by=system
-  ✓ processing→successful : appel GePayGateway, operator_reference stocké
+  ✓ submitted→processing : GePayGateway::initiate(DISBURSEMENT) appelé, execution_transaction_id enregistré immédiatement
+  ✓ processing→successful : uniquement si gepay_transaction = successful (webhook/poll), payout_debit créé
   ✓ processing→failed/cancelled/expired → payout_release
   ✓ payout_reserve idempotent (retry job, webhook dupliqué)
   ✓ payout_release idempotent (idem)
