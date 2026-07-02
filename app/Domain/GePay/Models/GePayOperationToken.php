@@ -48,8 +48,34 @@ class GePayOperationToken extends Model
         return $this->used_at !== null;
     }
 
+    /** True only on first (pristine) use — token not yet consumed, not expired. */
     public function isValid(): bool
     {
         return ! $this->isExpired() && ! $this->isUsed();
+    }
+
+    /**
+     * True on first use OR on replay (same request_hash, token used but not expired).
+     * Replay allows idempotent retries without re-executing the operation.
+     */
+    public function isValidForRequest(string $requestHash): bool
+    {
+        if ($this->isExpired()) {
+            return false;
+        }
+
+        if ($this->isUsed()) {
+            // Replay: same hash → safe to return cached result
+            return $this->request_hash === $requestHash;
+        }
+
+        return true; // first use
+    }
+
+    public function isReplay(string $requestHash): bool
+    {
+        return $this->isUsed()
+            && ! $this->isExpired()
+            && $this->request_hash === $requestHash;
     }
 }

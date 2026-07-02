@@ -14,8 +14,7 @@ return new class extends Migration
             $table->foreign('portal_client_id')
                 ->references('id')
                 ->on('gepay_clients')
-                ->restrictOnDelete()
-                ->nullOnDelete();
+                ->restrictOnDelete();
         });
     }
 

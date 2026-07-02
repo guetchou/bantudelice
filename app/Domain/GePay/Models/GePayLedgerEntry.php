@@ -10,7 +10,17 @@ class GePayLedgerEntry extends Model
 {
     protected $table = 'gepay_ledger_entries';
 
-    public $timestamps = false;
+    // created_at set by Eloquent on insert; no updated_at column exists
+    const UPDATED_AT = null;
+
+    public const TYPES = [
+        'collection_pending', 'collection_confirm', 'collection_fail',
+        'disbursement_debit', 'disbursement_refund',
+        'payout_reserve', 'payout_release', 'payout_debit',
+        'fee_debit', 'adjustment_credit', 'adjustment_debit',
+    ];
+
+    public const BUCKETS = ['available', 'pending', 'reserved'];
 
     protected $fillable = [
         'merchant_id',
@@ -29,7 +39,6 @@ class GePayLedgerEntry extends Model
     protected $casts = [
         'amount' => 'integer',
         'metadata' => 'array',
-        'created_at' => 'datetime',
     ];
 
     public function merchant(): BelongsTo
@@ -46,6 +55,13 @@ class GePayLedgerEntry extends Model
     {
         if ($this->exists) {
             throw new RuntimeException('GePayLedgerEntry is immutable — UPDATE is forbidden.');
+        }
+
+        $amount = $this->getAttribute('amount');
+        if (! is_int($amount) || $amount <= 0) {
+            throw new \InvalidArgumentException(
+                "GePayLedgerEntry amount must be a strictly positive integer, got: {$amount}"
+            );
         }
 
         return parent::save($options);

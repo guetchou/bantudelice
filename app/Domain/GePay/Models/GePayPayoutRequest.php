@@ -9,6 +9,11 @@ class GePayPayoutRequest extends Model
 {
     protected $table = 'gepay_payout_requests';
 
+    public const STATUSES = [
+        'draft', 'submitted', 'processing',
+        'successful', 'failed', 'cancelled', 'expired',
+    ];
+
     protected $fillable = [
         'merchant_id',
         'wallet_id',

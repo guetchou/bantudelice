@@ -13,6 +13,8 @@ class GePayMerchant extends Model
 
     protected $table = 'gepay_merchants';
 
+    public const STATUSES = ['active', 'suspended', 'closed'];
+
     protected $fillable = [
         'ulid',
         'name',

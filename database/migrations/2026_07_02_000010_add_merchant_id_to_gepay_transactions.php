@@ -8,8 +8,8 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::table('gepay_clients', function (Blueprint $table) {
-            $table->unsignedBigInteger('merchant_id')->nullable()->after('id');
+        Schema::table('gepay_transactions', function (Blueprint $table) {
+            $table->unsignedBigInteger('merchant_id')->nullable()->after('client_id');
             $table->foreign('merchant_id')
                 ->references('id')
                 ->on('gepay_merchants')
@@ -20,7 +20,7 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::table('gepay_clients', function (Blueprint $table) {
+        Schema::table('gepay_transactions', function (Blueprint $table) {
             $table->dropForeign(['merchant_id']);
             $table->dropIndex(['merchant_id']);
             $table->dropColumn('merchant_id');
